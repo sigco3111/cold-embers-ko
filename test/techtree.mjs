@@ -9,7 +9,7 @@ export default async function (page) {
     for (let rr = 3; rr < 16 && !spot; rr++) for (let a = 0; a < 24 && !spot; a++) { const x = Math.round(f.x + 1 + Math.cos(a / 24 * 6.283) * rr), y = Math.round(f.y + 1 + Math.sin(a / 24 * 6.283) * rr); if (Sim.checkPlace(S, 'workshop', x, y).ok) spot = [x, y]; }
     Sim.place(S, 'workshop', spot[0], spot[1]);
     const T = Sim.techState ? Sim.techState(S) : S.tech;
-    S.tech.done = { axe: 1, felt: 1, grate: 1, sled: 1 };
+    (S.tech ||= { done: {}, cur: null, prog: 0 }).done = { axe: 1, felt: 1, grate: 1, sled: 1 };
     Sim.startTech(S, 'drill'); S.tech.prog = 15;
     g.ui.open('research');
   });

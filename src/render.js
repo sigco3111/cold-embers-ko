@@ -992,11 +992,14 @@ if (uDetail > 0.0) {
   syncBuildings(force) {
     const S = this.S;
     // 每帧都要比一次：用数字摘要，不拼长字符串（手机上少些垃圾回收）
-    let sig = S.buildings.length, s2 = 7;
-    for (const b of S.buildings) { sig = (sig * 31 + b.id * 131 + b.lvl * 7 + (b.deep ? 3 : 0)) | 0; s2 = (s2 * 17 + b.id + b.lvl * 1009) | 0; }
+    let sig = S.buildings.length, s2 = 7, s3 = 11;
+    for (const b of S.buildings) { sig = (sig * 31 + b.id * 131 + b.lvl * 7 + (b.deep ? 3 : 0)) | 0; s2 = (s2 * 17 + b.id + b.lvl * 1009) | 0; s3 = (s3 * 31 + b.id) | 0; }
     sig = S.buildings.length + ':' + sig + ':' + s2;
     if (!force && sig === this.bldSig) return;
     this.bldSig = sig;
+    // 小路只跟建筑在哪有关：光是升级（比如排队的帐篷一座座自动升）不用重铺
+    const psig = S.buildings.length + ':' + s3, pathsStale = force || psig !== this.pathSig;
+    this.pathSig = psig;
     this.fitLandmarks();
     const seen = new Set();
     for (const b of S.buildings) {
@@ -1043,7 +1046,7 @@ if (uDetail > 0.0) {
     }
     for (const [id, e] of this.buildings) if (!seen.has(id)) { this.bldGroup.remove(e.g); if (e.scaf) this.bldGroup.remove(e.scaf); this.buildings.delete(id); }
     this.syncRuins();
-    this.buildPaths();
+    if (pathsStale) this.buildPaths();
     this.refreshPools();
   }
 
@@ -1115,7 +1118,9 @@ if (uDetail > 0.0) {
   buildPaths() {
     const S = this.S;
     if (!this.pathGroup) return;
-    for (const o of [...this.pathGroup.children]) { this.pathGroup.remove(o); o.geometry.dispose(); o.material.map && o.material.map.dispose(); o.material.dispose(); }
+    // 材质留着下次接着用：材质全扔掉的话着色器也跟着释放，下一帧得重新编译一遍（手机上会顿一下）
+    const free = this.pathMatFree ||= [];
+    for (const o of [...this.pathGroup.children]) { this.pathGroup.remove(o); o.geometry.dispose(); if (o.material.map) { o.material.map.dispose(); free.push(o.material); } else if (!o.userData.keepMat) o.material.dispose(); }
     this.routes = new Map();
     const w = this.world, occ = new Set();
     for (const b of S.buildings) { const s = BLD[b.type].size; for (let y = b.y; y < b.y + s; y++) for (let x = b.x; x < b.x + s; x++) occ.add(y * W + x); }
@@ -1180,7 +1185,8 @@ if (uDetail > 0.0) {
       }
       const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
       this.matPathBase ||= { transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 };
-      const m = new THREE.Mesh(new THREE.PlaneGeometry(bx1 - bx0, by1 - by0), new THREE.MeshLambertMaterial({ map: tex, ...this.matPathBase }));
+      let pm = free.pop(); if (pm) pm.map = tex; else pm = new THREE.MeshLambertMaterial({ map: tex, ...this.matPathBase });
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(bx1 - bx0, by1 - by0), pm);
       m.rotation.x = -Math.PI / 2; m.position.set((bx0 + bx1) / 2, 0.075, -(by0 + by1) / 2); m.receiveShadow = true; m.renderOrder = 1;
       this.pathGroup.add(m);
       if (c.pipe) this.buildPipes(c, lines, occ);
@@ -1215,7 +1221,9 @@ if (uDetail > 0.0) {
     const R0 = 0.032 + 0.006 * c.pipe, Y = 0.17;
     const col = ['#6c625a', '#b4a88c', '#b88a42'][Math.min(2, c.pipe - 1)];
     const pg = new THREE.CylinderGeometry(R0, R0, 1, 6); pg.rotateZ(Math.PI / 2);
-    const pm = new THREE.InstancedMesh(pg, new THREE.MeshStandardMaterial({ color: col, roughness: 0.5, metalness: c.pipe >= 3 ? 0.6 : 0.3 }), segs.length);
+    const pmk = col + ':' + (c.pipe >= 3 ? 1 : 0), PM = this.pipeMats ||= {};
+    const pm = new THREE.InstancedMesh(pg, PM[pmk] ||= new THREE.MeshStandardMaterial({ color: col, roughness: 0.5, metalness: c.pipe >= 3 ? 0.6 : 0.3 }), segs.length);
+    pm.userData.keepMat = true;
     const m = this._m, q = this._q, v = this._v, sc = this._s, e = this._e;
     segs.forEach(([x0, y0, x1, y1], i) => { e.set(0, Math.atan2(y1 - y0, x1 - x0), 0); q.setFromEuler(e); m.compose(v.set((x0 + x1) / 2, Y, -(y0 + y1) / 2), q, sc.set(Math.hypot(x1 - x0, y1 - y0) + R0 * 2, 1, 1)); pm.setMatrixAt(i, m); });
     pm.castShadow = true; pm.receiveShadow = true; pm.instanceMatrix.needsUpdate = true; pm.computeBoundingSphere();

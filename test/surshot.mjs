@@ -6,6 +6,8 @@ export default async function (page) {
   const force = kind => page.evaluate(kind => {
     const g = window.game, S = g.S, Sim = window.__sim, c = g.ui.camp();
     window.__noEvents = true;
+    // 测试存档是脚本造的，营地周围只探开了一小圈：先把供热圈外几格探开，惊喜才有地方出
+    if (!S.__rev) { S.__rev = 1; Sim.revealCircle(S, c.x, c.y, Sim.heatRadius(S, c) + 4); Sim.dirty(S); }
     for (let k = 0; k < 30; k++) { S.sur = null; S.surNext = 0; S.t += 13; const u = Sim.rollSurprise(S); if (u && u.kind === kind) break; }
     S.sur && (S.sur.kind = kind);
     g.drainFx();
