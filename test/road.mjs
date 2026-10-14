@@ -36,7 +36,8 @@ ok(S.log.some(l => /按默认的办/.test(l.msg)), 'log says the default was tak
 for (const id of G.ROAD_IDS) {
   for (const pick of [0, 1]) {
     T.ev.push({ id, at: T.d / T.len + 1e-4 }); T.hold = 0;
-    if (id === 'bot' || id === 'night') { T.goods.part = 30; }
+    if (id === 'bot') T.goods.part = 30;
+    if (id === 'chasm') T.goods.steel = 300;
     G.step(S, 1);
     if (!T.road || T.road.id !== id) { ok(false, `forced ${id} did not pop`); continue; }
     const w = G.roadView(S);
@@ -79,7 +80,7 @@ const seen = {};
 for (let k = 0; k < 12; k++) for (let s = 0; s < 30; s++) { const X = { runSeed: s + 1 }; for (const e of G.rollRoad(X, { from: k, to: k + 1, t0: s * 100, people: 50, veh: { sled: 5, tractor: 2 }, len: 50, d: 0 })) (seen[e.id] || (seen[e.id] = new Set())).add(k); }
 const rng = id => [...(seen[id] || [])].sort((a, b) => a - b);
 console.log(Object.keys(seen).map(id => id + ' ' + rng(id).join(',')).join(' | '));
-ok(rng('wolves').every(k => k <= 1) && rng('ice').every(k => k >= 2 && k <= 3) && rng('wreck').every(k => k >= 3) && rng('bot').every(k => k >= 5) && rng('night').every(k => k >= 6), 'regional events only on their legs');
+ok(rng('wolves').every(k => k <= 1) && rng('ice').every(k => k >= 2 && k <= 3) && rng('wreck').every(k => k >= 3) && rng('bot').every(k => k >= 5) && rng('night').every(k => k >= 6) && rng('chasm').every(k => k >= 6) && rng('chasm').length, 'regional events only on their legs');
 ok(rng('storm').length === 12 && rng('lost').length === 12, 'storm and stranded can happen on every leg');
 console.log(fail ? `${fail} FAILED` : 'all ok');
 process.exit(fail ? 1 : 0);

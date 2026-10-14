@@ -385,13 +385,28 @@ const ROAD = [
         go: (S, T, x) => { roadTake(T, 'part', x.part); addTo(T.goods, { core: 1 }); return '换了几个构件，自动机重新站稳了，乖乖跟着车队走。'; } },
     ] },
   { id: 'night', n: '极夜', w: 3, when: (S, T) => T.from >= 6,
-    ctx: (S, T) => ({ u: 10 * nVeh(T) + 3 * Math.ceil(T.people / 5), wait: 60, food: T.people }),
+    ctx: (S, T, r) => ({ u: 10 * nVeh(T) + 3 * Math.ceil(T.people / 5), lose: r() < 0.5 }),
     text: () => '太阳很久没有升起来了。四下一片漆黑，只有车灯照着前面几步的雪。',
     opts: [
       { t: '点火把赶路', d: (S, T, x) => { const f = fuelPlan(T, x.u); return `${resTxt(f.take) || '车上没有多余的燃料'}${f.short ? ` · 火把不够，走得慢：晚到约 ${Math.ceil(f.short / 2)} 秒` : ''}`; },
         go: (S, T, x) => { const f = fuelPlan(T, x.u); for (const k in f.take) roadTake(T, k, f.take[k]); if (f.short) T.hold = (T.hold || 0) + Math.ceil(f.short / 2); return '一长串火把在黑夜里往北移动，像一条发光的河。'; } },
-      { t: '停下来等极光', d: (S, T, x) => `晚到约 ${x.wait} 秒 · ${foodTxt(T, x.food)} · 到了以后希望 +8 · 余烬 +3`,
-        go: (S, T, x) => { T.hold = (T.hold || 0) + x.wait; roadTake(T, 'food', x.food); T.hope = (T.hope || 0) + 8; S.meta.embers += 3; S.meta.emberTotal = (S.meta.emberTotal || 0) + 3; return '极光终于亮起来，把整片雪原照成了绿色。大家看了很久才上路。'; } },
+      { t: '摸黑走', d: () => '不烧燃料 · 可能走散一辆车（连车上的货）', ok: (S, T) => nVeh(T) > 1,
+        go: (S, T, x) => {
+          if (!x.lose) return '大家手拉着绳子摸黑走，天亮时一辆车都没少。';
+          const v = T.veh.sled ? 'sled' : 'tractor', cap = (T.veh.sled || 0) * VEH.sled.cap + (T.veh.tractor || 0) * VEH.tractor.cap, f = VEH[v].cap / Math.max(1, cap);
+          T.veh[v]--; const J = journeyOf(S); J.fleet[v] = Math.max(0, (J.fleet[v] || 0) - 1);
+          const gone = {}; for (const k in T.goods) { const n = Math.floor(roadHave(T, k) * f); if (n > 0) { T.goods[k] -= n; gone[k] = n; } }
+          return `天亮时少了一架${vehName(v)}，车上的货也跟着丢了${Object.keys(gone).length ? '：' + resTxt(gone) : ''}。`;
+        } },
+    ] },
+  { id: 'chasm', n: '冰原裂谷', w: 2, when: (S, T) => T.from >= 6,
+    ctx: (S, T) => ({ far: 14, food: T.people, steel: 30 + 5 * nVeh(T) }),
+    text: () => '冰原上横着一道看不见底的裂谷，风从底下往上灌，呜呜作响。',
+    opts: [
+      { t: '找路绕过去', d: (S, T, x) => `多走约 ${x.far} 格 · ${foodTxt(T, x.food)}`,
+        go: (S, T, x) => { roadTake(T, 'food', x.food); T.detour = (T.detour || 0) + x.far; return '车队沿着裂谷走了很远，才找到一处窄的地方绕过去。'; } },
+      { t: '架桥', d: (S, T, x) => `钢材 −${x.steel}（车上带的）· 不耽误`, ok: (S, T, x) => roadHave(T, 'steel') >= x.steel,
+        go: (S, T, x) => { roadTake(T, 'steel', x.steel); return '钢梁架过裂谷，车队一辆接一辆开了过去。'; } },
     ] },
 ];
 export const ROAD_IDS = ROAD.map(e => e.id);
