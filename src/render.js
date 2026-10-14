@@ -98,6 +98,7 @@ if (uDetail > 0.0) {
     this.dogs = new THREE.InstancedMesh(M.dogGeo(), this.matStd, 200); this.dogs.count = 0; this.dogs.frustumCulled = false; this.dogs.castShadow = true;
     this.dogs.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(200 * 3).fill(1), 3);
     this.scene.add(this.figs, this.figsD, this.crates, this.wolves, this.sleds, this.trains, this.bolts, this.torches, this.dogs);
+    this.initAnim();
 
     this.initParticles();
     this.initFx();
@@ -360,14 +361,14 @@ if (uDetail > 0.0) {
     for (const k of SPOT_KEYS) {
       const L = lists[k] || [];
       const n = L.length * SPOT_PER[k];
-      const mat = M.SPOT_GLOW.has(k) ? new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true, emissive: new THREE.Color(SPOTS[k].res === 'crystal' ? '#2a6a80' : k === 'shard' ? '#803a00' : '#40206a') }) : this.matStd;
+      const mat = M.SPOT_GLOW.has(k) ? new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true, emissive: new THREE.Color(SPOTS[k].res === 'crystal' ? '#2a6a80' : k === 'shard' ? '#803a00' : '#40206a') }) : k === 'herd' ? this.matAnim : this.matStd;
       const im = new THREE.InstancedMesh(M.spotGeo(k), mat, Math.max(1, n));
       im.castShadow = k !== 'shale'; im.receiveShadow = false;
       im.userData = { tiles: L, kind: k };
       this.spotMeshes[k] = im;
       this.root.add(im);
       if (k === 'herd') {
-        im.frustumCulled = false;
+        im.frustumCulled = false; M.animInst(im); im.customDepthMaterial = this.matAnimD;
         this.deerHead = new THREE.InstancedMesh(M.deerGeo().head, this.matStd, Math.max(1, n));
         this.deerHead.frustumCulled = false; this.deerHead.castShadow = true; this.deerHead.count = 0;
         this.root.add(this.deerHead);
@@ -1205,12 +1206,12 @@ if (uDetail > 0.0) {
   // 镜头附近的地面小装饰（只摆在空地上，镜头移动后重新摆）
   buildDecor() {
     this.decor = {};
-    for (const k of ['drift', 'stone', 'shrub', 'grass', 'log', 'ice', 'sapling', 'pebble']) {
+    for (const k of ['drift', 'stone', 'shrub', 'grass', 'log', 'ice', 'sapling', 'pebble', 'ripple', 'steps', 'icecrack']) {
       const im = new THREE.InstancedMesh(M.decorGeo(k), this.matStd, 1600);
-      im.count = 0; im.receiveShadow = true; im.castShadow = this.q === 'ultra' ? k !== 'drift' && k !== 'grass' && k !== 'pebble' : k === 'shrub';
+      im.count = 0; im.receiveShadow = true; im.castShadow = M.DECOR_NEAR.has(k) ? false : this.q === 'ultra' ? k !== 'drift' && k !== 'grass' && k !== 'pebble' : k === 'shrub';
       this.decor[k] = im; this.root.add(im);
     }
-    this.decorKey = '';
+    this.decorKey = ''; this._lodSig = null;
   }
   refreshDecor() {
     const S = this.S, w = this.world, cam = this.cam;
@@ -1226,7 +1227,7 @@ if (uDetail > 0.0) {
     if (S.sur) for (let y = S.sur.y - 1; y <= S.sur.y + 1; y++) for (let x = S.sur.x - 1; x <= S.sur.x + 1; x++) occ.add(y * W + x);
     for (const c of S.camps) if (c.fest) { const f = this.lifeSpots(c).fest; if (f) for (let y = Math.floor(f[1] - f[3] - 0.5); y <= f[1] + f[3] + 0.5; y++) for (let x = Math.floor(f[0] - f[3] - 0.5); x <= f[0] + f[3] + 0.5; x++) if (Math.hypot(x + 0.5 - f[0], y + 0.5 - f[1]) < f[3] + 0.6) occ.add(y * W + x); }
     const cy = Math.round(cam.ty), R = 40, Q = this.q || 'high';
-    const n = { drift: 0, stone: 0, shrub: 0, grass: 0, log: 0, ice: 0, sapling: 0, pebble: 0 };
+    const n = { drift: 0, stone: 0, shrub: 0, grass: 0, log: 0, ice: 0, sapling: 0, pebble: 0, ripple: 0, steps: 0, icecrack: 0 };
     const m = this._m, q = this._q, v = this._v, sc = this._s, e = this._e;
     // 流畅档只留雪堆和石头；极致档每格再撒第二层（倒木、冰凌、小树苗、碎石子）
     const pickA = r => Q === 'low' ? (r < 0.06 ? 'drift' : r < 0.09 ? 'stone' : null) : r < 0.09 ? 'drift' : r < 0.14 ? 'stone' : r < 0.19 ? 'shrub' : r < 0.27 ? 'grass' : null;
@@ -1237,13 +1238,18 @@ if (uDetail > 0.0) {
       const s = k === 'drift' ? 0.6 + hash3(x, y, sd + 1) * 0.5 : 0.7 + hash3(x, y, sd + 1) * 0.6;
       const px = x + 0.15 + hash3(x, y, sd + 3) * 0.7, py = y + 0.15 + hash3(x, y, sd + 4) * 0.7;
       if (this.blocked(px, py, (RAD[k] || 0.14) * s)) return;
-      e.set(0, hash3(x, y, sd + 2) * 6.28, 0); q.setFromEuler(e);
+      e.set(0, k === 'ripple' ? M.WIND_A + (hash3(x, y, sd + 2) - 0.5) * 0.3 : hash3(x, y, sd + 2) * 6.28, 0); q.setFromEuler(e);
       m.compose(v.set(px, 0.02, -py), q, sc.set(s, s, s));
       this.decor[k].setMatrixAt(n[k]++, m);
     };
+    // 拉近才看得见的一层（画质不是流畅时）：风纹、建筑周围的脚印、冰面上冻住的旧裂纹
+    const fine = Q !== 'low', near = new Set();
+    if (fine) for (const b of S.buildings) { const s = BLD[b.type].size; for (let y = b.y - 3; y < b.y + s + 2; y++) for (let x = b.x - 2; x < b.x + s + 2; x++) near.add(y * W + x); }
     for (let y = Math.max(0, cy - R); y < Math.min(H, cy + R); y++) for (let x = 0; x < W; x++) {
       const i = idx(x, y);
+      if (fine && w.terrain[i] === T_ICE && !occ.has(i) && hash3(x, y, 111) < 0.3 && [[1, 0], [-1, 0], [0, 1], [0, -1]].every(([dx, dy]) => x + dx >= 0 && x + dx < W && y + dy >= 0 && y + dy < H && w.terrain[idx(x + dx, y + dy)] === T_ICE)) { put(x, y, 'icecrack', 111); continue; }
       if (w.terrain[i] !== T_SNOW || occ.has(i) || (w.spot[i] >= 0 && Sim.spotLeft(S, i) > 0)) continue;
+      if (fine) { const r = hash3(x, y, 131); if (near.has(i) ? r < 0.22 : false) put(x, y, 'steps', 131); else if (r > 0.86) put(x, y, 'ripple', 131); }
       put(x, y, pickA(hash3(x, y, 71)), 71);
       if (Q === 'ultra') put(x, y, pickB(hash3(x, y, 91)), 91);
     }
@@ -1987,7 +1993,9 @@ void main() {
     if (Math.round(this.cam.ty / 10) !== this.spotWin) { this.refreshSpots(); this.refreshRocks(); }
     else if (this.spotBld !== this.bldSig) this.refreshSpots();
     this.refreshDecor();
+    this.lodSync();
     this.animBuildings(dt);
+    this.animMovers(dt);
     this.animPeople(dt);
     this.animDeer(dt);
     this.animParticles(dt);
@@ -2119,6 +2127,80 @@ void main() {
     C.set(c.id, { key, slots });
     return slots;
   }
+  // ---------- 细节层级与动作 ----------
+  // 会动的小人和动物：换上带动作的材质；小人另备一套拉近时用的精细模型
+  initAnim() {
+    const ma = this.matAnim = M.animMat(), md = this.matAnimD = M.animDepthMat();
+    for (const im of [this.figs, this.figsD, this.dogs, this.wolves]) { im.material = ma; im.customDepthMaterial = md; }
+    this.figLod = { lo: [this.figs.geometry, this.figsD.geometry], hi: [M.figureGeo(true), M.figureDetailGeo(true)] };
+    M.animInst(this.figs, [...this.figLod.lo, ...this.figLod.hi]); this.figsD.userData.anim = this.figs.userData.anim;
+    M.animInst(this.dogs); M.animInst(this.wolves);
+    this.torches.geometry = M.torchFlameSmallGeo();
+  }
+  // 镜头拉近（< 35）换上精细模型，拉远换回简单的；建筑、资源点变了也重新挑一遍
+  lodSync() {
+    const d = this.cam.dist, hi = this.lodHi = this.lodHi ? d < 36.5 : d < 33.5;
+    const sig = hi + ':' + this.bldSig + ':' + this.spotGen + ':' + (this.remGen || 0);
+    if (sig === this._lodSig) return;
+    this._lodSig = sig;
+    const pick = g => (g && g.userData && (hi ? g.userData.hi : g.userData.lo)) || g;
+    for (const grp of this.bldGroup.children) for (const o of grp.children) {
+      if (o.userData.mover) o.visible = hi;
+      else if (o.isMesh) o.geometry = pick(o.geometry);
+    }
+    for (const k in this.spotMeshes || {}) this.spotMeshes[k].geometry = pick(this.spotMeshes[k].geometry);
+    for (const k in this.remnants || {}) this.remnants[k].geometry = pick(this.remnants[k].geometry);
+    for (const k in this.decor || {}) { const im = this.decor[k]; im.geometry = pick(im.geometry); if (M.DECOR_NEAR.has(k)) im.visible = hi; }
+    const F = this.figLod[hi ? 'hi' : 'lo']; this.figs.geometry = F[0]; this.figsD.geometry = F[1];
+    this.addMovers();
+  }
+  // 建筑上会转的部件（锯片、天轮、飞轮、齿轮、矿车）：精细模型里单独拿出来，干活时转起来
+  addMovers() {
+    for (const grp of this.bldGroup.children) {
+      const bid = grp.userData.bid; if (bid == null || grp.userData.mv) continue;
+      const b = Sim.getB(this.S, bid); if (!b) continue;
+      const G0 = this.bgeo(b.type, b.lvl, !!b.deep), L = G0.movers || [];
+      grp.userData.mv = L.map(mv => {
+        const o = new THREE.Mesh(mv.geo, this.matStd); o.castShadow = true; o.userData.mover = mv; o.visible = !!this.lodHi;
+        o.position.set(...mv.pos); grp.add(o); return o;
+      });
+    }
+  }
+  animMovers(dt) {
+    if (!this.lodHi) return;
+    const R = Sim.rt(this.S), t = this.time;
+    for (const grp of this.bldGroup.children) {
+      const L = grp.userData.mv; if (!L || !L.length) continue;
+      const br = R.b[grp.userData.bid], run = br && (br.act || 0) > 0.05;
+      for (const o of L) {
+        const mv = o.userData.mover;
+        o.userData.k = (o.userData.k || 0) + ((run || mv.always ? 1 : 0) - (o.userData.k || 0)) * Math.min(1, dt * 1.5); // 停下来时慢慢停
+        const k = o.userData.k;
+        if (mv.kind === 'spin') { o.userData.a = (o.userData.a || 0) + dt * mv.speed * k; o.rotation[mv.axis] = o.userData.a; }
+        else if (mv.kind === 'slide') { o.userData.a = (o.userData.a || 0) + dt * mv.speed * k; const f = 0.5 - 0.5 * Math.cos(o.userData.a); o.position.set(mv.pos[0] + mv.d[0] * f, mv.pos[1] + mv.d[1] * f, mv.pos[2] + mv.d[2] * f); }
+        else if (mv.kind === 'bob') o.position.y = mv.pos[1] + Math.sin(t * mv.speed) * mv.amp * k;
+      }
+    }
+  }
+  // 小人在做什么：返回 [动作, 工具]（见 models.js 里 aAnim 的说明）
+  figAct(info, bob) {
+    const k = info && info.k;
+    if (k === 'w') { if (!bob) return [0, 0]; const b = Sim.getB(this.S, info.b), tl = b ? M.toolOf(b.type) : 0; return tl ? [3, tl] : [0, 0]; }
+    if (k === 'h') return [2, 0];
+    if (k === 'g') return [5, 5];
+    if (k === 's') return info.i === 0 ? [5, 5] : [1, 0];
+    if (k === 'fd') return [6, 0];
+    if (k === 'kid' || k === 'fm') return [bob ? (k === 'kid' && info.i % 2 === 0 ? 1 : 3) : 0, 0];
+    if (k === 'q') return [4, 0];
+    if (k === 'f') return [info.i % 3 === 0 ? 4 : 0, 0];
+    if (k === 'r') return [Math.sin(this.time * 0.9 + info.i) > 0.55 ? 7 : 0, 0];
+    return [bob ? 1 : 0, 0];
+  }
+  // 举火把的人：火苗在哪（地图 x、高度、地图 y）
+  figTip(x, y, ang, bob, k = 1) {
+    const [lx, ly, lz] = M.FIG_TORCH, c = Math.cos(ang), s = Math.sin(ang);
+    return [x + (c * lx + s * lz) * k, (ly + Math.abs(Math.sin(bob)) * 0.06) * k, y - (-s * lx + c * lz) * k];
+  }
   animPeople(dt) {
     const S = this.S, R = Sim.rt(S), t = this.time;
     const figs = this.figs, crates = this.crates;
@@ -2132,13 +2214,20 @@ void main() {
     const putLamp = (x, y, ang) => { if (!lampOn || nl >= 500) return; LP[nl * 3] = x + Math.cos(ang) * 0.13; LP[nl * 3 + 1] = 0.5; LP[nl * 3 + 2] = -(y - Math.sin(ang) * 0.13); nl++; };
     const figInfo = this.figInfo = [];
     this.reqPts = [];
+    const mF = this._mF || (this._mF = new THREE.Matrix4()), fr = this._fr || (this._fr = new THREE.Frustum()), fs = this._fs || (this._fs = new THREE.Sphere(new THREE.Vector3(), 1.4));
+    this.camera.updateMatrixWorld(); fr.setFromProjectionMatrix(mF.multiplyMatrices(this.camera.projectionMatrix, this.camera.matrixWorldInverse));
     const putFig = (x, y, ang, col, bob = 0, info = null, k = 1, lift = 0) => {
+      this._figOn = false;
       if (nf >= MAXF) return;
       figInfo.push(info);
-      e.set(0, ang, 0); q.setFromEuler(e);
-      m.compose(v.set(x, Math.abs(Math.sin(bob)) * 0.06 * k + lift, -y), q, sc.set(k, k, k));
-      figs.setMatrixAt(nf, m); figs.setColorAt(nf, col); this.figsD.setMatrixAt(nf, m); nf++;
       figPts.push(x, y);
+      fs.center.set(x, 0.4, -y); if (!fr.intersectsSphere(fs)) return; // 镜头外的人只记位置（点选、鹿躲人要用），不画
+      const [mode, tool] = this.figAct(info, bob);
+      e.set(0, ang, 0); q.setFromEuler(e);
+      m.compose(v.set(x, Math.abs(Math.sin(bob)) * (mode === 3 ? 0.012 : 0.06) * k + lift, -y), q, sc.set(k, k, k));
+      figs.setMatrixAt(nf, m); figs.setColorAt(nf, col); this.figsD.setMatrixAt(nf, m);
+      M.setAnim(figs, nf, bob || t * 1.3 + nf * 2.1, mode, tool);
+      mF.copy(m); this._figOn = true; nf++;
     };
     // 雪橇犬：毛色按编号挑一种（灰白、棕、黑），跑起来上下颠
     let nd = 0;
@@ -2147,11 +2236,12 @@ void main() {
       if (nd >= 200) return;
       e.set(0, ang, 0); q.setFromEuler(e);
       m.compose(v.set(x, lie ? -0.05 : Math.abs(Math.sin(bob)) * 0.06, -y), q, sc.set(1.25, lie ? 0.7 : 1.25, 1.25));
-      this.dogs.setMatrixAt(nd, m); this.dogs.setColorAt(nd, DOGC[i % DOGC.length]); nd++;
+      this.dogs.setMatrixAt(nd, m); this.dogs.setColorAt(nd, DOGC[i % DOGC.length]); M.setAnim(this.dogs, nd, bob, 10, lie || !bob ? 0 : 0.65); nd++;
     };
     const putCrate = (x, y, col) => {
-      if (nc >= MAXC) return;
-      m.compose(v.set(x, 0.52, -y), q.identity(), sc.set(1, 1, 1));
+      if (nc >= MAXC || !this._figOn) return;
+      // 抱在胸前，两只手托着：跟着刚摆好的那个搬运工转身、上下颠
+      m.compose(v.set(M.FIG_CARRY[0], M.FIG_CARRY[1], M.FIG_CARRY[2]), q.identity(), sc.set(0.82, 0.82, 0.82)).premultiply(mF);
       crates.setMatrixAt(nc, m); crates.setColorAt(nc, col); nc++;
     };
     const cx = this.cam.tx, cy = this.cam.ty, near = 30 + this.cam.dist;
@@ -2173,7 +2263,7 @@ void main() {
         const a = hash3(b.id, i, 1) * 6.28;
         const wob = act > 0.05 ? Math.sin(t * 0.6 + i * 2) * 0.25 : 0;
         const x = bx + Math.cos(a) * 0.12 + WSLOT[i] + wob, y = b.y - 0.35 - (i % 2) * 0.2;
-        putFig(x, y, Math.PI + Math.sin(t + i) * 0.5, COATS[(b.id + i) % COATS.length], act > 0.05 ? t * 9 + i : 0, { k: 'w', b: b.id, i, camp: b.camp });
+        putFig(x, y, Math.sin(t + i) * 0.5, COATS[(b.id + i) % COATS.length], act > 0.05 ? t * 9 + i : 0, { k: 'w', b: b.id, i, camp: b.camp });
       }
       // 搬运工：在仓储点和建筑之间来回
       const haul = br.haul || 0;
@@ -2196,7 +2286,7 @@ void main() {
           const ux = (p1[0] - p0[0]) / segL, uy = (p1[1] - p0[1]) / segL;
           const off = (i % 2 ? 0.14 : -0.14);
           const x = p0[0] + (p1[0] - p0[0]) * kk + uy * off, y = p0[1] + (p1[1] - p0[1]) * kk - ux * off;
-          const ang = go ? Math.atan2(ux, uy) : Math.atan2(-ux, -uy);
+          const ang = go ? Math.atan2(-ux, uy) : Math.atan2(ux, -uy); // 朝着走的方向（模型正面是 -z）
           putFig(x, y, ang, COATS[(i * 3 + 1) % COATS.length], t * 10 + i, { k: 'h', b: b.id, i, camp: b.camp, res: go ? inK : outK, go });
           if (i % 2 === 0) putLamp(x, y, ang);
           const rk = go ? inK : outK;
@@ -2214,7 +2304,7 @@ void main() {
       const rq = (S.reqs || []).filter(r => r.camp === c.id).slice(0, 2);
       rq.forEach((r, k) => {
         const sl = slots[slots.length - 1 - k]; if (!sl) return;
-        putFig(sl[0], sl[1], Math.sin(t * 1.3 + k) * 0.4, COATS[(r.id * 3) % COATS.length], 0, { k: 'r', i: r.id, camp: c.id });
+        putFig(sl[0], sl[1], Math.PI + Math.sin(t * 1.3 + k) * 0.4, COATS[(r.id * 3) % COATS.length], 0, { k: 'r', i: r.id, camp: c.id });
         this.reqPts.push({ id: r.id, x: sl[0], y: sl[1] });
       });
       for (let i = 0; i < Math.min(idle, slots.length - rq.length); i++) {
@@ -2243,7 +2333,7 @@ void main() {
         for (let i = 0; i < n; i++) {
           // 一半绕着雪人追着跑，一半在旁边扔雪球
           let x, y, ang, bob;
-          if (i % 2 === 0) { const a = t * 1.1 + i * 2.2 + c.id; x = px + Math.cos(a) * 0.62; y = py + Math.sin(a) * 0.62; ang = Math.atan2(-Math.sin(a), -Math.cos(a)) + Math.PI / 2; bob = t * 11 + i; }
+          if (i % 2 === 0) { const a = t * 1.1 + i * 2.2 + c.id; x = px + Math.cos(a) * 0.62; y = py + Math.sin(a) * 0.62; ang = a; bob = t * 11 + i; } // 绕着雪人跑，脸朝前
           else { const a = i * 1.7 + c.id; x = px + Math.cos(a) * 1.05; y = py + Math.sin(a) * 1.05; ang = Math.atan2(px - x, y - py) + Math.PI; bob = Math.sin(t * 3 + i) > 0.7 ? t * 8 : 0; }
           putFig(x, y, ang, COATS[(i * 3 + 2) % COATS.length], bob, { k: 'kid', i, camp: c.id }, 0.62);
         }
@@ -2253,7 +2343,7 @@ void main() {
         const [fx, fy, , FR] = L.fest, nd = Math.max(8, Math.min(FR > 2 ? 18 : FR > 1.7 ? 12 : 10, Math.floor(c.people / 5))), rd = FR * 0.5;
         for (let i = 0; i < nd; i++) {
           const a = t * 0.55 + i / nd * Math.PI * 2, x = fx + Math.cos(a) * rd, y = fy + Math.sin(a) * rd;
-          const ang = Math.atan2(-Math.sin(a), -Math.cos(a)) + Math.PI / 2;
+          const ang = Math.atan2(-Math.sin(a), -Math.cos(a)) - Math.PI / 2;
           putFig(x, y, ang, COATS[(i * 7 + c.id) % COATS.length], t * 9 + i * 1.3, { k: 'fd', i, camp: c.id }, 1, Math.max(0, Math.sin(t * 4.5 + i * 0.8)) * 0.07);
         }
         const out = (la, r) => [fx + Math.cos(la) * r, fy - Math.sin(la) * r]; // 模型里的角度换成地图坐标（模型 z 朝南）
@@ -2297,7 +2387,7 @@ void main() {
           const x = p0[0] + (p1[0] - p0[0]) * f, y = p0[1] + (p1[1] - p0[1]) * f;
           const ang = Math.atan2(p1[0] - p0[0], -(p1[1] - p0[1])) + Math.PI;
           putFig(x, y, ang, COATS[5], t * 7 + i, { k: 'g', i, camp: c.id });
-          if (nt < 60) { const tx2 = x + Math.cos(-ang) * 0.12, ty2 = y; m.compose(v.set(tx2, 0.62, -ty2), q.identity(), sc.set(1, 1, 1)); this.torches.setMatrixAt(nt++, m); if (lampOn && nl < 500) { LP[nl * 3] = tx2; LP[nl * 3 + 1] = 0.62; LP[nl * 3 + 2] = -ty2; nl++; } }
+          if (nt < 60 && this._figOn) { const [tx2, th2, ty2] = this.figTip(x, y, ang, t * 7 + i); m.compose(v.set(tx2, th2, -ty2), q.identity(), sc.set(1, 1, 1)); this.torches.setMatrixAt(nt++, m); if (lampOn && nl < 500) { LP[nl * 3] = tx2; LP[nl * 3 + 1] = th2; LP[nl * 3 + 2] = -ty2; nl++; } }
         }
       }
     }
@@ -2312,8 +2402,9 @@ void main() {
       for (let i = 0; i < sc0.n; i++) {
         const x = sc0.x + (i - 1) * 0.3, y = sc0.y - (i % 2) * 0.3;
         const tx = sc0.phase === 'out' ? sc0.tx : Sim.getCamp(S, sc0.camp).x, ty = sc0.phase === 'out' ? sc0.ty : Sim.getCamp(S, sc0.camp).y;
-        putFig(x, y, Math.atan2(tx - sc0.x, sc0.y - ty) + Math.PI, COATS[sc0.kind === 'rescue' ? 0 : sc0.kind === 'survey' ? 2 : 5], t * 10 + i, { k: 's', i, camp: sc0.camp, sid: sc0.id ?? S.scouts.indexOf(sc0), rescue: sc0.kind === 'rescue' });
-        if (i === 0 && nt < 60) { m.compose(v.set(x + 0.12, 0.62, -y), q.identity(), sc.set(1, 1, 1)); this.torches.setMatrixAt(nt++, m); if (lampOn && nl < 500) { LP[nl * 3] = x + 0.12; LP[nl * 3 + 1] = 0.62; LP[nl * 3 + 2] = -y; nl++; } }
+        const sa = Math.atan2(tx - sc0.x, sc0.y - ty) + Math.PI;
+        putFig(x, y, sa, COATS[sc0.kind === 'rescue' ? 0 : sc0.kind === 'survey' ? 2 : 5], t * 10 + i, { k: 's', i, camp: sc0.camp, sid: sc0.id ?? S.scouts.indexOf(sc0), rescue: sc0.kind === 'rescue' });
+        if (i === 0 && nt < 60 && this._figOn) { const [tx2, th2, ty2] = this.figTip(x, y, sa, t * 10 + i); m.compose(v.set(tx2, th2, -ty2), q.identity(), sc.set(1, 1, 1)); this.torches.setMatrixAt(nt++, m); if (lampOn && nl < 500) { LP[nl * 3] = tx2; LP[nl * 3 + 1] = th2; LP[nl * 3 + 2] = -ty2; nl++; } }
       }
     }
     this.torches.count = nt; this.torches.instanceMatrix.needsUpdate = true;
@@ -2421,6 +2512,7 @@ void main() {
       m2.makeRotationX(d.hp + (d.st === 'graze' && d.hp > 0.5 ? Math.sin(this.time * 4 + d.key) * 0.05 : 0));
       m2.setPosition(NK[0], NK[1], NK[2]);
       head.setMatrixAt(n, m2.premultiply(m));
+      M.setAnim(body, n, d.ph, 10, moving ? (d.st === 'flee' ? 0.75 : 0.35) : 0);
       n++;
     }
     body.count = n; head.count = n;
@@ -2444,7 +2536,7 @@ void main() {
         if (dead && age - wf.die > 2) continue;
         e.set(dead ? Math.PI / 2 : 0, Math.atan2(c.x - x, -(c.y - y)) + Math.PI, 0); q.setFromEuler(e);
         m.compose(v.set(x, dead ? -0.1 * (age - wf.die) : Math.abs(Math.sin(t * 12 + wf.a * 9)) * 0.08, -y), q, sc.set(1.2, 1.2, 1.2));
-        if (nw < 120) { this.wolves.setMatrixAt(nw, m); this.wolves.setColorAt(nw, r.col); nw++; }
+        if (nw < 120) { this.wolves.setMatrixAt(nw, m); this.wolves.setColorAt(nw, r.col); M.setAnim(this.wolves, nw, t * 12 + wf.a * 9, 10, dead ? 0 : 0.7); nw++; }
         wf.x = x; wf.y = y; wf.dead = dead;
       }
       // 箭塔射击
