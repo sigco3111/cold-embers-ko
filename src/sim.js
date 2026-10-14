@@ -1389,7 +1389,7 @@ export function autoAssign(S, camp) {
   const st = b => (R.b[b.id] || {}).status;
   let idle = idleLabor(S, camp);
   const mine = S.buildings.filter(b => b.camp === camp.id && !b.hold);
-  const idleShop = b => b.type === 'workshop' && !(S.tech && S.tech.cur); // 没有研究课题的工程站不派人
+  const idleShop = b => (b.type === 'workshop' && !(S.tech && S.tech.cur)) || (b.type === 'sledshed' && !(b.vq && b.vq.length)); // 没有研究课题的工程站、没排车的雪橇棚不派人
   const need = mine.filter(b => b.workers < bMax(S, b) && st(b) !== FULL && !idleShop(b));
   if (!need.length) return;
   need.sort((a, b) => autoPr(a.type) - autoPr(b.type) || a.id - b.id);

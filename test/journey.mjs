@@ -99,5 +99,31 @@ delete O.journey; O.t = 100;
 ok(G.journeyOf(O).stage === 0 && G.journeyOf(O).main === O.camps[0].id, 'old save converts');
 // 没通关不能重开
 ok(G.migrate(S) === S, 'no reset before graduation');
+// 雪橇棚：排队、派人才造、撤单退料、存档带着队列
+{
+  const V = G.newRun(G.defaultMeta(), 0, 780); V.reveal.fill(1); G.rt(V).revealN = 5;
+  const c = G.mainCamp(V); c.people = 30; for (const k of ['wood', 'stone', 'plank', 'food', 'coal']) c.stock[k] = 5000;
+  let at = null; for (let y = Math.floor(c.y) - 6; y <= c.y + 6 && !at; y++) for (let x = Math.floor(c.x) - 6; x <= c.x + 6 && !at; x++) if (G.checkPlace(V, 'sledshed', x, y).ok) at = [x, y];
+  ok(at && G.place(V, 'sledshed', at[0], at[1]).ok, 'sled shed can be placed');
+  const b = V.buildings[V.buildings.length - 1]; b.workers = 0;
+  for (let i = 0; i < 12; i++) G.step(V, 1);
+  ok(b.workers === 0, 'an empty shed gets no workers from auto staffing');
+  c.auto = false;
+  const w0 = c.stock.wood, f0 = V.journey.fleet.sled || 0;
+  ok(G.orderVeh(V, b.id, 'sled', 3).n === 3 && c.stock.wood === w0 - 180, 'three sleds queued and paid');
+  ok(/拖车|以后/.test(G.vehBlock(V, b, 'tractor')), 'tractor locked before stage 2: ' + G.vehBlock(V, b, 'tractor'));
+  for (let i = 0; i < 120; i++) G.step(V, 1);
+  ok((V.journey.fleet.sled || 0) === f0 && b.vq.length === 3, 'no workers, no progress');
+  c.auto = true; for (let i = 0; i < 6; i++) G.step(V, 1);
+  ok(b.workers === G.maxWorkers(b.type, b.lvl), 'auto staffing fills a shed with orders');
+  const p0 = b.vq[0].p;
+  const V2 = G.deserialize(G.serialize(V));
+  ok(G.getB(V2, b.id).vq.length === 3, 'queue survives save/load');
+  for (let i = 0; i < 100 - Math.round(p0 * 45); i++) G.step(V, 1);
+  ok((V.journey.fleet.sled || 0) === f0 + 2 && b.vq.length === 1, 'full crew builds a sled every 45 s: fleet ' + V.journey.fleet.sled);
+  const w1 = c.stock.wood; G.cancelVeh(V, b.id, 0);
+  ok(b.vq.length === 0 && c.stock.wood === w1 + 60, 'cancel refunds the materials');
+  { c.stock.wood = c.stock.plank = 5000; const r = G.orderVeh(V, b.id, 'sled', 20); ok(r.n === G.VQ_MAX && /最多/.test(r.reason), 'queue capped at ' + G.VQ_MAX + ': ' + r.n + ' ' + r.reason); }
+}
 console.log(fail ? `${fail} FAILED` : 'all ok');
 process.exit(fail ? 1 : 0);

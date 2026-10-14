@@ -232,7 +232,13 @@ export function advisor(S) {
     if (!miss) return { pri: 3, kind: 'go', text: `北迁的四件事都备好了：打开北迁面板，往「${gt.next.n}」出发。`, act: 'migrate' };
     if (miss.id === 'route') return { pri: 3, kind: 'route', text: `往「${gt.next.n}」的路还差约 ${gt.route.gap} 格：派侦察队往北探，车队只能走探开的路。`, act: 'scout' };
     if (miss.id === 'flvl') return { pri: 3, kind: 'flvl', text: `熔炉要升到 ${gateFlvl(J.stage)} 级才能北迁（现在 ${miss.cur} 级）。`, act: 'furnace' };
-    if (miss.id === 'car') return { pri: 3, kind: 'car', text: `车队还没备好：${miss.sub}。`, act: 'migrate' };
+    if (miss.id === 'car') {
+      // 哪个营地的雪橇棚都能造车（老营地的也行），主营地的优先
+      const P = gt.plan, sheds = S.buildings.filter(b => b.type === 'sledshed'), shed = sheds.find(b => b.camp === main.id) || sheds[0];
+      if (!P.roomOk && !shed) return { pri: 3, kind: 'car', text: `车队还缺车：先在主营地建一座雪橇棚，用木材和木板造雪橇（${miss.sub}）。`, act: 'place', arg: 'sledshed' };
+      if (!P.roomOk) return { pri: 3, kind: 'car', text: `车队还没备好：${miss.sub}。去${shed.camp === main.id ? '' : `「${getCamp(S, shed.camp).name}」的`}雪橇棚多造几架。`, act: 'spot', arg: shed.id };
+      return { pri: 3, kind: 'car', text: `车队还没备好：${miss.sub}。`, act: 'migrate' };
+    }
     const nxt = CHAPTERS[J.stage + 1], q = nxt && nxt.tasks.find(t => t.k === 'rate');
     if (q) return { pri: 3, kind: 'next', text: `下一程要${RES[q.r].n}：${nextNeeds(S, q.r)}`, act: 'plan', arg: q.r };
   }

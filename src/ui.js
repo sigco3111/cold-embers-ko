@@ -7,7 +7,7 @@ import { iconize } from './icons.js';
 import { chartHtml, chartHover, chartLeave, CV_COL, fmtV, dayLabel } from './curves.js';
 
 export const ICON = {
-  furnace: '🔥', tent: '⛺', lumber: '🪓', nursery: '🌲', quarry: '⛏️', hunter: '🏹', sawmill: '🪚', kitchen: '🍲', warehouse: '📦', tower: '🗼', scout: '🚩', kennel: '🐕', workshop: '🔬', lamp: '🏮', flagpole: '🚩', infirmary: '🩺', statue: '🗽', flowerhouse: '🌷',
+  furnace: '🔥', tent: '⛺', lumber: '🪓', nursery: '🌲', quarry: '⛏️', hunter: '🏹', sawmill: '🪚', kitchen: '🍲', warehouse: '📦', tower: '🗼', scout: '🚩', sledshed: '🛷', kennel: '🐕', workshop: '🔬', lamp: '🏮', flagpole: '🚩', infirmary: '🩺', statue: '🗽', flowerhouse: '🌷',
   coalmine: '⚫', ironmine: '🟤', smelter: '🏭', coker: '🧱', limequarry: '⬜', steelworks: '🏗️', gearworks: '⚙️', engineworks: '🚂', greenhouse: '🌱', heater: '♨️',
   shalepit: '🛢️', refinery: '⚗️', sealworks: '🔩', crystalmine: '💎', batteryworks: '🔋', alloyworks: '🧪', salvage: '🛸', partworks: '🧩', coreworks: '🤖', bay: '🦾', excavator: '🔶', forge: '⚒️',
 };
@@ -574,7 +574,8 @@ export class UI {
     const ge = this.$('goal'), gk = goal + '|' + (cur ? cur.i + ':' + cur.tasks.filter(t => t.ok).length : '') + '|' + gift;
     if (ge.dataset.t !== gk) {
       ge.dataset.t = gk; ge.dataset.act = 'chapter';
-      ge.innerHTML = iconize(cur ? `<b>${cur.ch.n.split(' · ')[0]}</b>${goal ? esc(goal) : esc(cur.ch.n.split(' · ')[1])}${gift ? '<i class="gift">🎁 领奖励</i>' : `<i class="gprog">${cur.tasks.filter(t => t.ok).length}/3</i>`}<i class="gplan" data-act="plan">规划</i>` : goal ? `<b>目标</b>${esc(goal)}<i class="gplan" data-act="plan">规划</i>` : '');
+      const tripGo = Sim.journeyOf(S).trip && Sim.journeyOf(S).trip.phase === 'go', chip = tripGo ? `<i class="gplan" data-act="followtrip">${this.g.view.followTrip ? '不跟了' : '跟着看'}</i>` : '<i class="gplan" data-act="plan">规划</i>';
+      ge.innerHTML = iconize(cur ? `<b>${cur.ch.n.split(' · ')[0]}</b>${goal ? esc(goal) : esc(cur.ch.n.split(' · ')[1])}${gift ? '<i class="gift">🎁 领奖励</i>' : `<i class="gprog">${cur.tasks.filter(t => t.ok).length}/3</i>`}${chip}` : goal ? `<b>目标</b>${esc(goal)}${chip}` : '');
       ge.classList.toggle('gift', gift);
       ge.style.display = ge.innerHTML ? '' : 'none';
     }
@@ -766,6 +767,7 @@ export class UI {
     else if (a.act === 'raid') this.open('raid');
     else if (a.act === 'scout') this.open('scout');
     else if (a.act === 'migrate' || a.act === 'arrive') this.open('migrate');
+    else if (a.act === 'place' || a.act === 'spot') this.actDo(a.act, a.arg);
     else if (a.act === 'furnace' || a.kind === 'fuel' || a.kind === 'cold') furnace(a.camp);
     else if (a.kind === 'food') { if (a.camp) S.active = a.camp; this.open('stock'); }
     else this.open('chapter');
@@ -1102,6 +1104,29 @@ export class UI {
     return h;
   }
 
+  // 雪橇棚：车队有几辆车、这一程还差多少、排队造车
+  shedHtml(b, c) {
+    const S = this.S, J = Sim.journeyOf(S), V = Sim.VEH, P = Sim.tripPlan(S);
+    let h = `<div class="sec">车队</div>`;
+    h += `<div class="row"><span>现有</span><span>🛷 雪橇 ${J.fleet.sled || 0} 架${J.fleet.tractor || J.stage >= V.tractor.from ? ` · 蒸汽拖车 ${J.fleet.tractor || 0} 台` : ''}</span></div>`;
+    if (P.to) h += `<div class="row sub"><span>往「${esc(P.to.n)}」</span><span>${P.roomOk ? `装得下：${P.people} 人和货共 ${fmt(P.load)} 份，车上能装 ${fmt(P.cap)}` : `还差 ${fmt(P.lack)} 份地方，大约 ${Math.ceil(P.lack / V.sled.cap)} 架雪橇${J.stage >= V.tractor.from ? `或 ${Math.ceil(P.lack / V.tractor.cap)} 台拖车` : ''}`}</span></div>`;
+    const sp = Sim.vehSpeed(S, b);
+    const vq = b.vq || [];
+    if (vq.length) {
+      const q = vq[0];
+      h += `<div class="row vq"><span>${sp > 0 ? '在造' : '停着'} · ${Sim.vehName(q.v)}</span><span>${sp > 0 ? `还要 ${fmtTime((1 - q.p) * V[q.v].secs / sp)}` : '先派人'} <button class="small" data-act="vehx" data-arg="${b.id}:0">撤</button></span></div>`;
+      h += `<div class="bar"><i style="width:${(q.p * 100).toFixed(0)}%"></i></div>`;
+      for (const v of Sim.VEH_KEYS) {
+        let n = 0, last = -1; vq.forEach((x, i) => { if (i && x.v === v) { n++; last = i; } });
+        if (n) h += `<div class="row sub vq"><span>排队 · ${Sim.vehName(v)} ×${n}</span><span><button class="small" data-act="vehx" data-arg="${b.id}:${last}">撤 1 ${v === 'sled' ? '架' : '台'}</button></span></div>`;
+      }
+    }
+    for (const v of Sim.VEH_KEYS) {
+      const why = Sim.vehBlock(S, b, v), locked = V[v].from && J.stage < V[v].from;
+      h += `<div class="row"><span>${Sim.vehName(v)}<small>装 ${V[v].cap} 份（${V[v].cap / Sim.PERSON_LOAD} 个人）· ${v === 'sled' ? '路上烧木柴' : '路上烧煤，全是拖车时快一半'}</small></span><span>${locked ? `<small>${esc(why)}</small>` : `${costHtml(c.stock, V[v].cost, S.known)} <button class="small ${why ? '' : 'go'}" data-act="veh" data-arg="${b.id}:${v}:1">造 1 ${v === 'sled' ? '架' : '台'}</button>${v === 'sled' ? ` <button class="small" data-act="veh" data-arg="${b.id}:${v}:5">造 5 架</button>` : ''}`}</span></div>`;
+    }
+    return h;
+  }
   p_bld(part) {
     const S = this.S, b = Sim.getB(S, this.panel.arg);
     if (!b) { this.close(); return ''; }
@@ -1185,6 +1210,7 @@ export class UI {
     if (b.type === 'tent') h += `<div class="row"><span>床位</span><span>${Sim.housingOf(b)} 人 · 保温 +${Sim.insulOf(b)}°</span></div>`;
     if (b.type === 'warehouse') h += `<div class="row"><span>仓储</span><span>每种物资上限 ${fmt(cr.cap)}</span></div>`;
     if (b.type === 'tower') h += `<div class="row"><span>威力</span><span>${Math.round(Sim.towerPower(b.lvl))}</span></div>`;
+    if (b.type === 'sledshed') h += this.shedHtml(b, c);
     if (b.type === 'heater') h += `<div class="row"><span>加温</span><span>+${Math.round(BLD.heater.heat * (1 + 0.5 * (b.lvl - 1)))}° · 烧煤 ${fmt(BLD.heater.burn * b.lvl)}/分</span></div>`;
     if (b.type === 'bay') h += `<div class="row"><span>自动机</span><span>${c.bots}/${cr.botCap || 0} 台（库存核心会自动装入）</span></div>`;
     if (b.type === 'kennel') {
@@ -1901,6 +1927,8 @@ export class UI {
     return h;
   }
 
+  // 不点按钮也能走一遍按钮的动作（老向导、提示里用）
+  actDo(act, arg) { const el = { dataset: { act, arg: arg == null ? undefined : String(arg) } }; this.onClick({ target: { closest: q => q === '[data-act]' ? el : null } }); }
   // ---------- 点击 ----------
   onClick(e) {
     const tst = e.target.closest('.toast'); if (tst) this.dropToast(tst);
@@ -1981,6 +2009,9 @@ export class UI {
         break;
       }
       case 'train': res(Sim.trainSpec(S, arg)); break;
+      case 'veh': { const [bid, v, n] = String(arg).split(':'); const r = Sim.orderVeh(S, +bid, v, +n || 1); if (!r.ok) this.toast(r.reason, 'warn'); else { g.sfx('tap'); if (r.reason && +n > 1) this.toast(`排了 ${r.n} 辆，${r.reason}`, 'warn'); } break; }
+      case 'vehx': { const [bid, i] = String(arg).split(':'); Sim.cancelVeh(S, +bid, +i); break; }
+      case 'followtrip': g.view.followTrip = !g.view.followTrip; if (g.view.followTrip) { this.close(); this.toast('镜头跟着车队走（拖动画面就停下）'); } break;
       case 'spot': { const b = Sim.getB(S, +arg); if (b) { g.view.focus(b.x + 1, b.y + 1); this.open('bld', b.id); g.view.select(b.id); } break; }
       case 'campgo': { S.active = +arg; const c = this.camp(); g.view.focus(c.x, c.y); break; }
       case 'campBtn': if (S.camps.length > 1) { const i = S.camps.findIndex(c => c.id === S.active); S.active = S.camps[(i + 1) % S.camps.length].id; const c = this.camp(); g.view.focus(c.x, c.y); this.toast(`切换到「${c.name}」`); } else this.open('camp'); break;
@@ -2103,7 +2134,7 @@ export function nextGoal(S) {
   ];
   if (S.site === 0 && Sim.journeyOf(S).stage === 0) for (const [cond, txt] of steps) if (cond()) return txt;
   const J = Sim.journeyOf(S);
-  if (J.trip) return J.trip.phase === 'arrive' ? `车队到了「${Sim.stopOf(S, J.trip.to).n}」：放下新熔炉` : `车队在路上，往「${Sim.stopOf(S, J.trip.to).n}」去（${Math.round(J.trip.d / J.trip.len * 100)}%）`;
+  if (J.trip) return J.trip.phase === 'arrive' ? `车队到了「${Sim.stopOf(S, J.trip.to).n}」：放下新熔炉` : `车队往「${Sim.stopOf(S, J.trip.to).n}」去 ${Math.round(J.trip.d / J.trip.len * 100)}%`;
   // 这一章的产能目标
   const g = Sim.rateGoals(S).find(x => !x.eternal) || Sim.rateGoals(S)[0];
   if (g) {

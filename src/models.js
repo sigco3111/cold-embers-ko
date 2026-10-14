@@ -461,6 +461,7 @@ function foundation(K, s, vt) {
 
 // 返回 { geo, glow, movers, flame, flameY, h }：glow 是需要发光材质的部分；geo/glow 的 userData.hi 是拉近用的精细版
 export function buildingGeo(type, lvl, deep = false) {
+  if (type === 'sledshed') return sledShedGeo(lvl);
   const d = BLD[type];
   const s = d.size;
   const vt = visTier(type, lvl);

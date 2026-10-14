@@ -1,10 +1,10 @@
 // 寒烬北行 · 一路往北：每一程的状态、北迁门槛、车队、新营地的范围
 // 整局只有一条路：主营地带着车队从一个地标搬到下一个，留在后面的营地变成补给站或者熄火
-import { LANDMARKS, FAR_MARKS, BLD, FUEL, FUEL_ORDER, SPOT_KEYS, furnaceBurn } from './data.js';
+import { LANDMARKS, FAR_MARKS, BLD, RES, FUEL, FUEL_ORDER, SPOT_KEYS, furnaceBurn } from './data.js';
 import { W, H, T_ROCK, getWorld, idx, inMap } from './worldgen.js';
 import {
   rt, dirty, getB, getCamp, logMsg, revealCircle, canAfford, missing, pay, chapters, makeCamp, markFounded, trimWorkers,
-  autoAssign, clearFootprint, landmarkBlock, siteAt, occAt, housingOf, bumpMood, diffOf, relicSum, upgradeCost,
+  autoAssign, clearFootprint, landmarkBlock, siteAt, occAt, housingOf, bumpMood, diffOf, relicSum, upgradeCost, maxWorkers, levelMul,
   EAT, FOUND_DIST, CAMP_GAP,
 } from './sim.js';
 
@@ -228,7 +228,7 @@ export function departGate(S) {
     { id: 'chap', ok: !ch || ch.done, t: ch ? `做完「${ch.ch.n}」` : '这一章做完了', sub: !ch || ch.done ? '做完了' : `还有 ${left} 项任务` },
     { id: 'flvl', ok: fl >= need, t: `主营地熔炉 ${need} 级`, sub: `现在 ${fl} 级`, cur: fl, n: need },
     { id: 'car', ok: plan.roomOk && !plan.short.length && plan.people >= 5, t: '车队备好了',
-      sub: plan.people < 5 ? '至少要有 5 个人上路' : !plan.roomOk ? `车上还差 ${plan.lack} 份地方（约 ${Math.ceil(plan.lack / VEH.sled.cap)} 辆雪橇）` : plan.short.length ? '缺：' + plan.short.join('，') : `${plan.people} 人，${plan.veh.tractor ? plan.veh.tractor + ' 辆拖车 ' : ''}${plan.veh.sled ? plan.veh.sled + ' 辆雪橇' : ''}` },
+      sub: plan.people < 5 ? '至少要有 5 个人上路' : !plan.roomOk ? `车上还差 ${plan.lack} 份地方（约 ${Math.ceil(plan.lack / VEH.sled.cap)} 架雪橇）` : plan.short.length ? '缺：' + plan.short.join('，') : `${plan.people} 人，${plan.veh.tractor ? plan.veh.tractor + ' 辆拖车 ' : ''}${plan.veh.sled ? plan.veh.sled + ' 辆雪橇' : ''}` },
   ];
   return { k, next: nx, items, n: items.filter(i => i.ok).length, ok: items.every(i => i.ok), plan, route };
 }
@@ -260,6 +260,51 @@ export function depart(S) {
   rt(S).fx.push({ kind: 'depart', to: J.trip.to });
   return { ok: true };
 }
+// ---------- 雪橇棚：造车。造好的车归车队，跟着主营地走 ----------
+export const VQ_MAX = 10;
+export const vehName = v => v === 'sled' ? '雪橇' : '蒸汽拖车';
+export function vehBlock(S, b, v) {
+  const V = VEH[v]; if (!V || !b || b.type !== 'sledshed') return '这里造不了';
+  if (V.from && journeyOf(S).stage < V.from) return `到了「${stopOf(S, V.from).n}」以后才能造`;
+  for (const k in V.cost) if (RES[k].t > S.known) return `需要「${RES[k].n}」`;
+  if ((b.vq || []).length >= VQ_MAX) return `最多排 ${VQ_MAX} 辆`;
+  const camp = getCamp(S, b.camp);
+  if (!canAfford(camp.stock, V.cost)) return '缺：' + missing(camp.stock, V.cost).join('，');
+  return '';
+}
+export function orderVeh(S, bid, v, n = 1) {
+  const b = getB(S, bid); let made = 0, why = '';
+  for (let i = 0; i < n; i++) { why = vehBlock(S, b, v); if (why) break; pay(getCamp(S, b.camp).stock, VEH[v].cost); (b.vq || (b.vq = [])).push({ v, p: 0 }); made++; }
+  if (made) dirty(S);
+  return made ? { ok: true, n: made, reason: why } : { ok: false, reason: why };
+}
+export function cancelVeh(S, bid, i) {
+  const b = getB(S, bid); if (!b || !b.vq || !b.vq[i]) return;
+  const q = b.vq.splice(i, 1)[0], st = getCamp(S, b.camp).stock;
+  for (const k in VEH[q.v].cost) st[k] = (st[k] || 0) + VEH[q.v].cost[k];
+  dirty(S);
+}
+// 造车速度：满员时雪橇 45 秒一架、拖车 2 分钟一台；每升一级快 15%
+export function vehSpeed(S, b) { const mx = maxWorkers(b.type, b.lvl); return (mx ? Math.min(1, b.workers / mx) : 0) * levelMul(b.lvl); }
+function vehStep(S, dt) {
+  const R = rt(S), J = journeyOf(S);
+  for (const b of S.buildings) {
+    if (b.type !== 'sledshed') continue;
+    const br = R.b[b.id] || (R.b[b.id] = {}), q = b.vq && b.vq[0], sp = vehSpeed(S, b);
+    br.act = q ? sp : 0; br.staff = sp;
+    if (!q) { br.status = '空闲'; continue; }
+    if (!b.workers) { br.status = '没有派人'; continue; }
+    br.status = `在造${vehName(q.v)} ${Math.floor(q.p * 100)}%`;
+    q.p += dt * sp / VEH[q.v].secs;
+    if (q.p < 1) continue;
+    b.vq.shift();
+    J.fleet[q.v] = (J.fleet[q.v] || 0) + 1;
+    R.fx.push({ kind: 'veh', b: b.id, v: q.v });
+    if (!b.vq.length) logMsg(S, `🛷 雪橇棚的车造完了：车队现在有 ${J.fleet.sled || 0} 架雪橇${J.fleet.tractor ? `、${J.fleet.tractor} 台蒸汽拖车` : ''}。`, 'good', { act: 'spot', arg: b.id, label: '看看' });
+    dirty(S);
+  }
+}
+
 // 车队现在在哪
 export function tripPos(trip) {
   let d = trip.d;
@@ -397,6 +442,7 @@ export function removeCamp(S, cid, to) {
 
 // ---------- 每一步 ----------
 export function journeyStep(S, dt) {
+  vehStep(S, dt);
   const J = journeyOf(S), T = J.trip;
   if (!T) return;
   if (T.phase === 'go') {

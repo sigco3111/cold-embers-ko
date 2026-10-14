@@ -110,6 +110,7 @@ export const BLD = {
   workshop:  { n: '工程站', t: 1, size: 2, cat: 'core', w: 3, research: 1, desc: '工程师在这里研究新技术。岗位上的人越多、等级越高，研究越快。', cost: { wood: 80, stone: 40, plank: 30 } },
   kennel:    { n: '雪橇犬舍', t: 1, size: 2, cat: 'core', w: 2, dogs: 4, feed: 0.5, desc: '养雪橇犬：犬夫每天喂生肉、训狗。狗越多，这座营地派出的侦察队和连着它的运输线跑得越快，营地里也会有狗跑来跑去。', cost: { wood: 60, plank: 20 }, syn: ['hunter'] },
   scout:     { n: '侦察营', t: 1, size: 2, cat: 'core', w: 0, desc: '派出侦察队走进迷雾，发现资源、幸存者、遗迹和地标。等级越高可同时派出的队伍越多、越耐寒。', cost: { wood: 80, plank: 30 } },
+  sledshed:  { n: '雪橇棚', t: 1, size: 2, cat: 'core', w: 2, desc: '造北迁用的雪橇，到了蒸汽峡谷还能造蒸汽拖车。派的人越多、等级越高造得越快；造好的车归车队，跟着主营地走。', cost: { wood: 80, plank: 30 } },
 
   coalmine:  { n: '煤矿', t: 2, size: 2, cat: 'gather', w: 3, gather: ['coal'], out: { coal: 5 }, reach: 3, desc: '开采煤层，煤是比木材耐烧三倍的燃料。', cost: { wood: 120, plank: 40, stone: 60 }, syn: ['smelter', 'coker'] },
   ironmine:  { n: '铁矿场', t: 2, size: 2, cat: 'gather', w: 3, gather: ['ore'], out: { ore: 5 }, reach: 3, desc: '开采铁矿脉。', cost: { wood: 120, plank: 40, stone: 60 }, syn: ['smelter'] },

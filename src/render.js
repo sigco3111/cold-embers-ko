@@ -99,6 +99,7 @@ if (uDetail > 0.0) {
     this.dogs.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(200 * 3).fill(1), 3);
     this.scene.add(this.figs, this.figsD, this.crates, this.wolves, this.sleds, this.trains, this.bolts, this.torches, this.dogs);
     this.initAnim();
+    this.initCaravan();
 
     this.initParticles();
     this.initFx();
@@ -1804,6 +1805,7 @@ void main() {
     this.camera.setViewOffset(w, h, c[0], c[1], w, h);
   }
   pan(dxPx, dyPx) {
+    this.followTrip = false;
     const k = this.cam.tdist / (this.canvas.clientHeight || 800) * 1.15;
     const c = Math.cos(this.cam.tyaw), s = Math.sin(this.cam.tyaw);
     // 屏幕向右 = 世界 (c, -s)，屏幕向上 = 向北
@@ -1998,6 +2000,7 @@ void main() {
     this.animMovers(dt);
     this.animPeople(dt);
     this.animDeer(dt);
+    this.animCaravan(dt);
     this.animParticles(dt);
     this.animFx(dt);
     this.animRaids(dt);
@@ -2126,6 +2129,48 @@ void main() {
     }
     C.set(c.id, { key, slots });
     return slots;
+  }
+  // ---------- 北迁车队：一串雪橇和拖车沿着探好的路走，前面一溜路标 ----------
+  initCaravan() {
+    const mk = (R, n) => {
+      const body = new THREE.InstancedMesh(R.geo, this.matStd, n); body.count = 0; body.frustumCulled = false; body.castShadow = true;
+      const glow = R.glow ? new THREE.InstancedMesh(R.glow, this.matGlow, n) : null; if (glow) { glow.count = 0; glow.frustumCulled = false; }
+      this.scene.add(body); if (glow) this.scene.add(glow);
+      return { body, glow };
+    };
+    this.cv = { sled: mk(M.caravanSledGeo(true), 16), tractor: mk(M.steamTractorGeo(), 8) };
+    const mg = new THREE.CylinderGeometry(0.12, 0.12, 0.03, 6);
+    this.cvMarks = new THREE.InstancedMesh(mg, new THREE.MeshBasicMaterial({ color: '#ffcf6a', transparent: true, opacity: 0.75, depthWrite: false }), 260);
+    this.cvMarks.count = 0; this.cvMarks.frustumCulled = false; this.scene.add(this.cvMarks);
+  }
+  animCaravan(dt) {
+    const J = Sim.journeyOf(this.S), T = J.trip, cv = this.cv;
+    const m = this._cm || (this._cm = new THREE.Matrix4()), q = this._cq || (this._cq = new THREE.Quaternion()), e = this._ce || (this._ce = new THREE.Euler()), v = this._cv || (this._cv = new THREE.Vector3()), one = this._c1 || (this._c1 = new THREE.Vector3(1, 1, 1));
+    const n = { sled: 0, tractor: 0 }; let nm = 0;
+    this.cvEmit = null;
+    if (T) {
+      // 车：拖车打头，雪橇跟后面；拖车长，隔 2.1 格，雪橇隔 1.6 格；还没出营地的先不画
+      const list = []; for (let i = 0; i < Math.min(8, T.veh.tractor || 0); i++) list.push('tractor'); for (let i = 0; i < Math.min(16, T.veh.sled || 0); i++) list.push('sled');
+      if (!list.length) list.push('sled');
+      const t = this.time || 0, moving = T.phase === 'go';
+      this.cvEmit = []; let back = 0;
+      list.forEach((k, i) => {
+        const d = T.d - back; back += k === 'tractor' ? 2.1 : 1.6; if (d < 0) return;
+        const p = Sim.tripPos({ path: T.path, d }), yaw = Math.atan2(-Math.cos(p.dir), Math.sin(p.dir));
+        e.set(moving ? Math.sin(t * 5 + i) * 0.02 : 0, yaw, moving ? Math.sin(t * 3.3 + i * 1.7) * 0.02 : 0); q.setFromEuler(e);
+        m.compose(v.set(p.x, moving ? Math.abs(Math.sin(t * 6 + i)) * 0.015 : 0, -p.y), q, one);
+        const R = cv[k]; R.body.setMatrixAt(n[k], m); if (R.glow) R.glow.setMatrixAt(n[k], m); n[k]++;
+        if (k === 'tractor' && moving) this.cvEmit.push([p.x - Math.cos(p.dir) * 0.1, p.y - Math.sin(p.dir) * 0.1, 0.9, 1.2]);
+        if (i === 0 && this.followTrip) { this.cam.ttx = p.x; this.cam.tty = p.y; }
+      });
+      // 前面的路：每隔一格一个小路标，一闪一闪往前走
+      if (T.phase === 'go') {
+        const ph = ((this.time || 0) * 1.2) % 1;
+        for (let d = T.d + 1.2 + ph; d < T.len && nm < 260; d += 1.1) { const p = Sim.tripPos({ path: T.path, d }); m.compose(v.set(p.x, 0.04, -p.y), q.identity(), one); this.cvMarks.setMatrixAt(nm++, m); }
+      }
+    } else this.followTrip = false;
+    for (const k in cv) { cv[k].body.count = n[k]; cv[k].body.instanceMatrix.needsUpdate = true; if (cv[k].glow) { cv[k].glow.count = n[k]; cv[k].glow.instanceMatrix.needsUpdate = true; } }
+    this.cvMarks.count = nm; this.cvMarks.instanceMatrix.needsUpdate = true;
   }
   // ---------- 细节层级与动作 ----------
   // 会动的小人和动物：换上带动作的材质；小人另备一套拉近时用的精细模型
@@ -2569,6 +2614,7 @@ void main() {
       if (b.type === 'furnace') { const cr = R.c[b.camp]; emit.push([bx, by, 3.2 + 0.08 * Math.min(b.lvl, 25), 3 * (cr ? 0.3 + cr.fueled : 1)]); }
       else if (['kitchen', 'smelter', 'coker', 'steelworks', 'refinery', 'forge', 'heater', 'engineworks', 'alloyworks', 'tent'].includes(b.type) && ((R.b[b.id] || {}).act > 0.1 || b.type === 'tent' || b.type === 'heater')) emit.push([bx + (b.type === 'tent' ? 0.45 : 0.5), by + 0.4, b.type === 'tent' ? 1.4 : 2.2, b.type === 'tent' ? 0.3 : 1]);
     }
+    if (this.cvEmit) for (const em of this.cvEmit) emit.push(em);
     const sm = this.smoke;
     let wsum = 0; for (const em of emit) wsum += em[3];
     for (let i = 0; i < sm.n; i++) {

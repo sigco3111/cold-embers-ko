@@ -80,11 +80,12 @@ function fillWorkers(camp) {
     if (t === 'lumber' || t === 'coalmine') return (cr.fuelUnits || 0) < (cr.burnPerMin || 1) * 90 ? 2 : 4;
     if (t === 'tower') return raid ? 0 : 9;
     if (t === 'workshop' || t === 'scout') return 3;
+    if (t === 'sledshed') return b.vq && b.vq.length ? 1 : 99;
     return cat === 'gather' || cat === 'make' ? 4 : 7;
   };
   bs.sort((a, b) => pri(a) - pri(b) || a.id - b.id);
   for (const b of bs) if (b.workers) G.setWorkers(S, b.id, 0);
-  for (const b of bs) { const free = G.idleLabor(S, camp); if (free <= 0) break; G.setWorkers(S, b.id, Math.min(G.bMax(S, b), free)); }
+  for (const b of bs) { const free = G.idleLabor(S, camp); if (free <= 0) break; if (pri(b) < 99) G.setWorkers(S, b.id, Math.min(G.bMax(S, b), free)); }
 }
 function upgradeLowest(camp, type, cap) {
   const bs = G.campBuildings(S, camp.id).filter(b => b.type === type && b.lvl < cap).sort((a, b) => a.lvl - b.lvl);
@@ -172,16 +173,20 @@ function campThink(camp, main) {
   if (cr.tH < 0 && S.known >= 3 && count(camp, 'heater') < 3) tryBuild(camp, 'heater');
 }
 
-// 车队：现在还没有雪橇棚（第 7 步做），先直接按雪橇的价钱造
+// 车队：主营地造一座雪橇棚，按还差的地方排车（排着的车也算上）
 function buildSleds(plan) {
-  const main = G.mainCamp(S), J = G.journeyOf(S);
-  let n = 0;
-  while (!G.tripPlan(S).roomOk && n < 20) {
-    const v = S.known >= 3 && G.canAfford(main.stock, G.VEH.tractor.cost) ? 'tractor' : 'sled';
-    if (!G.canAfford(main.stock, G.VEH[v].cost)) break;
-    G.pay(main.stock, G.VEH[v].cost); J.fleet[v] = (J.fleet[v] || 0) + 1; n++;
+  const main = G.mainCamp(S), V = G.VEH, sheds = S.buildings.filter(b => b.type === 'sledshed');
+  // 哪个营地的雪橇棚都能造车：挑一座那边料够的，主营地优先
+  const shed = sheds.sort((a, b) => (b.camp === main.id) - (a.camp === main.id)).find(b => !G.vehBlock(S, b, 'sled') || !G.vehBlock(S, b, 'tractor')) || sheds[0];
+  if (!shed) { if (!tryBuild(main, 'sledshed')) { makeRoom(main); tryBuild(main, 'sledshed'); } return; }
+  const P = G.tripPlan(S); if (P.roomOk) return;
+  let lack = P.lack - sheds.reduce((s, b) => s + (b.vq || []).reduce((t, q) => t + V[q.v].cap, 0), 0), n = 0;
+  while (lack > 0 && n < 10) {
+    const v = !G.vehBlock(S, shed, 'tractor') ? 'tractor' : 'sled';
+    if (!G.orderVeh(S, shed.id, v, 1).ok) break;
+    lack -= V[v].cap; n++;
   }
-  if (n) log('vehicles +' + n, JSON.stringify(J.fleet));
+  if (n) log('vehicles ordered +' + n, JSON.stringify(G.journeyOf(S).fleet), 'queue', shed.vq.length);
   void plan;
 }
 
