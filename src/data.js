@@ -90,8 +90,8 @@ export function tierOfRow(row) {
 }
 export function baseTempOfRow(row) { return Math.round(-6 - row * 0.165); }
 
-// 永恒之炉点燃的三个阶段需要的永恒炉件
-export const ETERNAL_STAGES = [10, 30, 80];
+// 永恒之炉点燃的三个阶段：永恒炉件的产能目标
+export const ETERNAL_STAGES = [3, 6, 10]; // 每层要永恒炉件每分钟产多少，稳住 3 分钟就亮一层
 
 // 建筑
 // size: 占地边长；w: 基础岗位；out/in: 每分钟；gather: 采集的资源点类型；reach: 采集半径
@@ -151,7 +151,7 @@ export const CATS = { core: '核心', live: '居住', gather: '采集', make: '�
 
 // 熔炉参数
 export function furnaceHeat(lvl) { return 10 + 5 * lvl; }
-export function furnaceRadius(lvl) { return Math.min(18, 6 + lvl); }
+export function furnaceRadius(lvl) { return Math.min(15, 6 + Math.ceil(lvl / 2)); } // 供热圈：6 + 等级的一半，最大 15 格（地盘是要规划的）
 export function furnaceBurn(lvl) { return 2.2 * Math.pow(1.17, lvl - 1); } // 燃料单位/分钟
 
 // 专家
@@ -280,25 +280,25 @@ export const SITES = {
 // ---------- 章节：每个地标一章，各有开场故事、三个任务和奖励 ----------
 export const CHAPTERS = [
   { n: '第一章 · 余烬未冷', story: '上一代人留下的营火还有余温。他们在熔炉边刻了一行字：「别让火灭了，往北走。」先让这里变成一个家。',
-    tasks: [{ t: '把熔炉升到 3 级', k: 'flvl', n: 3 }, { t: '让营地有 20 个人', k: 'people', n: 20 }, { t: '签署第一条营地律令', k: 'law', n: 1 }],
+    tasks: [{ t: '木板产量稳住 6/分钟', k: 'rate', r: 'plank', n: 6 }, { t: '让营地有 20 个人', k: 'people', n: 20 }, { t: '签署第一条营地律令', k: 'law', n: 1 }],
     reward: { res: { plank: 80, food: 150 }, hope: 8 }, end: '营火稳住了。夜里开始有人唱歌。' },
   { n: '第二章 · 黑色山脊', story: '铁岭的煤层还冒着热气。老矿工说，炼出第一块铁的那天，北行者才算真正站稳了脚。',
-    tasks: [{ t: '建 2 座煤矿', k: 'bld', b: 'coalmine', n: 2 }, { t: '仓库里攒下 200 铁锭', k: 'res', r: 'iron', n: 200 }, { t: '完成 2 项研究', k: 'tech', n: 2 }],
+    tasks: [{ t: '铁锭产量稳住 8/分钟', k: 'rate', r: 'iron', n: 8 }, { t: '建 2 座煤矿', k: 'bld', b: 'coalmine', n: 2 }, { t: '完成 2 项研究', k: 'tech', n: 2 }],
     reward: { res: { iron: 120, coal: 150 }, bank: 60 }, end: '第一块铁锭敲出了清亮的声音。' },
   { n: '第三章 · 嘶鸣的管道', story: '峡谷里到处是旧时代的蒸汽管道，有的还在嘶嘶作响。迷雾深处，好像还有别的人。',
-    tasks: [{ t: '探索 2 处雾里的地点', k: 'site', n: 2 }, { t: '击退 2 次袭营', k: 'raid', n: 2 }, { t: '让一个营地的希望达到 65', k: 'hope', n: 65 }],
+    tasks: [{ t: '钢材产量稳住 12/分钟', k: 'rate', r: 'steel', n: 12 }, { t: '探索 2 处雾里的地点', k: 'site', n: 2 }, { t: '让一个营地的希望达到 65', k: 'hope', n: 65 }],
     reward: { res: { gear: 80, steel: 80 }, people: 8 }, end: '峡谷里的管道重新热了起来，像一条醒过来的龙。' },
   { n: '第四章 · 北去的铁轨', story: '旧铁轨从冻原一路伸向北方。把营地连起来，人和物资就能顺着铁轨走。',
-    tasks: [{ t: '开通 2 条运输线', k: 'line', n: 2 }, { t: '仓库里攒下 150 密封件', k: 'res', r: 'seal', n: 150 }, { t: '所有营地加起来有 120 人', k: 'people', n: 120 }],
+    tasks: [{ t: '密封件产量稳住 16/分钟', k: 'rate', r: 'seal', n: 16 }, { t: '开通 2 条运输线', k: 'line', n: 2 }, { t: '所有营地加起来有 120 人', k: 'people', n: 120 }],
     reward: { res: { tar: 150, seal: 60 }, hope: 6 }, end: '第一队雪橇顺着铁轨滑了出去，汽笛声传得很远。' },
   { n: '第五章 · 冷光之城', story: '废墟里的晶体发着冷光，整座城像是冻在了最后一刻。旧图纸上标着一条往北的路。',
-    tasks: [{ t: '仓库里攒下 120 晶体电池', k: 'res', r: 'battery', n: 120 }, { t: '一共完成 8 项研究', k: 'tech', n: 8 }, { t: '一共探索 5 处雾里的地点', k: 'site', n: 5 }],
+    tasks: [{ t: '恒温合金产量稳住 16/分钟', k: 'rate', r: 'alloy', n: 16 }, { t: '一共完成 8 项研究', k: 'tech', n: 8 }, { t: '一共探索 5 处雾里的地点', k: 'site', n: 5 }],
     reward: { res: { battery: 60, alloy: 60 }, bank: 200 }, end: '电池里的光，比废墟里的晶体暖一些。' },
   { n: '第六章 · 天外来客', story: '没人知道这艘巨大的残骸从哪里来。自动机还在里面游荡，像在等它们的主人。',
-    tasks: [{ t: '仓库里攒下 100 星铁', k: 'res', r: 'star', n: 100 }, { t: '所有营地加起来有 250 人', k: 'people', n: 250 }, { t: '让每个营地的不满都在 30 以下', k: 'calm', n: 30 }],
+    tasks: [{ t: '古代构件产量稳住 20/分钟', k: 'rate', r: 'part', n: 20 }, { t: '所有营地加起来有 250 人', k: 'people', n: 250 }, { t: '让每个营地的不满都在 30 以下', k: 'calm', n: 30 }],
     reward: { res: { part: 60, star: 60 }, people: 15 }, end: '自动机第一次听从了人的指令，扛起了雪橇。' },
   { n: '终章 · 永不熄灭', story: '传说是真的。永恒之炉就在眼前，冰冷、巨大、沉默。它在等最后一程的人。',
-    tasks: [{ t: '送进第一层炉件', k: 'eternal', n: 1 }, { t: '送进第二层炉件', k: 'eternal', n: 2 }, { t: '重燃永恒之炉', k: 'eternal', n: 3 }],
+    tasks: [{ t: '炉件稳住 3/分钟，点亮第一层', k: 'eternal', n: 1 }, { t: '炉件稳住 6/分钟，点亮第二层', k: 'eternal', n: 2 }, { t: '炉件稳住 10/分钟，重燃永恒之炉', k: 'eternal', n: 3 }],
     reward: { hope: 20 }, end: '火光沿着一路留下的营地向南蔓延。' },
 ];
 

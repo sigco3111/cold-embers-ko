@@ -43,6 +43,9 @@ export function journeyOf(S) {
     }
     S.journey = { stage, main: main.id, trip: null, fleet: { sled: 0, tractor: 0 }, plan: {}, legs: [], ruins: [] };
     if (S.t > 0) for (const c of S.camps) if (c.id !== main.id) c.depot = true;
+    // 章节任务换了（第一项改成产能目标）：领过奖的章节照旧算完，没领的按新任务重新算
+    const C = S.chap;
+    if (C && C.ok) for (const key of Object.keys(C.ok)) if (!(C.got || {})[key.split(':')[0]]) delete C.ok[key];
   }
   return S.journey;
 }

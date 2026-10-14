@@ -268,7 +268,12 @@ function synergyOf(S, type, x, y, selfId) {
 export const SYN_PER = 0.12;
 
 // 供热圈半径：熔炉等级 + 蒸汽管道
-export function heatRadius(S, camp) { return furnaceRadius(getB(S, camp.furnace).lvl) + (camp.pipe || 0); }
+export function heatRadius(S, camp) { return furnaceRadius(getB(S, camp.furnace).lvl) + (camp.pipe || 0) + (firstLeg(S) ? 2 : 0); }
+// 第一程放宽：人口上限 +10，供热圈 +2 格
+export function firstLeg(S) { return journeyOf(S).stage === 0; }
+// 人口上限：每座营地 12 + 6 × 熔炉等级。帐篷再多，超过上限也没人来；已经超过的不会走
+export function popCap(S, camp) { return 12 + 6 * getB(S, camp.furnace).lvl + (firstLeg(S) ? 10 : 0); }
+export function popRoom(S, camp) { return popCap(S, camp) - camp.people - awayOf(S, camp); }
 // 营地基建
 export function infraCost(S, camp, k) { const L = INFRA[k].lv[(camp[k] || 0) + 1]; return L ? L.cost : null; }
 export function upgradeInfra(S, cid, k) {
@@ -1081,6 +1086,8 @@ export function step(S, dt) {
   }
   regrow(S, dt);
   for (const camp of S.camps) campStep(S, camp, dt, w);
+  rateStep(S, dt);
+  holdStep(S, dt);
   researchStep(S, dt);
   linesStep(S, dt);
   scoutsStep(S, dt);
@@ -1435,7 +1442,7 @@ function campStep(S, camp, dt, w) {
     if (housing > 0 && over > 0) { camp.people -= over; camp.wait = (camp.wait || 0) + over; trimWorkers(S, camp); }
   }
   if (camp.wait > 0) {
-    const k = Math.min(camp.wait, Math.floor(housing - camp.people - away));
+    const k = Math.min(camp.wait, Math.floor(housing - camp.people - away), Math.floor(popRoom(S, camp)));
     if (k >= 1) {
       camp.wait -= k; camp.people += k;
       for (let i = 0; i < Math.min(k, 6); i++) R.fx.push({ kind: 'arrive', camp: camp.id });
@@ -1600,6 +1607,7 @@ function campStep(S, camp, dt, w) {
       if (over > 0 && camp.trade) tradeOverflow(S, camp, k, over, cap, cr, d);
       st[k] = Math.min(cap, (st[k] || 0) + amt);
       S.stats.prod[k] = (S.stats.prod[k] || 0) + amt;
+      (R.made || (R.made = {}))[k] = (R.made[k] || 0) + amt;
       if (d.gather) depleteSpots(S, b, amt * spotShare);
     }
     br.act = Math.min(1, br.staff * workEff * hf * lim);
@@ -1647,11 +1655,11 @@ function campStep(S, camp, dt, w) {
     logMsg(S, `「${camp.name}」有人没能熬过去（${hunger > 0.05 ? '饥饿' : '严寒'}）。`, 'bad');
   }
   // 新人投奔
-  const free = housing - camp.people - away - (camp.wait || 0);
+  const free = Math.min(housing, popCap(S, camp)) - camp.people - away - (camp.wait || 0);
   const canArrive = free >= 1 && (cr.foodNet == null || cr.foodNet >= EAT * 1.5) && (st.food || 0) > camp.people * EAT * 30 && tH >= -2 && !w.blizzard && hunger === 0;
   if (canArrive) {
     camp.arriveAcc += (0.12 + 0.03 * fb.lvl) * (camp.people < 20 ? 3 : 1) * (1 + 0.15 * up(S, 'people') + ((focusOf(camp) || {}).arrive || 0)) * (0.7 + 0.6 * (camp.hope ?? 50) / 100) / 60 * dt; // 开局人少时来得快；希望越高来得越快
-    while (camp.arriveAcc >= 1 && camp.people + away < housing) {
+    while (camp.arriveAcc >= 1 && camp.people + away < Math.min(housing, popCap(S, camp))) {
       camp.arriveAcc -= 1; camp.people++; S.stats.arrivals++;
       R.fx.push({ kind: 'arrive', camp: camp.id });
     }
@@ -1833,7 +1841,7 @@ function linesStep(S, dt) {
       if (!from || !to) continue;
       if (r.res === 'people') {
         r.acc = (r.acc || 0) + dt / 90 * Math.min(1, lineCap(S, l) / 12);
-        let free = Math.floor(freeBeds(S, to));
+        let free = Math.floor(Math.min(freeBeds(S, to), popRoom(S, to)));
         while (r.acc >= 1) { r.acc -= 1; if (free >= 1 && from.people > MIN_PEOPLE + 3) { from.people--; to.people++; free--; trimWorkers(S, from); } }
         continue;
       }
@@ -2371,8 +2379,49 @@ function chapVal(S, q) {
     case 'line': return S.lines.length;
     case 'calm': return Math.round(Math.max(...S.camps.map(c => c.disc ?? 10)));
     case 'eternal': return S.eternal ? S.eternal.stage : 0;
+    case 'rate': return Math.round(prodRate(S, q.r) * 10) / 10;
   }
   return 0;
+}
+// ---------- 产能：每种材料每分钟做出多少（所有营地加起来，下游拿去用了也照算）----------
+export const HOLD = 180; // 速度在目标以上撑满 3 分钟（游戏时间）就算达标；掉下来时按一半的速度往回退
+export function prodRate(S, k) { return (S.pr && S.pr[k]) || 0; }
+function rateStep(S, dt) {
+  const R = rt(S), made = R.made || {};
+  R.made = {};
+  if (dt <= 0) return;
+  const P = S.pr || (S.pr = {}), a = 1 - Math.exp(-dt / 20);
+  for (const k of RES_KEYS) {
+    const inst = (made[k] || 0) / dt * 60, v = P[k] || 0;
+    if (!inst && !v) continue;
+    const nv = v + (inst - v) * a;
+    if (nv < 0.005) delete P[k]; else P[k] = nv;
+  }
+}
+export function holdOf(S, id) { return (S.hold && S.hold[id]) || { p: 0, done: false }; }
+function holdTick(S, id, rate, n, dt) {
+  const H = S.hold || (S.hold = {}), h = H[id] || (H[id] = { p: 0, done: false });
+  if (h.done) return h;
+  h.p = rate >= n - 1e-9 ? h.p + dt : Math.max(0, h.p - dt / 2);
+  if (h.p >= HOLD) { h.p = HOLD; h.done = true; }
+  return h;
+}
+// 现在要稳住的产能目标：已开始的章节里还没达标的产能任务，加上永恒之炉这一层
+export function rateGoals(S) {
+  const out = [];
+  const C = chapState(S);
+  for (const i of S.founded) {
+    const ch = CHAPTERS[i]; if (!ch) continue;
+    ch.tasks.forEach((q, k) => { if (q.k === 'rate' && !C.ok[i + ':' + k]) out.push({ id: `c${i}:${k}`, r: q.r, n: q.n, t: q.t, ch: i }); });
+  }
+  if (eternalCamp(S) && S.eternal.stage < ETERNAL_STAGES.length) out.push({ id: `e${S.eternal.stage}`, r: 'heart', n: ETERNAL_STAGES[S.eternal.stage], t: `永恒炉件稳住 ${ETERNAL_STAGES[S.eternal.stage]}/分钟`, eternal: true });
+  return out;
+}
+function holdStep(S, dt) {
+  for (const g of rateGoals(S)) {
+    const h = holdTick(S, g.id, prodRate(S, g.r), g.n, dt);
+    if (h.done && g.eternal) lightEternal(S);
+  }
 }
 // 已开始的章节（= 这一程到过的地标），最新的在最后
 export function chapters(S) {
@@ -2380,8 +2429,9 @@ export function chapters(S) {
   return S.founded.slice().sort((a, b) => a - b).map(i => {
     const ch = CHAPTERS[i];
     const tasks = ch.tasks.map((q, k) => {
-      const cur = chapVal(S, q), ok = !!C.ok[i + ':' + k] || (q.k === 'calm' ? cur <= q.n : cur >= q.n);
-      return { t: q.t, cur, n: q.n, ok, low: q.k === 'calm' };
+      const cur = chapVal(S, q), rate = q.k === 'rate';
+      const ok = !!C.ok[i + ':' + k] || (rate ? holdOf(S, `c${i}:${k}`).done : q.k === 'calm' ? cur <= q.n : cur >= q.n);
+      return { t: q.t, cur, n: q.n, ok, low: q.k === 'calm', rate, r: q.r, hold: rate ? holdOf(S, `c${i}:${k}`).p : 0 };
     });
     return { i, ch, tasks, done: tasks.every(t => t.ok), got: !!C.got[i] };
   });
@@ -2514,23 +2564,26 @@ export function eternalCamp(S) {
   const l = LANDMARKS[6];
   return S.camps.find(c => Math.hypot(c.x - l.x, c.y - l.row) <= FOUND_DIST + 2) || null;
 }
+// 永恒之炉分三层：永恒炉件的产能在目标以上撑满 3 分钟，炉子吃下这段时间的炉件，亮起一层
+function lightEternal(S) {
+  const c = eternalCamp(S), E = S.eternal, n = ETERNAL_STAGES[E.stage];
+  let eat = n * HOLD / 60;
+  for (const cc of [c, ...S.camps]) { const t = Math.min(eat, cc.stock.heart || 0); cc.stock.heart = (cc.stock.heart || 0) - t; eat -= t; }
+  E.stage++; E.have = 0;
+  if (E.stage >= ETERNAL_STAGES.length) {
+    const first = !S.meta.graduated;
+    S.meta.graduated = true; S.ended = true;
+    logMsg(S, STORY.ending, 'story');
+    rt(S).fx.push({ kind: 'ending', first });
+  } else logMsg(S, `永恒之炉的第 ${E.stage} 层炉膛亮了起来。下一层要永恒炉件稳住 ${ETERNAL_STAGES[E.stage]}/分钟。`, 'story');
+}
+// 老界面的「投入炉件」按钮：现在炉子自己吃，按钮只告诉你还差多少
 export function deliverEternal(S) {
   const c = eternalCamp(S);
-  if (!c) return { ok: false, reason: '先在永恒之炉旁点起熔炉' };
+  if (!c) return { ok: false, reason: '车队还没到永恒之炉' };
   if (S.eternal.stage >= ETERNAL_STAGES.length) return { ok: false, reason: '已经点燃' };
-  const need = ETERNAL_STAGES[S.eternal.stage] - S.eternal.have;
-  const give = Math.min(need, Math.floor(c.stock.heart || 0));
-  if (give <= 0) return { ok: false, reason: '没有永恒炉件' };
-  c.stock.heart -= give; S.eternal.have += give;
-  if (S.eternal.have >= ETERNAL_STAGES[S.eternal.stage]) {
-    S.eternal.stage++; S.eternal.have = 0;
-    if (S.eternal.stage >= ETERNAL_STAGES.length) {
-      S.meta.graduated = true; S.ended = true;
-      logMsg(S, STORY.ending, 'story');
-      rt(S).fx.push({ kind: 'ending' });
-    } else logMsg(S, `永恒之炉的第 ${S.eternal.stage} 层炉膛亮了起来。`, 'story');
-  }
-  return { ok: true };
+  const n = ETERNAL_STAGES[S.eternal.stage];
+  return { ok: false, reason: `永恒炉件的产量稳住 ${n}/分钟 3 分钟，炉子会自己点亮这一层（现在 ${prodRate(S, 'heart').toFixed(1)}/分钟）` };
 }
 
 // ---------- 北迁（重开）----------
