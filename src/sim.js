@@ -5,10 +5,12 @@ import {
   SPECS, specBonus, specTrainCost, EMBER_UPS, emberCost, RAIDERS, STORY, DAY_LEN, LAWS, LAW_CD, TECHS, SITES, CHAPTERS, INFRA, LM_R, FAR_MARKS, DIFF, DIFF_KEYS, FOCUS, FOCUS_KEYS, FOCUS_LVL, FOCUS_CD,
 } from './data.js';
 import { W, H, T_SNOW, T_ICE, getWorld, idx, inMap, hash3, mulberry32 } from './worldgen.js';
+import { journeyOf, journeyStep, mainCamp, outpostBlock, outpostKit, moveFuel, fuelUnits, stopOf } from './journey.js';
+export * from './journey.js';
 
 export const VERSION = 1;
-const MIN_PEOPLE = 3;          // 营地永远不会全灭
-const EAT = 0.22;              // 每人每分钟熟食
+export const MIN_PEOPLE = 3;          // 营地永远不会全灭
+export const EAT = 0.22;              // 每人每分钟熟食
 const HAUL_SPEED = 1.6;        // 格/秒
 const SCOUT_SPEED = 0.35;      // 格/秒
 const BLIZ_P = 12600, BLIZ_FIRST = 2400, BLIZ_WARN = 600;
@@ -18,8 +20,8 @@ export const OD_FUEL = 2, OD_UP = 100 / 1800, OD_DOWN = 100 / 1200, OD_STALL = 3
 export const odBoost = lvl => 6 + 0.2 * furnaceHeat(lvl);
 const RAID_P = 14400, RAID_FIRST = 5400, RAID_WARN = 150;
 export const RAID_PREP = 900, RAID_AUTO = 300; // 提前 15 分钟发现袭击者，可以备战；没人下令的话 5 分钟前自动备战
-const FOUND_DIST = 14;         // 熔炉离地标多近算“到达”
-const CAMP_GAP = 18;           // 两座熔炉之间的最小距离
+export const FOUND_DIST = 14;         // 熔炉离地标多近算“到达”
+export const CAMP_GAP = 18;           // 两座熔炉之间的最小距离
 
 // ---------- 元数据（跨轮保留）----------
 export function defaultMeta() {
@@ -45,6 +47,7 @@ export function newRun(meta, site = 0, seed) {
   const fx = L.x - 1, fy = site === 0 ? L.row - 1 : L.row - 8; // 地标遗迹在营地北边
   const camp = makeCamp(S, fx, fy, L.n);
   S.active = camp.id;
+  S.journey = { stage: site, main: camp.id, trip: null, fleet: { sled: 0, tractor: 0 }, plan: {}, legs: [], ruins: [] };
   const k = site;
   // 越往北起点：熔炉等级更高、人更多，但更冷
   const supply = 1 + 0.5 * up(S, 'supply');
@@ -106,7 +109,7 @@ function starterKit(S, camp, k) {
   return Object.keys(got).map(t => BLD[t].n + (got[t] > 1 ? ' ×' + got[t] : '')).join('、');
 }
 
-function makeCamp(S, fx, fy, name) {
+export function makeCamp(S, fx, fy, name) {
   const id = S.nextId++;
   const camp = { id, name, stock: {}, people: 0, wait: 0, popFix: 1, bots: 0, cores: 0, furnace: 0, x: fx + 1.5, y: fy + 1.5, deathAcc: 0, arriveAcc: 0, temp: 0, fuelPref: 'auto' };
   S.camps.push(camp);
@@ -184,7 +187,7 @@ export function revealCircle(S, cx, cy, r) {
     if (!S.reveal[i]) { S.reveal[i] = 1; changed = true; }
   }
   if (!changed) return;
-  rt(S).revealDirty = true;
+  rt(S).revealDirty = true; rt(S).revealN = (rt(S).revealN || 0) + 1;
   // 解锁新层（看到了更北的纬度）
   const top = Math.min(H - 1, Math.floor(cy + r));
   const t = tierOfRow(top);
@@ -196,7 +199,7 @@ export function revealCircle(S, cx, cy, r) {
     if (S.discovered.includes(i)) return;
     if ((l.x - cx) ** 2 + (l.row - cy) ** 2 <= r * r) {
       S.discovered.push(i);
-      if (i > 0) logMsg(S, `发现地标「${l.n}」：${l.desc} 在附近点起熔炉，它就会成为以后可以出发的营地。`, 'story');
+      if (i > 0) logMsg(S, `发现地标「${l.n}」：${l.desc} 车队北迁到这里时，它就是新的主营地。`, 'story');
     }
   });
   void W0;
@@ -395,7 +398,7 @@ export function upgradeCost(S, b) {
   return out;
 }
 export function canAfford(stock, cost) { for (const k in cost) if ((stock[k] || 0) < cost[k] - 1e-9) return false; return true; }
-function pay(stock, cost) { for (const k in cost) stock[k] = (stock[k] || 0) - cost[k]; }
+export function pay(stock, cost) { for (const k in cost) stock[k] = (stock[k] || 0) - cost[k]; }
 export function missing(stock, cost) { const m = []; for (const k in cost) if ((stock[k] || 0) < cost[k]) m.push(`${RES[k].n} ${Math.ceil(cost[k] - (stock[k] || 0))}`); return m; }
 
 // ---------- 摆放 ----------
@@ -433,6 +436,7 @@ export function checkPlace(S, type, x, y, selfQ = 0) {
   const w = getWorld(S.runSeed);
   const res = { ok: false, reason: '', camp: -1, dist: 0, spots: 0, syn: 0, cost: null };
   if (!unlocked(S, type)) { res.reason = `需要先侦察到「${['', '篝火', '煤与铁', '钢与蒸汽', '油与铁路', '霜晶', '遗迹金属', '炉心'][d.t]}」纬度`; return res; }
+  if (type === 'furnace') { const why = outpostBlock(S, y + 1.5); if (why) { res.reason = why; return res; } }
   for (let yy = y; yy < y + s; yy++) for (let xx = x; xx < x + s; xx++) {
     if (!inMap(xx, yy)) { res.reason = '超出地图'; return res; }
     const i = idx(xx, yy);
@@ -452,11 +456,16 @@ export function checkPlace(S, type, x, y, selfQ = 0) {
   if (type === 'furnace') {
     const cx = x + 1.5, cy = y + 1.5;
     for (const c of S.camps) if (Math.hypot(c.x - cx, c.y - cy) < CAMP_GAP) { res.reason = `离「${c.name}」太近（至少 ${CAMP_GAP} 格）`; return res; }
-    const payer = getCamp(S, S.active) || S.camps[0];
+    const act = getCamp(S, S.active), payer = act && !act.depot ? act : mainCamp(S);
     res.camp = payer.id;
     res.cost = buildCost(S, type, payer.id, y);
     if (payer.people < 16) { res.reason = `「${payer.name}」至少要有 16 人才能分出先遣队`; return res; }
-    if (!canAfford(payer.stock, res.cost)) { res.reason = '缺：' + missing(payer.stock, res.cost).join('，'); res.soft = true; return res; }
+    // 先遣队路上和开头要吃要烧：离得越远带得越多
+    const kit = res.kit = outpostKit(S, payer, cx, cy);
+    const all = { ...res.cost }; all.food = (all.food || 0) + kit.food;
+    const short = missing(payer.stock, all);
+    if (fuelUnits(payer.stock) < kit.fuel + 1e-9) short.push(`燃料 ${Math.ceil(kit.fuel - fuelUnits(payer.stock))} 份`);
+    if (short.length) { res.reason = '缺：' + short.join('，'); res.soft = true; return res; }
     res.ok = true; return res;
   }
   // 普通建筑：整块都要在同一营地的供热区
@@ -490,14 +499,13 @@ export function place(S, type, x, y) {
     payer.people -= move; camp.people += move;
     trimWorkers(S, payer);
     getB(S, camp.furnace).lvl = 2 + 2 * (tierOfRow(camp.y) - 1); // 越往北，前哨熔炉一开始就要烧得越旺
-    // 先遣队带上口粮和燃料
-    for (const [k, n] of [['food', 150], ['wood', 200], ['coal', 80], ['plank', 60]]) {
-      const take = Math.min(payer.stock[k] || 0, n);
-      payer.stock[k] = (payer.stock[k] || 0) - take; camp.stock[k] = (camp.stock[k] || 0) + take;
-    }
+    // 先遣队带上口粮和燃料，再顺手捎点木板
+    payer.stock.food -= c.kit.food; camp.stock.food = (camp.stock.food || 0) + c.kit.food;
+    moveFuel(payer.stock, camp.stock, c.kit.fuel);
+    { const take = Math.min(payer.stock.plank || 0, 60); payer.stock.plank = (payer.stock.plank || 0) - take; camp.stock.plank = (camp.stock.plank || 0) + take; }
     revealCircle(S, camp.x, camp.y, 8);
     markFounded(S, camp);
-    logMsg(S, `新熔炉点燃：「${camp.name}」。${move} 人从「${payer.name}」出发前往。记得用运输线把两座营地连起来。`, 'good');
+    logMsg(S, `前哨营地点燃：「${camp.name}」。${move} 人从「${payer.name}」出发前往，带了 ${c.kit.food} 份口粮和 ${c.kit.fuel} 份燃料。记得用运输线把两座营地连起来。`, 'good');
     S.active = camp.id;
     dirty(S);
     return { ok: true, id: camp.furnace, camp: camp.id };
@@ -513,7 +521,7 @@ export function place(S, type, x, y) {
   return { ok: true, id: b.id };
 }
 const CLEARABLE = { tree: { wood: 20 }, rock: { stone: 20 }, herd: { game: 6 } };
-function clearFootprint(S, type, x, y, cid) {
+export function clearFootprint(S, type, x, y, cid) {
   const w = getWorld(S.runSeed), s = BLD[type].size, camp = getCamp(S, cid);
   let n = 0;
   for (let yy = y; yy < y + s; yy++) for (let xx = x; xx < x + s; xx++) {
@@ -559,19 +567,22 @@ function nearLandmarkName(cx, cy) {
   for (const l of LANDMARKS) if (Math.hypot(l.x - cx, l.row - cy) <= FOUND_DIST) return l.n;
   return null;
 }
-function markFounded(S, camp) {
+export function markFounded(S, camp) {
   LANDMARKS.forEach((l, i) => {
     if (Math.hypot(l.x - camp.x, l.row - camp.y) > FOUND_DIST) return;
     if (!S.founded.includes(i)) { S.founded.push(i); if (S.t > 0) rt(S).fx.push({ kind: 'chapter', i }); }
     if (!S.discovered.includes(i)) S.discovered.push(i);
     if (!S.meta.sites.includes(i)) {
       S.meta.sites.push(i); S.meta.sites.sort((a, b) => a - b);
-      if (i > 0) logMsg(S, `抵达「${l.n}」！以后北迁时，可以直接从这里出发。`, 'story');
+      if (i > 0) { const e = arriveEmbers(S, i, true); S.meta.embers += e; S.meta.emberTotal = (S.meta.emberTotal || 0) + e; logMsg(S, `第一次抵达「${l.n}」！带来 ${e} 点余烬。`, 'story'); }
       if (S.t > 0) for (const c of S.camps) bumpMood(c, 12, -5);
     }
     S.meta.best = Math.max(S.meta.best || 0, i);
   });
 }
+
+// 第一次到达地标给的余烬（新的北行里再到一次只给一点）
+export function arriveEmbers(S, i, first) { return Math.round((first ? 15 * i : 5) * (1 + relicSum(S, 'ember')) * diffOf(S).ember); }
 
 export function assignedWorkers(S, cid) { let n = 0; for (const b of S.buildings) if (b.camp === cid) n += b.workers; return n; }
 export function idleLabor(S, camp) { return camp.people + camp.bots - assignedWorkers(S, camp.id) - scoutsOut(S, camp.id); }
@@ -1074,6 +1085,7 @@ export function step(S, dt) {
   linesStep(S, dt);
   scoutsStep(S, dt);
   raidsStep(S, dt);
+  journeyStep(S, dt);
   R.chapT = (R.chapT || 0) + dt; if (R.chapT >= 1) { R.chapT = 0; chapterStep(S); farStep(S); gangsStep(S); }
   R.qT = (R.qT || 0) + dt; if (R.qT >= 2) { R.qT = 0; queueStep(S); caravanStep(S); }
   R.bookT = (R.bookT || 0) + dt; if (R.bookT >= 3) { R.bookT = 0; bookTick(S); }
@@ -1321,7 +1333,7 @@ function caravanStep(S) {
 // 自动把空闲的人派到缺人的建筑（吃饭、取暖优先）
 const AUTO_ORDER = ['kitchen', 'hunter', 'greenhouse', 'lumber', 'nursery', 'coalmine', 'warehouse', 'tower', 'heater'];
 function autoPr(t) { const i = AUTO_ORDER.indexOf(t); return i < 0 ? 50 + BLD[t].t : i; }
-function autoAssign(S, camp) {
+export function autoAssign(S, camp) {
   if (camp.auto === false) return;
   const R = rt(S), FULL = '仓库满了';
   const st = b => (R.b[b.id] || {}).status;
@@ -1705,7 +1717,7 @@ function tradeOverflow(S, camp, k, over, cap, cr, d) {
   tl[key] = (tl[key] || 0) + gain;
 }
 export function fuelUnitsOf(st) { let u = 0; for (const f in FUEL) u += (st[f] || 0) * FUEL[f]; return u; }
-function trimWorkers(S, camp) {
+export function trimWorkers(S, camp) {
   let over = assignedWorkers(S, camp.id) - (camp.people + camp.bots);
   if (over <= 0) return;
   const bs = S.buildings.filter(b => b.camp === camp.id && b.workers > 0).sort((a, b) => autoPr(b.type) - autoPr(a.type));
@@ -2381,8 +2393,9 @@ function chapterStep(S) {
     if (c.done && !c.got && !C.told?.[c.i]) { C.told = C.told || {}; C.told[c.i] = 1; logMsg(S, `「${c.ch.n}」的任务都完成了，去领取奖励吧。`, 'story'); }
   }
 }
+export const chapterEmbers = (S, i) => Math.round((10 + 5 * i) * (1 + relicSum(S, 'ember')) * diffOf(S).ember);
 export function chapterReward(S, i) {
-  const r = CHAPTERS[i].reward, out = [];
+  const r = CHAPTERS[i].reward, out = [`🔥 余烬 ${chapterEmbers(S, i)}`];
   if (r.res) for (const k in r.res) if (RES[k].t <= Math.max(S.known, 1)) out.push(`${RES[k].n} ${r.res[k]}`);
   if (r.people) out.push(`${r.people} 名新成员`);
   if (r.hope) out.push(`所有营地希望 +${r.hope}`);
@@ -2394,6 +2407,7 @@ export function claimChapter(S, i) {
   if (!c || !c.done || c.got) return null;
   const C = chapState(S), r = c.ch.reward, camp = getCamp(S, S.active) || S.camps[0];
   C.got[i] = 1;
+  { const e = chapterEmbers(S, i); S.meta.embers += e; S.meta.emberTotal = (S.meta.emberTotal || 0) + e; }
   if (r.res) for (const k in r.res) if (RES[k].t <= Math.max(S.known, 1)) camp.stock[k] = (camp.stock[k] || 0) + r.res[k];
   if (r.people) addPeople(S, camp, r.people);
   if (r.hope) for (const cc of S.camps) bumpMood(cc, r.hope, 0);
@@ -2421,7 +2435,7 @@ export function raidDefense(S, camp, nr) {
   return d;
 }
 // 先烧不值钱的燃料
-function burnUnits(st, need) { for (const f of [...FUEL_ORDER].reverse()) { if (need <= 0) break; const take = Math.min(st[f] || 0, need / FUEL[f]); st[f] = (st[f] || 0) - take; need -= take * FUEL[f]; } }
+export function burnUnits(st, need) { for (const f of [...FUEL_ORDER].reverse()) { if (need <= 0) break; const take = Math.min(st[f] || 0, need / FUEL[f]); st[f] = (st[f] || 0) - take; need -= take * FUEL[f]; } }
 export function doPrep(S, kind, auto) {
   const nr = nextRaid(S); if (!nr || nr.in > RAID_PREP) return { ok: false, reason: '眼下没有袭击要来' };
   const camp = getCamp(S, nr.camp);
@@ -2529,13 +2543,12 @@ export function emberGain(S) {
   if (S.eternal.stage) g += 100 * S.eternal.stage;
   return Math.max(0, Math.floor(g * (1 + relicSum(S, 'ember')) * diffOf(S).ember * (S.t < 1800 ? 0 : 1)));
 }
-export function migrate(S, site) {
-  const gain = emberGain(S);
-  const meta = S.meta;
-  meta.embers += gain; meta.emberTotal = (meta.emberTotal || 0) + gain;
-  if (!meta.sites.includes(site)) site = 0;
-  const N = newRun(meta, site);
-  logMsg(N, `带来了 ${gain} 点余烬。`, 'good');
+// 不再随时重开：只有点燃永恒之炉（通关）以后，才能开一局新的北行，从灰烬营地重新出发。
+// 余烬、强化、专家、收集册和遗物都在 meta 里，跟着走
+export function migrate(S) {
+  if (!S.meta.graduated) return S;
+  const N = newRun(S.meta, 0);
+  logMsg(N, `新的北行开始了。上一程留下的 ${Math.floor(S.meta.embers)} 点余烬还在发烫。`, 'good');
   return N;
 }
 export function buyEmber(S, key) {
@@ -2558,8 +2571,9 @@ export function catchUp(S, secs, rate = OFFLINE_RATE) {
   let left = secs;
   const R = rt(S), t0 = S.t;
   if (rate < 1) R.histOff = { stock: camp0, rate };
+  R.offline = true;
   while (left > 0) { const d = Math.min(dt, left); step(S, d); left -= d; }
-  R.histOff = null;
+  R.histOff = null; R.offline = false;
   if (rate < 1) offlineTrim(S, camp0, rate);
   // 曲线上标出离线的那一段
   if (secs >= 60) for (const c of S.camps) { const H = c.hist || (c.hist = {}); (H.off || (H.off = [])).push([Math.round(t0), Math.round(S.t)]); if (H.off.length > 16) H.off.shift(); }
