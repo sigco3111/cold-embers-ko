@@ -410,6 +410,7 @@ export function upgradeCost(S, b) {
   }
   if (b.type === 'furnace' && L >= 8) out.engine = Math.round(4 * Math.pow(UP_GROW, L - 8) * m);
   if (b.type === 'furnace' && L >= 18) out.battery = Math.round(10 * Math.pow(UP_GROW, L - 18) * m);
+  if (b.type === 'furnace' && L >= 35) out.starcore = Math.round(6 * Math.pow(UP_GROW, L - 35) * m); // 35 级以后要星核
   return out;
 }
 export function canAfford(stock, cost) { for (const k in cost) if ((stock[k] || 0) < cost[k] - 1e-9) return false; return true; }
@@ -441,7 +442,10 @@ export function storeCap(S, camp) {
   for (const b of S.buildings) if (b.camp === camp.id && b.type === 'warehouse') cap += BLD.warehouse.store * Math.pow(b.lvl, 1.2);
   return Math.round(cap * (1 + techSum(S, 'cap')));
 }
-export function unlocked(S, type) { return BLD[type].t <= S.known; }
+export function unlocked(S, type) { const d = BLD[type]; return d.t <= S.known && (!d.stage || journeyOf(S).stage >= d.stage); }
+// 永恒之炉以北的新东西：走到那一程才解锁
+export const stageLock = (S, type) => { const d = BLD[type]; return d.stage && journeyOf(S).stage < d.stage ? `走到「${stopOf(S, d.stage).n}」才能建` : ''; };
+export const forecastOf = S => FORECAST * (journeyOf(S).stage >= 9 ? 2 : 1); // 到了极光观测站，天气预报提前一倍
 // 加工厂不把基础建材吃光：锯木厂不会把木材全锯成木板、炼钢厂不会把铁锭用完——仓库里留两成（最多 300）给建造。
 // 只管前两层的建材；更高层的中间品本来就是为了往下加工，留料会卡住整条链
 export const KEEP_FRAC = 0.2, KEEP_MAX = 300, KEEP_WHY = '留料给建造';
@@ -454,7 +458,8 @@ export function checkPlace(S, type, x, y, selfQ = 0) {
   const s = d.size;
   const w = getWorld(S.runSeed);
   const res = { ok: false, reason: '', camp: -1, dist: 0, spots: 0, syn: 0, cost: null };
-  if (!unlocked(S, type)) { res.reason = `需要先侦察到「${['', '篝火', '煤与铁', '钢与蒸汽', '油与铁路', '霜晶', '遗迹金属', '炉心'][d.t]}」纬度`; return res; }
+  if (!Number.isFinite(x) || !Number.isFinite(y)) { res.reason = '超出地图'; return res; }
+  if (!unlocked(S, type)) { res.reason = d.t <= S.known ? stageLock(S, type) : `需要先侦察到「${['', '篝火', '煤与铁', '钢与蒸汽', '油与铁路', '霜晶', '遗迹金属', '炉心'][d.t]}」纬度`; return res; }
   if (type === 'furnace') { const why = outpostBlock(S, y + 1.5); if (why) { res.reason = why; return res; } }
   for (let yy = y; yy < y + s; yy++) for (let xx = x; xx < x + s; xx++) {
     if (!inMap(xx, yy)) { res.reason = '超出地图'; return res; }
@@ -599,6 +604,16 @@ export function markFounded(S, camp) {
     }
     S.meta.best = Math.max(S.meta.best || 0, i);
   });
+  // 永恒之炉以北的六个远方地标：第 7～12 站，各开一章
+  const far = getWorld(S.runSeed).far || [];
+  far.forEach((p, j) => {
+    const i = LANDMARKS.length + j;
+    if (!CHAPTERS[i] || Math.hypot(p.x + 0.5 - camp.x, p.y + 0.5 - camp.y) > FOUND_DIST + 2) return;
+    if (!S.founded.includes(i)) { S.founded.push(i); if (S.t > 0) rt(S).fx.push({ kind: 'chapter', i }); }
+    const fa = S.meta.farArr || (S.meta.farArr = {});
+    if (!fa[j]) { fa[j] = 1; const e = arriveEmbers(S, i, true); S.meta.embers += e; S.meta.emberTotal = (S.meta.emberTotal || 0) + e; logMsg(S, `第一次抵达「${FAR_MARKS[j].n}」！带来 ${e} 点余烬。`, 'story'); if (S.t > 0) for (const c of S.camps) bumpMood(c, 12, -5); }
+    S.meta.best = Math.max(S.meta.best || 0, i);
+  });
 }
 
 // 第一次到达地标给的余烬（新的北行里再到一次只给一点）
@@ -620,6 +635,7 @@ export function upgrade(S, bid) {
   const camp = getCamp(S, b.camp);
   if (depotAuto(camp)) return { ok: false, reason: `「${camp.name}」是补给站，自己运转，不升级（要升先「临时接手」）` };
   const cost = upgradeCost(S, b);
+  if (cost.starcore && journeyOf(S).stage < RES.starcore.stage) return { ok: false, reason: `熔炉 35 级以后要用星核：走到「${stopOf(S, RES.starcore.stage).n}」才挖得到` };
   for (const k in cost) if (RES[k].t > S.known) return { ok: false, reason: `需要「${RES[k].n}」——先往北侦察到它所在的纬度` };
   if (!canAfford(camp.stock, cost)) return { ok: false, reason: '缺：' + missing(camp.stock, cost).join('，') };
   pay(camp.stock, cost);
@@ -845,7 +861,7 @@ export function wxeMatters(S, camp, ev) {
 }
 export function wxePrep(S, cid) {
   const c = getCamp(S, cid), e = wxeAt(S, S.t), ev = e.ev;
-  if (!c || !ev || (!e.on && e.inSec > FORECAST)) return { ok: false, reason: '眼下没有这样的天气预报' };
+  if (!c || !ev || (!e.on && e.inSec > forecastOf(S))) return { ok: false, reason: '眼下没有这样的天气预报' };
   if (wxePrepped(S, c, ev)) return { ok: false, reason: '已经准备好了' };
   if (!wxeMatters(S, c, ev)) return { ok: false, reason: '这座营地不用准备' };
   const cost = wxePrepCost(S, c, ev);
@@ -1102,7 +1118,7 @@ export function step(S, dt) {
   const wx = S.wx || (S.wx = { last: R.lastBliz ?? -1, warn: -1, fc: -1 });
   if (w.blizzard && wx.last !== w.slot.k) { wx.last = w.slot.k; S.stats.blizzards++; logMsg(S, `暴风雪来了！气温骤降，室外的人会冻伤。${S.camps.some(c => c.odAuto !== false) ? '熔炉已自动超载顶住寒潮。' : ''}`, 'bad'); }
   if (w.warn && wx.warn !== w.slot.k) { wx.warn = w.slot.k; logMsg(S, `暴风雪将在 ${Math.ceil(w.inSec / 60)} 分钟后到来，备足燃料和熟食。`, 'warn', { act: 'wx', label: '备战' }); }
-  if (!w.blizzard && !w.warn && w.next <= FORECAST && wx.fc !== w.slot.k) {
+  if (!w.blizzard && !w.warn && w.next <= forecastOf(S) && wx.fc !== w.slot.k) {
     wx.fc = w.slot.k;
     const c = getCamp(S, S.active) || S.camps[0];
     logMsg(S, `❄ 气象预报：约 ${Math.round(w.next / 60)} 分钟后有一场暴风雪，持续约 ${Math.round((w.slot.end - w.slot.start) / 60)} 分钟，「${c.name}」会降温 ${Math.round(slotDrop(S, c, w.slot))}°。看看燃料和熟食撑不撑得住。`, 'warn', { act: 'wx', label: '备战' });
@@ -1119,7 +1135,7 @@ export function step(S, dt) {
       wx.ew = k; wx.ef = k;
       const need = S.camps.filter(c => wxeMatters(S, c, we.ev) && !wxePrepped(S, c, we.ev));
       logMsg(S, `${E.ic} ${E.n}还有 ${Math.ceil(we.inSec / 60)} 分钟就到。${need.length ? `还没准备的营地：${need.map(c => `「${c.name}」`).join('')}。` : ''}`, 'warn', { act: 'wx', label: '准备' });
-    } else if (!we.on && we.inSec <= FORECAST && wx.ef !== k) {
+    } else if (!we.on && we.inSec <= forecastOf(S) && wx.ef !== k) {
       wx.ef = k;
       logMsg(S, `${E.ic} 气象预报：约 ${Math.round(we.inSec / 60)} 分钟后有一场${E.n}，持续约 ${Math.round((we.ev.end - we.ev.start) / 60)} 分钟。${wxeMatters(S, c0, we.ev) ? `可以提前「${E.prep}」。` : ''}`, 'warn', { act: 'wx', label: '看看' });
     }
@@ -1316,7 +1332,7 @@ function caravanSpot(S, camp) {
 function makeOrders(S, camp, k) {
   const r = mulberry32((S.runSeed * 131 + k * 7919) | 0), cr = rt(S).c[camp.id] || {}, fl = cr.flow || {}, cap = storeCap(S, camp);
   const ct = Math.max(1, Math.min(tierOfRow(camp.y), S.known));
-  const BAN = ['heart', 'shard', 'core', 'game'];
+  const BAN = ['heart', 'shard', 'core', 'game', 'starcore'];
   let asks = RES_KEYS.filter(q => !BAN.includes(q) && RES[q].t <= ct && RES[q].t >= Math.max(1, ct - 1) && ((fl[q] && fl[q].p > 0.05) || (camp.stock[q] || 0) >= 20));
   if (asks.length < 3) asks = [...new Set([...asks, 'wood', 'stone', 'plank'])];
   // 打乱，三张订单尽量要不同的货
@@ -1324,7 +1340,7 @@ function makeOrders(S, camp, k) {
   const nice = x => x >= 1000 ? Math.round(x / 50) * 50 : x >= 100 ? Math.round(x / 10) * 10 : Math.max(1, Math.round(x));
   const amt = (q, m) => nice(Math.min(cap * 0.6, Math.max(cap * 0.1, ((fl[q] && fl[q].p) || 0) * 30) * m));
   const rt2 = Math.min(S.known, ct + 1);
-  const gifts = RES_KEYS.filter(q => !['heart', 'shard', 'food', 'game'].includes(q) && RES[q].t === rt2 && (rt2 > ct || !RES[q].raw));
+  const gifts = RES_KEYS.filter(q => !['heart', 'shard', 'food', 'game', 'starcore'].includes(q) && RES[q].t === rt2 && (rt2 > ct || !RES[q].raw));
   const out = [];
   const g = gifts[Math.floor(r() * gifts.length)] || 'plank', gi = Math.max(0, asks.findIndex(q => q !== g));
   if (gi) [asks[0], asks[gi]] = [asks[gi], asks[0]]; // 换来的货不能和要的一样
@@ -2426,6 +2442,7 @@ function chapVal(S, q) {
     case 'calm': return Math.round(Math.max(...S.camps.map(c => c.disc ?? 10)));
     case 'eternal': return S.eternal ? S.eternal.stage : 0;
     case 'rate': return Math.round(prodRate(S, q.r) * 10) / 10;
+    case 'veh': { const J = journeyOf(S); return (J.fleet[q.v] || 0) + ((J.trip && J.trip.veh[q.v]) || 0); }
   }
   return 0;
 }
@@ -2585,7 +2602,14 @@ function raidsStep(S, dt) {
     S.stats.raids++;
     const name = RAIDERS[tierOfRow(camp.y)];
     (S.stats.raidKinds ||= {})[name] = (S.stats.raidKinds[name] || 0) + 1;
-    if (def >= str) {
+    // 巨像守卫：派了人、歇够了，就把整次袭营挡在外面
+    const guard = def < str && S.buildings.find(b => b.camp === camp.id && b.type === 'colossus' && b.workers > 0 && !(b.cd > S.t));
+    if (guard) {
+      guard.cd = S.t + BLD.colossus.guardCd / (1 + 0.15 * (guard.lvl - 1));
+      S.stats.raidsWon++; bumpMood(camp, 6, -3);
+      logMsg(S, `🗿 巨像守卫站了起来，${name}（强度 ${str}）一个都没能进「${camp.name}」。守卫要歇 ${Math.round((guard.cd - S.t) / 60)} 分钟。`, 'good');
+      R.fx.push({ kind: 'raid', camp: camp.id, won: true, str, def: str, t: S.t, guard: guard.id });
+    } else if (def >= str) {
       S.stats.raidsWon++;
       const g = Math.round(str * 2);
       camp.stock.game = Math.min(storeCap(S, camp), (camp.stock.game || 0) + g);
@@ -2758,7 +2782,7 @@ export { W, H, mulberry32 };
 export function buffOf(S, camp, k) { let v = 0; if (camp.buffs) for (const b of camp.buffs) if (b.k === k && b.until > S.t) v += b.v; return v; }
 function addBuff(S, camp, k, v, secs, n) { camp.buffs = (camp.buffs || []).filter(b => b.until > S.t); camp.buffs.push({ k, v, until: S.t + secs, n }); }
 const fmtN = x => x >= 100 ? Math.round(x) : Math.round(x * 10) / 10;
-const rawOfTier = t => RES_KEYS.filter(k => RES[k].t === t && RES[k].raw);
+const rawOfTier = t => RES_KEYS.filter(k => RES[k].t === t && RES[k].raw && !RES[k].stage);
 const EVENTS = [
   { id: 'wander', title: '雪地里的流浪者', w: 3,
     ctx: (S, c, r) => ({ n: 3 + Math.floor(r() * 5) }),
@@ -2791,7 +2815,7 @@ const EVENTS = [
     ctx: (S, c, r) => {
       const cap = storeCap(S, c), ks = RES_KEYS.filter(k => RES[k].t <= S.known);
       const give = ks.filter(k => (c.stock[k] || 0) >= cap * 0.6).sort((a, b) => (c.stock[b] || 0) - (c.stock[a] || 0));
-      const want = ks.filter(k => (c.stock[k] || 0) < cap * 0.3 && k !== 'heart' && k !== 'core');
+      const want = ks.filter(k => (c.stock[k] || 0) < cap * 0.3 && k !== 'heart' && k !== 'core' && k !== 'starcore');
       if (!give.length || !want.length) return null;
       const g = give[Math.floor(r() * Math.min(2, give.length))], w = want.filter(k => RES[k].t <= RES[g].t + 1);
       if (!w.length) return null;

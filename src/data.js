@@ -26,6 +26,7 @@ export const RES = {
   core:      { n: '自动机核心', t: 6, c: '#ff80d0' },
   shard:     { n: '炉心碎片', t: 7, c: '#ff9a40', raw: true },
   heart:     { n: '永恒炉件', t: 7, c: '#ffd060' },
+  starcore:  { n: '星核',     t: 7, c: '#e070ff', raw: true, stage: 11 }, // 星落之坑的坑底才有；熔炉 35 级以后升级要用
 };
 export const RES_KEYS = Object.keys(RES);
 
@@ -51,6 +52,7 @@ export const SPOTS = {
   crystal: { n: '霜晶簇',   res: 'crystal', reserve: 1200, from: 200, dens: 0.02 },
   star:    { n: '古代残骸', res: 'star',    reserve: 1400, from: 255, dens: 0.016 },
   shard:   { n: '炉心碎块', res: 'shard',   reserve: 1500, from: 312, dens: 0.02 },
+  starfall:{ n: '星核石',   res: 'starcore', reserve: 1600, from: 9999, dens: 0 }, // 不随纬度撒，只放在星落之坑周围（worldgen 单独放）
 };
 export const SPOT_KEYS = Object.keys(SPOTS);
 
@@ -139,6 +141,10 @@ export const BLD = {
   bay:       { n: '自动机仓', t: 6, size: 2, cat: 'live', w: 0, bots: 8, desc: '装入自动机核心，唤醒不吃饭、不怕冷的自动机工人（每个核心 2 台）。', cost: { alloy: 80, part: 40 } },
 
   excavator: { n: '炉心发掘场', t: 7, size: 2, cat: 'gather', w: 6, gather: ['shard'], out: { shard: 3 }, reach: 3, desc: '在永恒之炉周围发掘炉心碎片。', cost: { alloy: 200, part: 80 }, syn: ['forge'] },
+  // 永恒之炉以北：走到对应的那一程才能建
+  beacon:    { n: '信号灯塔', t: 7, stage: 7, size: 2, cat: 'core', w: 2, reveal: 26, desc: '塔顶的大灯把四周一大片的雾都照开（建好就照，升一级再远 4 格）。要两个人守灯。', cost: { alloy: 120, part: 40, battery: 30 } },
+  colossus:  { n: '巨像守卫', t: 7, stage: 10, size: 3, cat: 'defense', w: 4, power: 0, guardCd: 3600, desc: '照着冻结的巨像造的石头守卫。派了人就能挡住一整次袭营，之后要歇一小时（升级歇得更短）。', cost: { alloy: 300, part: 120, core: 6 } },
+  starpit:   { n: '星核矿', t: 7, stage: 11, size: 2, cat: 'gather', w: 6, gather: ['starfall'], out: { starcore: 2 }, reach: 3, desc: '在星落之坑的坑底凿出发紫光的星核。熔炉 35 级以后升级要用。', cost: { alloy: 260, part: 100, core: 4 } },
   forge:     { n: '炉心锻造所', t: 7, size: 2, cat: 'make', w: 6, in: { shard: 3, part: 2, alloy: 2 }, out: { heart: 0.6 }, desc: '锻造永恒炉件，用来重新点燃永恒之炉。', cost: { alloy: 250, part: 120, core: 5 }, syn: ['excavator'] },
 
   // 装饰：不产东西，让营地好看一点、大家心里亮一点（希望）。同一座营地的装饰合计最多 +16 希望
@@ -202,6 +208,7 @@ export const RAIDERS = [null, '雪狼群', '雪狼群', '掠夺者', '掠夺者'
 export const STORY = {
   intro: '世界在一个冬天里冻住了。传说北方尽头有一座永不熄灭的熔炉——永恒之炉。每一代人北上一程，在途中点起营火，留下余烬，让后来的人走得更远。',
   migrate: '营火将熄，但余烬还在。带上它们和同伴，向北，去下一个营地。',
+  trueEnd: '车队翻上世界之脊的那天，风停了。回头望去，一路上的营火连成一条细细的光，从灰烬营地一直亮到脚下。往北再没有人走过的路——可我们已经知道怎么走了。',
   ending: '永恒之炉重新燃起。火光沿着你们一路留下的营地向南蔓延，冰原第一次听见了融水的声音。旅程结束了——但这座炉子，会一直烧下去。',
 };
 
@@ -226,7 +233,7 @@ export const DIFF_KEYS = ['easy', 'std', 'hard'];
 export const SLOTS = 3; // 存档位
 
 // 营地专精：熔炉 5 级后每座营地选一个方向，强一样、弱一样；换专精要等 30 分钟
-const MINES = ['quarry', 'coalmine', 'ironmine', 'limequarry', 'shalepit', 'crystalmine', 'salvage', 'excavator'];
+const MINES = ['quarry', 'coalmine', 'ironmine', 'limequarry', 'shalepit', 'crystalmine', 'salvage', 'excavator', 'starpit'];
 const FOODS = ['hunter', 'kitchen', 'greenhouse'];
 export const FOCUS = {
   mine: { n: '矿业', ch: '矿', col: '#7f93ab', d: '采石场、煤矿、铁矿这些挖矿的建筑产量 +30%。', bad: '打猎、厨房、温室产量 −10%', up: MINES, upV: 0.3, down: FOODS, downV: -0.1 },
@@ -253,7 +260,7 @@ export const TECH_BR = ['生产', '生存', '后勤'];
 export const TECHS = [
   { id: 'axe', br: 0, n: '钢口斧头', ic: '🪓', t: 1, pts: 12, cost: { wood: 120, stone: 40 }, d: '伐木场、采石场产量 +20%', fx: { bp: { lumber: 0.2, quarry: 0.2 } } },
   { id: 'smoke', br: 0, n: '熏肉架', ic: '🍖', t: 1, pts: 15, cost: { wood: 150, plank: 40 }, d: '猎人小屋、厨房产量 +20%', fx: { bp: { hunter: 0.2, kitchen: 0.2 } } },
-  { id: 'drill', br: 0, n: '蒸汽钻头', ic: '⛏️', t: 2, pts: 40, cost: { plank: 150, iron: 60 }, d: '所有矿场产量 +20%', req: ['axe'], fx: { bp: { coalmine: 0.2, ironmine: 0.2, limequarry: 0.2, shalepit: 0.2, crystalmine: 0.2, salvage: 0.2, excavator: 0.2 } } },
+  { id: 'drill', br: 0, n: '蒸汽钻头', ic: '⛏️', t: 2, pts: 40, cost: { plank: 150, iron: 60 }, d: '所有矿场产量 +20%', req: ['axe'], fx: { bp: { coalmine: 0.2, ironmine: 0.2, limequarry: 0.2, shalepit: 0.2, crystalmine: 0.2, salvage: 0.2, excavator: 0.2, starpit: 0.2 } } },
   { id: 'blast', br: 0, n: '鼓风炉', ic: '🏭', t: 2, pts: 50, cost: { stone: 300, iron: 80 }, d: '冶炼炉、焦煤坊、炼钢厂产量 +20%', req: ['drill'], fx: { bp: { smelter: 0.2, coker: 0.2, steelworks: 0.2 } } },
   { id: 'lathe', br: 0, n: '精密车床', ic: '⚙️', t: 3, pts: 90, cost: { steel: 120, gear: 40 }, d: '齿轮厂、蒸汽机厂、炼油厂、密封件厂产量 +20%', req: ['blast'], fx: { bp: { gearworks: 0.2, engineworks: 0.2, refinery: 0.2, sealworks: 0.2 } } },
   { id: 'cryst', br: 0, n: '晶体切割', ic: '💎', t: 5, pts: 220, cost: { seal: 120, crystal: 120 }, d: '电池、合金、构件、自动机核心、炉件产量 +20%', req: ['lathe'], fx: { bp: { batteryworks: 0.2, alloyworks: 0.2, partworks: 0.2, coreworks: 0.2, forge: 0.2 } } },
@@ -303,6 +310,25 @@ export const CHAPTERS = [
   { n: '终章 · 永不熄灭', story: '传说是真的。永恒之炉就在眼前，冰冷、巨大、沉默。它在等最后一程的人。',
     tasks: [{ t: '炉件稳住 3/分钟，点亮第一层', k: 'eternal', n: 1 }, { t: '炉件稳住 5/分钟，点亮第二层', k: 'eternal', n: 2 }, { t: '炉件稳住 7/分钟，重燃永恒之炉', k: 'eternal', n: 3 }],
     reward: { hope: 20 }, end: '火光沿着一路留下的营地向南蔓延。' },
+  // 永恒之炉以北六程：每程两条线一起稳住，再加一件这一程的新东西
+  { n: '第七章 · 灯塔的微光', story: '冰层里的灯塔还亮着一点微光，像在给北上的人指路。塔下的旧仓库里，晶体电池码得整整齐齐。',
+    tasks: [{ t: '晶体电池产量稳住 16/分钟', k: 'rate', r: 'battery', n: 16 }, { t: '恒温合金产量稳住 16/分钟', k: 'rate', r: 'alloy', n: 16 }, { t: '建 1 座信号灯塔', k: 'bld', b: 'beacon', n: 1 }],
+    reward: { res: { battery: 120, alloy: 80 }, people: 15 }, end: '灯塔重新亮了起来，几十里外都能看见。' },
+  { n: '第八章 · 搁浅的巨船', story: '破冰船的船头还对着北方。它的锅炉冷透了，可船舱里的图纸告诉我们：冰面不是路的尽头。',
+    tasks: [{ t: '古代构件产量稳住 18/分钟', k: 'rate', r: 'part', n: 18 }, { t: '晶体电池产量稳住 18/分钟', k: 'rate', r: 'battery', n: 18 }, { t: '造 1 台破冰车', k: 'veh', v: 'icebreaker', n: 1 }],
+    reward: { res: { part: 100, engine: 40 }, bank: 300 }, end: '破冰车的履带压过冰面，裂缝在它面前合拢。' },
+  { n: '第九章 · 极光之下', story: '观测站的墙上贴满了几十年的暴风雪记录。照着它，我们能比风雪先一步知道它要来。',
+    tasks: [{ t: '古代构件产量稳住 20/分钟', k: 'rate', r: 'part', n: 20 }, { t: '自动机核心产量稳住 4/分钟', k: 'rate', r: 'core', n: 4 }, { t: '建 2 座自动机仓', k: 'bld', b: 'bay', n: 2 }],
+    reward: { res: { core: 12, part: 120 }, hope: 10 }, end: '极光下，自动机和人一起扛着货往北走。' },
+  { n: '第十章 · 跪着的巨人', story: '巨像跪在冰原上，双手撑着地。有人说它不是在守着什么，是在等着谁把它扶起来。',
+    tasks: [{ t: '永恒炉件产量稳住 5/分钟', k: 'rate', r: 'heart', n: 5 }, { t: '自动机核心产量稳住 4/分钟', k: 'rate', r: 'core', n: 4 }, { t: '建 1 座巨像守卫', k: 'bld', b: 'colossus', n: 1 }],
+    reward: { res: { heart: 30, core: 10 }, people: 20 }, end: '石头守卫站了起来，掠夺者远远看见就掉头走了。' },
+  { n: '第十一章 · 星落之地', story: '坑底的石头发着紫光，摸上去是温的。老铁匠说，有了它，熔炉还能烧得更旺。',
+    tasks: [{ t: '星核产量稳住 4/分钟', k: 'rate', r: 'starcore', n: 4 }, { t: '永恒炉件产量稳住 6/分钟', k: 'rate', r: 'heart', n: 6 }, { t: '建 2 座星核矿', k: 'bld', b: 'starpit', n: 2 }],
+    reward: { res: { starcore: 40, heart: 30 }, bank: 400 }, end: '熔炉吃下第一块星核，火焰变成了淡紫色。' },
+  { n: '尾声 · 世界之脊', story: '冰原尽头隆起一道巨大的骨脊。翻过去，就再也没有人走过的路了。我们走到了这里。',
+    tasks: [{ t: '永恒炉件产量稳住 8/分钟', k: 'rate', r: 'heart', n: 8 }, { t: '所有营地加起来有 600 人', k: 'people', n: 600 }, { t: '让一个营地的希望达到 90', k: 'hope', n: 90 }],
+    reward: { hope: 30 }, end: '一路上的营火连成一条线，从灰烬营地一直亮到世界之脊。' },
 ];
 
 // 每到一个新地标，老向导的三句话简报：这一程要做什么、为什么、建议先做哪样

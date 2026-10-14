@@ -169,6 +169,18 @@ export function genWorld(seed) {
     }
     return best;
   });
+  // 星落之坑周围的星核石：单独的随机数，只放在坑外一圈的空雪地上（不影响别处的资源点）
+  { const fk = SPOT_KEYS.indexOf('starfall'), p = far[4], rs = mulberry32(seed * 71 + 5);
+    if (fk >= 0 && p) for (let n = 0, tries = 0; n < 9 && tries < 300; tries++) {
+      const a = rs() * Math.PI * 2, d = FAR_MARKS[4].r + 2.5 + rs() * 7;
+      const x = Math.round(p.x + Math.cos(a) * d), y = Math.round(p.y + Math.sin(a) * d);
+      if (x < 2 || x > W - 3) continue;
+      const i = idx(x, y);
+      if (terrain[i] !== T_SNOW || spot[i] >= 0) continue;
+      spot[i] = fk; spotInit[i] = SPOTS.starfall.reserve; n++;
+      const j = idx(x + (rs() < 0.5 ? 1 : -1), y);
+      if (terrain[j] === T_SNOW && spot[j] < 0) { spot[j] = fk; spotInit[j] = SPOTS.starfall.reserve; }
+    } }
   // 掠夺者营地：每段纬度一处（单独的随机数，不改地形、不动别的东西）
   const gangs = [], r3 = mulberry32(seed * 53 + 11);
   [42, 86, 136, 190, 242, 296].forEach((row, gi) => {

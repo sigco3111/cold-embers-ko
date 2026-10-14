@@ -1086,6 +1086,131 @@ export function buildingGeo(type, lvl, deep = false) {
       crate(-0.62, 0.7, 0.12, 0.18, '#9a7a58', 0.4);
       break;
     }
+    case 'beacon': {
+      // 信号灯塔：八角石基 + 红白相间、一节节收窄的塔身 + 环形走廊 + 玻璃灯室（大灯常亮，外面一圈灯罩框一直转）+ 塔脚一间放电池的小屋
+      const hT = 2.5 + 0.03 * Math.min(lvl, 10), cx = -0.2, cz = -0.2;
+      add(G.cyl8, '#7a7d84', { sx: 1.35, sy: 0.24, sz: 1.35, x: cx, y: 0.24, z: cz, jit: 0.1, ry: Math.PI / 8 });
+      add(G.cyl8, '#9aa0a8', { sx: 1.15, sy: 0.06, sz: 1.15, x: cx, y: 0.38, z: cz, ry: Math.PI / 8 });
+      const segs = 4, sh = (hT - 0.4) / segs;
+      for (let k = 0; k < segs; k++) {
+        const r = 0.98 - k * 0.11;
+        add(G.frust12, k % 2 ? '#e8e4dc' : '#b8443a', { sx: r, sy: sh, sz: r, x: cx, y: 0.4 + k * sh + sh / 2 });
+        add(G.cyl12, '#5a5c62', { sx: r * 0.9, sy: 0.04, sz: r * 0.9, x: cx, y: 0.4 + (k + 1) * sh, z: cz });
+      }
+      // 门和两道细长的窗
+      add(G.arch, '#3a2a20', { sx: 0.26, sy: 0.32, sz: 0.06, x: cx, y: 0.4, z: cz + 0.47 });
+      for (const k of [1, 2]) lit(G.box, p.glow, { sx: 0.06, sy: 0.16, sz: 0.02, x: cx, y: 0.4 + (k + 0.5) * sh, z: cz + 0.43 - k * 0.055 });
+      // 走廊：圆台 + 栏杆
+      add(G.cyl12, '#3a3a42', { sx: 0.95, sy: 0.07, sz: 0.95, x: cx, y: hT + 0.03, z: cz });
+      add(G.torus16, '#3a3a42', { s: 0.9, rx: Math.PI / 2, x: cx, y: hT + 0.22, z: cz });
+      for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2; box('#3a3a42', 0.025, 0.2, 0.025, cx + Math.cos(a) * 0.45, hT + 0.12, cz + Math.sin(a) * 0.45); }
+      // 灯室：几根细立柱夹着玻璃，大灯在中间
+      add(G.cyl8, '#bfe6fb', { sx: 0.5, sy: 0.42, sz: 0.5, x: cx, y: hT + 0.28, z: cz });
+      for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2; box('#2a2a30', 0.03, 0.44, 0.03, cx + Math.cos(a) * 0.25, hT + 0.28, cz + Math.sin(a) * 0.25); }
+      lit(G.sph2, '#fff2b8', { s: 0.32, x: cx, y: hT + 0.3, z: cz });
+      lit(G.sph, '#ffd36b', { s: 0.42, x: cx, y: hT + 0.3, z: cz });
+      mover('spin', [cx, hT + 0.3, cz], [[G.box, '#2a2a30', { sx: 0.06, sy: 0.36, sz: 0.5, x: 0.27 }], [G.box, '#2a2a30', { sx: 0.06, sy: 0.36, sz: 0.5, x: -0.27 }], [G.box, '#e0b060', { sx: 0.04, sy: 0.04, sz: 0.56, x: 0.3, y: 0.18 }, true], [G.box, '#e0b060', { sx: 0.04, sy: 0.04, sz: 0.56, x: -0.3, y: 0.18 }, true]], { axis: 'y', speed: 1.2, always: true });
+      add(G.cone8, '#8a2e26', { sx: 0.66, sy: 0.32, sz: 0.66, x: cx, y: hT + 0.65, z: cz });
+      add(G.cone8, SNOW, { sx: 0.42, sy: 0.16, sz: 0.42, x: cx, y: hT + 0.74, z: cz });
+      add(G.sph, '#c8a050', { s: 0.1, x: cx, y: hT + 0.86, z: cz }); box('#3a3a42', 0.02, 0.3, 0.02, cx, hT + 1.0, cz);
+      // 电池小屋 + 门口一排电池箱 + 从小屋接到塔上的电缆
+      house(0.62, 0.48, 0.5, 0.58, 0.52, 'flat', p.wall2);
+      lit(G.box, '#9be07f', { sx: 0.3, sy: 0.04, sz: 0.01, x: 0.58, y: 0.5, z: 0.775 });
+      for (let k = 0; k < 3; k++) { box('#3e6a4f', 0.14, 0.2, 0.12, 0.2 + k * 0.17, 0.22, 0.86); lit(G.box, '#9be07f', { sx: 0.06, sy: 0.02, sz: 0.06, x: 0.2 + k * 0.17, y: 0.33, z: 0.86 }); }
+      { const a0 = [0.4, 0.62, 0.35], a1 = [cx + 0.35, 1.4, cz + 0.25], dv = a1.map((v, k) => v - a0[k]), L = Math.hypot(...dv); add(G.box, DARK, { sx: 0.02, sy: 0.02, sz: L, x: (a0[0] + a1[0]) / 2, y: (a0[1] + a1[1]) / 2, z: (a0[2] + a1[2]) / 2, ry: Math.atan2(dv[0], dv[2]), rx: -Math.asin(dv[1] / L), order: 'YXZ' }); }
+      hi(() => {
+        // 塔身一侧的铁梯、走廊上的积雪、塔脚堆着的备用灯罩玻璃
+        for (const sg of [-1, 1]) box('#3a3a42', 0.02, hT - 0.45, 0.02, cx + 0.5 + sg * 0.06, 0.4 + (hT - 0.45) / 2, cz - 0.02, { rz: 0.04 });
+        for (let k = 1; k < 12; k++) box('#3a3a42', 0.13, 0.015, 0.015, cx + 0.5 - k * 0.003, 0.4 + k * (hT - 0.45) / 12, cz - 0.02);
+        add(G.cyl12, SNOW, { sx: 0.88, sy: 0.02, sz: 0.88, x: cx, y: hT + 0.075, z: cz });
+        for (let k = 0; k < 2; k++) box('#bfe6fb', 0.22, 0.02, 0.3, -0.75, 0.14 + k * 0.03, 0.62, { ry: 0.3 + k * 0.2 });
+        drift(-0.7, -0.75, 0.5, 0.3);
+      });
+      break;
+    }
+    case 'colossus': {
+      // 巨像守卫：照着冻结的巨像凿出来的石头武士，单膝跪地，双手按在插进雪里的巨剑上；胸口嵌着发光的核心，面甲缝里透着光
+      const ST1 = '#8a8680', ST2 = '#a9a498', ST3 = '#6c6964';
+      const limb = (c, a, b, w, d, o = {}) => { const dv = b.map((v, k) => v - a[k]), L = Math.hypot(...dv); add(G.box, c, { sx: w, sy: d, sz: L + Math.min(w, d) * 0.6, x: (a[0] + b[0]) / 2, y: (a[1] + b[1]) / 2, z: (a[2] + b[2]) / 2, ry: Math.atan2(dv[0], dv[2]), rx: -Math.asin(dv[1] / L), order: 'YXZ', jit: 0.06, ...o }); };
+      // 石台 + 一圈碎石
+      add(G.cyl12, '#7a7670', { sx: 2.5, sy: 0.16, sz: 2.3, y: 0.2, jit: 0.08 });
+      for (let k = 0; k < 10; k++) { const a = k / 10 * Math.PI * 2 + 0.2; add(G.dode, k % 2 ? ST3 : ST1, { s: 0.2 + (k % 3) * 0.06, x: Math.cos(a) * 1.25, y: 0.2, z: Math.sin(a) * 1.15, jit: 0.25 }); }
+      const y0 = 0.28;
+      // 左腿：脚踩在前面、膝盖立起
+      limb(ST1, [-0.45, y0 + 0.08, 0.6], [-0.45, y0 + 0.82, 0.55], 0.32, 0.36); limb(ST2, [-0.45, y0 + 0.85, 0.55], [-0.38, y0 + 0.92, -0.2], 0.36, 0.38);
+      box(ST3, 0.36, 0.14, 0.48, -0.45, y0 + 0.07, 0.68);
+      // 右腿：膝盖着地，小腿平放往后
+      limb(ST1, [0.45, y0 + 0.16, 0.3], [0.45, y0 + 0.12, -0.62], 0.32, 0.3); limb(ST2, [0.45, y0 + 0.2, 0.3], [0.38, y0 + 0.92, -0.2], 0.36, 0.38);
+      box(ST3, 0.3, 0.2, 0.26, 0.45, y0 + 0.12, -0.7, { rx: 0.5 });
+      add(G.dode, ST3, { s: 0.34, x: 0.45, y: y0 + 0.22, z: 0.32 }); add(G.dode, ST3, { s: 0.3, x: -0.45, y: y0 + 0.86, z: 0.6 }); // 膝甲
+      // 腰 + 躯干（微微前倾）+ 胸甲
+      box(ST3, 0.98, 0.3, 0.6, 0, y0 + 0.98, -0.2);
+      limb(ST2, [0, y0 + 1.05, -0.2], [0, y0 + 1.95, -0.08], 1.0, 0.62);
+      box(ST1, 1.12, 0.42, 0.66, 0, y0 + 1.72, -0.07, { rx: 0.12 });
+      for (const sg of [-1, 1]) box(ST3, 0.04, 0.5, 0.04, sg * 0.24, y0 + 1.35, 0.14, { rx: 0.12 });
+      lit(G.oct, '#e070ff', { sx: 0.22, sy: 0.3, sz: 0.12, y: y0 + 1.6, z: 0.27 }); lit(G.oct, '#ffe0ff', { sx: 0.1, sy: 0.14, sz: 0.08, y: y0 + 1.6, z: 0.31 });
+      // 肩甲 + 头盔（面甲缝发光）+ 头盔上的冠
+      for (const sg of [-1, 1]) { add(G.dode, ST1, { sx: 0.5, sy: 0.38, sz: 0.52, x: sg * 0.66, y: y0 + 1.95, z: -0.08, jit: 0.1 }); add(G.hemiLo, SNOW, { sx: 0.42, sy: 0.12, sz: 0.4, x: sg * 0.68, y: y0 + 2.08, z: -0.1 }); }
+      box(ST2, 0.42, 0.46, 0.44, 0, y0 + 2.3, -0.02, { rx: 0.1 });
+      lit(G.box, '#e070ff', { sx: 0.3, sy: 0.04, sz: 0.02, y: y0 + 2.32, z: 0.21 });
+      box(ST3, 0.08, 0.2, 0.46, 0, y0 + 2.6, -0.04); add(G.hemiLo, SNOW, { sx: 0.4, sy: 0.08, sz: 0.4, y: y0 + 2.53, z: -0.04 });
+      // 双臂：从肩膀往前伸，两手按在剑柄上
+      for (const sg of [-1, 1]) {
+        limb(ST1, [sg * 0.68, y0 + 1.82, -0.06], [sg * 0.56, y0 + 1.28, 0.42], 0.26, 0.28);
+        limb(ST2, [sg * 0.56, y0 + 1.28, 0.42], [sg * 0.14, y0 + 1.36, 0.86], 0.24, 0.24);
+        add(G.dode, ST3, { s: 0.24, x: sg * 0.12, y: y0 + 1.38, z: 0.9 });
+      }
+      // 巨剑：剑身插在雪里，护手 + 剑柄 + 剑首
+      box('#9aa0a8', 0.22, 1.2, 0.06, 0, y0 + 0.5, 0.95); box('#c8ccd2', 0.06, 1.16, 0.065, 0, y0 + 0.5, 0.95);
+      box(ST3, 0.7, 0.1, 0.14, 0, y0 + 1.12, 0.92); box(ST3, 0.08, 0.36, 0.08, 0, y0 + 1.35, 0.92); add(G.oct, '#e070ff', { s: 0.12, y: y0 + 1.58, z: 0.92 });
+      add(G.hemiLo, SNOW, { sx: 0.5, sy: 0.1, sz: 0.3, y: y0, z: 0.98 });
+      // 大腿和胳膊上的积雪
+      add(G.hemiLo, SNOW, { sx: 0.3, sy: 0.07, sz: 0.5, x: -0.42, y: y0 + 1.05, z: 0.2 }); add(G.hemiLo, SNOW, { sx: 0.28, sy: 0.06, sz: 0.4, x: 0.45, y: y0 + 0.3, z: -0.25 });
+      hi(() => {
+        // 剑身上一列发光的符文、石头上的裂缝、膝前摆着的蜡烛和供品、背上一圈断掉的锁链
+        for (let k = 0; k < 4; k++) lit(G.box, '#e070ff', { sx: 0.06, sy: 0.05, sz: 0.01, y: y0 + 0.22 + k * 0.2, z: 0.985, rz: k % 2 ? 0.6 : -0.6 });
+        for (const [x, y, z, rz] of [[0.22, 1.5, 0.27, 0.6], [-0.3, 1.2, 0.2, -0.4], [0.1, 2.2, 0.2, 0.3]]) box('#3a3836', 0.012, 0.22, 0.01, x, y0 + y, z, { rz });
+        for (let k = 0; k < 5; k++) { const x = -0.7 + k * 0.32, z = 1.15 - (k % 2) * 0.08; box('#e8dcc0', 0.04, 0.1 + (k % 3) * 0.04, 0.04, x, y0 + 0.08, z); lit(G.oct, '#ffd060', { s: 0.04, x, y: y0 + 0.17 + (k % 3) * 0.04, z }); }
+        for (let k = 0; k < 7; k++) add(G.torus, '#4a4640', { s: 0.1, x: -0.45 + k * 0.15, y: y0 + 1.4 - Math.sin(k / 6 * Math.PI) * 0.25, z: -0.52, ry: k % 2 ? Math.PI / 2 : 0 });
+        for (let k = 0; k < 4; k++) add(G.oct, ICE, { sx: 0.06, sy: 0.18, sz: 0.06, x: -1.0 + k * 0.6, y: 0.32, z: -0.9 + (k % 2) * 0.2, rz: (k % 2 - 0.5) * 0.6 });
+      });
+      break;
+    }
+    case 'starpit': {
+      // 星核矿：挖成几层台阶的露天深坑，坑底露着发紫光的星核；坑上一座钢吊架，吊斗上上下下；边上是矿石堆、轨道和一间小控制房
+      const cx = -0.25, cz = -0.25;
+      add(G.cyl12, '#4a4252', { sx: 1.35, sy: 0.08, sz: 1.2, x: cx, y: 0.15, z: cz, jit: 0.05 });
+      add(G.cyl12, '#3a3046', { sx: 1.05, sy: 0.02, sz: 0.92, x: cx, y: 0.195, z: cz });
+      add(G.cyl12, '#2a2034', { sx: 0.76, sy: 0.02, sz: 0.66, x: cx, y: 0.2, z: cz });
+      add(G.cyl12, '#1a1222', { sx: 0.46, sy: 0.02, sz: 0.4, x: cx, y: 0.205, z: cz });
+      for (const [x, z, sy, rz] of [[0, 0, 0.3, 0.2], [0.12, 0.06, 0.2, -0.5], [-0.1, 0.08, 0.18, 0.6]]) lit(G.oct, '#e070ff', { sx: 0.1, sy, sz: 0.1, x: cx + x, y: 0.22 + sy * 0.3, z: cz + z, rz });
+      for (let k = 0; k < 12; k++) { const a = k / 12 * Math.PI * 2; add(k % 2 ? G.dode : G.tet, k % 3 ? '#5a5262' : '#3e3846', { sx: 0.18, sy: 0.08 + (k % 3) * 0.03, sz: 0.14, x: cx + Math.cos(a) * 0.72, y: 0.2, z: cz + Math.sin(a) * 0.64, ry: a, jit: 0.2 }); }
+      // 吊架：两根斜腿 + 横梁 + 天轮；吊斗挂着星核上上下下
+      const top = 1.55;
+      for (const sg of [-1, 1]) { box(p.metal, 0.06, top, 0.06, cx + sg * 0.5, 0.12 + top / 2, cz, { rz: -sg * 0.18 }); box(p.metal, 0.05, top * 0.9, 0.05, cx + sg * 0.5, 0.1 + top * 0.45, cz - 0.28, { rz: -sg * 0.18, rx: -0.2 }); }
+      box(p.metal, 0.8, 0.07, 0.07, cx, 0.12 + top, cz);
+      mover('spin', [cx, 0.12 + top + 0.02, cz], [[G.wheel, p.trim, { s: 0.3 }], ...[0, 1].map(k => [G.box, p.trim, { sx: 0.28, sy: 0.015, sz: 0.015, rz: k * Math.PI / 2 }, true])], { axis: 'z', speed: 2.2 });
+      box(DARK, 0.012, 0.8, 0.012, cx + 0.15, 0.12 + top - 0.4, cz);
+      mover('slide', [cx + 0.15, 0.55, cz], [[G.cyl8, '#4a4e56', { sx: 0.2, sy: 0.16, sz: 0.2 }], [G.oct, '#e070ff', { s: 0.12, y: 0.1 }], [G.oct, '#c060f0', { s: 0.08, x: 0.05, y: 0.08, z: 0.04 }], [G.box, DARK, { sx: 0.2, sy: 0.015, sz: 0.015, y: 0.12 }, true]], { d: [0, 0.6, 0], speed: 0.9 });
+      lit(G.oct, '#ff4a2a', { s: 0.08, x: cx, y: 0.24 + top, z: cz });
+      // 轨道 + 矿车 + 发光的矿石堆
+      for (const sg of [-1, 1]) box('#8a96a3', 0.03, 0.03, 0.9, 0.55 + sg * 0.1, 0.14, 0.2);
+      for (let k = 0; k < 5; k++) box(WOOD, 0.3, 0.025, 0.06, 0.55, 0.13, -0.15 + k * 0.17);
+      mover('slide', [0.55, 0.27, 0.45], [[G.box, p.metal, { sx: 0.3, sy: 0.18, sz: 0.22 }], [G.box, DARK, { sx: 0.26, sy: 0.04, sz: 0.18, y: 0.1 }], ...[0, 1, 2].map(i => [G.oct, '#d080ff', { s: 0.1, x: -0.07 + i * 0.07, y: 0.14 }])], { d: [0, 0, -0.5], speed: 1.1 });
+      for (let i = 0; i < 6; i++) lit(G.oct, i % 2 ? '#e070ff' : '#c060f0', { s: 0.14 + (i % 3) * 0.04, x: 0.2 + (i % 3) * 0.14, y: 0.18 + Math.floor(i / 3) * 0.1, z: 0.75 - (i % 2) * 0.1 });
+      // 控制房（紫光的窗）+ 烟囱
+      house(0.55, 0.5, 0.45, 0.62, -0.62, 'flat', p.wall2);
+      lit(G.box, '#e070ff', { sx: 0.2, sy: 0.12, sz: 0.01, x: 0.62, y: 0.42, z: -0.39 });
+      chimney(0.8, -0.75, 0.95);
+      hi(() => {
+        // 坑沿往下的梯子、插在坑边的两盏紫灯、扔着的镐和铲
+        for (const sg of [-1, 1]) box(WOOD2, 0.03, 0.42, 0.03, cx + sg * 0.07, 0.25, cz + 0.42, { rx: 0.5 });
+        for (let k = 1; k < 5; k++) box(WOOD, 0.16, 0.015, 0.015, cx, 0.12 + k * 0.08, cz + 0.52 - k * 0.04);
+        for (const [x, z] of [[-0.9, 0.2], [0.25, -0.85]]) { box(p.post, 0.03, 0.5, 0.03, x, 0.37, z); lit(G.oct, '#e070ff', { s: 0.08, x, y: 0.66, z }); }
+        box(WOOD2, 0.025, 0.36, 0.025, -0.75, 0.16, 0.72, { rz: Math.PI / 2 - 0.1, ry: 0.5 }); box('#7d848e', 0.14, 0.03, 0.03, -0.62, 0.17, 0.82, { ry: 0.5 });
+      });
+      break;
+    }
     default: house(1.2, 0.8, 1.0);
   }
   // 高层级：屋檐下一圈装饰条
@@ -1097,7 +1222,7 @@ export function buildingGeo(type, lvl, deep = false) {
     flame = merge(furnaceFlame(r, lvl));
   }
   const out = K.done();
-  return { geo: out.geo, glow: out.glow, movers: out.movers, flame, flameY, h: type === 'furnace' ? 3 : 1.5 };
+  return { geo: out.geo, glow: out.glow, movers: out.movers, flame, flameY, h: type === 'furnace' || type === 'beacon' ? 3 : type === 'colossus' ? 2.8 : 1.5 };
 }
 
 // 熔炉的火焰：一簇歪斜的火舌，外红内黄，中心发白（原点在炭床上，便于动画缩放）
@@ -1214,6 +1339,17 @@ function spotHi(kind) {
       for (let k = 0; k < 4; k++) add(G.oct, '#ffd080', { s: 0.05, x: Math.cos(k * 1.7) * 0.3, y: 0.06, z: Math.sin(k * 1.7) * 0.24 });
       break;
     }
+    case 'starfall': {
+      // 星核石：烧黑的小陨坑，坑沿翻起焦石，坑里斜插着一块发紫光的星核，四周溅着碎晶
+      add(G.cyl12, '#2a2230', { sx: 0.95, sy: 0.03, sz: 0.85, y: 0.015, jit: 0.1 }); add(G.cyl12, '#3e3046', { sx: 0.55, sy: 0.034, sz: 0.48, y: 0.02 });
+      for (let k = 0; k < 10; k++) { const a = k / 10 * Math.PI * 2 + 0.3; add(k % 2 ? G.dode : G.tet, k % 3 ? '#4a4252' : '#2e2834', { sx: 0.16, sy: 0.07 + (k % 3) * 0.03, sz: 0.12, x: Math.cos(a) * 0.42, y: 0.04, z: Math.sin(a) * 0.37, ry: a, jit: 0.25 }); }
+      add(G.ico1, '#3a2a48', { sx: 0.42, sy: 0.3, sz: 0.38, y: 0.12, jit: 0.25 });
+      add(G.oct, '#e070ff', { sx: 0.26, sy: 0.62, sz: 0.26, y: 0.36, rz: 0.25, rx: -0.15 }); add(G.oct, '#ffe0ff', { sx: 0.1, sy: 0.32, sz: 0.1, y: 0.42, x: 0.03, rz: 0.25, rx: -0.15 });
+      for (const [sx, sy, x, z, rx, rz, c] of [[0.12, 0.34, 0.22, 0.1, 0.3, -0.6, '#c060f0'], [0.1, 0.28, -0.2, 0.14, 0.5, 0.5, '#f090ff'], [0.08, 0.22, 0.04, -0.24, -0.6, 0.1, '#d080ff']]) add(G.oct, c, { sx, sy, sz: sx, x, y: 0.12 + sy * 0.35, z, rx, rz });
+      for (let k = 0; k < 6; k++) { const a = k * 1.05 + 0.2; add(G.oct, k % 2 ? '#f0b0ff' : '#b050e0', { s: 0.04 + (k % 3) * 0.015, x: Math.cos(a) * 0.3, y: 0.05, z: Math.sin(a) * 0.27 }); }
+      add(G.hemiLo, SNOW, { sx: 0.22, sy: 0.05, sz: 0.14, x: -0.38, y: 0.04, z: -0.2 }); add(G.hemiLo, SNOW, { sx: 0.14, sy: 0.04, sz: 0.1, x: 0.36, y: 0.04, z: 0.26 });
+      break;
+    }
     default: return null;
   }
   return merge(out);
@@ -1240,9 +1376,10 @@ function spotLo(kind) {
     case 'crystal': return merge([P(G.oct, '#7fe8ff', { sx: 0.2, sy: 0.8, sz: 0.2, y: 0.4, rz: 0.2 }), P(G.oct, '#a0f0ff', { sx: 0.15, sy: 0.55, sz: 0.15, x: 0.2, y: 0.28, rz: -0.4 }), P(G.oct, '#60d0f0', { sx: 0.14, sy: 0.5, sz: 0.14, x: -0.18, y: 0.25, z: 0.12, rx: 0.4 }), P(G.oct, '#b8f6ff', { sx: 0.1, sy: 0.35, sz: 0.1, x: 0.05, y: 0.18, z: -0.2, rx: -0.5 })]);
     case 'star': return merge([P(G.tet, '#6a5a86', { sx: 0.9, sy: 0.7, sz: 0.6, y: 0.25, ry: 0.5 }), P(G.box, '#9a8ab4', { sx: 0.7, sy: 0.08, sz: 0.2, x: 0.2, y: 0.45, rz: 0.4 }), P(G.box, '#8a7aa4', { sx: 0.08, sy: 0.5, sz: 0.08, x: -0.3, y: 0.3, z: -0.1, rz: -0.3 }), P(G.oct, '#c080ff', { s: 0.18, x: -0.25, y: 0.2, z: 0.2 })]);
     case 'shard': return merge([P(G.oct, '#ff9a40', { sx: 0.3, sy: 0.6, sz: 0.3, y: 0.3 }), P(G.oct, '#ffc060', { s: 0.2, x: 0.25, y: 0.15, z: 0.1 }), P(G.oct, '#ffb050', { sx: 0.12, sy: 0.3, sz: 0.12, x: -0.2, y: 0.15, z: -0.12, rz: 0.4 }), P(G.dode, '#5a4a3a', { sx: 0.6, sy: 0.15, sz: 0.5, y: 0.04 })]);
+    case 'starfall': return merge([P(G.cyl12, '#2a2230', { sx: 0.95, sy: 0.03, sz: 0.85, y: 0.015 }), P(G.dode, '#3a2a48', { sx: 0.45, sy: 0.3, sz: 0.4, y: 0.12, jit: 0.2 }), P(G.oct, '#e070ff', { sx: 0.26, sy: 0.62, sz: 0.26, y: 0.36, rz: 0.25 }), P(G.oct, '#c060f0', { sx: 0.12, sy: 0.34, sz: 0.12, x: 0.22, y: 0.24, z: 0.1, rz: -0.6 }), P(G.oct, '#f090ff', { sx: 0.1, sy: 0.28, sz: 0.1, x: -0.2, y: 0.22, z: 0.14, rz: 0.5 }), ...[0, 2.1, 4.2].map(a => P(G.dode, '#4a4252', { sx: 0.16, sy: 0.09, sz: 0.12, x: Math.cos(a) * 0.42, y: 0.04, z: Math.sin(a) * 0.37 }))]);
   }
 }
-export const SPOT_GLOW = new Set(['crystal', 'shard', 'star']);
+export const SPOT_GLOW = new Set(['crystal', 'shard', 'star', 'starfall']);
 
 // 驯鹿：身体与头分开，头绕脖子根转动（低头吃草、抬头张望）
 export const DEER_NECK = [0, 0.42, 0.2];
@@ -1750,9 +1887,9 @@ export function torchFlameSmallGeo() { return merge([P(G.oct, '#ffffff', { sx: 0
 // 一个人手里拿什么：按岗位所在的建筑
 export function toolOf(type) {
   if (type === 'lumber' || type === 'nursery' || type === 'sawmill') return 1;
-  if (type === 'quarry' || type === 'coalmine' || type === 'ironmine' || type === 'limequarry' || type === 'shalepit' || type === 'crystalmine' || type === 'salvage' || type === 'excavator') return 2;
+  if (type === 'quarry' || type === 'coalmine' || type === 'ironmine' || type === 'limequarry' || type === 'shalepit' || type === 'crystalmine' || type === 'salvage' || type === 'excavator' || type === 'starpit') return 2;
   if (type === 'hunter' || type === 'kitchen' || type === 'greenhouse' || type === 'flowerhouse' || type === 'infirmary' || type === 'kennel') return 4;
-  if (type === 'warehouse' || type === 'tower' || type === 'scout') return 0;
+  if (type === 'warehouse' || type === 'tower' || type === 'scout' || type === 'beacon' || type === 'colossus') return 0;
   return 3;
 }
 export function wolfGeo() {
@@ -2028,6 +2165,47 @@ export function steamTractorGeo() {
   box(DARK, 0.44, 0.04, 0.04, 0, 0.3, -0.45);
   // 侧面的水箱和管子
   for (const sg of [-1, 1]) add(G.cyl8, '#5a6068', { sx: 0.08, sy: 0.5, sz: 0.08, rx: Math.PI / 2, x: sg * 0.25, y: 0.42, z: -0.22 });
+  return { geo: merge(parts), glow: glow.length ? merge(glow) : null };
+}
+
+// 破冰车：两条履带 + 前面一把带齿的楔形破冰铲 + 钢板车身（红色警示条）+ 驾驶室 + 车尾一排发光的电池；车头朝 −z。返回 { geo, glow }
+export function icebreakerGeo() {
+  const parts = [], glow = [], add = (g, c, o) => parts.push(P(g, c, o)), lit = (g, c, o) => glow.push(P(g, c, o));
+  const box = (c, sx, sy, sz, x, y, z, o = {}) => add(G.box, c, { sx, sy, sz, x, y, z, ...o });
+  const HULL = '#4a5a6c', HULL2 = '#5e7084', RED = '#b8443a', STEEL = '#9aa0a8';
+  // 履带：长条 + 前后两只圆头 + 一节节履带板 + 负重轮
+  for (const sg of [-1, 1]) {
+    const x = sg * 0.36;
+    box('#2a2e34', 0.2, 0.26, 1.5, x, 0.17, 0.05);
+    for (const z of [-0.7, 0.8]) add(G.cyl12, '#2a2e34', { sx: 0.26, sy: 0.2, sz: 0.26, rz: Math.PI / 2, x, y: 0.17, z });
+    for (let k = 0; k < 12; k++) box('#1e2024', 0.21, 0.03, 0.06, x, 0.31, -0.62 + k * 0.125);
+    for (let k = 0; k < 5; k++) add(G.cyl8, '#5a6068', { sx: 0.14, sy: 0.205, sz: 0.14, rz: Math.PI / 2, x, y: 0.15, z: -0.48 + k * 0.27 });
+    box(HULL2, 0.24, 0.04, 1.6, x, 0.33, 0.05); // 挡泥板
+  }
+  // 车身：下层钢板 + 斜前装甲 + 红色警示条
+  box(HULL, 0.6, 0.3, 1.25, 0, 0.5, 0.1);
+  box(HULL2, 0.6, 0.06, 1.25, 0, 0.66, 0.1);
+  box(HULL, 0.6, 0.26, 0.3, 0, 0.5, -0.6, { rx: -0.6 });
+  box(RED, 0.62, 0.05, 1.27, 0, 0.42, 0.1);
+  for (const sg of [-1, 1]) for (let k = 0; k < 5; k++) box('#3a4654', 0.01, 0.02, 0.02, sg * 0.305, 0.58, -0.4 + k * 0.25); // 铆钉
+  // 破冰铲：一把往前的楔形钢铲 + 一排齿 + 两根液压杆
+  for (const sg of [-1, 1]) box(STEEL, 0.06, 0.34, 0.46, sg * 0.22, 0.24, -0.92, { ry: sg * 0.75 });
+  box('#c8ccd2', 0.05, 0.36, 0.05, 0, 0.24, -1.08);
+  for (let k = 0; k < 5; k++) { const t = (k - 2) / 2; add(G.cone4, '#c8ccd2', { sx: 0.06, sy: 0.12, sz: 0.06, x: t * 0.34, y: 0.06, z: -1.02 + Math.abs(t) * 0.18, rx: -Math.PI / 2 }); }
+  for (const sg of [-1, 1]) { box('#2a2e34', 0.04, 0.04, 0.4, sg * 0.18, 0.5, -0.8, { rx: 0.5 }); box(STEEL, 0.03, 0.03, 0.22, sg * 0.18, 0.44, -0.9, { rx: 0.5 }); }
+  // 驾驶室：钢板小屋 + 发光的窗 + 顶上积雪 + 探照灯
+  box(HULL2, 0.5, 0.38, 0.42, 0, 0.88, -0.2);
+  box(RED, 0.54, 0.05, 0.46, 0, 1.08, -0.2); add(G.box, SNOW, { sx: 0.46, sy: 0.04, sz: 0.38, y: 1.12, z: -0.2, jit: 0.04 });
+  lit(G.box, '#ffd27a', { sx: 0.38, sy: 0.12, sz: 0.01, y: 0.94, z: -0.415 });
+  for (const sg of [-1, 1]) lit(G.box, '#ffd27a', { sx: 0.01, sy: 0.12, sz: 0.2, x: sg * 0.255, y: 0.94, z: -0.2 });
+  for (const sg of [-1, 1]) { box(DARK, 0.09, 0.09, 0.08, sg * 0.2, 1.18, -0.36); lit(G.cyl8, '#fff2b8', { sx: 0.07, sy: 0.02, sz: 0.07, rx: Math.PI / 2, x: sg * 0.2, y: 1.18, z: -0.41 }); }
+  box(DARK, 0.02, 0.32, 0.02, 0.2, 1.26, -0.05); lit(G.oct, '#ff4a2a', { s: 0.05, x: 0.2, y: 1.44, z: -0.05 }); // 天线 + 红灯
+  // 车尾：电池架（一排发绿光的电池）+ 两根散热管
+  box('#2a2e34', 0.56, 0.06, 0.5, 0, 0.7, 0.42);
+  for (let k = 0; k < 3; k++) for (const sg of [-1, 1]) { box('#3e6a4f', 0.14, 0.2, 0.12, sg * 0.14, 0.83, 0.26 + k * 0.15); lit(G.box, '#9be07f', { sx: 0.06, sy: 0.02, sz: 0.06, x: sg * 0.14, y: 0.94, z: 0.26 + k * 0.15 }); }
+  for (const sg of [-1, 1]) { add(G.cyl8, '#5a6068', { sx: 0.06, sy: 0.4, sz: 0.06, x: sg * 0.26, y: 0.9, z: 0.68 }); add(G.cyl8, '#c8963e', { sx: 0.08, sy: 0.03, sz: 0.08, x: sg * 0.26, y: 1.1, z: 0.68 }); }
+  // 车身上的冰碴
+  for (let k = 0; k < 4; k++) add(G.oct, ICE, { sx: 0.05, sy: 0.1, sz: 0.05, x: -0.24 + k * 0.16, y: 0.36, z: -0.82 + (k % 2) * 0.06, rz: (k % 2 - 0.5) * 0.8 });
   return { geo: merge(parts), glow: glow.length ? merge(glow) : null };
 }
 

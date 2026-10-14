@@ -11,7 +11,7 @@ export const HINTS = [
   { id: 'gang', ic: '🏴', n: '掠夺者来索贡了', d: '点顶上的 🏴 答复：交贡、做买卖，或者靠箭塔顶回去。到时候没人答复，守得住就打，守不住就交贡。',
     when: S => { const d = Sim.gangDemands(S)[0]; return d ? { act: 'gang', arg: d.g.id } : false; } },
   { id: 'wxe', ic: '❄', n: '怪天气要来了', d: '冰风暴、极寒夜、冰湖开裂都会提前预报。点顶上的天气图标，花点材料提前准备，能少受很多罪。',
-    when: (S, c) => { const e = Sim.wxeAt(S, S.t); return e.ev && !e.on && e.inSec <= Sim.FORECAST && Sim.wxeMatters(S, c, e.ev) && !Sim.wxePrepped(S, c, e.ev) ? { act: 'wx' } : false; } },
+    when: (S, c) => { const e = Sim.wxeAt(S, S.t); return e.ev && !e.on && e.inSec <= Sim.forecastOf(S) && Sim.wxeMatters(S, c, e.ev) && !Sim.wxePrepped(S, c, e.ev) ? { act: 'wx' } : false; } },
   { id: 'ward', ic: '🩺', n: '有人病了', d: '建一座医务所，派两个人照看：住进去的病人在冷天里也能慢慢好起来，营地里染病的人也会少。',
     when: (S, c, cr) => (cr.sick || 0) >= 1 && Sim.unlocked(S, 'infirmary') && !Sim.countType(S, c.id, 'infirmary') ? { act: 'tb', arg: 'build' } : false },
   { id: 'deep', ic: '⛏', n: '矿快挖空了', d: '矿场面板里能「打深井」：地表采空以后还能慢慢挖下去。侦察营还能派人勘探新矿脉。',

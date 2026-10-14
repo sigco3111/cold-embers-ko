@@ -4,7 +4,7 @@ import * as Sim from './sim.js';
 import { getWorld, idx, W, H, T_ROCK, T_ICE } from './worldgen.js';
 import { iconize } from './icons.js';
 
-const SPOT_COL = { tree: '#3d6b4c', rock: '#8b8780', herd: '#8a5a3a', coal: '#2e2d31', ore: '#8c4f34', lime: '#e8e0c8', shale: '#5b4a66', crystal: '#7fd0f5', star: '#7a62b8', shard: '#ff8a2b' };
+const SPOT_COL = { tree: '#3d6b4c', rock: '#8b8780', herd: '#8a5a3a', coal: '#2e2d31', ore: '#8c4f34', lime: '#e8e0c8', shale: '#5b4a66', crystal: '#7fd0f5', star: '#7a62b8', shard: '#ff8a2b', starfall: '#e070ff' };
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 export class BigMap {

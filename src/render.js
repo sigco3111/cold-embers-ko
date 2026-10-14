@@ -18,8 +18,8 @@ const snowColor = (x, y, c) => {
   return c.setHSL(0.58 + north * 0.03 + cold * 0.02, 0.26 + north * 0.15 + cold * 0.1, 0.86 - north * 0.08 + patch * 0.05 + fine * 0.018 + streak * 0.022);
 };
 // 资源点模型的占地半径（缩放为 1 时）与每格最多几个
-const SPOT_R = { tree: 0.39, herd: 0.3, rock: 0.42, coal: 0.42, ore: 0.4, lime: 0.4, shale: 0.42, crystal: 0.3, star: 0.45, shard: 0.35 };
-const SPOT_PER = { tree: 3, herd: 2, rock: 1, coal: 2, ore: 2, lime: 2, shale: 1, crystal: 2, star: 1, shard: 2 };
+const SPOT_R = { tree: 0.39, herd: 0.3, rock: 0.42, coal: 0.42, ore: 0.4, lime: 0.4, shale: 0.42, crystal: 0.3, star: 0.45, shard: 0.35, starfall: 0.48 };
+const SPOT_PER = { tree: 3, herd: 2, rock: 1, coal: 2, ore: 2, lime: 2, shale: 1, crystal: 2, star: 1, shard: 2, starfall: 1 };
 const COATS = ['#b8483a', '#3a6ab8', '#c89a3a', '#4a8a5a', '#8a4aa8', '#c86a2a', '#3a8a9a', '#6a6a7a'].map(c => new THREE.Color(c));
 const WSLOT = [-0.15, 0.15, -0.45, 0.45]; // 建筑门前的固定工位
 
@@ -2164,7 +2164,7 @@ void main() {
       this.scene.add(body); if (glow) this.scene.add(glow);
       return { body, glow };
     };
-    this.cv = { sled: mk(M.caravanSledGeo(true), 16), tractor: mk(M.steamTractorGeo(), 8) };
+    this.cv = { sled: mk(M.caravanSledGeo(true), 16), tractor: mk(M.steamTractorGeo(), 8), icebreaker: mk(M.icebreakerGeo(), 6) };
     const mg = new THREE.CylinderGeometry(0.12, 0.12, 0.03, 6);
     this.cvMarks = new THREE.InstancedMesh(mg, new THREE.MeshBasicMaterial({ color: '#ffcf6a', transparent: true, opacity: 0.75, depthWrite: false }), 260);
     this.cvMarks.count = 0; this.cvMarks.frustumCulled = false; this.scene.add(this.cvMarks);
@@ -2227,16 +2227,16 @@ void main() {
     if (tsig !== this.trailSig) { this.trailSig = tsig; this.syncTrail(); }
     this.animSupply();
     const m = this._cm || (this._cm = new THREE.Matrix4()), q = this._cq || (this._cq = new THREE.Quaternion()), e = this._ce || (this._ce = new THREE.Euler()), v = this._cv || (this._cv = new THREE.Vector3()), one = this._c1 || (this._c1 = new THREE.Vector3(1, 1, 1));
-    const n = { sled: 0, tractor: 0 }; let nm = 0;
+    const n = { sled: 0, tractor: 0, icebreaker: 0 }; let nm = 0;
     this.cvEmit = null;
     if (T) {
-      // 车：拖车打头，雪橇跟后面；拖车长，隔 2.1 格，雪橇隔 1.6 格；还没出营地的先不画
-      const list = []; for (let i = 0; i < Math.min(8, T.veh.tractor || 0); i++) list.push('tractor'); for (let i = 0; i < Math.min(16, T.veh.sled || 0); i++) list.push('sled');
+      // 车：破冰车打头开路，拖车跟着，雪橇在最后；破冰车隔 2.6 格，拖车 2.1 格，雪橇 1.6 格；还没出营地的先不画
+      const list = []; for (let i = 0; i < Math.min(6, T.veh.icebreaker || 0); i++) list.push('icebreaker'); for (let i = 0; i < Math.min(8, T.veh.tractor || 0); i++) list.push('tractor'); for (let i = 0; i < Math.min(16, T.veh.sled || 0); i++) list.push('sled');
       if (!list.length) list.push('sled');
       const t = this.time || 0, moving = T.phase === 'go' && !T.road && !(T.hold > 0);
       this.cvEmit = []; let back = 0;
       list.forEach((k, i) => {
-        const d = T.d - back; back += k === 'tractor' ? 2.1 : 1.6; if (d < 0) return;
+        const d = T.d - back; back += k === 'icebreaker' ? 2.6 : k === 'tractor' ? 2.1 : 1.6; if (d < 0) return;
         const p = Sim.tripPos({ path: T.path, d }), yaw = Math.atan2(-Math.cos(p.dir), Math.sin(p.dir));
         e.set(moving ? Math.sin(t * 5 + i) * 0.02 : 0, yaw, moving ? Math.sin(t * 3.3 + i * 1.7) * 0.02 : 0); q.setFromEuler(e);
         m.compose(v.set(p.x, moving ? Math.abs(Math.sin(t * 6 + i)) * 0.015 : 0, -p.y), q, one);

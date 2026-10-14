@@ -29,7 +29,9 @@ export const ARRIVE_AUTO = 90;   // 车队到了以后这么久没人选地方�
 export const VEH = {
   sled: { n: '雪橇', cap: 200, fuel: 'wood', cost: { wood: 60, plank: 30 }, secs: 45 },
   tractor: { n: '蒸汽拖车', cap: 1000, fuel: 'coal', cost: { steel: 30, gear: 10, engine: 1 }, secs: 120, from: 2 },
+  icebreaker: { n: '破冰车', cap: 2400, fuel: 'battery', cost: { alloy: 80, part: 30, engine: 6 }, secs: 200, from: 8 }, // 到了沉睡的破冰船才会造；冰面裂开不用绕路
 };
+const VEH_ORDER = ['icebreaker', 'tractor', 'sled']; // 装车先挑大的
 export const VEH_KEYS = Object.keys(VEH);
 export const FURNACE_KIT = { wood: 260, stone: 160, plank: 60 }; // 点新熔炉的材料，装在车上带过去
 
@@ -190,21 +192,22 @@ export function tripPlan(S) {
   const kit = { ...FURNACE_KIT };
   const steps = Math.ceil(len / 10);
   // 先挑拖车（大、快），不够再上雪橇；燃料也占地方，所以算两遍
-  const fleet = J.fleet, veh = { sled: 0, tractor: 0 };
+  const fleet = J.fleet, veh = { sled: 0, tractor: 0, icebreaker: 0 }, nv = () => veh.sled + veh.tractor + veh.icebreaker;
   let base = people * PERSON_LOAD + sum(goods) + sum(kit) + people * steps, cap = 0;
   for (let pass = 0; pass < 2; pass++) {
-    const need = base + (veh.sled + veh.tractor) * steps;
-    veh.sled = 0; veh.tractor = 0; cap = 0;
-    for (const v of ['tractor', 'sled']) while (cap < need && veh[v] < (fleet[v] || 0)) { veh[v]++; cap += VEH[v].cap; }
+    const need = base + nv() * steps;
+    veh.sled = 0; veh.tractor = 0; veh.icebreaker = 0; cap = 0;
+    for (const v of VEH_ORDER) while (cap < need && veh[v] < (fleet[v] || 0)) { veh[v]++; cap += VEH[v].cap; }
   }
-  const load = base + (veh.sled + veh.tractor) * steps;
+  const load = base + nv() * steps;
   const supplies = { food: people * steps };
   if (veh.sled) supplies.wood = veh.sled * steps;
   if (veh.tractor) supplies.coal = veh.tractor * steps;
+  if (veh.icebreaker) supplies.battery = Math.ceil(veh.icebreaker * steps / 3);
   const need = addTo(addTo(addTo({}, goods), kit), supplies);
   const short = missing(main.stock, need);
-  const fullCap = (fleet.sled || 0) * VEH.sled.cap + (fleet.tractor || 0) * VEH.tractor.cap;
-  const secs = tripSecs(len, !veh.sled && veh.tractor > 0), speed = len / Math.max(1, secs);
+  const fullCap = VEH_KEYS.reduce((a, v) => a + (fleet[v] || 0) * VEH[v].cap, 0);
+  const secs = tripSecs(len, !veh.sled && veh.tractor + veh.icebreaker > 0), speed = len / Math.max(1, secs);
   const roomOk = fullCap >= load;
   return {
     to: nx, len, steps, fl, camps, people, specs, goods, kit, supplies, need, veh, load, cap: fullCap, roomOk,
@@ -229,7 +232,7 @@ export function departGate(S) {
     { id: 'chap', ok: !ch || ch.done, t: ch ? `做完「${ch.ch.n}」` : '这一章做完了', sub: !ch || ch.done ? '做完了' : `还有 ${left} 项任务` },
     { id: 'flvl', ok: fl >= need, t: `主营地熔炉 ${need} 级`, sub: `现在 ${fl} 级`, cur: fl, n: need },
     { id: 'car', ok: plan.roomOk && !plan.short.length && plan.people >= 5, t: '车队备好了',
-      sub: plan.people < 5 ? '至少要有 5 个人上路' : !plan.roomOk ? `车上还差 ${plan.lack} 份地方（约 ${Math.ceil(plan.lack / VEH.sled.cap)} 架雪橇）` : plan.short.length ? '缺：' + plan.short.join('，') : `${plan.people} 人，${plan.veh.tractor ? plan.veh.tractor + ' 辆拖车 ' : ''}${plan.veh.sled ? plan.veh.sled + ' 辆雪橇' : ''}` },
+      sub: plan.people < 5 ? '至少要有 5 个人上路' : !plan.roomOk ? `车上还差 ${plan.lack} 份地方（约 ${Math.ceil(plan.lack / VEH.sled.cap)} 架雪橇）` : plan.short.length ? '缺：' + plan.short.join('，') : `${plan.people} 人，${plan.veh.icebreaker ? plan.veh.icebreaker + ' 台破冰车 ' : ''}${plan.veh.tractor ? plan.veh.tractor + ' 辆拖车 ' : ''}${plan.veh.sled ? plan.veh.sled + ' 辆雪橇' : ''}` },
   ];
   return { k, next: nx, items, n: items.filter(i => i.ok).length, ok: items.every(i => i.ok), plan, route };
 }
@@ -264,7 +267,7 @@ export function depart(S) {
 }
 // ---------- 雪橇棚：造车。造好的车归车队，跟着主营地走 ----------
 export const VQ_MAX = 10;
-export const vehName = v => v === 'sled' ? '雪橇' : '蒸汽拖车';
+export const vehName = v => (VEH[v] || VEH.sled).n;
 export function vehBlock(S, b, v) {
   const V = VEH[v]; if (!V || !b || b.type !== 'sledshed') return '这里造不了';
   if (V.from && journeyOf(S).stage < V.from) return `到了「${stopOf(S, V.from).n}」以后才能造`;
@@ -310,7 +313,7 @@ function vehStep(S, dt) {
 // ---------- 路上的事：每一程抽两三件，车队停下来等你拿主意 ----------
 // 一分钟（游戏里的时间，关着页面补算时也一样）没人选，按第一项「默认」办：宁可花物资，不伤人
 export const ROAD_WAIT = 60;
-const nVeh = T => (T.veh.sled || 0) + (T.veh.tractor || 0);
+const nVeh = T => VEH_KEYS.reduce((a, v) => a + (T.veh[v] || 0), 0);
 // 车上的货里，点炉要用的那份不动，剩下的才能在路上花
 // 熟食再留 10 分钟的口粮给新营地开局
 export const roadHave = (T, k) => Math.max(0, Math.floor((T.goods[k] || 0) - (FURNACE_KIT[k] || 0) - (k === 'food' ? T.people * EAT * 10 : 0)));
@@ -324,7 +327,7 @@ function fuelPlan(T, u) {
   return { take: out, short: Math.max(0, left) };
 }
 const resTxt = o => Object.keys(o).map(k => `${RES[k].n} −${o[k]}`).join('，');
-const roomLeft = T => (T.veh.sled || 0) * VEH.sled.cap + (T.veh.tractor || 0) * VEH.tractor.cap - T.people * PERSON_LOAD - sum(T.goods);
+const roomLeft = T => VEH_KEYS.reduce((a, v) => a + (T.veh[v] || 0) * VEH[v].cap, 0) - T.people * PERSON_LOAD - sum(T.goods);
 const stepsLeft = T => Math.max(1, Math.ceil((T.len - T.d) / 10));
 function roadLoot(T) {
   const k = T.to;
@@ -361,11 +364,11 @@ const ROAD = [
         go: (S, T, x) => { const f = fuelPlan(T, x.u); for (const k in f.take) roadTake(T, k, f.take[k]); if (x.hurt) T.sick = (T.sick || 0) + x.hurt; return x.hurt ? `火堆守了一夜，狼群扑上来过一次，${x.hurt} 个人被咬伤了。` : '火堆守了一夜，狼群天亮前散了。'; } },
     ] },
   { id: 'ice', n: '冰面裂开', w: 2, when: (S, T) => T.to >= 3 && T.to <= 4,
-    ctx: (S, T) => ({ far: 10, food: T.people, plank: 20 + 5 * nVeh(T) }),
+    ctx: (S, T) => ({ far: 10, food: T.people, plank: 20 + 5 * nVeh(T), ib: (T.veh.icebreaker || 0) > 0 }),
     text: () => '前面的冰河裂开一道口子，黑水在冰下流得很急，雪橇过不去。',
     opts: [
-      { t: '绕路', d: (S, T, x) => `多走约 ${x.far} 格 · ${foodTxt(T, x.food)}`,
-        go: (S, T, x) => { roadTake(T, 'food', x.food); T.detour = (T.detour || 0) + x.far; return '车队沿着河岸绕了一大圈，才找到能过的地方。'; } },
+      { t: '绕路', tib: '破冰车在前面开路', d: (S, T, x) => x.ib ? '不耽误，什么都不花' : `多走约 ${x.far} 格 · ${foodTxt(T, x.food)}`,
+        go: (S, T, x) => { if (x.ib) return '破冰车压碎了冰缝两边的冰，车队跟着它的履带印开了过去。'; roadTake(T, 'food', x.food); T.detour = (T.detour || 0) + x.far; return '车队沿着河岸绕了一大圈，才找到能过的地方。'; } },
       { t: '用木板搭桥', d: (S, T, x) => `木板 −${x.plank}（车上多带的）· 不耽误`, ok: (S, T, x) => roadHave(T, 'plank') >= x.plank,
         go: (S, T, x) => { roadTake(T, 'plank', x.plank); return '木板一块块铺过裂缝，车队一辆接一辆开了过去。'; } },
     ] },
@@ -394,18 +397,18 @@ const ROAD = [
       { t: '摸黑走', d: () => '不烧燃料 · 可能走散一辆车（连车上的货）', ok: (S, T) => nVeh(T) > 1,
         go: (S, T, x) => {
           if (!x.lose) return '大家手拉着绳子摸黑走，天亮时一辆车都没少。';
-          const v = T.veh.sled ? 'sled' : 'tractor', cap = (T.veh.sled || 0) * VEH.sled.cap + (T.veh.tractor || 0) * VEH.tractor.cap, f = VEH[v].cap / Math.max(1, cap);
+          const v = T.veh.sled ? 'sled' : T.veh.tractor ? 'tractor' : 'icebreaker', cap = VEH_KEYS.reduce((a, k) => a + (T.veh[k] || 0) * VEH[k].cap, 0), f = VEH[v].cap / Math.max(1, cap);
           T.veh[v]--; const J = journeyOf(S); J.fleet[v] = Math.max(0, (J.fleet[v] || 0) - 1);
           const gone = {}; for (const k in T.goods) { const n = Math.floor(roadHave(T, k) * f); if (n > 0) { T.goods[k] -= n; gone[k] = n; } }
           return `天亮时少了一架${vehName(v)}，车上的货也跟着丢了${Object.keys(gone).length ? '：' + resTxt(gone) : ''}。`;
         } },
     ] },
   { id: 'chasm', n: '冰原裂谷', w: 2, when: (S, T) => T.from >= 6,
-    ctx: (S, T) => ({ far: 14, food: T.people, steel: 30 + 5 * nVeh(T) }),
+    ctx: (S, T) => ({ far: 14, food: T.people, steel: 30 + 5 * nVeh(T), ib: (T.veh.icebreaker || 0) > 0 }),
     text: () => '冰原上横着一道看不见底的裂谷，风从底下往上灌，呜呜作响。',
     opts: [
-      { t: '找路绕过去', d: (S, T, x) => `多走约 ${x.far} 格 · ${foodTxt(T, x.food)}`,
-        go: (S, T, x) => { roadTake(T, 'food', x.food); T.detour = (T.detour || 0) + x.far; return '车队沿着裂谷走了很远，才找到一处窄的地方绕过去。'; } },
+      { t: '找路绕过去', tib: '破冰车在前面开路', d: (S, T, x) => x.ib ? '不耽误，什么都不花' : `多走约 ${x.far} 格 · ${foodTxt(T, x.food)}`,
+        go: (S, T, x) => { if (x.ib) return '破冰车沿着裂谷边压出一条冰道，车队稳稳地绕了过去。'; roadTake(T, 'food', x.food); T.detour = (T.detour || 0) + x.far; return '车队沿着裂谷走了很远，才找到一处窄的地方绕过去。'; } },
       { t: '架桥', d: (S, T, x) => `钢材 −${x.steel}（车上带的）· 不耽误`, ok: (S, T, x) => roadHave(T, 'steel') >= x.steel,
         go: (S, T, x) => { roadTake(T, 'steel', x.steel); return '钢梁架过裂谷，车队一辆接一辆开了过去。'; } },
     ] },
@@ -433,7 +436,7 @@ export function roadView(S) {
   const T = journeyOf(S).trip, v = T && T.road; if (!v) return null;
   const e = ROAD.find(x => x.id === v.id); if (!e) { T.road = null; return null; }
   return { id: e.id, title: e.n, text: e.text(S, T, v.x), left: Math.max(0, Math.ceil(ROAD_WAIT - (S.t - v.t0))),
-    opts: e.opts.map((o, i) => ({ t: o.t, d: o.d(S, T, v.x), ok: !o.ok || o.ok(S, T, v.x), def: i === 0 })) };
+    opts: e.opts.map((o, i) => ({ t: o.tib && v.x.ib ? o.tib : o.t, d: o.d(S, T, v.x), ok: !o.ok || o.ok(S, T, v.x), def: i === 0 })) };
 }
 export function resolveRoad(S, i, auto) {
   const T = journeyOf(S).trip, v = T && T.road; if (!v) return null;
@@ -533,6 +536,12 @@ export function arrive(S, x, y) {
   for (const c of S.camps) bumpMood(c, 6, -3);
   logMsg(S, `🔥 车队到了「${st.n}」，新熔炉点着了（${T.fl} 级）。${tents ? `先搭好了 ${tents} 顶帐篷。` : ''}${embers ? `熄火的营地换来 ${embers} 点余烬。` : ''}`, 'story');
   rt(S).fx.push({ kind: 'arrive-stop', k: J.stage });
+  // 走到世界之脊：真结局
+  if (J.stage === STOP_N - 1) {
+    const first = !S.meta.trueEnd; S.meta.trueEnd = (S.meta.trueEnd || 0) + 1;
+    logMsg(S, '🏔 车队翻上了世界之脊。一路走来的营火连成了一条线——这是真正的终点。', 'story');
+    rt(S).fx.push({ kind: 'trueend', first });
+  }
   return { ok: true, camp: camp.id };
 }
 // 到了先把帐篷搭起来：用车上带来的木材，紧挨着熔炉
@@ -691,9 +700,19 @@ function supplyStep(S, dt) {
 }
 
 // ---------- 每一步 ----------
+// 信号灯塔：建好、升级以后把四周的雾照开
+function beaconStep(S) {
+  for (const b of S.buildings) {
+    if (b.type !== 'beacon' || b.lit === b.lvl) continue;
+    b.lit = b.lvl;
+    revealCircle(S, b.x + 1, b.y + 1, BLD.beacon.reveal + 4 * (b.lvl - 1));
+    logMsg(S, `🗼 信号灯塔亮了：四周 ${BLD.beacon.reveal + 4 * (b.lvl - 1)} 格的雾都照开了。`, 'good');
+  }
+}
 export function journeyStep(S, dt) {
   vehStep(S, dt);
   supplyStep(S, dt);
+  beaconStep(S);
   const J = journeyOf(S), T = J.trip;
   if (!T) return;
   if (T.phase === 'go') {

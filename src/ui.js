@@ -10,10 +10,11 @@ export const ICON = {
   furnace: '🔥', tent: '⛺', lumber: '🪓', nursery: '🌲', quarry: '⛏️', hunter: '🏹', sawmill: '🪚', kitchen: '🍲', warehouse: '📦', tower: '🗼', scout: '🚩', sledshed: '🛷', kennel: '🐕', workshop: '🔬', lamp: '🏮', flagpole: '🚩', infirmary: '🩺', statue: '🗽', flowerhouse: '🌷',
   coalmine: '⚫', ironmine: '🟤', smelter: '🏭', coker: '🧱', limequarry: '⬜', steelworks: '🏗️', gearworks: '⚙️', engineworks: '🚂', greenhouse: '🌱', heater: '♨️',
   shalepit: '🛢️', refinery: '⚗️', sealworks: '🔩', crystalmine: '💎', batteryworks: '🔋', alloyworks: '🧪', salvage: '🛸', partworks: '🧩', coreworks: '🤖', bay: '🦾', excavator: '🔶', forge: '⚒️',
+  beacon: '🔦', colossus: '🧌', starpit: '🔮',
 };
 export const RICON = {
   wood: '🪵', stone: '🪨', game: '🥩', plank: '🟫', food: '🍖', coal: '⚫', ore: '🟤', iron: '🔘', coke: '◼️', lime: '⬜', steel: '🔷', gear: '⚙️', engine: '🚂',
-  shale: '🛢️', tar: '🖤', seal: '🔩', crystal: '💎', battery: '🔋', alloy: '🧪', star: '🌠', part: '🧩', core: '🤖', shard: '🔶', heart: '🌟', people: '👥',
+  shale: '🛢️', tar: '🖤', seal: '🔩', crystal: '💎', battery: '🔋', alloy: '🧪', star: '🌠', part: '🧩', core: '🤖', shard: '🔶', heart: '🌟', starcore: '🔮', people: '👥',
 };
 const BUFF_TXT = b => ({ prod: `产量 ${b.v > 0 ? '+' : ''}${Math.round(b.v * 100)}%`, fuel: `燃料消耗 ${b.v > 0 ? '+' : ''}${Math.round(b.v * 100)}%`, heat: `体感 +${b.v}°`, shield: `暴风雪降温 −${Math.round(b.v * 100)}%`, def: `防御 +${Math.round(b.v * 100)}%` })[b.k] || '';
 const TUT = [
@@ -498,11 +499,11 @@ export class UI {
     const odTag = cr.stall ? '<em class="odt cool">停炉</em>' : cr.od ? '<em class="odt">超载</em>' : '';
     if (w.blizzard) weather = `<span class="pill wx bad" title="点开看备战情况和超载熔炉">❄<span class="lg"> 暴风雪中</span> ${fmtTime(w.until - S.t)}${odTag}</span>`;
     else if (w.warn) weather = `<span class="pill wx warn" title="点开看备战情况和超载熔炉">❄<span class="lg"> 暴风雪</span> ${fmtTime(w.inSec)}<span class="lg"> 后</span>${odTag}</span>`;
-    else if (w.next <= Sim.FORECAST) weather = `<span class="pill wx fc" title="气象预报：${fmtTime(w.next)} 后有暴风雪（点开看备战情况）">❄<small>${fmtTime(w.next)}</small>${odTag}</span>`;
+    else if (w.next <= Sim.forecastOf(S)) weather = `<span class="pill wx fc" title="气象预报：${fmtTime(w.next)} 后有暴风雪（点开看备战情况）">❄<small>${fmtTime(w.next)}</small>${odTag}</span>`;
     else if (odTag) weather = `<span class="pill wx" title="熔炉超载中（点开看炉温）">🔥${odTag}</span>`;
     // 冰风暴、极寒夜、冰湖开裂：进行中，或者比暴风雪先到的预报
     { const e = Sim.wxeAt(S, S.t);
-      if (e.ev && (e.on || (e.inSec <= Sim.FORECAST && !w.blizzard && !w.warn && !(w.next <= Sim.FORECAST && w.next < e.inSec)))) {
+      if (e.ev && (e.on || (e.inSec <= Sim.forecastOf(S) && !w.blizzard && !w.warn && !(w.next <= Sim.forecastOf(S) && w.next < e.inSec)))) {
         const E = Sim.WXE[e.ev.kind], prep = Sim.wxePrepped(S, c, e.ev), need = Sim.wxeMatters(S, c, e.ev) && !prep;
         const tip = `${E.n}：${E.d}${need ? `（还没「${E.prep}」，点开准备）` : prep ? '（已经准备好了）' : ''}`;
         weather += e.on ? `<span class="pill wx ev bad" title="${esc(tip)}">${E.ic}<span class="lg"> ${E.n}</span> ${fmtTime(e.left)}</span>`
@@ -901,7 +902,7 @@ export class UI {
     if (!m.seenB) { m.seenB = {}; for (const k of BLD_KEYS) if (BLD[k].t <= S.known) m.seenB[k] = 1; }
     return m.seenB;
   }
-  newBld(t) { const S = this.S, seen = this.seenB(); return BLD_KEYS.filter(k => BLD[k].t <= S.known && (t == null || BLD[k].t === t) && !seen[k]); }
+  newBld(t) { const S = this.S, seen = this.seenB(); return BLD_KEYS.filter(k => Sim.unlocked(S, k) && (t == null || BLD[k].t === t) && !seen[k]); }
   markBuildSeen() { const seen = this.seenB(); for (const k of this.bNewShown || []) seen[k] = 1; this.bNewShown = null; }
   p_build(part) {
     const S = this.S, c = this.camp();
@@ -915,7 +916,7 @@ export class UI {
     let cards = '';
     for (const k of list) {
       const d = BLD[k];
-      const locked = d.t > S.known;
+      const locked = !Sim.unlocked(S, k), far = locked && d.t <= S.known;
       const cost = k === 'furnace' ? Sim.buildCost(S, k, c.id, Math.round(c.y + 20)) : Sim.buildCost(S, k, c.id, c.y);
       const n = Sim.countType(S, c.id, k);
       const fresh = !locked && !seen[k], short = !locked && !Sim.canAfford(c.stock, cost);
@@ -924,7 +925,7 @@ export class UI {
         <div class="ci pic">${this.ico(k, k === 'furnace' ? 2 : 1)}${fresh ? '<i class="cnew">新</i>' : ''}${n ? `<i class="chave">${n}</i>` : ''}</div>
         <div class="cb"><div class="cn">${k === 'furnace' ? '前哨熔炉<small class="cnx">（新营地）</small>' : d.n}${n ? ` <small class="chas">已有 ${n}</small>` : ''}</div>
         <div class="cd">${esc(d.desc)}</div>
-        <div class="cc">${locked ? `需要侦察到「${TIER_NAMES[d.t]}」纬度` : costHtml(c.stock, cost)}${k === 'furnace' ? ' <small class="cnx">（越往北越贵）</small>' : ''}</div>
+        <div class="cc">${far ? `🔒 ${esc(Sim.stageLock(S, k))}` : locked ? `需要侦察到「${TIER_NAMES[d.t]}」纬度` : costHtml(c.stock, cost)}${k === 'furnace' ? ' <small class="cnx">（越往北越贵）</small>' : ''}</div>
         ${d.out ? `<div class="cio">${d.in ? Object.keys(d.in).map(r => RICON[r] + d.in[r]).join(' ') + ' → ' : ''}${Object.keys(d.out).map(r => RICON[r] + d.out[r]).join(' ')}<small>/分 · ${d.w}人</small></div>` : ''}
         ${d.cat === 'deco' ? `<div class="cio">✨ 装饰 · 希望 +${d.hope}${d.w ? `<small> · ${d.w}人照看</small>` : ''}</div>` : ''}
         </div></div>`;
@@ -969,7 +970,7 @@ export class UI {
   // 冰风暴、极寒夜、冰湖开裂：说明、对这座营地的影响、提前准备
   wxeCard(c, cr) {
     const S = this.S, e = Sim.wxeAt(S, S.t);
-    if (!e.ev || (!e.on && e.inSec > Sim.FORECAST)) return `<div class="row sub"><span></span><span>一小时内没有冰风暴、极寒夜或冰湖开裂的预报。</span></div>`;
+    if (!e.ev || (!e.on && e.inSec > Sim.forecastOf(S))) return `<div class="row sub"><span></span><span>${Sim.forecastOf(S) > 3600 ? "两小时" : "一小时"}内没有冰风暴、极寒夜或冰湖开裂的预报。</span></div>`;
     const ev = e.ev, E = Sim.WXE[ev.kind], prep = Sim.wxePrepped(S, c, ev), matters = Sim.wxeMatters(S, c, ev);
     let h = `<div class="wxhero ev ${e.on ? 'on' : e.inSec <= Sim.WXE_WARN ? 'near' : ''}"><div class="wxi">${E.ic}</div><div><b>${E.n}${e.on ? `中，还剩 ${fmtTime(e.left)}` : ` · 约 ${fmtTime(e.inSec)} 后`}</b><small>${e.on ? '' : `持续约 ${Math.round((ev.end - ev.start) / 60)} 分钟 · `}${esc(E.d)}</small></div></div>`;
     const fx = [];
@@ -994,7 +995,7 @@ export class UI {
   p_weather(part) {
     const S = this.S, c = this.camp(), cr = Sim.rt(S).c[c.id] || {}, P = this.wxPlan(c, cr);
     if (part === 'title') return `${P.on ? '暴风雪中' : '天气预报'} <small>${esc(c.name)}</small>`;
-    const e = Sim.wxeAt(S, S.t), evFirst = e.ev && (e.on || (!P.on && e.inSec < P.inSec && e.inSec <= Sim.FORECAST));
+    const e = Sim.wxeAt(S, S.t), evFirst = e.ev && (e.on || (!P.on && e.inSec < P.inSec && e.inSec <= Sim.forecastOf(S)));
     const evh = `<div class="sec">${e.on ? '眼下的天气' : '其他天气'}</div>` + this.wxeCard(c, cr);
     return (evFirst ? evh + '<div class="sec">暴风雪</div>' : '') + this.p_weatherBliz(c, cr, P) + (evFirst ? '' : evh);
   }
@@ -1126,8 +1127,9 @@ export class UI {
   shedHtml(b, c) {
     const S = this.S, J = Sim.journeyOf(S), V = Sim.VEH, P = Sim.tripPlan(S);
     let h = `<div class="sec">车队</div>`;
-    h += `<div class="row"><span>现有</span><span>🛷 雪橇 ${J.fleet.sled || 0} 架${J.fleet.tractor || J.stage >= V.tractor.from ? ` · 蒸汽拖车 ${J.fleet.tractor || 0} 台` : ''}</span></div>`;
-    if (P.to) h += `<div class="row sub"><span>往「${esc(P.to.n)}」</span><span>${P.roomOk ? `装得下：${P.people} 人和货共 ${fmt(P.load)} 份，车上能装 ${fmt(P.cap)}` : `还差 ${fmt(P.lack)} 份地方，大约 ${Math.ceil(P.lack / V.sled.cap)} 架雪橇${J.stage >= V.tractor.from ? `或 ${Math.ceil(P.lack / V.tractor.cap)} 台拖车` : ''}`}</span></div>`;
+    h += `<div class="row"><span>现有</span><span>🛷 雪橇 ${J.fleet.sled || 0} 架${J.fleet.tractor || J.stage >= V.tractor.from ? ` · 蒸汽拖车 ${J.fleet.tractor || 0} 台` : ''}${J.fleet.icebreaker || J.stage >= V.icebreaker.from ? ` · 破冰车 ${J.fleet.icebreaker || 0} 台` : ''}</span></div>`;
+    const big = J.stage >= V.icebreaker.from ? 'icebreaker' : J.stage >= V.tractor.from ? 'tractor' : null;
+    if (P.to) h += `<div class="row sub"><span>往「${esc(P.to.n)}」</span><span>${P.roomOk ? `装得下：${P.people} 人和货共 ${fmt(P.load)} 份，车上能装 ${fmt(P.cap)}` : `还差 ${fmt(P.lack)} 份地方，大约 ${Math.ceil(P.lack / V.sled.cap)} 架雪橇${big ? `或 ${Math.ceil(P.lack / V[big].cap)} 台${V[big].n}` : ''}`}</span></div>`;
     const sp = Sim.vehSpeed(S, b);
     const vq = b.vq || [];
     if (vq.length) {
@@ -1141,7 +1143,7 @@ export class UI {
     }
     for (const v of Sim.VEH_KEYS) {
       const why = Sim.vehBlock(S, b, v), locked = V[v].from && J.stage < V[v].from;
-      h += `<div class="row"><span>${Sim.vehName(v)}<small>装 ${V[v].cap} 份（${V[v].cap / Sim.PERSON_LOAD} 个人）· ${v === 'sled' ? '路上烧木柴' : '路上烧煤，全是拖车时快一半'}</small></span><span>${locked ? `<small>${esc(why)}</small>` : `${costHtml(c.stock, V[v].cost, S.known)} <button class="small ${why ? '' : 'go'}" data-act="veh" data-arg="${b.id}:${v}:1">造 1 ${v === 'sled' ? '架' : '台'}</button>${v === 'sled' ? ` <button class="small" data-act="veh" data-arg="${b.id}:${v}:5">造 5 架</button>` : ''}`}</span></div>`;
+      h += `<div class="row"><span>${Sim.vehName(v)}<small>装 ${V[v].cap} 份（${V[v].cap / Sim.PERSON_LOAD} 个人）· ${v === 'sled' ? '路上烧木柴' : v === 'tractor' ? '路上烧煤，没有雪橇时快一半' : '路上烧电池，冰面和裂谷直接开过去'}</small></span><span>${locked ? `<small>${esc(why)}</small>` : `${costHtml(c.stock, V[v].cost, S.known)} <button class="small ${why ? '' : 'go'}" data-act="veh" data-arg="${b.id}:${v}:1">造 1 ${v === 'sled' ? '架' : '台'}</button>${v === 'sled' ? ` <button class="small" data-act="veh" data-arg="${b.id}:${v}:5">造 5 架</button>` : ''}`}</span></div>`;
     }
     return h;
   }
