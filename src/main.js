@@ -116,12 +116,12 @@ class Game {
     const lost = Object.keys(sum.res).filter(k => sum.res[k] < 0).slice(0, 5);
     if (secs < 120) return;
     this.modalOrLater(`<h3>离开了 ${fmtTime(secs)}</h3>
-      <p>营地一直在运转。离线时物资只按 <b>${Math.round(sum.rate * 100)}%</b> 入库（人照样要吃饭烧火），在线玩收益最高：</p>
+      <p>营地一直在运转${sum.capped ? `，算到第 12 小时为止（之后营地停在那时的样子）` : ''}。这段时间物资平均按 <b>${Math.round(sum.rate * 100)}%</b> 入库（前 1 小时 40%，到 4 小时 20%，到 12 小时 10%；人照样要吃饭烧火），在线玩收益最高：</p>
       <div class="sumgrid">${gained.map(k => `<span>${RICON[k]} +${fmt(sum.res[k])}</span>`).join('')}${lost.map(k => `<span class="miss">${RICON[k]} ${fmt(sum.res[k])}</span>`).join('')}</div>
       <p>👥 人口 ${sum.people >= 0 ? '+' : ''}${sum.people}（投奔 ${sum.arrivals}，遇难 ${sum.deaths}）</p>
       ${sum.blizzards ? `<p>❄ 经历了 ${sum.blizzards} 场暴风雪</p>` : ''}
       ${sum.raids ? `<p>🐺 袭营 ${sum.raids} 次，击退 ${sum.raidsWon} 次</p>` : ''}
-      ${sum.lines && sum.lines.length ? `<div class="sec">产线</div><div class="offl">${sum.lines.map(l => `<div><span>${RICON[l.r]} ${RES[l.r].n}${l.main ? '主线' : '支线'}</span><span>做了 ${fmt(l.made)}（平均 ${fmt(l.per)}/分）</span><span class="st">${l.star > l.star0 ? `升到 ${'★'.repeat(l.star)}` : '★'.repeat(l.star) || '还没有星'}</span></div>`).join('')}</div>` : ''}
+      ${sum.lines && sum.lines.length ? `<div class="sec">产线</div><div class="offl">${sum.lines.map(l => `<div><span>${RICON[l.r]} ${RES[l.r].n}${l.main ? '主线' : '支线'}</span><span>入库 ${fmt(l.got)}（满速 ${fmt(l.per)}/分，按 ${Math.round(l.rk * 100)}%${l.rk > sum.rate + 1e-6 ? '，三星多拿一半' : ''}）</span><span class="st">${l.star > l.star0 ? `升到 ${'★'.repeat(l.star)}` : '★'.repeat(l.star) || '还没有星'}</span></div>`).join('')}</div>` : ''}
       ${sum.stage !== sum.stage0 ? `<p>🛷 车队到了「${Sim.stopOf(S, sum.stage).n}」，新熔炉已经点着了。</p>` : ''}
       <p class="hint">（结算用了 ${Math.round(performance.now() - t0)} 毫秒）</p>`);
   }

@@ -1,5 +1,5 @@
 // 界面：顶部状态、资源条、底部工具栏、面板、提示
-import { BRIEF, RES, RES_KEYS, BLD, BLD_KEYS, CATS, TIER_NAMES, LANDMARKS, FAR_MARKS, SPECS, EMBER_UPS, emberCost, specTrainCost, specBonus, FUEL, furnaceRadius, furnaceHeat, furnaceBurn, baseTempOfRow, tierOfRow, ETERNAL_STAGES, GATE, GATE_EVERY, STORY, SPOTS, SPOT_KEYS, dayCycle, LAWS, TECHS, TECH_BR, SITES, CHAPTERS, INFRA, RAIDERS, DAY_LEN, DIFF, DIFF_KEYS, SLOTS, FOCUS, FOCUS_KEYS, FOCUS_LVL } from './data.js';
+import { BRIEF, RES, RES_KEYS, BLD, BLD_KEYS, CATS, TIER_NAMES, LANDMARKS, FAR_MARKS, SPECS, SPEC_MAX, EMBER_UPS, emberCost, specTrainCost, specBonus, FUEL, furnaceRadius, furnaceHeat, furnaceBurn, baseTempOfRow, tierOfRow, ETERNAL_STAGES, GATE, GATE_EVERY, STORY, SPOTS, SPOT_KEYS, dayCycle, LAWS, TECHS, TECH_BR, SITES, CHAPTERS, INFRA, RAIDERS, DAY_LEN, DIFF, DIFF_KEYS, SLOTS, FOCUS, FOCUS_KEYS, FOCUS_LVL } from './data.js';
 import * as Sim from './sim.js';
 import { personOf, personState, campVoices } from './people.js';
 import { getWorld, idx, W, H } from './worldgen.js';
@@ -1124,6 +1124,8 @@ export class UI {
       const rate = br.rate || {};
       h += `<div class="row"><span>产出</span><span>${Object.keys(d.out).map(k => `${RICON[k]}${fmt(rate[k] || 0)}`).join(' ')}<small>/分</small></span></div>`;
       if (d.in) h += `<div class="row"><span>消耗</span><span>${Object.keys(d.in).map(k => `${RICON[k]}${fmt((br.inRate || {})[k] || 0)}`).join(' ')}<small>/分</small></span></div>`;
+      { const B = Sim.prodBonus(S, b, c), pc = x => Math.round(x * 100);
+        h += `<div class="row sub"><span>等级、加成</span><span>${b.lvl} 级 ×${Sim.levelMul(b.lvl).toFixed(2)} · 加成 ${B.sum >= 0 ? '+' : ''}${pc(B.sum)}%${B.parts.length ? `<small>（${B.parts.map(p => `${p[0]} ${p[1] >= 0 ? '+' : ''}${pc(p[1])}`).join(' · ')}）</small>` : ''}</span></div>`; }
       h += `<div class="row sub"><span>到最近仓库</span><span>${(br.dist || 0).toFixed(1)} 格 · 占用搬运工 ${fmt(br.haul || 0)}</span></div>`;
       const syn = R.adj.get(b.id) || 0;
       if (d.syn) h += `<div class="row sub"><span>相邻联动</span><span>${syn ? '+' + Math.round(syn * Sim.SYN_PER * 100) + '%' : '无'} <small>（贴着${d.syn.map(t => BLD[t].n).join('/')}）</small></span></div>`;
@@ -1182,7 +1184,7 @@ export class UI {
     }
     if (b.type === 'tent') h += `<div class="row"><span>床位</span><span>${Sim.housingOf(b)} 人 · 保温 +${Sim.insulOf(b)}°</span></div>`;
     if (b.type === 'warehouse') h += `<div class="row"><span>仓储</span><span>每种物资上限 ${fmt(cr.cap)}</span></div>`;
-    if (b.type === 'tower') h += `<div class="row"><span>威力</span><span>${Math.round(BLD.tower.power * Math.pow(1.3, b.lvl - 1))}</span></div>`;
+    if (b.type === 'tower') h += `<div class="row"><span>威力</span><span>${Math.round(Sim.towerPower(b.lvl))}</span></div>`;
     if (b.type === 'heater') h += `<div class="row"><span>加温</span><span>+${Math.round(BLD.heater.heat * (1 + 0.5 * (b.lvl - 1)))}° · 烧煤 ${fmt(BLD.heater.burn * b.lvl)}/分</span></div>`;
     if (b.type === 'bay') h += `<div class="row"><span>自动机</span><span>${c.bots}/${cr.botCap || 0} 台（库存核心会自动装入）</span></div>`;
     if (b.type === 'kennel') {
@@ -1220,11 +1222,11 @@ export class UI {
     const g = Sim.gateTier(b.type, b.lvl);
     h += `<div class="upbox"><div class="sec">升级</div>`;
     { const nb = { ...b, lvl: b.lvl + 1 }, fx = [];
-      if (d.out) fx.push('产量 +20%');
+      if (d.out) fx.push(`产量 ×${Sim.levelMul(b.lvl).toFixed(2)}→×${Sim.levelMul(b.lvl + 1).toFixed(2)}`);
       const m2 = Sim.maxWorkers(b.type, b.lvl + 1); if (m2 > mx) fx.push(`岗位 ${mx}→${m2}`);
       if (b.type === 'furnace') fx.push(`供热 +5°`, `半径 ${furnaceRadius(b.lvl)}→${furnaceRadius(b.lvl + 1)}`, '耗燃料 +17%');
       if (b.type === 'tent') fx.push(`床位 ${Sim.housingOf(b)}→${Sim.housingOf(nb)}`, `保温 +${Sim.insulOf(b)}→+${Sim.insulOf(nb)}°`);
-      if (b.type === 'tower') fx.push('威力 +30%');
+      if (b.type === 'tower') fx.push(`威力 ${Math.round(Sim.towerPower(b.lvl))}→${Math.round(Sim.towerPower(b.lvl + 1))}`);
       if (b.type === 'heater') fx.push('加温 +50%');
       if (b.type === 'scout') fx.push('走得更远 +8 格');
       if (b.type === 'kennel') fx.push(`狗 ${Sim.kennelDogs(b.lvl)}→${Sim.kennelDogs(b.lvl + 1)} 只`);
@@ -1620,7 +1622,7 @@ export class UI {
       h += `<div class="card"><div class="ci">🧑‍🔧</div><div class="cb"><div class="cn">${sp.n} <small>${sp.role} · ${m.lvl} 级</small></div>
         <div class="cd">${esc(sp.story)}<br>对口：${sp.aff.map(t => BLD[t].n).join('、')}（+${Math.round(specBonus(m.lvl, true) * 100)}%，别处 +${Math.round(specBonus(m.lvl, false) * 100)}%）</div>
         <div class="cc">${at ? `在「${BLD[at.type].n}」(${esc(Sim.getCamp(S, at.camp).name)}) <button class="small" data-act="spot" data-arg="${at.id}">看看</button> <button class="small" data-act="unspec" data-arg="${sp.id}">请走</button>` : `<button class="small" data-act="autospec" data-arg="${sp.id}">安排到对口建筑</button>`}
-        · 培养 ${costHtml(c.stock, cost, S.known)} <button class="small" data-act="train" data-arg="${sp.id}">培养</button></div></div></div>`;
+        · ${m.lvl >= SPEC_MAX ? '已经练到顶了' : `培养 ${costHtml(c.stock, cost, S.known)} <button class="small" data-act="train" data-arg="${sp.id}">培养</button>`}</div></div></div>`;
     }
     const missing = SPECS.filter(s => s.row != null && !S.meta.specs[s.id]).length;
     if (missing) h += `<div class="hint">还有 ${missing} 位专家在北方等着被发现。</div>`;
@@ -1694,7 +1696,7 @@ export class UI {
       h += chart({ id: 'prod', title: '每分钟产量', sub: '这一段时间里平均每分钟产出多少', series: pp, zero: true, area: true });
       h += table(ss);
     }
-    if ((H.off || []).length) h += `<div class="hint">浅色那段是离线时间：离线时物资只按 ${Math.round(Sim.OFFLINE_RATE * 100)}% 入库。</div>`;
+    if ((H.off || []).length) h += `<div class="hint">浅色那段是离线时间：离线时物资按离开多久打折入库（前 1 小时 40%，到 4 小时 20%，到 12 小时 10%）。</div>`;
     return h;
   }
 
@@ -1804,7 +1806,7 @@ export class UI {
     // 存档
     const ago = S.savedAt ? Math.max(0, (Date.now() - S.savedAt) / 1000) : null;
     h += `<div class="sec">存档</div>
-      <div class="msave"><span class="msi">💾</span><span>自动保存在这台设备上${ago != null ? `<em>${ago < 60 ? '刚刚' : ago < 3600 ? Math.floor(ago / 60) + ' 分钟前' : ago < 86400 ? Math.floor(ago / 3600) + ' 小时前' : Math.floor(ago / 86400) + ' 天前'}存过</em>` : ''}<small>关掉页面后营地照常运转，暴风雪和袭营也照常结算；但离线时物资只按 ${Math.round(Sim.OFFLINE_RATE * 100)}% 入库。</small></span></div>
+      <div class="msave"><span class="msi">💾</span><span>自动保存在这台设备上${ago != null ? `<em>${ago < 60 ? '刚刚' : ago < 3600 ? Math.floor(ago / 60) + ' 分钟前' : ago < 86400 ? Math.floor(ago / 3600) + ' 小时前' : Math.floor(ago / 86400) + ' 天前'}存过</em>` : ''}<small>关掉页面后营地照常运转，暴风雪和袭营也照常结算；但离线时物资按离开多久打折入库：前 1 小时 40%，1 到 4 小时 20%，4 到 12 小时 10%，超过 12 小时不再算；三星产线多拿一半，离线入库最多填到仓库的八成。</small></span></div>
       <div class="row2"><button class="btn" data-act="export">📤 导出存档码</button><button class="btn" data-act="import">📥 导入存档码</button></div>
       <div class="hint">换设备时，在旧设备导出存档码，到新设备上导入。</div>
       <div class="row"><span>存档位 <b>${g.slot}</b> / ${SLOTS}<br><small>三个存档位，各是一局</small></span><span style="flex:none"><button class="small" data-act="slots">换存档位</button></span></div>

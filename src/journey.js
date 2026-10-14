@@ -4,7 +4,7 @@ import { LANDMARKS, FAR_MARKS, BLD, FUEL, FUEL_ORDER, SPOT_KEYS, furnaceBurn } f
 import { W, H, T_ROCK, getWorld, idx, inMap } from './worldgen.js';
 import {
   rt, dirty, getB, getCamp, logMsg, revealCircle, canAfford, missing, pay, chapters, makeCamp, markFounded, trimWorkers,
-  autoAssign, clearFootprint, landmarkBlock, siteAt, occAt, housingOf, bumpMood, diffOf, relicSum,
+  autoAssign, clearFootprint, landmarkBlock, siteAt, occAt, housingOf, bumpMood, diffOf, relicSum, upgradeCost,
   EAT, FOUND_DIST, CAMP_GAP,
 } from './sim.js';
 
@@ -161,6 +161,12 @@ export function defaultGoods(S, main, people, fl) {
     const n = Math.min(Math.floor(st[f] || 0) - (g[f] || 0), Math.ceil(fuel / FUEL[f]));
     if (n > 0) { g[f] = (g[f] || 0) + n; fuel -= n * FUEL[f]; }
   }
+  // 新熔炉接着升两级要的门槛材料（铁锭、钢材这些）：到了新地方一时做不出来，有多少带多少
+  for (const L of [fl, fl + 1]) {
+    const c = upgradeCost(S, { type: 'furnace', lvl: L });
+    for (const k in c) if (!FURNACE_KIT[k] && !FUEL[k]) g[k] = Math.min(Math.floor(st[k] || 0), (g[k] || 0) + c[k]);
+  }
+  for (const k in g) if (!(g[k] > 0)) delete g[k];
   return g;
 }
 export function tripPlan(S) {

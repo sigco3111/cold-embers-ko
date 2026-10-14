@@ -2,12 +2,12 @@
 import {
   RES, RES_KEYS, FUEL, FUEL_ORDER, GATE, GATE_EVERY, SPOTS, SPOT_KEYS, LANDMARKS, BAND_START,
   tierOfRow, baseTempOfRow, ETERNAL_STAGES, BLD, furnaceHeat, furnaceRadius, furnaceBurn,
-  SPECS, specBonus, specTrainCost, EMBER_UPS, emberCost, RAIDERS, STORY, DAY_LEN, LAWS, LAW_CD, TECHS, SITES, CHAPTERS, INFRA, LM_R, FAR_MARKS, DIFF, DIFF_KEYS, FOCUS, FOCUS_KEYS, FOCUS_LVL, FOCUS_CD,
+  SPECS, SPEC_MAX, specBonus, specTrainCost, EMBER_UPS, emberCost, RAIDERS, STORY, DAY_LEN, LAWS, LAW_CD, TECHS, SITES, CHAPTERS, INFRA, LM_R, FAR_MARKS, DIFF, DIFF_KEYS, FOCUS, FOCUS_KEYS, FOCUS_LVL, FOCUS_CD,
 } from './data.js';
 import { W, H, T_SNOW, T_ICE, getWorld, idx, inMap, hash3, mulberry32 } from './worldgen.js';
 import { journeyOf, journeyStep, mainCamp, outpostBlock, outpostKit, moveFuel, fuelUnits, stopOf } from './journey.js';
 export * from './journey.js';
-import { linesTick, bMax, lineProd, plinesOf } from './lines.js';
+import { linesTick, bMax, bStar, lineProd, plinesOf, STAR_PROD } from './lines.js';
 export * from './lines.js';
 
 export const VERSION = 1;
@@ -30,10 +30,18 @@ export function defaultMeta() {
   return { embers: 0, emberTotal: 0, ups: {}, specs: {}, sites: [0], runs: 0, graduated: false, best: 0 };
 }
 export function up(S, k) { return (S.meta.ups && S.meta.ups[k]) || 0; }
+// 第十二版资源曲线：巧手每级 +4%、最多 15 级，老存档多出来的级数退回余烬
+export function fixMeta(meta) {
+  if (!meta || meta.curve12) return meta;
+  meta.curve12 = true;
+  const u = meta.ups || {}, mx = EMBER_UPS.prod.max;
+  if ((u.prod || 0) > mx) { let back = 0; for (let l = mx; l < u.prod; l++) back += emberCost('prod', l); meta.embers = (meta.embers || 0) + back; u.prod = mx; meta.refund12 = back; }
+  return meta;
+}
 
 // ---------- 新的一轮 ----------
 export function newRun(meta, site = 0, seed) {
-  meta = meta || defaultMeta();
+  meta = fixMeta(meta || defaultMeta());
   const runSeed = seed != null ? seed : (Math.floor(Math.random() * 1e9) + 1);
   const S = {
     v: VERSION, runSeed, t: 0, savedAt: Date.now(), site, nextId: 1,
@@ -378,7 +386,7 @@ export function buildCost(S, type, cid, y, extra = 0) {
     for (let g = 2; g <= t - 1; g++) out[GATE[g]] = (out[GATE[g]] || 0) + Math.round(150 * Math.pow(1.4, t - 1 - g) * m);
     return out;
   }
-  const m = Math.pow(1.13, countType(S, cid, type) + extra) * thrift(S);
+  const m = Math.pow(1.1, countType(S, cid, type) + extra) * thrift(S); // 同种建筑每多一座贵 10%
   for (const k in d.cost) out[k] = Math.round(d.cost[k] * m);
   return out;
 }
@@ -390,18 +398,18 @@ export function upgradeCost(S, b) {
   const m = thrift(S);
   const base = b.type === 'furnace' ? { wood: 120, stone: 80, plank: 30 } : d.cost;
   const g = gateTier(b.type, L);
-  // 基础材料：同层材料随等级增长；跨层后增长放缓，主要花费转为门槛材料
-  const baseGrow = Math.pow(1.3, Math.min(L, 12)) * Math.pow(1.12, Math.max(0, L - 12));
-  for (const k in base) out[k] = Math.round(base[k] * 0.7 * baseGrow * m);
+  // 基础材料每级贵 10%；产量每级只加固定的 15%，所以 10 级以后光升级越来越不划算，该开新线或者往北走
+  const baseGrow = Math.pow(UP_GROW, L);
+  for (const k in base) out[k] = Math.round(base[k] * baseGrow * m);
   if (g > d.t) {
     const gm = GATE[g];
     const into = L - (g - d.t) * GATE_EVERY; // 进入本层后的级数
-    out[gm] = (out[gm] || 0) + Math.round((b.type === 'furnace' ? 30 : 12) * Math.pow(1.35, Math.max(0, into)) * (1 + 0.6 * (g - 2)) * m);
+    out[gm] = (out[gm] || 0) + Math.round((b.type === 'furnace' ? 30 : 12) * Math.pow(1.35, Math.min(4, Math.max(0, into))) * Math.pow(UP_GROW, Math.max(0, into - 4)) * (1 + 0.6 * (g - 2)) * m);
     // 上一层门槛材料继续少量需要，让老流水线保持有用
     if (g - 1 > d.t) { const pm = GATE[g - 1]; out[pm] = (out[pm] || 0) + Math.round(out[gm] * 1.5); }
   }
-  if (b.type === 'furnace' && L >= 8) out.engine = Math.round(4 * Math.pow(1.3, L - 8) * m);
-  if (b.type === 'furnace' && L >= 18) out.battery = Math.round(10 * Math.pow(1.3, L - 18) * m);
+  if (b.type === 'furnace' && L >= 8) out.engine = Math.round(4 * Math.pow(UP_GROW, L - 8) * m);
+  if (b.type === 'furnace' && L >= 18) out.battery = Math.round(10 * Math.pow(UP_GROW, L - 18) * m);
   return out;
 }
 export function canAfford(stock, cost) { for (const k in cost) if ((stock[k] || 0) < cost[k] - 1e-9) return false; return true; }
@@ -409,9 +417,11 @@ export function pay(stock, cost) { for (const k in cost) stock[k] = (stock[k] ||
 export function missing(stock, cost) { const m = []; for (const k in cost) if ((stock[k] || 0) < cost[k]) m.push(`${RES[k].n} ${Math.ceil(cost[k] - (stock[k] || 0))}`); return m; }
 
 // ---------- 摆放 ----------
-// 建筑每升一级的产量倍数
-export const levelMul = lvl => Math.pow(1.2, lvl - 1);
-export function maxWorkers(type, lvl) { const d = BLD[type]; return d.w ? d.w + Math.floor((lvl - 1) / 3) : 0; }
+// 建筑每升一级产量 +15%（按 1 级的量算，不利滚利）；升级花费每级贵 10%
+export const LVL_STEP = 0.15, UP_GROW = 1.1;
+export const levelMul = lvl => 1 + LVL_STEP * (lvl - 1);
+// 每 5 级（跨一层）多一个岗位：前 10 级升级让每个人做得更多，再往后主要省地方
+export function maxWorkers(type, lvl) { const d = BLD[type]; return d.w ? d.w + Math.floor((lvl - 1) / 5) : 0; }
 export function housingOf(b) { return BLD.tent.housing + 3 * (b.lvl - 1); }
 // 床位：帐篷总床位；出门侦察、探险的人床位给他们留着
 export function bedsOf(S, camp) { let n = 0; for (const b of S.buildings) if (b.camp === camp.id && b.type === 'tent') n += housingOf(b); return n; }
@@ -868,17 +878,19 @@ export function raidSlot(S, k) {
   const a = hash3(k, 101, S.runSeed), b = hash3(k, 103, S.runSeed), c = hash3(k, 107, S.runSeed);
   return { k, t: RAID_FIRST + k * RAID_P + a * (RAID_P - 1200), pick: b, var: c };
 }
+export const RAID_GROW = 1.4; // 每往北一个纬度带袭击强 40%（箭塔改成每级加固定值后跟着放缓）
 export function raidStrength(S, camp, slot) {
   const tier = tierOfRow(camp.y);
-  return Math.round(9 * Math.pow(1.6, tier - 1) * (1 + Math.min(0.6, S.t / 86400 * 0.1)) * Math.min(1, 0.5 + S.t / 172800) * (0.8 + 0.4 * slot.var) * diffOf(S).raid); // 新一轮头一天袭击较弱，给北方起点留出建箭塔的时间
+  return Math.round(9 * Math.pow(RAID_GROW, tier - 1) * (1 + Math.min(0.6, S.t / 86400 * 0.1)) * Math.min(1, 0.5 + S.t / 172800) * (0.8 + 0.4 * slot.var) * diffOf(S).raid); // 新一轮头一天袭击较弱，给北方起点留出建箭塔的时间
 }
+export const towerPower = lvl => BLD.tower.power * (1 + 0.3 * (lvl - 1)); // 每级 +30%（按 1 级算）
 export function campDefense(S, camp) {
   let d = 4 + Math.min(10, camp.people * 0.15);
   for (const b of S.buildings) {
     if (b.camp !== camp.id || b.type !== 'tower') continue;
     const mx = maxWorkers('tower', b.lvl);
     const staff = mx ? b.workers / mx : 1;
-    d += BLD.tower.power * Math.pow(1.3, b.lvl - 1) * staff * (1 + specOf(S, b)) * (1 + 0.15 * up(S, 'guard')) * (1 + ((focusOf(camp) || {}).tower || 0));
+    d += towerPower(b.lvl) * staff * (1 + specOf(S, b) + 0.15 * up(S, 'guard') + ((focusOf(camp) || {}).tower || 0));
   }
   return Math.round(d * (1 + buffOf(S, camp, 'def') + lawSum(S, 'def') + techSum(S, 'def') + relicSum(S, 'def') + ((focusOf(camp) || {}).def || 0)));
 }
@@ -892,6 +904,32 @@ export function nextRaid(S) {
     }
   }
   return null;
+}
+
+// ---------- 加成：各项百分比先加在一起再乘一次，每样都有上限（全部拉满大约 ×4）----------
+// 吃不饱、太冷、希望低、人手不足照旧打折扣，这些不算加成
+export const BONUS_CAP = { tech: 0.4, spec: 1, focus: 0.3, star: 0.45, mile: 0.15, ember: 0.6, relic: 0.1, adj: 0.4 };
+export const EMBER_PROD = 0.04;
+export function prodBonus(S, b, camp, syn, beltB) {
+  const R = rt(S);
+  if (syn == null) syn = R.adj.get(b.id) || 0;
+  if (beltB == null) beltB = (R.b[b.id] || {}).beltB || 0;
+  const st = bStar(S, b), stV = Math.min(BONUS_CAP.star, STAR_PROD[st] || 0);
+  const mi = Math.min(BONUS_CAP.mile, lineProd(S, b) - (STAR_PROD[st] || 0));
+  const parts = [
+    ['升星', stV],
+    ['里程碑', mi],
+    ['研究', Math.min(BONUS_CAP.tech, techBP(S, b.type))],
+    ['专家', Math.min(BONUS_CAP.spec, specOf(S, b))],
+    ['专精', Math.min(BONUS_CAP.focus, focusProd(camp, b.type))],
+    ['相邻、传送带', Math.min(BONUS_CAP.adj, SYN_PER * syn + beltB)],
+    ['余烬', Math.min(BONUS_CAP.ember, EMBER_PROD * up(S, 'prod'))],
+    ['遗物', Math.min(BONUS_CAP.relic, relicSum(S, 'prod'))],
+    ['律令', lawSum(S, 'prod')],
+    ['鼓舞', buffOf(S, camp, 'prod')],
+  ].filter(p => Math.abs(p[1]) > 1e-9);
+  let sum = 0; for (const p of parts) sum += p[1];
+  return { sum: Math.max(-0.5, sum), parts };
 }
 
 // ---------- 专家 ----------
@@ -912,6 +950,7 @@ export function assignSpec(S, sid, bid) {
 }
 export function trainSpec(S, sid) {
   const m = S.meta.specs[sid]; if (!m) return { ok: false };
+  if (m.lvl >= SPEC_MAX) return { ok: false, reason: '已经练到顶了' };
   const camp = getCamp(S, S.active) || S.camps[0];
   const cost = specTrainCost(m.lvl);
   for (const k in cost) if (RES[k].t > S.known) return { ok: false, reason: `需要「${RES[k].n}」` };
@@ -1371,9 +1410,10 @@ function campStep(S, camp, dt, w) {
   const st = camp.stock;
   const bs = S.buildings.filter(b => b.camp === camp.id);
   const fb = getB(S, camp.furnace);
-  const cap = storeCap(S, camp);
+  // 离线追赶时仓库按入库比例放大：满速跑出来的净增长结算时再打折，最后封到仓库的八成
+  const cap = storeCap(S, camp) * (R.histOff ? 1 / Math.max(0.1, R.histOff.rate) : 1);
   const cr = R.c[camp.id] || (R.c[camp.id] = {});
-  const prodMul = (1 + 0.1 * up(S, 'prod')) * (1 + buffOf(S, camp, 'prod')) * (1 + lawSum(S, 'prod')) * (1 + relicSum(S, 'prod')) * moodMul(camp);
+  const prodMul = moodMul(camp);
   const kitMul = 1 + lawSum(S, 'kitchen');
   if (cr.trade) for (const q in cr.trade) { cr.trade[q] *= Math.max(0, 1 - dt / 60); if (cr.trade[q] < 0.01) delete cr.trade[q]; } // 约等于每分钟兑换量
 
@@ -1505,7 +1545,7 @@ function campStep(S, camp, dt, w) {
   for (const b of bs) {
     if (b.type !== 'workshop') continue;
     const mx = maxWorkers(b.type, b.lvl), staff = mx ? Math.min(1, b.workers * lf / mx) : 0;
-    const r = BLD.workshop.research * Math.pow(1.25, b.lvl - 1) * staff * workEff * moodMul(camp) * (1 + specOf(S, b)) * (1 + ((focusOf(camp) || {}).rp || 0));
+    const r = BLD.workshop.research * (1 + 0.25 * (b.lvl - 1)) * staff * workEff * moodMul(camp) * (1 + specOf(S, b) + ((focusOf(camp) || {}).rp || 0));
     const br = R.b[b.id] || (R.b[b.id] = {});
     br.staff = staff; br.rp = r;
     const cur = S.tech && S.tech.cur;
@@ -1549,7 +1589,7 @@ function campStep(S, camp, dt, w) {
     const bo = R.beltOut.get(b.id), bi = R.beltIn.get(b.id);
     let beltB = 0;
     if (bi && d.in) { const ks = Object.keys(d.in); for (const k of ks) if (bi[k]) beltB += BELT[bi[k]].bonus / ks.length; }
-    const mult = levelMul(b.lvl) * (1 + lineProd(S, b)) * staff * workEff * (1 + SYN_PER * syn) * (1 + specOf(S, b)) * prodMul * (1 + techBP(S, b.type)) * (1 + beltB) * (1 + focusProd(camp, b.type)) * (ev && ev.kind === 'ice' && BLD[b.type].cat === 'gather' ? WXE_ICE_GATHER : 1);
+    const mult = levelMul(b.lvl) * (1 + prodBonus(S, b, camp, syn, beltB).sum) * staff * workEff * prodMul * (ev && ev.kind === 'ice' && BLD[b.type].cat === 'gather' ? WXE_ICE_GATHER : 1);
     const br = R.b[b.id] || (R.b[b.id] = {});
     br.staff = staff;
     if (mult <= 0) { br.act = 0; br.status = b.workers ? '没人干活' : '没有派人'; br.haul = 0; continue; }
@@ -1667,8 +1707,8 @@ function campStep(S, camp, dt, w) {
       camp.arriveAcc -= 1; camp.people++; S.stats.arrivals++;
       R.fx.push({ kind: 'arrive', camp: camp.id });
     }
-  } else if (camp.people < 10 && free >= 1 && !w.blizzard) {
-    // 营地快撑不住时，附近流浪的人仍会被火光吸引过来（保证总能恢复）
+  } else if (camp.people < 10 && free >= 1 && !w.blizzard && hunger === 0 && (st.food || 0) > (camp.people + 1) * EAT * 20) {
+    // 营地快撑不住时，附近流浪的人仍会被火光吸引过来（保证总能恢复）；没吃的就不来，免得来一个饿死一个
     camp.arriveAcc += dt / 600;
     while (camp.arriveAcc >= 1) { camp.arriveAcc -= 1; camp.people++; S.stats.arrivals++; R.fx.push({ kind: 'arrive', camp: camp.id }); }
   } else camp.arriveAcc = Math.min(camp.arriveAcc, 0.9);
@@ -1796,7 +1836,7 @@ export function lineCost(S, a, b) {
 export function lineCap(S, l) {
   const ca = getCamp(S, l.a), cb = getCamp(S, l.b);
   const d = Math.hypot(ca.x - cb.x, ca.y - cb.y);
-  const base = (l.rail ? 50 : 12) * Math.pow(1.35, l.lvl - 1);
+  const base = (l.rail ? 50 : 12) * (1 + 0.5 * (l.lvl - 1)); // 每级 +50%（按 1 级算）
   const ev = wxeAt(S, S.t);
   return base * Math.min(1, 40 / Math.max(20, d)) * (1 + 0.12 * up(S, 'haul') + techSum(S, 'line')) * (1 + dogLine(S, l)) * (ev.on && ev.ev.kind === 'crack' ? WXE_SLOW : 1);
 }
@@ -2139,7 +2179,7 @@ export function gangTarget(S, g) {
 }
 export function gangStr(S, g) {
   const st = (S.gangs || {})[g.id] || {};
-  return Math.round(14 * Math.pow(1.6, tierOfRow(g.y) - 1) * (1 + 0.12 * Math.min(GANG_GROW, Math.max(0, (st.n || 1) - 1))) * Math.pow(0.75, st.wins || 0) * diffOf(S).raid);
+  return Math.round(14 * Math.pow(RAID_GROW, tierOfRow(g.y) - 1) * (1 + 0.12 * Math.min(GANG_GROW, Math.max(0, (st.n || 1) - 1))) * Math.pow(0.75, st.wins || 0) * diffOf(S).raid);
 }
 export function gangTribute(S, g, camp) {
   const tier = tierOfRow(camp.y), m = 1 + 0.5 * (tier - 1);
@@ -2619,33 +2659,50 @@ export function buyEmber(S, key) {
 }
 
 // ---------- 离线结算 ----------
-// 离线：时间照常走（暴风雪、袭营、吃饭烧火都照算），但物资的净增长只按 OFFLINE_RATE 入库——这游戏主要是在线玩
-export const OFFLINE_RATE = 0.25;
-export function catchUp(S, secs, rate = OFFLINE_RATE) {
+// 离线：时间照常走（暴风雪、袭营、吃饭烧火都照算），但物资的净增长按离开多久分段打折入库——这游戏主要是在线玩
+// 前 1 小时 40%，1 到 4 小时 20%，4 到 12 小时 10%；超过 12 小时的部分不算（营地停在第 12 小时的样子，不产也不耗）
+// 三星产线做的东西多拿一半；离线入库最多填到仓库的 80%，回来不会满仓卡住
+export const OFF_SEG = [[3600, 0.4], [4 * 3600, 0.2], [12 * 3600, 0.1]];
+export const OFF_CAP = 12 * 3600, OFF_STAR3 = 1.5, OFF_FILL = 0.8;
+export const OFFLINE_RATE = OFF_SEG[0][1];
+// 离开 secs 秒，平均按多少入库
+export function offlineRate(secs) {
+  const n = Math.min(secs, OFF_CAP); if (n <= 0) return OFF_SEG[0][1];
+  let got = 0, t = 0;
+  for (const [end, r] of OFF_SEG) { got += Math.max(0, Math.min(n, end) - t) * r; t = end; }
+  return got / n;
+}
+export function offlineRateOf(S, k, base) { return Math.min(1, base * (plinesOf(S).some(l => l.r === k && l.star >= 3) ? OFF_STAR3 : 1)); }
+export function catchUp(S, secs, flat) {
   const before = snapshot(S);
   const lines0 = plinesOf(S).map(l => ({ r: l.r, main: l.main, star: l.star, made: S.stats.prod[l.r] || 0 }));
   const stage0 = journeyOf(S).stage;
   const camp0 = new Map(S.camps.map(c => [c.id, { ...c.stock }]));
-  const dt = secs > 86400 * 10 ? 120 : secs > 86400 * 2 ? 60 : secs > 3 * 3600 ? 30 : secs > 600 ? 10 : 2;
-  let left = secs;
+  const sim = Math.min(secs, OFF_CAP), rate = flat != null ? flat : offlineRate(secs);
+  const dt = sim > 3 * 3600 ? 30 : sim > 600 ? 10 : 2;
+  let left = sim;
   const R = rt(S), t0 = S.t;
   if (rate < 1) R.histOff = { stock: camp0, rate };
   R.offline = true;
   while (left > 0) { const d = Math.min(dt, left); step(S, d); left -= d; }
   R.histOff = null; R.offline = false;
-  if (rate < 1) offlineTrim(S, camp0, rate);
+  if (rate < 1) offlineTrim(S, camp0, k => offlineRateOf(S, k, rate));
   // 曲线上标出离线的那一段
-  if (secs >= 60) for (const c of S.camps) { const H = c.hist || (c.hist = {}); (H.off || (H.off = [])).push([Math.round(t0), Math.round(S.t)]); if (H.off.length > 16) H.off.shift(); }
+  if (sim >= 60) for (const c of S.camps) { const H = c.hist || (c.hist = {}); (H.off || (H.off = [])).push([Math.round(t0), Math.round(S.t)]); if (H.off.length > 16) H.off.shift(); }
   const out = diffSnap(before, snapshot(S), secs);
-  out.rate = rate;
-  // 回来时的报告：每条产线这段时间做了多少、升了几颗星
-  out.lines = lines0.map(l => { const L = plinesOf(S).find(x => x.r === l.r); const made = (S.stats.prod[l.r] || 0) - l.made; return { r: l.r, main: l.main, made, per: secs > 0 ? made / secs * 60 : 0, star0: l.star, star: L ? L.star : l.star }; });
+  out.rate = rate; out.sim = sim; out.capped = secs > OFF_CAP;
+  // 回来时的报告：每条产线这段时间做了多少（按入库的比例算）、升了几颗星
+  out.lines = lines0.map(l => {
+    const L = plinesOf(S).find(x => x.r === l.r), made = (S.stats.prod[l.r] || 0) - l.made, rk = rate < 1 ? offlineRateOf(S, l.r, rate) : 1;
+    return { r: l.r, main: l.main, made, got: made * rk, rk, per: sim > 0 ? made / sim * 60 : 0, star0: l.star, star: L ? L.star : l.star };
+  });
   out.stage0 = stage0; out.stage = journeyOf(S).stage;
   return out;
 }
 // 按物资种类算全部营地的净增长，只留 rate 那一份；多出来的从涨了的营地里按涨幅扣掉（运输线来回搬的不算增长）
-function offlineTrim(S, camp0, rate) {
+function offlineTrim(S, camp0, rateOf) {
   for (const k of RES_KEYS) {
+    const rate = rateOf(k);
     let net = 0, pos = 0;
     const gains = [];
     for (const c of S.camps) {
@@ -2656,6 +2713,11 @@ function offlineTrim(S, camp0, rate) {
     if (net <= 0 || pos <= 0) continue;
     const cut = net * (1 - rate);
     for (const [c, d] of gains) c.stock[k] = Math.max(0, c.stock[k] - cut * d / pos);
+  }
+  // 离线入库最多填到仓库的 80%（本来就比这多的不动）
+  for (const c of S.camps) {
+    const lim = storeCap(S, c) * OFF_FILL, s0 = camp0.get(c.id) || {};
+    for (const k in c.stock) if (c.stock[k] > lim && c.stock[k] > (s0[k] || 0)) c.stock[k] = Math.max(s0[k] || 0, lim);
   }
 }
 function snapshot(S) {
@@ -2681,6 +2743,7 @@ export function deserialize(str) {
   const o = JSON.parse(str);
   if (!o || o.v !== VERSION || !o.camps) throw new Error('存档格式不对');
   o.reveal = unrle(o.reveal, W * H);
+  fixMeta(o.meta);
   rt(o);
   return o;
 }

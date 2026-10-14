@@ -91,7 +91,7 @@ export function tierOfRow(row) {
 export function baseTempOfRow(row) { return Math.round(-6 - row * 0.165); }
 
 // 永恒之炉点燃的三个阶段：永恒炉件的产能目标
-export const ETERNAL_STAGES = [3, 6, 10]; // 每层要永恒炉件每分钟产多少，稳住 3 分钟就亮一层
+export const ETERNAL_STAGES = [3, 5, 7]; // 每层要永恒炉件每分钟产多少，稳住 3 分钟就亮一层
 
 // 建筑
 // size: 占地边长；w: 基础岗位；out/in: 每分钟；gather: 采集的资源点类型；reach: 采集半径
@@ -152,7 +152,8 @@ export const CATS = { core: '核心', live: '居住', gather: '采集', make: '�
 // 熔炉参数
 export function furnaceHeat(lvl) { return 10 + 5 * lvl; }
 export function furnaceRadius(lvl) { return Math.min(15, 6 + Math.ceil(lvl / 2)); } // 供热圈：6 + 等级的一半，最大 15 格（地盘是要规划的）
-export function furnaceBurn(lvl) { return 2.2 * Math.pow(1.17, lvl - 1); } // 燃料单位/分钟
+// 燃料单位/分钟：每级多烧 17%，跟着换燃料每分钟烧的个数一直在 2 到 7 个；27 级以后改成每级 +8%，远方几程不用每分钟烧几十块电池
+export function furnaceBurn(lvl) { return 2.2 * Math.pow(1.17, Math.min(lvl, 27) - 1) * Math.pow(1.08, Math.max(0, lvl - 27)); }
 
 // 专家
 export const SPECS = [
@@ -172,7 +173,8 @@ export const SPECS = [
   { id: 'he',    n: '何大夫', role: '医生',     aff: ['infirmary'], row: null, story: '在南边的村子行医几十年，听说北边有人在点炉子，背着药箱一路找了过来。' },
   { id: 'luyu',  n: '炉语者', role: '守炉人',   aff: ['excavator', 'forge', 'furnace'], row: 318, story: '永恒之炉旁世代守望的人，等着有人把火带回来。' },
 ];
-export function specBonus(lvl, matched) { return matched ? 0.5 + 0.12 * (lvl - 1) : 0.15 + 0.03 * (lvl - 1); }
+export const SPEC_MAX = 6; // 对口专家 6 级 = +100%，到顶
+export function specBonus(lvl, matched) { return Math.min(1, matched ? 0.5 + 0.12 * (lvl - 1) : 0.15 + 0.03 * (lvl - 1)); }
 export function specTrainCost(lvl) {
   const g = GATE[Math.min(7, 1 + Math.floor(lvl / 2))];
   return { food: Math.round(60 * Math.pow(lvl, 1.6)), [g]: Math.round(15 * Math.pow(1.5, lvl - 1)) };
@@ -181,7 +183,7 @@ export function specTrainCost(lvl) {
 // 余烬永久强化
 export const EMBER_UPS = {
   heat:    { n: '余温',   d: '所有熔炉温度 +3°C',           base: 3,  grow: 1.55, max: 20 },
-  prod:    { n: '巧手',   d: '所有生产 +10%',               base: 4,  grow: 1.6,  max: 30 },
+  prod:    { n: '巧手',   d: '所有生产 +4%',                base: 4,  grow: 1.6,  max: 15 },
   haul:    { n: '健步',   d: '搬运工与侦察队速度 +12%',     base: 3,  grow: 1.55, max: 20 },
   thrift:  { n: '节俭',   d: '建造与升级花费 -4%',          base: 5,  grow: 1.7,  max: 12 },
   people:  { n: '人望',   d: '开局多 3 人，投奔速度 +15%',  base: 3,  grow: 1.5,  max: 20 },
@@ -298,7 +300,7 @@ export const CHAPTERS = [
     tasks: [{ t: '古代构件产量稳住 20/分钟', k: 'rate', r: 'part', n: 20 }, { t: '所有营地加起来有 250 人', k: 'people', n: 250 }, { t: '让每个营地的不满都在 30 以下', k: 'calm', n: 30 }],
     reward: { res: { part: 60, star: 60 }, people: 15 }, end: '自动机第一次听从了人的指令，扛起了雪橇。' },
   { n: '终章 · 永不熄灭', story: '传说是真的。永恒之炉就在眼前，冰冷、巨大、沉默。它在等最后一程的人。',
-    tasks: [{ t: '炉件稳住 3/分钟，点亮第一层', k: 'eternal', n: 1 }, { t: '炉件稳住 6/分钟，点亮第二层', k: 'eternal', n: 2 }, { t: '炉件稳住 10/分钟，重燃永恒之炉', k: 'eternal', n: 3 }],
+    tasks: [{ t: '炉件稳住 3/分钟，点亮第一层', k: 'eternal', n: 1 }, { t: '炉件稳住 5/分钟，点亮第二层', k: 'eternal', n: 2 }, { t: '炉件稳住 7/分钟，重燃永恒之炉', k: 'eternal', n: 3 }],
     reward: { hope: 20 }, end: '火光沿着一路留下的营地向南蔓延。' },
 ];
 
@@ -310,7 +312,7 @@ export const BRIEF = [
   ['这一程要把密封件线跑到每分钟 16 个。', '密封件让管道和机器在深寒里不漏气，再往北就离不开它。', '焦油和钢材两条线要并到一起：先建油页岩矿和炼油厂，钢线照旧供上。'],
   ['这一程要把恒温合金线跑到每分钟 16 个。', '合金扛得住废墟以北的严寒，前面的建筑和熔炉都要用。', '合金要电池，电池又要霜晶和铁：先把霜晶矿和电池工坊建起来。'],
   ['这一程要把古代构件线跑到每分钟 20 个。', '构件能修好自动机，也是锻造永恒炉件的关键。', '星铁就在残骸附近，合金可以从后面的补给站运上来：先把运输线接好。'],
-  ['永恒之炉分三层：炉件每分钟 3、6、10 个，各稳住 3 分钟。', '三层都亮起来就是通关，之后还能接着往北走。', '先在炉边挖炉心碎片，再建锻造所；构件和合金的线要先跑稳。'],
+  ['永恒之炉分三层：炉件每分钟 3、5、7 个，各稳住 3 分钟。', '三层都亮起来就是通关，之后还能接着往北走。', '先在炉边挖炉心碎片，再建锻造所；构件和合金的线要先跑稳。'],
 ];
 
 // ---------- 营地基建：道路让搬运更快，蒸汽管道把热送得更远 ----------
