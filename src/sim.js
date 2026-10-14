@@ -2473,7 +2473,9 @@ function holdTick(S, id, rate, n, dt) {
 export function rateGoals(S) {
   const out = [];
   const C = chapState(S);
-  for (const i of S.founded) {
+  // 这一站的章节排在最前面（老存档里可能还留着前面没做完的章节）
+  const cur = journeyOf(S).stage;
+  for (const i of [...S.founded].sort((a, b) => (b === cur) - (a === cur) || b - a)) {
     const ch = CHAPTERS[i]; if (!ch) continue;
     ch.tasks.forEach((q, k) => { if (q.k === 'rate' && !C.ok[i + ':' + k]) out.push({ id: `c${i}:${k}`, r: q.r, n: q.n, t: q.t, ch: i }); });
   }

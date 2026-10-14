@@ -1,7 +1,7 @@
 // 模拟玩家（第十二版：一路往北）：按老向导和规划器的思路玩，看每一程的节奏和数值规模
 // node test/jbot.mjs [天数] [几秒想一次] [-v]
 import * as G from '../src/sim.js';
-import { BLD, RES, EMBER_UPS, SPECS, FUEL, TECHS, CHAPTERS, furnaceRadius, furnaceBurn } from '../src/data.js';
+import { BLD, RES, SPOT_KEYS, EMBER_UPS, SPECS, FUEL, TECHS, CHAPTERS, furnaceRadius, furnaceBurn } from '../src/data.js';
 import { getWorld, W, H, idx } from '../src/worldgen.js';
 
 { let a = +(process.env.RSEED || 12345) >>> 0; Math.random = () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
@@ -57,6 +57,29 @@ function makeRoom(camp) {
   }
   return false;
 }
+// 采集建筑没地方放（矿点旁边都被房子压住了）：拆掉挡路最少的几座，腾出一个能挖到矿的位置
+function clearForSpot(camp, type) {
+  const d = BLD[type]; if (!d.gather) return false;
+  const w = getWorld(S.runSeed), kinds = d.gather.map(k => SPOT_KEYS.indexOf(k)), r = G.heatRadius(S, camp), sz = d.size;
+  let best = null;
+  for (let y = Math.floor(camp.y - r); y <= camp.y + r; y++) for (let x = Math.floor(camp.x - r); x <= camp.x + r; x++) {
+    if (Math.hypot(x + sz / 2 - camp.x, y + sz / 2 - camp.y) > r - 1) continue;
+    const ids = new Set(); let bad = false;
+    for (let yy = y; yy < y + sz && !bad; yy++) for (let xx = x; xx < x + sz; xx++) { const o = G.occAt(S, xx, yy); if (o < 0 || (w.spot[idx(xx, yy)] >= 0)) { bad = true; break; } if (o > 0) { const b = S.buildings.find(q => q.id === o); if (!b || b.type === 'furnace' || b.type === type || b.camp !== camp.id) { bad = true; break; } ids.add(o); } }
+    if (bad || !ids.size) continue;
+    let sp = 0; const cx = x + sz / 2, cy = y + sz / 2, rr = d.reach + sz / 2;
+    for (let yy = Math.floor(cy - rr); yy <= cy + rr; yy++) for (let xx = Math.floor(cx - rr); xx <= cx + rr; xx++) { const i = idx(xx, yy); if (kinds.includes(w.spot[i]) && !G.occAt(S, xx, yy) && G.spotLeft(S, i) > 0 && Math.hypot(xx + 0.5 - cx, yy + 0.5 - cy) <= rr) sp++; }
+    if (!sp) continue;
+    const cost = [...ids].reduce((a, id) => a + 1 + (S.buildings.find(q => q.id === id).lvl || 1) * 0.1, 0) - sp * 0.3;
+    if (!best || cost < best.cost) best = { x, y, ids: [...ids], cost, sp };
+  }
+  if (!best) return false;
+  for (const id of best.ids) { G.demolish(S, id); STAT.clear = (STAT.clear || 0) + 1; }
+  const ok = G.place(S, type, best.x, best.y).ok;
+  log('clearForSpot', type, best.ids.length, 'removed', ok ? 'placed' : 'FAILED');
+  if (ok) STAT.clearOk = (STAT.clearOk || 0) + 1;
+  return ok;
+}
 function rates(camp) {
   const R = G.rt(S), out = {}, inn = {};
   for (const b of G.campBuildings(S, camp.id)) {
@@ -75,6 +98,7 @@ function fillWorkers(camp) {
   const pri = b => {
     const t = b.type, cat = BLD[t].cat;
     if (t === 'hunter' || t === 'kitchen' || t === 'greenhouse') return (cr.foodNet || 0) < 1 || (camp.stock.food || 0) < camp.people * 30 ? 0 : 5;
+    if (FOCUS[camp.id] === t) return 0.5;
     if (line.has(t)) return 1;
     if (t === 'warehouse') return (cr.hf || 1) < 0.95 ? 2 : 6;
     if (t === 'lumber' || t === 'coalmine') return (cr.fuelUnits || 0) < (cr.burnPerMin || 1) * 90 ? 2 : 4;
@@ -85,7 +109,22 @@ function fillWorkers(camp) {
   };
   bs.sort((a, b) => pri(a) - pri(b) || a.id - b.id);
   for (const b of bs) if (b.workers) G.setWorkers(S, b.id, 0);
-  for (const b of bs) { const free = G.idleLabor(S, camp); if (free <= 0) break; if (pri(b) < 99) G.setWorkers(S, b.id, Math.min(G.bMax(S, b), free)); }
+  const cap = CAP[camp.id] || {}, used = {};
+  for (const b of bs) {
+    const free = G.idleLabor(S, camp); if (free <= 0) break; if (pri(b) >= 99) continue;
+    let n = Math.min(G.bMax(S, b), free); const c = cap[b.type];
+    if (c && S.t - c.t < 1800) n = Math.max(0, Math.min(n, c.n - (used[b.type] || 0)));
+    used[b.type] = (used[b.type] || 0) + n; G.setWorkers(S, b.id, n);
+  }
+}
+// 老向导说「被别的建筑吃掉了」「从那边撤几个人」时，给那种建筑定个人数上限（半小时内有效），把人让给最卡的一环
+const CAP = {}, FOCUS = {};
+const workersOf = (camp, t) => G.campBuildings(S, camp.id).filter(b => b.type === t).reduce((a, b) => a + b.workers, 0);
+function shed(camp, t) {
+  const cur = workersOf(camp, t), n = cur - (BLD[t].w || 2); if (n < 0 || cur <= 0) return false;
+  (CAP[camp.id] ||= {})[t] = { n, t: S.t }; STAT.shed = (STAT.shed || 0) + 1;
+  let cut = cur - n; for (const b of G.campBuildings(S, camp.id).filter(b => b.type === t && b.workers > 0)) { const d = Math.min(cut, b.workers); G.setWorkers(S, b.id, b.workers - d); cut -= d; if (cut <= 0) break; }
+  return true;
 }
 function upgradeLowest(camp, type, cap) {
   const bs = G.campBuildings(S, camp.id).filter(b => b.type === type && b.lvl < cap).sort((a, b) => a.lvl - b.lvl);
@@ -145,7 +184,21 @@ function campThink(camp, main) {
     const P = null;
     for (let i = 0; i < 2; i++) {
       const pl = G.planLine(S, gr, gn), w = pl.worst || pl.nodes.find(x => x.type && !x.count); if (!w || !w.type) break;
+      FOCUS[camp.id] = w.comp ? (pl.nodes.find(x => x.k === w.from) || {}).type : w.type;
+      if (w.comp) {
+        // 总产量够，被别的建筑吃掉了：给吃得最多的那种建筑减人
+        const eat = {}, R2 = G.rt(S), from = (pl.nodes.find(x => x.k === w.from) || {}).type;
+        for (const b of G.campBuildings(S, camp.id)) { const ir = ((R2.b[b.id] || {}).inRate || {})[w.k]; if (ir > 0 && b.type !== from) eat[b.type] = (eat[b.type] || 0) + ir; }
+        const top = Object.keys(eat).sort((a, b) => eat[b] - eat[a])[0];
+        if (top && shed(camp, top)) fillWorkers(camp);
+        break;
+      }
+      if (G.idleLabor(S, camp) < (BLD[w.type].w || 0)) {
+        const over = pl.nodes.filter(x => x.type && x.workers > 0 && x.ratio > 1.8 && x.k !== gr).sort((a, b) => b.ratio - a.ratio)[0];
+        if (over) shed(camp, over.type);
+      }
       if (G.idleLabor(S, camp) >= (BLD[w.type].w || 0) && tryBuild(camp, w.type)) { STAT.lineBuild++; fillWorkers(camp); continue; }
+      if (BLD[w.type].gather && !bestSpot(camp, w.type) && G.idleLabor(S, camp) >= (BLD[w.type].w || 0) && S.t - (camp.clearT || -1e9) > 600) { camp.clearT = S.t; if (clearForSpot(camp, w.type)) { fillWorkers(camp); continue; } }
       if (upgradeLowest(camp, w.type, fb.lvl)) { STAT.lineUp++; continue; }
       if (!bestSpot(camp, w.type) && !camp.roomT && makeRoom(camp)) { camp.roomT = 1; continue; }
       break;

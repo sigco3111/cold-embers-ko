@@ -157,7 +157,10 @@ export function planLine(S, r, n) {
       const ins = Object.keys(BLD[t].in).map(k => by[k]).filter(Boolean).sort((a, b) => a.ratio - b.ratio);
       const worst = ins[0];
       const starved = Object.keys(cur.stat).some(s => s.startsWith('缺'));
-      if (worst && (worst.ratio < cur.ratio - 0.05 || (starved && worst.ratio < 1))) cur = worst; else break;
+      // 建筑自己说缺哪样，就先看那样：总产量够、却被别的建筑吃掉了，也算卡在这里
+      const named = ins.filter(x => cur.stat['缺' + RES[x.k].n]).sort((a, b) => (cur.stat['缺' + RES[b.k].n] || 0) - (cur.stat['缺' + RES[a.k].n] || 0))[0];
+      if (named) { named.from = cur.k; cur = named; if (named.ratio >= 1) { named.comp = true; break; } continue; }
+      if (worst && (worst.ratio < cur.ratio - 0.05 || (starved && worst.ratio < 1))) { worst.from = cur.k; cur = worst; } else break;
     }
   } else cur = null;
   if (cur) cur.worst = true;
@@ -186,6 +189,17 @@ export function freeLand(S, camp) {
   }
   R.land = { key, n };
   return n;
+}
+
+// 采集建筑在供热圈里还有没有能挖到矿的位置（矿点旁边被别的建筑占了、太冷、地不平都算没有）
+export function gatherRoom(S, camp, type) {
+  const R = rt(S), r = heatRadius(S, camp), key = `${camp.id}:${type}:${r}:${S.buildings.length}:${R.revealN || 0}`;
+  const C = R.groom || (R.groom = {});
+  if (C[type] && C[type].key === key) return C[type].ok;
+  let ok = false;
+  for (let y = Math.floor(camp.y - r); y <= camp.y + r && !ok; y++) for (let x = Math.floor(camp.x - r); x <= camp.x + r; x++) { const q = checkPlace(S, type, x, y); if (q.ok && q.spots > 0) { ok = true; break; } }
+  C[type] = { key, ok };
+  return ok;
 }
 
 // ---------- 老向导：一次只说一句，按急事 → 主线卡在哪 → 人手和地盘 → 下一程的方向 ----------
@@ -218,11 +232,25 @@ export function advisor(S) {
     if (w) {
       if (!w.count && w.type && !unlocked(S, w.type)) return { pri: 1, kind: 'line', text: `${RES[g.r].n}线要${RES[w.k].n}，可${BLD[w.type].n}还没解锁：派侦察队往北探，看到更北的纬度就能建。`, act: 'plan', arg: g.r };
       if (!w.count) return { pri: 1, kind: 'line', text: `${RES[g.r].n}线缺一环：还没有${w.type ? BLD[w.type].n : RES[w.k].n}。${RES[w.k].n}要 ${fmtR(w.need)}/分钟，先建一座。`, act: 'plan', arg: g.r };
-      const by = P.nodes.find(x => x.k === w.via);
+      const by = P.nodes.find(x => x.k === (w.from || w.via));
       const full = Object.keys(w.stat).find(s => s === '仓库满了');
       if (full) return { pri: 1, kind: 'line', text: `${RES[w.k].n}卡在仓库满了：多建仓库，或者在营地面板里打开「满仓自动兑换」。`, act: 'plan', arg: g.r };
+      // 总产量够，却被别的建筑吃掉了
+      if (w.comp && by) {
+        const eat = {};
+        for (const b of S.buildings) { const ir = ((R.b[b.id] || {}).inRate || {})[w.k]; if (ir > 0 && b.type !== by.type) eat[b.type] = (eat[b.type] || 0) + ir; }
+        const top = Object.keys(eat).sort((a, b) => eat[b] - eat[a])[0];
+        return { pri: 1, kind: 'line', text: `${RES[g.r].n}线卡在${RES[w.k].n}：${RES[w.k].n}一分钟产 ${fmtR(w.prod)}，这条线只要 ${fmtR(w.need)}，可${BLD[by.type].n}分不到${top ? `，大半被${BLD[top].n}吃掉了（${fmtR(eat[top])}/分）。少派几个人去${BLD[top].n}` : '。多产一些'}，${BLD[by.type].n}就能开工。`, act: 'plan', arg: g.r };
+      }
       const why = by ? `${BLD[by.type].n}要 ${fmtR(w.need)}/分，${BLD[w.type].n}只供 ${fmtR(w.prod)}/分` : `目标 ${fmtR(w.need)}/分，现在 ${fmtR(w.prod)}/分`;
-      const fix = w.workers < w.count * maxWorkers(w.type, w.lvl) ? '先把人派满' : `再建 ${Math.max(1, Math.ceil((w.need - w.prod) / Math.max(0.1, w.one)))} 座，或者升级`;
+      let fix = w.workers < w.count * maxWorkers(w.type, w.lvl) ? '先把人派满' : `再建 ${Math.max(1, Math.ceil((w.need - w.prod) / Math.max(0.1, w.one)))} 座，或者升级`;
+      // 采集建筑没地方放了：矿点旁边都被占了
+      if (fix.startsWith('再建') && BLD[w.type].gather && !gatherRoom(S, main, w.type)) fix = `可${RES[w.k].n}矿点旁边已经放不下${BLD[w.type].n}了（被别的建筑占着，或者在供热圈外）：拆掉矿点旁边的一两座建筑，或者升熔炉扩大供热圈，侦察营也能勘探新矿脉`;
+      // 没有闲人：这条线上产得太多的一环，可以撤人过来
+      if (fix.startsWith('再建') && P.idle < (BLD[w.type].w || 1)) {
+        const over = P.nodes.filter(x => x.type && x.workers > 0 && x.ratio > 1.8 && x.k !== g.r).sort((a, b) => b.ratio - a.ratio)[0];
+        if (over) fix = `没有闲人了：${BLD[over.type].n}产 ${fmtR(over.prod)}/分，这条线只要 ${fmtR(over.need)}/分，可以从那边撤几个人过来`;
+      }
       return { pri: 1, kind: 'line', text: `${RES[g.r].n}线卡在${RES[w.k].n}：${why}。${fix}。`, act: 'plan', arg: g.r };
     }
   }

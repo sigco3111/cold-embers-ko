@@ -525,6 +525,10 @@ export function arrive(S, x, y) {
   if (T.hope) bumpMood(camp, T.hope, 0);
   addTo(camp.stock, T.goods);
   for (const k of Object.keys(FURNACE_KIT)) camp.stock[k] = Math.max(0, (camp.stock[k] || 0) - FURNACE_KIT[k]); // 点炉用掉
+  // 余烬「人望」「行囊」：每到一站也算一次「开局」，多来几个人、多一笔补给（和开局那份一样大）
+  const upP = up(S, 'people'), upS = up(S, 'supply'), k = T.to;
+  if (upP) camp.people += 3 * upP;
+  if (upS) { const f = 0.5 * upS; camp.stock.wood = (camp.stock.wood || 0) + Math.round((120 + 120 * k) * f); camp.stock.food = (camp.stock.food || 0) + Math.round((70 + 40 * k) * f); camp.stock.stone = (camp.stock.stone || 0) + Math.round((40 + 80 * k) * f); }
   // 后面的营地：留守的变成补给站；熄火的把守火的人和一部分材料带上来，留下一片废墟
   let embers = 0;
   for (const m of T.camps) {

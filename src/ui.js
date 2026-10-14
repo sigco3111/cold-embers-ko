@@ -1336,8 +1336,11 @@ export class UI {
       else if (st.includes('采空')) depl.push(b);
     }
     const maker = k => Object.keys(BLD).filter(t => BLD[t].out && BLD[t].out[k] && BLD[t].t <= S.known);
-    const btn = (t, label) => `<button class="small go" data-act="place" data-arg="${t}">${label || '建' + BLD[t].n}</button>`;
+    const auto = Sim.depotAuto(c);
+    const btn = (t, label) => auto ? '' : `<button class="small go" data-act="place" data-arg="${t}">${label || '建' + BLD[t].n}</button>`;
     const issues = [];
+    // 补给站自己运转：这里的「卡在哪」只是看看，要动手先临时接手
+    if (auto) issues.push({ sev: 9, html: `<div class="issue"><span class="ii">📦</span><span class="it"><b>「${esc(c.name)}」是补给站</b><small>它自己派人、自己生产，不盖新房。下面缺的东西要补，先临时接手</small></span><span class="ia"><button class="small" data-act="dtake" data-arg="${c.id}:1">临时接手</button></span></div>` });
     // 缺料：用它的建筑想要的比实际拿到的多
     for (const k of RES_KEYS) {
       const f = flow[k]; if (!f || f.want <= 0.05) continue;
@@ -1944,7 +1947,7 @@ export class UI {
       <div class="row"><span>存档位 <b>${g.slot}</b> / ${SLOTS}<br><small>三个存档位，各是一局</small></span><span style="flex:none"><button class="small" data-act="slots">换存档位</button></span></div>
       <div class="row"><span>难度 <b>${Sim.diffOf(S).ic}${Sim.diffOf(S).n}</b><br><small>随时可以改</small></span><span style="flex:none"><button class="small" data-act="diff">改难度</button></span></div>
       <div class="mdanger"><button class="btn ghost" data-act="wipe">删除这个存档，从头开始</button></div>
-      <div class="mfoot">寒烬北行 · 第十一版</div>`;
+      <div class="mfoot">寒烬北行 · 第十二版</div>`;
     return h;
   }
 
@@ -1965,7 +1968,7 @@ export class UI {
 
   p_chapter(part) {
     const S = this.S, chs = Sim.chapters(S);
-    if (part === 'title') return `北行纪事 <small>第 ${chs.length}/${CHAPTERS.length} 章</small>`;
+    if (part === 'title') return `北行纪事 <small>第 ${Math.min(CHAPTERS.length, Sim.journeyOf(S).stage + 1)}/${CHAPTERS.length} 章</small>`;
     let h = '';
     chs.slice().reverse().forEach((c, n) => {
       const open = n === 0 || (c.done && !c.got) || this.panel.arg === c.i;
