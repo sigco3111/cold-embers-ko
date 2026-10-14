@@ -573,9 +573,21 @@ export class UI {
     const ge = this.$('goal'), gk = goal + '|' + (cur ? cur.i + ':' + cur.tasks.filter(t => t.ok).length : '') + '|' + gift;
     if (ge.dataset.t !== gk) {
       ge.dataset.t = gk; ge.dataset.act = 'chapter';
-      ge.innerHTML = iconize(cur ? `<b>${cur.ch.n.split(' · ')[0]}</b>${goal ? esc(goal) : esc(cur.ch.n.split(' · ')[1])}${gift ? '<i class="gift">🎁 领奖励</i>' : `<i class="gprog">${cur.tasks.filter(t => t.ok).length}/3</i>`}` : goal ? `<b>目标</b>${esc(goal)}` : '');
+      ge.innerHTML = iconize(cur ? `<b>${cur.ch.n.split(' · ')[0]}</b>${goal ? esc(goal) : esc(cur.ch.n.split(' · ')[1])}${gift ? '<i class="gift">🎁 领奖励</i>' : `<i class="gprog">${cur.tasks.filter(t => t.ok).length}/3</i>`}<i class="gplan" data-act="plan">规划</i>` : goal ? `<b>目标</b>${esc(goal)}<i class="gplan" data-act="plan">规划</i>` : '');
       ge.classList.toggle('gift', gift);
       ge.style.display = ge.innerHTML ? '' : 'none';
+    }
+    // 老向导：一次只说一句；新手引导还没走完时先不出来
+    if (!this.advT || performance.now() - this.advT > 1500) {
+      this.advT = performance.now();
+      const ae = this.$('advisor'), a = S.meta.tut ? Sim.advisor(S) : null, ak = a ? a.text : '';
+      if (ae.dataset.t !== ak) {
+        ae.dataset.t = ak; this.adv = a;
+        ae.innerHTML = a ? `<span class="advf">老</span><span class="advt">${esc(a.text)}</span>` : '';
+        ae.className = a ? `pri${a.pri}` : '';
+        ae.style.display = a ? '' : 'none';
+        if (a) { ae.classList.remove('pop'); void ae.offsetWidth; ae.classList.add('pop'); }
+      }
     }
     // 提示条贴在顶栏下面：顶栏尺寸变了才量（每次重画顶栏后马上量，会逼浏览器重新排版）
     if (!this.topRO && window.ResizeObserver) { const top = this.$('top'); this.topRO = new ResizeObserver(() => { this.$('toasts').style.top = (top.getBoundingClientRect().bottom + 6) + 'px'; }); this.topRO.observe(top); }
@@ -726,6 +738,20 @@ export class UI {
     }
     if (html !== this.labelsHtml) { this.labelsHtml = html; this.labels.innerHTML = iconize(html); } // 镜头没动时内容一样，不用重建（手机上每秒 20 次重建很费）
     this.tutorial();
+  }
+
+  // 点老向导：跳到他说的那件事
+  advisorGo() {
+    const a = this.adv, S = this.S, g = this.g; if (!a) return;
+    g.cancelModes();
+    const furnace = cid => { const c = Sim.getCamp(S, cid) || Sim.mainCamp(S), f = Sim.getB(S, c.furnace); S.active = c.id; g.view.focus(f.x + 1.5, f.y + 1.5); g.view.select(f.id); this.open('bld', f.id); };
+    if (a.act === 'plan') { this.close(); g.chainmap.plan(a.arg); }
+    else if (a.act === 'raid') this.open('raid');
+    else if (a.act === 'scout') this.open('scout');
+    else if (a.act === 'migrate' || a.act === 'arrive') this.open('migrate');
+    else if (a.act === 'furnace' || a.kind === 'fuel' || a.kind === 'cold') furnace(a.camp);
+    else if (a.kind === 'food') { if (a.camp) S.active = a.camp; this.open('stock'); }
+    else this.open('chapter');
   }
 
   // ---------- 新手引导：前几步用光圈指着该点的地方 ----------
@@ -1870,6 +1896,8 @@ export class UI {
       case 'resall': this.resDrawer(); break;
       case 'bigmap': g.bigmap.toggle(); break;
       case 'chainmap': g.chainmap.toggle(); break;
+      case 'plan': g.cancelModes(); this.close(); g.chainmap.plan(arg || null); break;
+      case 'advisor': this.advisorGo(); break;
       case 'pause': g.togglePause(); break;
       case 'qup': Sim.toggleQueueUp(S, +arg); this.renderPanel(true); break;
       case 'unqueue': Sim.unqueue(S, +arg); this.close(); this.toast('已取消排队。', 'info'); break;
@@ -1884,7 +1912,7 @@ export class UI {
       case 'farmap': { const p = (getWorld(S.runSeed).far || [])[+arg]; if (p) { this.close(); g.view.focus(p.x + 0.5, p.y + 0.5); } break; }
       case 'prep': { const r = Sim.doPrep(S, arg); if (r.ok) { g.sfx(arg === 'fire' ? 'build' : 'tap'); this.toast({ fire: '火墙点起来了，营地外围一圈火光。', mil: '民兵拿起家伙上了墙头。', hide: '大家把物资往地窖里搬。' }[arg], 'good'); } else this.toast(r.reason, 'warn'); this.renderPanel(true); break; }
       case 'rauto': Sim.setRaidAuto(S, S.rAuto === false); this.renderPanel(true); break;
-      case 'speed': g.setSpeed(g.speed === 2 ? 1 : 2); break;
+      case 'speed': g.setSpeed(g.nextSpeed()); break;
       case 'ptab': (this.tabs || (this.tabs = {}))[this.panel.kind] = arg; this.renderPanel(true); this.sheet.scrollTop = 0; break;
       case 'camptab': (this.tabs || (this.tabs = {})).camp = arg; g.cancelModes(); this.open('camp'); break;
       case 'logf': this.logF = arg; this.renderPanel(true); this.sheet.scrollTop = 0; break;
@@ -2054,17 +2082,22 @@ export function nextGoal(S) {
     [() => !has('tower'), '建一两座箭塔，防备雪狼'],
     [() => !has('scout'), '建侦察营，准备往北探路'],
   ];
-  if (S.site === 0) for (const [cond, txt] of steps) if (cond()) return txt;
-  const next = LANDMARKS.findIndex((l, i) => i > Math.max(...S.founded));
-  if (next > 0) {
-    const l = LANDMARKS[next];
-    if (!S.discovered.includes(next)) return `派侦察队往北，寻找「${l.n}」`;
-    return `在「${l.n}」旁 14 格内建一座前哨熔炉（建造 → 篝火 → 前哨熔炉）`;
+  if (S.site === 0 && Sim.journeyOf(S).stage === 0) for (const [cond, txt] of steps) if (cond()) return txt;
+  const J = Sim.journeyOf(S);
+  if (J.trip) return J.trip.phase === 'arrive' ? `车队到了「${Sim.stopOf(S, J.trip.to).n}」：放下新熔炉` : `车队在路上，往「${Sim.stopOf(S, J.trip.to).n}」去（${Math.round(J.trip.d / J.trip.len * 100)}%）`;
+  // 这一章的产能目标
+  const g = Sim.rateGoals(S).find(x => !x.eternal) || Sim.rateGoals(S)[0];
+  if (g) {
+    const r = Sim.prodRate(S, g.r), h = Sim.holdOf(S, g.id), fr = v => v >= 100 ? Math.round(v) : Math.round(v * 10) / 10;
+    if (r >= g.n - 1e-9) return `${RES[g.r].n} ${fr(r)}/${g.n} 每分钟 · 稳住 ${Math.floor(h.p / 60)}:${String(Math.floor(h.p % 60)).padStart(2, '0')}/3:00`;
+    return `${RES[g.r].n}产量 ${fr(r)}/${g.n} 每分钟${g.eternal ? `（第 ${S.eternal.stage + 1}/3 层）` : ''}`;
   }
-  if (S.eternal.stage < ETERNAL_STAGES.length) return `锻造永恒炉件，送进永恒之炉（第 ${S.eternal.stage + 1}/3 层：${S.eternal.have}/${ETERNAL_STAGES[S.eternal.stage]}）`;
-  // 永恒之炉以北：一个个远方地标
-  const fi = FAR_MARKS.findIndex((f, i) => Sim.farState(S, i) !== 'lit');
-  if (fi >= 0) return Sim.farState(S, fi) === 'seen' ? `在「${FAR_MARKS[fi].n}」旁 14 格内点起前哨熔炉，带回遗物` : `往永夜冰原派侦察队，寻找「${FAR_MARKS[fi].n}」（第 ${FAR_MARKS[fi].row} 行附近）`;
+  // 这一章别的任务
+  const chs = Sim.chapters(S), cur = chs.find(c => c.i === J.stage);
+  if (cur) { const t = cur.tasks.find(x => !x.ok); if (t) return t.t + (t.n > 1 && !t.low ? `（${typeof t.cur === 'number' ? Math.min(t.cur, t.n) : t.cur}/${t.n}）` : ''); }
+  // 北迁门槛
+  const gt = Sim.departGate(S);
+  if (gt) { const m = gt.items.find(i => !i.ok); return m ? `北迁准备 ${gt.n}/4：${m.t}` : `北迁准备好了：往「${gt.next.n}」出发`; }
   return '';
 }
 

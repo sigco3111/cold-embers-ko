@@ -26,7 +26,7 @@ class Game {
     this.chainmap = new ChainMap(this);
     this.photo = new Photo(this);
     this.hints = new Hints(this);
-    this.paused = false; this.speed = 1; try { if (localStorage.getItem(KEY + '-spd') === '2') this.speed = 2; } catch (e) {}
+    this.paused = false; this.speed = 1; try { const v = +localStorage.getItem(KEY + '-spd'); if (v === 2 || v === 4) this.speed = v; } catch (e) {}
     this.slot = 1; try { this.slot = Math.max(1, Math.min(SLOTS, +localStorage.getItem(KEY + '-slot') || 1)); } catch (e) {}
     this.syncSpeed();
     this.audio = new Sound();
@@ -191,19 +191,21 @@ class Game {
   }
 
   // ---------- 暂停 / 倍速 ----------
-  setSpeed(n) { this.speed = n === 2 ? 2 : 1; try { localStorage.setItem(KEY + '-spd', String(this.speed)); } catch (e) {} if (this.paused) this.paused = false; this.syncSpeed(); }
+  // 1× → 2× → 4× 循环
+  nextSpeed() { return this.speed === 1 ? 2 : this.speed === 2 ? 4 : 1; }
+  setSpeed(n) { this.speed = n === 2 || n === 4 ? n : 1; try { localStorage.setItem(KEY + '-spd', String(this.speed)); } catch (e) {} if (this.paused) this.paused = false; this.syncSpeed(); }
   togglePause(on) { this.paused = on ?? !this.paused; this.syncSpeed(); }
   syncSpeed() {
     document.body.classList.toggle('paused', !!this.paused);
-    const b = document.getElementById('speedBtn'); b.classList.toggle('on', this.speed === 2); b.querySelector('i').textContent = this.speed + '×';
-    b.title = this.speed === 2 ? '正在 2 倍速（点一下回到 1 倍速）' : '加速到 2 倍速';
+    const b = document.getElementById('speedBtn'); b.classList.toggle('on', this.speed > 1); b.classList.toggle('x4', this.speed === 4); b.querySelector('i').textContent = this.speed + '×';
+    b.title = this.speed === 4 ? '正在 4 倍速（点一下回到 1 倍速，电脑按 F）' : this.speed === 2 ? '正在 2 倍速（点一下换 4 倍速，电脑按 F）' : '加速到 2 倍速（电脑按 F）';
     document.getElementById('pauseBtn').title = this.paused ? '继续（P）' : '暂停（P）';
     this.view.timeScale = this.paused ? 0 : this.speed;
     if (this.photo && this.photo.on) this.photo.draw();
   }
-  // 2 倍速时袭击快到了，自动切回 1 倍速，免得来不及反应
+  // 加速时袭击快到了，自动切回 1 倍速，免得来不及反应
   raidSlow() {
-    if (this.speed !== 2 || this.paused) return;
+    if (this.speed === 1 || this.paused) return;
     const nr = Sim.nextRaid(this.S); if (!nr || nr.in > 60) return;
     const key = Math.round(this.S.t + nr.in);
     if (this.raidSlowKey === key) return;
@@ -571,7 +573,7 @@ class Game {
       else if (k === 'g') { if (this.ui.panel && this.ui.panel.kind === 'curve') this.ui.close(); else { this.cancelModes(); this.ui.cvState().cid = this.S.active; this.ui.open('curve'); } }
       else if (k === 'k') { if (this.ui.panel && this.ui.panel.kind === 'book') this.ui.close(); else { this.ui.bookShown = {}; this.ui.open('book'); } }
       else if (k === 'p') this.togglePause();
-      else if (k === 'f') this.setSpeed(this.speed === 2 ? 1 : 2);
+      else if (k === 'f') this.setSpeed(this.nextSpeed());
       else if (k === ' ') { const c = Sim.getCamp(this.S, this.S.active); v.focus(c.x, c.y); }
     });
     document.getElementById('placeOk').addEventListener('click', () => this.confirmPlace());

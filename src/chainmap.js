@@ -128,6 +128,11 @@ export function layoutGraph(G, o) {
   return { pos: out, W, H };
 }
 
+const tabsHtml = on => `<div class="cmtabs"><button class="${on === 'chain' ? 'on' : ''}" data-cmtab="chain">生产链</button><button class="${on === 'plan' ? 'on' : ''}" data-cmtab="plan">规划</button></div>`;
+const stars = n => `<span class="plst">${'★'.repeat(n)}<i>${'★'.repeat(3 - n)}</i></span>`;
+const mmss = s => { s = Math.max(0, Math.ceil(s)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+const fr = v => v >= 100 ? Math.round(v) : Math.round(v * 10) / 10;
+
 export class ChainMap {
   constructor(game) {
     this.g = game;
@@ -136,6 +141,9 @@ export class ChainMap {
     this.el.addEventListener('pointerdown', e => { if (e.target === this.el) { e.preventDefault(); this.hide(); } });
     this.el.addEventListener('click', e => {
       if (e.target.closest('[data-act=chainclose]')) { this.hide(); return; }
+      const tb = e.target.closest('[data-cmtab]');
+      if (tb) { this.tab = tb.dataset.cmtab; this.sig = ''; this.adding = false; this.render(); return; }
+      if (this.tab === 'plan' && this.planClick(e)) return;
       const cb = e.target.closest('[data-chcamp]');
       if (cb) { this.g.S.active = +cb.dataset.chcamp; this.sig = ''; this.render(); return; }
       if (e.target.closest('[data-act=place]')) { this.hide(); return; } // 交给 UI 的放置
@@ -150,6 +158,8 @@ export class ChainMap {
     });
   }
   toggle() { if (this.open) this.hide(); else this.show(); }
+  // 打开规划页，选中一条线（不给就选主线）
+  plan(r) { this.tab = 'plan'; if (r) this.planR = r; this.adding = false; if (this.open) { this.sig = ''; this.render(); } else this.show(); }
   show() {
     const g = this.g;
     g.cancelModes(); g.ui.close(); g.ui.resDrawer(false);
@@ -183,6 +193,7 @@ export class ChainMap {
   }
   // 节点文字和连线粗细每秒刷新；节点有增减才整张重画
   render() {
+    if (this.tab === 'plan') return this.renderPlan();
     const S = this.g.S, camp = Sim.getCamp(S, S.active) || S.camps[0];
     const G = chainGraph(S, camp.id);
     const horiz = innerWidth >= innerHeight * 1.05 && innerWidth > 640;
@@ -212,7 +223,7 @@ export class ChainMap {
       });
       svg += `</svg>`;
       const html = `<div class="cmbox"><div class="phead"><b>生产链 <small>${esc(camp.name)} · 点建筑看详情</small></b><button class="x" data-act="chainclose">✕</button></div>
-        ${camps}<div class="cmsum" data-sum="1"></div>
+        ${tabsHtml('chain')}${camps}<div class="cmsum" data-sum="1"></div>
         <div class="cmscroll"><div class="cmin" style="width:${L.W}px;height:${L.H}px">${svg}${G.nodes.map(n => this.nodeHtml(n, L.pos.get(n.id), o)).join('')}${chips.join('')}</div></div>
         <div class="bmleg"><span><i class="lg ok"></i>运转</span><span><i class="lg slow"></i>变慢 / 满仓</span><span><i class="lg short"></i>缺料 / 采空</span><span><i class="lg idle"></i>没人</span><span><i class="lgl b"></i>传送带</span><span><i class="lgl"></i>红虚线 = 供不上</span><span><i class="lgl g"></i>灰虚线 = 没有来源、在用库存</span></div></div>`;
       const sc = this.el.querySelector('.cmscroll'), keep = sc ? [sc.scrollLeft, sc.scrollTop] : null;
@@ -220,6 +231,66 @@ export class ChainMap {
       if (keep) { const s2 = this.el.querySelector('.cmscroll'); s2.scrollLeft = keep[0]; s2.scrollTop = keep[1]; }
     }
     this.update(G, camp);
+  }
+  // ---------- 规划页：选一条线，看整条链每一环差多少 ----------
+  renderPlan() {
+    const S = this.g.S, L = Sim.plinesOf(S);
+    if (!L.length && !this.adding) this.adding = true;
+    let cur = L.find(l => l.r === this.planR) || L.find(l => l.main && Sim.rateGoals(S).some(g => g.r === l.r)) || L[L.length - 1];
+    if (cur) this.planR = cur.r;
+    const chips = L.map(l => `<button class="plchip ${cur && l.r === cur.r && !this.adding ? 'on' : ''} ${l.on ? 'up' : ''}" data-plsel="${l.r}">${RICON[l.r]}${RES[l.r].n}${l.main ? '<em>主线</em>' : ''}${stars(l.star)}<small>${fr(Sim.prodRate(S, l.r))}/${fr(l.n)}</small></button>`).join('');
+    const side = Sim.sideCount(S), smax = Sim.sideMax(S);
+    let body = '';
+    if (this.adding) {
+      const can = Sim.LINE_RES.filter(k => RES[k].t <= Math.max(1, S.known) && !Sim.lineOf(S, k));
+      body = `<div class="pladd"><p>选一种材料立成支线：速度在目标以上稳住 10 分钟升一星，30 分钟二星（每座建筑少要 1 个工人），90 分钟三星。目标不能低于合格线。</p>
+        ${side >= smax ? `<p class="bad">支线已经立满 ${smax} 条了：撤掉一条，或者走完这一程多一个名额。</p>` : `<div class="plpick">${can.map(k => `<button data-pladd="${k}">${RICON[k]}${RES[k].n}<small>合格线 ${Sim.qualFloor(S, k)}/分 · 现在 ${fr(Sim.prodRate(S, k))}/分</small></button>`).join('')}</div>`}</div>`;
+    } else if (cur) {
+      const P = Sim.planLine(S, cur.r, cur.n), goal = Sim.rateGoals(S).find(g => g.r === cur.r);
+      const h = goal ? Sim.holdOf(S, goal.id) : null;
+      const pct = Math.min(1, P.rate / cur.n);
+      const nextStar = cur.star < 3 ? Sim.STAR_T[cur.star] - cur.st : 0;
+      const floor = cur.main ? cur.n0 || cur.n : Sim.qualFloor(S, cur.r), step = Math.max(1, Math.round(floor / 4));
+      body = `<div class="plhead">${RICON[cur.r]}<b>${RES[cur.r].n}${cur.main ? '主线' : '支线'}</b>${stars(cur.star)}
+          <span class="pltg">目标 <button class="small" data-plset="${-step}" ${cur.n - step < floor ? 'disabled' : ''}>−</button><b>${fr(cur.n)}</b>/分钟<button class="small" data-plset="${step}">＋</button></span>
+          ${cur.main ? '' : `<button class="small ghostb" data-pldrop="${cur.id}">撤掉</button>`}</div>
+        <div class="plrate ${cur.on ? 'up' : ''}"><span class="plbar"><i style="width:${(pct * 100).toFixed(1)}%"></i></span><b>${fr(P.rate)}</b>/${fr(cur.n)} 每分钟</div>
+        <div class="pltimers">${goal ? `<span class="${h.done ? 'ok' : ''}">${h.done ? '✓ 已经达标' : `达标：稳住 ${mmss(h.p)} / 3:00${cur.on ? '' : '（掉下来了，在往回退）'}`}</span>` : ''}
+          <span>${cur.star >= 3 ? '已经三星' : `${'★'.repeat(cur.star + 1)}：再稳住 ${mmss(nextStar)}${cur.on ? '' : '（暂停）'}`}</span>
+          <span class="plfx">${['', '这条线的建筑产量 +15%', '每座建筑少要 1 个工人', '产量再 +30%'].slice(1, cur.star + 1).join('，') || '还没有星'}</span></div>
+        <div class="plnodes">${P.nodes.map(x => this.planNode(x, P)).join('')}</div>
+        <div class="plfoot"><span>这条线用了 <b>${P.people}</b> 人</span><span>主营地人口 <b>${P.pop}</b>/${P.cap}，空闲 ${Math.max(0, P.idle)} 人</span><span>供热圈空地约 <b>${P.free}</b> 块</span></div>`;
+    }
+    const html = `<div class="cmbox plbox"><div class="phead"><b>规划 <small>只指方向：建几座、放哪儿你来定</small></b><button class="x" data-act="chainclose">✕</button></div>
+      ${tabsHtml('plan')}<div class="pllines">${chips}<button class="plchip add ${this.adding ? 'on' : ''}" data-pladdopen="1">＋ 立支线 <small>${side}/${smax}</small></button></div>
+      <div class="plscroll">${body}</div></div>`;
+    const sc = this.el.querySelector('.plscroll'), keep = sc ? sc.scrollTop : 0;
+    this.el.innerHTML = iconize(html);
+    const s2 = this.el.querySelector('.plscroll'); if (s2) s2.scrollTop = keep;
+  }
+  planNode(x, P) {
+    const S = this.g.S, need = x.need, pct = need > 0 ? Math.min(1, x.prod / need) : 1, t = x.type;
+    const go = x.ids.length ? `<button class="small" data-plgo="${x.ids[0]}">去看看</button>` : t && Sim.unlocked(S, t) ? `<button class="small go" data-act="place" data-arg="${t}">建${BLD[t].n}</button>` : t ? `<small class="bad">${BLD[t].n}还没解锁：往北侦察</small>` : '';
+    const stat = Object.entries(x.stat).filter(([k]) => k !== '运转中').map(([k, n]) => `${k} ${n}`).join('、');
+    return `<div class="pln ${x.worst ? 'worst' : ''} ${pct >= 0.999 ? 'ok' : ''}" style="--d:${x.depth}">
+      <span class="plni">${RICON[x.k]}</span>
+      <span class="plnt"><span><b>${RES[x.k].n}</b>${x.worst ? '<em>最卡</em>' : ''}</span><small>${t ? `${BLD[t].n} ×${x.count}${x.count ? ` · ${x.lvl} 级 · ${x.workers} 人` : ''}` : ''}${stat ? ` · ${stat}` : ''}</small>
+        ${x.hint ? `<small class="plh">${x.hint}</small>` : ''}</span>
+      <span class="plnr"><span class="plbar"><i style="width:${(pct * 100).toFixed(1)}%"></i></span><small>现在 <b>${fr(x.prod)}</b> / 要 ${fr(need)} 每分钟</small></span>${go}</div>`;
+  }
+  planClick(e) {
+    const S = this.g.S, t = e.target;
+    const sel = t.closest('[data-plsel]'); if (sel) { this.planR = sel.dataset.plsel; this.adding = false; this.render(); return true; }
+    if (t.closest('[data-pladdopen]')) { this.adding = !this.adding; this.render(); return true; }
+    const add = t.closest('[data-pladd]');
+    if (add) { const r = Sim.addPLine(S, add.dataset.pladd); if (r.ok) { this.planR = add.dataset.pladd; this.adding = false; } else this.g.ui.toast(r.reason, 'warn'); this.render(); return true; }
+    const set = t.closest('[data-plset]');
+    if (set) { const l = Sim.lineOf(S, this.planR); if (l) { const r = Sim.setPLine(S, l.id, l.n + +set.dataset.plset); if (!r.ok && r.reason) this.g.ui.toast(r.reason, 'warn'); } this.render(); return true; }
+    const dr = t.closest('[data-pldrop]');
+    if (dr) { Sim.dropPLine(S, +dr.dataset.pldrop); this.planR = null; this.render(); return true; }
+    const g = t.closest('[data-plgo]');
+    if (g) { const b = Sim.getB(S, +g.dataset.plgo); this.hide(); if (b) { const s = BLD[b.type].size; this.g.view.focus(b.x + s / 2, b.y + s / 2); this.g.view.select(b.id); this.g.ui.open('bld', b.id); } return true; }
+    return false;
   }
   update(G, camp) {
     const el = this.el, cr = G.cr;
