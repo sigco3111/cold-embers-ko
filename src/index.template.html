@@ -291,6 +291,12 @@ small{color:var(--muted);font-size:12px}
 #advisor{align-self:flex-start;pointer-events:auto;cursor:pointer;display:flex;align-items:flex-start;gap:7px;margin-top:4px;max-width:min(480px,92vw);background:linear-gradient(90deg,rgba(18,24,30,.92),rgba(18,24,30,.72));border:1px solid rgba(169,216,255,.32);border-radius:3px;padding:4px 10px 4px 5px;font-size:12.5px;line-height:1.45;color:#dbe9f5;box-shadow:0 2px 8px rgba(0,0,0,.4)}
 #advisor .advf{flex:none;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font:700 11px var(--serif);color:#1a2430;background:radial-gradient(circle at 35% 30%,#e8f4ff,#9ec4e0 70%,#5f8db5);box-shadow:0 0 0 1px rgba(0,0,0,.5)}
 #advisor.pri0{border-color:rgba(255,111,85,.65);background:linear-gradient(90deg,rgba(40,16,12,.94),rgba(40,16,12,.76))}#advisor.pri0 .advf{background:radial-gradient(circle at 35% 30%,#ffe0d0,#ff9a7a 70%,#c0452a)}
+.brief{display:flex;gap:9px;align-items:flex-start;margin:8px 0 6px;padding:8px 10px;border-radius:4px;background:rgba(20,30,40,.55);border:1px solid rgba(169,216,255,.3);text-align:left}
+.brief b{color:var(--frost);font-size:12px;letter-spacing:.1em}.brief p{margin:2px 0;font-size:13px;color:#dbe9f5;line-height:1.5}
+.brief .advf,#advisor .advf{flex:none;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font:700 11px var(--serif);color:#1a2430;background:radial-gradient(circle at 35% 30%,#e8f4ff,#9ec4e0 70%,#5f8db5);box-shadow:0 0 0 1px rgba(0,0,0,.5)}
+.startag{position:absolute;left:0;top:0;margin:-9px 0 0 -14px;font:700 11px/1 var(--sans);letter-spacing:-1px;color:var(--ember-hi);text-shadow:0 0 4px #000,0 1px 0 #000;pointer-events:none;white-space:nowrap}
+.startag.s3{color:#fff1b8;text-shadow:0 0 6px rgba(255,200,90,.9),0 1px 0 #000}
+.ctrole{font-style:normal;font-size:10.5px;margin-right:5px;padding:0 4px;border-radius:2px;color:#2a1708;background:var(--brass-hi)}.ctrole.dep{color:#dbe9f5;background:#3c5468}
 #advisor.pop{animation:advpop .35s ease-out}@keyframes advpop{from{transform:translateY(-4px);opacity:.3}to{transform:none;opacity:1}}
 @media (max-width:560px){#advisor{font-size:11.5px;max-width:calc(100vw - 16px)}#advisor .advt{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}}
 body.photo #advisor,body.titled #advisor{display:none!important}

@@ -274,10 +274,18 @@ class Game {
       else if (f.kind === 'fest') { if (!quiet) { this.sfx('win'); const c = Sim.getCamp(this.S, f.camp), L = c && this.view.lifeSpots(c); if (L && L.fest) for (let k = 0; k < 4; k++) setTimeout(() => this.view.burst('spark', L.fest[0] + (Math.random() - 0.5) * 2, L.fest[1] + (Math.random() - 0.5) * 2, 30, 0.3, 2.5 + Math.random()), k * 450); } }
       else if (f.kind === 'festdone') { if (!quiet) { this.sfx('up'); const c = Sim.getCamp(this.S, f.camp); if (c) this.view.ringFx && this.view.ringFx(c.x, c.y, 3); } } // 离线补算时达成的也报一下
       else if (f.kind === 'odstall') { if (!quiet) { this.sfx('lose'); const c = Sim.getCamp(this.S, f.camp); if (c) this.view.burst('dust', c.x, c.y, 30, 1.2, 2.5); } }
-      else if (f.kind === 'ending') this.ui.modal(`<h2>🌟 永恒之炉重燃</h2><p class="story">${STORY.ending}</p><p>你用了 ${this.S.meta.runs} 次北行完成了旅程。可以继续经营，或者北迁再走一遍。</p>`, [{ t: '继续', a: 'ending', cls: 'go' }]);
+      else if (f.kind === 'star' || f.kind === 'mile') { if (!quiet) { this.sfx('win'); const c = Sim.mainCamp(this.S); if (c) this.fireworks(c.x, c.y, f.kind === 'star' ? 3 + f.star * 2 : 4); } }
+      else if (f.kind === 'depart') { if (!quiet) this.sfx('horn'); }
+      else if (f.kind === 'trip-arrived') { if (!quiet) this.sfx('event'); }
+      else if (f.kind === 'arrive-stop') { if (!quiet) { this.sfx('win'); const c = Sim.mainCamp(this.S); if (c) { this.view.focus(c.x, c.y); this.fireworks(c.x, c.y, 6); } } }
+      else if (f.kind === 'ending') this.ui.modal(`<h2>🌟 永恒之炉重燃</h2><p class="story">${STORY.ending}</p><p>你用了 ${this.S.meta.runs} 次北行完成了旅程。车队可以接着往北走，世界之脊还在更远的地方；也可以在菜单里开始一次新的北行。</p>`, [{ t: '继续', a: 'ending', cls: 'go' }]);
     }
   }
   sfx(name) { this.audio.play(name); }
+  // 烟花：营地上空一阵一阵的火花
+  fireworks(x, y, n) {
+    for (let k = 0; k < n; k++) setTimeout(() => { const a = Math.random() * 6.28, r = 2 + Math.random() * 5; this.view.burst('spark', x + Math.cos(a) * r, y + Math.sin(a) * r, 26, 1.4, 2.2); if (this.view.ringFx && k % 2 === 0) this.view.ringFx(x + Math.cos(a) * r, y + Math.sin(a) * r, 1.2); }, k * 380);
+  }
   // 收集册：成就单独报（有余烬），其余新进册的合成一条
   bookFx(f) {
     // 标题画面还开着（或刚读档）时先攒着，进游戏后再报，免得提示在看不见的时候就过期了

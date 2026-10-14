@@ -1,5 +1,5 @@
 // 界面：顶部状态、资源条、底部工具栏、面板、提示
-import { RES, RES_KEYS, BLD, BLD_KEYS, CATS, TIER_NAMES, LANDMARKS, FAR_MARKS, SPECS, EMBER_UPS, emberCost, specTrainCost, specBonus, FUEL, furnaceRadius, furnaceHeat, furnaceBurn, baseTempOfRow, tierOfRow, ETERNAL_STAGES, GATE, GATE_EVERY, STORY, SPOTS, SPOT_KEYS, dayCycle, LAWS, TECHS, TECH_BR, SITES, CHAPTERS, INFRA, RAIDERS, DAY_LEN, DIFF, DIFF_KEYS, SLOTS, FOCUS, FOCUS_KEYS, FOCUS_LVL } from './data.js';
+import { BRIEF, RES, RES_KEYS, BLD, BLD_KEYS, CATS, TIER_NAMES, LANDMARKS, FAR_MARKS, SPECS, EMBER_UPS, emberCost, specTrainCost, specBonus, FUEL, furnaceRadius, furnaceHeat, furnaceBurn, baseTempOfRow, tierOfRow, ETERNAL_STAGES, GATE, GATE_EVERY, STORY, SPOTS, SPOT_KEYS, dayCycle, LAWS, TECHS, TECH_BR, SITES, CHAPTERS, INFRA, RAIDERS, DAY_LEN, DIFF, DIFF_KEYS, SLOTS, FOCUS, FOCUS_KEYS, FOCUS_LVL } from './data.js';
 import * as Sim from './sim.js';
 import { personOf, personState, campVoices } from './people.js';
 import { getWorld, idx, W, H } from './worldgen.js';
@@ -32,8 +32,9 @@ const STATUS_ICON = st => st.startsWith('缺') ? (RICON[RES_BY_NAME[st.slice(1)]
 export function fmt(n) {
   n = +n || 0;
   const a = Math.abs(n);
-  if (a >= 1e6) return (n / 1e6).toFixed(a >= 1e7 ? 0 : 1) + 'M';
-  if (a >= 1e4) return (n / 1e3).toFixed(a >= 1e5 ? 0 : 1) + 'k';
+  // 大数字按中文习惯：1.2万、35万、1.2亿
+  if (a >= 1e8) return (n / 1e8).toFixed(a >= 1e9 ? 0 : 1).replace(/\.0$/, '') + '亿';
+  if (a >= 1e4) return (n / 1e4).toFixed(a >= 1e5 ? 0 : 1).replace(/\.0$/, '') + '万';
   if (a >= 100) return Math.round(n).toString();
   if (a >= 10) return n.toFixed(0);
   return (Math.round(n * 10) / 10).toString();
@@ -415,7 +416,7 @@ export class UI {
   chapterModal(i) {
     const ch = CHAPTERS[i]; if (!ch) return false;
     const m = this.$('modal');
-    m.innerHTML = iconize(`<div class="mbox chap"><div class="evtag">📖 新的一章 · ${esc(LANDMARKS[i].n)}</div><h2>${esc(ch.n)}</h2><p class="story">${esc(ch.story)}</p><div class="sec">这一章要做的事</div><ul class="ctl">${ch.tasks.map(t => `<li>${esc(t.t)}</li>`).join('')}</ul><div class="crw">🎁 奖励：${esc(Sim.chapterReward(this.S, i).join('，'))}</div><div class="mbtns"><button class="btn go" data-act="close-modal">出发</button></div></div>`);
+    m.innerHTML = iconize(`<div class="mbox chap"><div class="evtag">📖 新的一章 · ${esc(LANDMARKS[i].n)}</div><h2>${esc(ch.n)}</h2><p class="story">${esc(ch.story)}</p>${BRIEF[i] ? `<div class="brief"><span class="advf">老</span><div><b>老向导</b>${BRIEF[i].map(x => `<p>${esc(x)}</p>`).join('')}</div></div>` : ''}<div class="sec">这一章要做的事</div><ul class="ctl">${ch.tasks.map(t => `<li>${esc(t.t)}</li>`).join('')}</ul><div class="crw">🎁 奖励：${esc(Sim.chapterReward(this.S, i).join('，'))}</div><div class="mbtns"><button class="btn go" data-act="close-modal">出发</button></div></div>`);
     m.classList.add('show');
     return true;
   }
@@ -628,6 +629,17 @@ export class UI {
       html += `<div class="badge ${it.bad ? 'bad' : ''} ${txt ? '' : 'only'}" data-bid="${it.b.id}" title="${esc(BLD[it.b.type].n)}：${esc(it.st)}" style="transform:translate(${it.p.x | 0}px,${it.p.y | 0}px)"><i>${STATUS_ICON(it.st)}</i>${txt}</div>`;
     });
     this.fullByCamp = full;
+    // 产线星级：拉近时挂在建筑头上
+    if (close) {
+      let n = 0;
+      for (const b of S.buildings) {
+        if (n >= 40) break;
+        const st = BLD[b.type].out ? Sim.bStar(S, b) : 0; if (!st) continue;
+        const s = BLD[b.type].size; if (Math.abs(b.x + s / 2 - cx) > near || Math.abs(b.y + s / 2 - cy) > near) continue;
+        const p = v.project(b.x + s / 2, b.y + s / 2, 2.6); if (!p.on) continue;
+        html += `<div class="startag s${st}" style="transform:translate(${p.x | 0}px,${p.y | 0}px)">${'★'.repeat(st)}</div>`; n++;
+      }
+    }
     // 头顶说话：每隔几秒，镜头中间附近随机一个人说一句（饿了、冷了会抱怨）
     if (v.cam.dist < 30 && v.figInfo) {
       const now = performance.now();
@@ -681,7 +693,8 @@ export class UI {
       const p = v.project(c.x, c.y, 3.8 + 0.08 * Math.min(25, Sim.getB(S, c.furnace).lvl));
       const nf = full.get(c.id) || 0;
       const F = Sim.focusOf(c);
-      if (p.on) html += `<div class="camptag" style="transform:translate(${p.x | 0}px,${p.y | 0}px)">${F ? `<i class="fch xs" style="background:${F.col}" title="${F.n}营地">${F.ch}</i>` : ''}${esc(c.name)} <small>${Sim.getB(S, c.furnace).lvl}级</small>${nf ? `<b class="ctfull" data-camp="${c.id}" title="${nf} 栋建筑因为仓库满了停工">📦满 ${nf}</b>` : ''}</div>`;
+      const role = c.depot ? '<em class="ctrole dep">补给站</em>' : S.camps.length > 1 && Sim.isMain(S, c) ? '<em class="ctrole">主营地</em>' : '';
+      if (p.on) html += `<div class="camptag" style="transform:translate(${p.x | 0}px,${p.y | 0}px)">${role}${F ? `<i class="fch xs" style="background:${F.col}" title="${F.n}营地">${F.ch}</i>` : ''}${esc(c.name)} <small>${Sim.getB(S, c.furnace).lvl}级</small>${nf ? `<b class="ctfull" data-camp="${c.id}" title="${nf} 栋建筑因为仓库满了停工">📦满 ${nf}</b>` : ''}</div>`;
     }
     // 发现的幸存者、地标
     const w = getWorld(S.runSeed);
