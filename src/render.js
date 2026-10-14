@@ -2152,7 +2152,7 @@ void main() {
       // 车：拖车打头，雪橇跟后面；拖车长，隔 2.1 格，雪橇隔 1.6 格；还没出营地的先不画
       const list = []; for (let i = 0; i < Math.min(8, T.veh.tractor || 0); i++) list.push('tractor'); for (let i = 0; i < Math.min(16, T.veh.sled || 0); i++) list.push('sled');
       if (!list.length) list.push('sled');
-      const t = this.time || 0, moving = T.phase === 'go';
+      const t = this.time || 0, moving = T.phase === 'go' && !T.road && !(T.hold > 0);
       this.cvEmit = []; let back = 0;
       list.forEach((k, i) => {
         const d = T.d - back; back += k === 'tractor' ? 2.1 : 1.6; if (d < 0) return;
@@ -2164,7 +2164,7 @@ void main() {
         if (i === 0 && this.followTrip) { this.cam.ttx = p.x; this.cam.tty = p.y; }
       });
       // 前面的路：每隔一格一个小路标，一闪一闪往前走
-      if (T.phase === 'go') {
+      if (moving) {
         const ph = ((this.time || 0) * 1.2) % 1;
         for (let d = T.d + 1.2 + ph; d < T.len && nm < 260; d += 1.1) { const p = Sim.tripPos({ path: T.path, d }); m.compose(v.set(p.x, 0.04, -p.y), q.identity(), one); this.cvMarks.setMatrixAt(nm++, m); }
       }

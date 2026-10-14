@@ -249,6 +249,7 @@ class Game {
       const grown = S.meta.tut || S.buildings.length > 8;
       if (!this.titleOn && !window.__noEvents) { if (grown) Sim.rollRequest(S); Sim.rollSurprise(S, grown); }
       if (free && this.whatsNew) { this.whatsNew = false; S.meta.ver = WHATS_NEW; this.ui.modal(WHATS_NEW_HTML, [{ t: '知道了', a: 'close-modal', cls: 'go' }]); }
+      else if (free && Sim.roadView(S)) { if (this.ui.roadModal()) this.sfx('event'); }
       else if (free && Sim.expPending(S)) { if (this.ui.siteModal()) this.sfx('event'); }
       else if (free && this.chapQ && this.chapQ.length) { if (this.ui.chapterModal(this.chapQ.shift())) this.sfx('win'); }
       else if (free && !this.paused && !window.__noEvents && (S.meta.tut || S.buildings.length > 8) && Sim.rollEvent(S)) { if (this.ui.eventModal()) this.sfx('event'); }
@@ -278,6 +279,7 @@ class Game {
       else if (f.kind === 'odstall') { if (!quiet) { this.sfx('lose'); const c = Sim.getCamp(this.S, f.camp); if (c) this.view.burst('dust', c.x, c.y, 30, 1.2, 2.5); } }
       else if (f.kind === 'star' || f.kind === 'mile') { if (!quiet) { this.sfx('win'); const c = Sim.mainCamp(this.S); if (c) this.fireworks(c.x, c.y, f.kind === 'star' ? 3 + f.star * 2 : 4); } }
       else if (f.kind === 'depart') { if (!quiet) this.sfx('horn'); }
+      else if (f.kind === 'road') { if (!quiet) { if (this.speed > 1) this.setSpeed(1); if (!document.getElementById('modal').classList.contains('show') && !this.titleOn && this.ui.roadModal()) this.sfx('event'); } }
       else if (f.kind === 'veh') { if (!quiet) { this.sfx('build'); const b = Sim.getB(this.S, f.b); if (b) { const h = BLD[b.type].size / 2; this.view.burst('dust', b.x + h, b.y + h, 18, 0.8, 1); this.view.ringFx && this.view.ringFx(b.x + h, b.y + h, 1.2); } } }
       else if (f.kind === 'trip-arrived') { if (!quiet) this.sfx('event'); }
       else if (f.kind === 'arrive-stop') { if (!quiet) { this.sfx('win'); const c = Sim.mainCamp(this.S); if (c) { this.view.focus(c.x, c.y); this.fireworks(c.x, c.y, 6); } } }

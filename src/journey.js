@@ -1,7 +1,7 @@
 // 寒烬北行 · 一路往北：每一程的状态、北迁门槛、车队、新营地的范围
 // 整局只有一条路：主营地带着车队从一个地标搬到下一个，留在后面的营地变成补给站或者熄火
 import { LANDMARKS, FAR_MARKS, BLD, RES, FUEL, FUEL_ORDER, SPOT_KEYS, furnaceBurn } from './data.js';
-import { W, H, T_ROCK, getWorld, idx, inMap } from './worldgen.js';
+import { W, H, T_ROCK, getWorld, idx, inMap, mulberry32 } from './worldgen.js';
 import {
   rt, dirty, getB, getCamp, logMsg, revealCircle, canAfford, missing, pay, chapters, makeCamp, markFounded, trimWorkers,
   autoAssign, clearFootprint, landmarkBlock, siteAt, occAt, housingOf, bumpMood, diffOf, relicSum, upgradeCost, maxWorkers, levelMul,
@@ -150,11 +150,11 @@ const addTo = (a, b) => { for (const k in b) if (b[k]) a[k] = (a[k] || 0) + b[k]
 export function specsIn(S, cid) {
   return Object.keys(S.meta.specs || {}).filter(sid => { const bid = S.specAt[sid]; if (bid == null) return true; const b = getB(S, bid); return !b || b.camp === cid; });
 }
-// 默认带的货：新营地半小时的口粮和燃料，再加搭帐篷的木材
+// 默认带的货：新营地半小时的口粮和燃料、搭帐篷的木材，再加一点路上备用（路上的事要花）
 export function defaultGoods(S, main, people, fl) {
   const st = main.stock, g = {};
-  g.food = Math.ceil(people * EAT * 30);
-  g.wood = 25 * Math.ceil(people / 5) + 60;
+  g.food = Math.ceil(people * EAT * 40); // 30 分钟的开局口粮，再加 10 分钟路上备用
+  g.wood = 25 * Math.ceil(people / 5) + 140; // 搭帐篷，再加 80 路上备用
   let fuel = Math.ceil(furnaceBurn(fl) * 30);
   for (const f of FUEL_ORDER) { // 优先带热值高的燃料，车上省地方
     if (fuel <= 0) break;
@@ -255,6 +255,7 @@ export function depart(S) {
     people: p.people, specs: p.specs.slice(), goods: addTo({ ...p.goods }, p.kit), veh: { ...p.veh }, fl: p.fl, t0: S.t,
     camps: p.camps.map(c => ({ id: c.id, mode: c.mode, main: c.main })), phase: 'go',
   };
+  J.trip.ev = rollRoad(S, J.trip);
   dirty(S);
   logMsg(S, `🛷 车队从「${main.name}」出发了：${p.people} 人，往北去「${g.next.n}」。路上大约 ${Math.max(1, Math.round(p.secs / 60))} 分钟。`, 'story');
   rt(S).fx.push({ kind: 'depart', to: J.trip.to });
@@ -303,6 +304,131 @@ function vehStep(S, dt) {
     if (!b.vq.length) logMsg(S, `🛷 雪橇棚的车造完了：车队现在有 ${J.fleet.sled || 0} 架雪橇${J.fleet.tractor ? `、${J.fleet.tractor} 台蒸汽拖车` : ''}。`, 'good', { act: 'spot', arg: b.id, label: '看看' });
     dirty(S);
   }
+}
+
+// ---------- 路上的事：每一程抽两三件，车队停下来等你拿主意 ----------
+// 一分钟（游戏里的时间，关着页面补算时也一样）没人选，按第一项「默认」办：宁可花物资，不伤人
+export const ROAD_WAIT = 60;
+const nVeh = T => (T.veh.sled || 0) + (T.veh.tractor || 0);
+// 车上的货里，点炉要用的那份不动，剩下的才能在路上花
+// 熟食再留 10 分钟的口粮给新营地开局
+export const roadHave = (T, k) => Math.max(0, Math.floor((T.goods[k] || 0) - (FURNACE_KIT[k] || 0) - (k === 'food' ? T.people * EAT * 10 : 0)));
+const foodTxt = (T, n) => { const a = Math.min(n, roadHave(T, 'food')); return a ? `熟食 −${a}` : '车上没有多余的熟食'; };
+const roadTake = (T, k, n) => { const a = Math.min(n, roadHave(T, k)); T.goods[k] = (T.goods[k] || 0) - a; return a; };
+// 燃料按热值算，先烧不值钱的
+const FUEL_LOW = FUEL_ORDER.slice().reverse();
+function fuelPlan(T, u) {
+  const out = {}; let left = u;
+  for (const f of FUEL_LOW) { if (left <= 0) break; const n = Math.min(roadHave(T, f), Math.ceil(left / FUEL[f])); if (n > 0) { out[f] = n; left -= n * FUEL[f]; } }
+  return { take: out, short: Math.max(0, left) };
+}
+const resTxt = o => Object.keys(o).map(k => `${RES[k].n} −${o[k]}`).join('，');
+const roomLeft = T => (T.veh.sled || 0) * VEH.sled.cap + (T.veh.tractor || 0) * VEH.tractor.cap - T.people * PERSON_LOAD - sum(T.goods);
+const stepsLeft = T => Math.max(1, Math.ceil((T.len - T.d) / 10));
+function roadLoot(T) {
+  const k = T.to;
+  if (k <= 4) return { gear: 15 + 5 * k, engine: 2 + k };
+  if (k <= 6) return { battery: 6 * k, alloy: 4 * k };
+  return { part: 2 * k, star: 4 * k };
+}
+const ROAD = [
+  { id: 'storm', n: '暴风雪压过来', w: 3, when: () => true,
+    ctx: (S, T) => ({ u: 8 * nVeh(T) + 2 * Math.ceil(T.people / 5), wait: 40, hurt: Math.max(1, Math.round(T.people * 0.08)) }),
+    text: () => '天边压过来一堵白墙，风越刮越紧，拉车的人都看向领头的雪橇。',
+    opts: [
+      { t: '扎营等它过去', d: (S, T, x) => { const f = fuelPlan(T, x.u); return `${resTxt(f.take) || '车上没有多余的燃料'} · 晚到约 ${x.wait + Math.ceil(f.short / 2)} 秒`; },
+        go: (S, T, x) => { const f = fuelPlan(T, x.u); for (const k in f.take) roadTake(T, k, f.take[k]); T.hold = (T.hold || 0) + x.wait + Math.ceil(f.short / 2); return '车队围成一圈扎营，火堆烧了一夜，雪停了才上路。'; } },
+      { t: '顶着走', d: (S, T, x) => `准时到 · ${x.hurt} 人冻伤，到了先养病`, go: (S, T, x) => { T.sick = (T.sick || 0) + x.hurt; return `车队顶着风雪往前走，${x.hurt} 个人冻伤了手脚。`; } },
+    ] },
+  { id: 'lost', n: '被困的人', w: 3, when: () => true,
+    ctx: (S, T, r) => { const n = 3 + Math.floor(r() * 4); return { n, food: n * 12, eat: n * stepsLeft(T) }; },
+    text: (S, T, x) => `雪地里有一架翻倒的旧雪橇，${x.n} 个人挤在下面取暖。他们是从南边一路逃过来的。`,
+    opts: [
+      { t: '留下吃的再走', d: (S, T, x) => `${foodTxt(T, x.food)} · 到了以后希望 +5 · 余烬 +2`,
+        go: (S, T, x) => { roadTake(T, 'food', x.food); T.hope = (T.hope || 0) + 5; S.meta.embers += 2; S.meta.emberTotal = (S.meta.emberTotal || 0) + 2; return '大家把口粮分了一份给他们，有人哭着道谢。'; } },
+      { t: '带上他们', d: (S, T, x) => `+${x.n} 人 · 车上要空出 ${x.n * PERSON_LOAD} 份地方（现在空 ${Math.max(0, roomLeft(T))}）· 熟食 −${x.eat}`,
+        ok: (S, T, x) => roomLeft(T) >= x.n * PERSON_LOAD + x.eat && roadHave(T, 'food') >= x.eat,
+        go: (S, T, x) => { roadTake(T, 'food', x.eat); T.people += x.n; return `${x.n} 个人爬上了雪橇，跟车队一起往北走。`; } },
+    ] },
+  { id: 'wolves', n: '狼群跟上来', w: 2, when: (S, T) => T.to <= 2,
+    ctx: (S, T, r) => ({ meat: 20 + T.people, u: 6 * nVeh(T), hurt: r() < 0.5 ? 1 + Math.floor(r() * 2) : 0 }),
+    text: () => '雪原上亮起一串绿莹莹的眼睛，狼群远远跟着车队，越靠越近。',
+    opts: [
+      { t: '丢下一些肉引开', d: (S, T, x) => { const g = Math.min(x.meat, roadHave(T, 'game')), f = Math.min(x.meat - g, roadHave(T, 'food')), lack = x.meat - g - f; return [g && `生肉 −${g}`, f && `熟食 −${f}`, lack && `肉不够，绕远一点：晚到约 ${Math.ceil(lack / 2)} 秒`].filter(Boolean).join(' · '); },
+        go: (S, T, x) => { const g = roadTake(T, 'game', x.meat), f = roadTake(T, 'food', x.meat - g), lack = x.meat - g - f; if (lack > 0) T.hold = (T.hold || 0) + Math.ceil(lack / 2); return '肉扔在雪地里，狼群停下来抢食，车队趁机走远了。'; } },
+      { t: '围成圈守夜', d: (S, T, x) => { const f = fuelPlan(T, x.u); return `${resTxt(f.take)} · 可能有人受伤`; }, ok: (S, T, x) => !fuelPlan(T, x.u).short,
+        go: (S, T, x) => { const f = fuelPlan(T, x.u); for (const k in f.take) roadTake(T, k, f.take[k]); if (x.hurt) T.sick = (T.sick || 0) + x.hurt; return x.hurt ? `火堆守了一夜，狼群扑上来过一次，${x.hurt} 个人被咬伤了。` : '火堆守了一夜，狼群天亮前散了。'; } },
+    ] },
+  { id: 'ice', n: '冰面裂开', w: 2, when: (S, T) => T.to >= 3 && T.to <= 4,
+    ctx: (S, T) => ({ far: 10, food: T.people, plank: 20 + 5 * nVeh(T) }),
+    text: () => '前面的冰河裂开一道口子，黑水在冰下流得很急，雪橇过不去。',
+    opts: [
+      { t: '绕路', d: (S, T, x) => `多走约 ${x.far} 格 · ${foodTxt(T, x.food)}`,
+        go: (S, T, x) => { roadTake(T, 'food', x.food); T.detour = (T.detour || 0) + x.far; return '车队沿着河岸绕了一大圈，才找到能过的地方。'; } },
+      { t: '用木板搭桥', d: (S, T, x) => `木板 −${x.plank}（车上多带的）· 不耽误`, ok: (S, T, x) => roadHave(T, 'plank') >= x.plank,
+        go: (S, T, x) => { roadTake(T, 'plank', x.plank); return '木板一块块铺过裂缝，车队一辆接一辆开了过去。'; } },
+    ] },
+  { id: 'wreck', n: '旧时代的残骸', w: 2, when: (S, T) => T.from >= 3,
+    ctx: (S, T) => ({ loot: roadLoot(T), wait: 45 }),
+    text: () => '路边半埋着一台旧时代的大机器，铁皮被风雪磨得发亮，里面好像还有完好的零件。',
+    opts: [
+      { t: '不停，继续赶路', d: () => '不耽误', go: () => '车队没有停，残骸慢慢消失在身后的风雪里。' },
+      { t: '停下来拆', d: (S, T, x) => `晚到约 ${x.wait} 秒 · ${Object.keys(x.loot).map(k => `${RES[k].n} +${x.loot[k]}`).join('，')}`,
+        go: (S, T, x) => { T.hold = (T.hold || 0) + x.wait; addTo(T.goods, x.loot); return '大家拆了半天，把能用的都装上了车。'; } },
+    ] },
+  { id: 'bot', n: '迷路的自动机', w: 2, when: (S, T) => T.from >= 5,
+    ctx: (S, T) => ({ star: 25 + 3 * T.to, part: 8 }),
+    text: () => '一台自动机在雪地里原地打转，关节结满了冰，看见车队就跟了上来。',
+    opts: [
+      { t: '拆了带走星铁', d: (S, T, x) => `星铁 +${x.star}`, go: (S, T, x) => { addTo(T.goods, { star: x.star }); return '自动机被拆开，星铁装上了车。'; } },
+      { t: '修好带上', d: (S, T, x) => `构件 −${x.part} · 得到 1 个自动机核心（有自动机仓就能唤醒 2 台）`, ok: (S, T, x) => roadHave(T, 'part') >= x.part,
+        go: (S, T, x) => { roadTake(T, 'part', x.part); addTo(T.goods, { core: 1 }); return '换了几个构件，自动机重新站稳了，乖乖跟着车队走。'; } },
+    ] },
+  { id: 'night', n: '极夜', w: 3, when: (S, T) => T.from >= 6,
+    ctx: (S, T) => ({ u: 10 * nVeh(T) + 3 * Math.ceil(T.people / 5), wait: 60, food: T.people }),
+    text: () => '太阳很久没有升起来了。四下一片漆黑，只有车灯照着前面几步的雪。',
+    opts: [
+      { t: '点火把赶路', d: (S, T, x) => { const f = fuelPlan(T, x.u); return `${resTxt(f.take) || '车上没有多余的燃料'}${f.short ? ` · 火把不够，走得慢：晚到约 ${Math.ceil(f.short / 2)} 秒` : ''}`; },
+        go: (S, T, x) => { const f = fuelPlan(T, x.u); for (const k in f.take) roadTake(T, k, f.take[k]); if (f.short) T.hold = (T.hold || 0) + Math.ceil(f.short / 2); return '一长串火把在黑夜里往北移动，像一条发光的河。'; } },
+      { t: '停下来等极光', d: (S, T, x) => `晚到约 ${x.wait} 秒 · ${foodTxt(T, x.food)} · 到了以后希望 +8 · 余烬 +3`,
+        go: (S, T, x) => { T.hold = (T.hold || 0) + x.wait; roadTake(T, 'food', x.food); T.hope = (T.hope || 0) + 8; S.meta.embers += 3; S.meta.emberTotal = (S.meta.emberTotal || 0) + 3; return '极光终于亮起来，把整片雪原照成了绿色。大家看了很久才上路。'; } },
+    ] },
+];
+export const ROAD_IDS = ROAD.map(e => e.id);
+// 出发时抽好这一程会遇到的事和地点（按路程的比例），路上走到了才弹出来
+export function rollRoad(S, T) {
+  const r = mulberry32((S.runSeed * 131 + T.to * 7919 + Math.floor(T.t0)) >>> 0);
+  const pool = ROAD.filter(e => e.when(S, T)), n = Math.min(pool.length, 2 + (r() < 0.5 ? 1 : 0)), pick = [];
+  while (pick.length < n) {
+    const tot = pool.reduce((a, e) => a + e.w, 0); let x = r() * tot, k = 0;
+    while (x >= pool[k].w) { x -= pool[k].w; k++; }
+    pick.push(pool.splice(k, 1)[0].id);
+  }
+  return pick.map((id, i) => ({ id, at: 0.18 + (i + 0.2 + 0.6 * r()) * 0.66 / n }));
+}
+function roadPop(S, T, e) {
+  const def = ROAD.find(x => x.id === e.id); if (!def) return;
+  const r = mulberry32((S.runSeed * 17 + T.to * 131 + Math.round(e.at * 1000)) >>> 0);
+  T.road = { id: e.id, x: def.ctx(S, T, r), t0: S.t };
+  rt(S).fx.push({ kind: 'road', id: e.id });
+  dirty(S);
+}
+export function roadView(S) {
+  const T = journeyOf(S).trip, v = T && T.road; if (!v) return null;
+  const e = ROAD.find(x => x.id === v.id); if (!e) { T.road = null; return null; }
+  return { id: e.id, title: e.n, text: e.text(S, T, v.x), left: Math.max(0, Math.ceil(ROAD_WAIT - (S.t - v.t0))),
+    opts: e.opts.map((o, i) => ({ t: o.t, d: o.d(S, T, v.x), ok: !o.ok || o.ok(S, T, v.x), def: i === 0 })) };
+}
+export function resolveRoad(S, i, auto) {
+  const T = journeyOf(S).trip, v = T && T.road; if (!v) return null;
+  const e = ROAD.find(x => x.id === v.id), o = e && e.opts[i];
+  if (!o || (o.ok && !o.ok(S, T, v.x))) return null;
+  const msg = o.go(S, T, v.x);
+  (T.done || (T.done = [])).push([e.id, i]);
+  T.road = null;
+  logMsg(S, `【${e.n}】${auto ? '没人拿主意，按默认的办：' : ''}${msg}`, 'story');
+  dirty(S);
+  return msg;
 }
 
 // 车队现在在哪
@@ -361,6 +487,8 @@ export function arrive(S, x, y) {
   clearFootprint(S, 'furnace', x, y, camp.id);
   getB(S, camp.furnace).lvl = T.fl;
   camp.people = T.people;
+  if (T.sick) camp.sick = Math.min(camp.people * 0.3, (camp.sick || 0) + T.sick);
+  if (T.hope) bumpMood(camp, T.hope, 0);
   addTo(camp.stock, T.goods);
   for (const k of Object.keys(FURNACE_KIT)) camp.stock[k] = Math.max(0, (camp.stock[k] || 0) - FURNACE_KIT[k]); // 点炉用掉
   // 后面的营地：留守的变成补给站；熄火的把守火的人和一部分材料带上来，留下一片废墟
@@ -377,7 +505,7 @@ export function arrive(S, x, y) {
     } else { c.depot = true; delete c.focus; }
   }
   if (embers) { S.meta.embers += embers; S.meta.emberTotal = (S.meta.emberTotal || 0) + embers; }
-  J.legs.push({ from: T.from, to: T.to, t0: T.t0, t1: S.t, people: T.people });
+  J.legs.push({ from: T.from, to: T.to, t0: T.t0, t1: S.t, people: T.people, road: T.done || [] });
   J.stage = T.to; J.main = camp.id; J.trip = null; J.plan = {};
   S.active = camp.id;
   S.safeUntil = Math.max(S.safeUntil || 0, S.t + 3600); // 刚到的营地一小时内不会遇袭
@@ -446,7 +574,14 @@ export function journeyStep(S, dt) {
   const J = journeyOf(S), T = J.trip;
   if (!T) return;
   if (T.phase === 'go') {
-    T.d += T.speed * dt;
+    if (T.road) { if (S.t - T.road.t0 >= ROAD_WAIT) resolveRoad(S, 0, true); return; }
+    if (T.hold > 0) { T.hold = Math.max(0, T.hold - dt); return; }
+    let nx = null; for (const e of T.ev || []) if (!e.seen && (!nx || e.at < nx.at)) nx = e;
+    if (nx && T.d + T.speed * dt >= nx.at * T.len) { T.d = nx.at * T.len; nx.seen = 1; roadPop(S, T, nx); return; }
+    // 绕路：绕的这段走一半算一半，多花的时间正好是多走的那几格
+    let m = T.speed * dt;
+    if (T.detour > 0) { m *= 0.5; T.detour = Math.max(0, T.detour - m); }
+    T.d += m;
     if (T.d >= T.len) {
       T.d = T.len; T.phase = 'arrive'; T.at = S.t;
       const st = stopOf(S, T.to);

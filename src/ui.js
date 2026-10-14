@@ -229,6 +229,15 @@ export class UI {
     return true;
   }
 
+  // 路上的事：跟随机事件一样的弹窗；第一项是默认，一分钟没人选就按它办
+  roadModal() {
+    const v = Sim.roadView(this.S); if (!v) return false;
+    const T = Sim.journeyOf(this.S).trip, m = this.$('modal');
+    m.innerHTML = iconize(`<div class="mbox ev"><div class="evtag">车队 · 往「${esc(Sim.stopOf(this.S, T.to).n)}」的路上</div><h2>${esc(v.title)}</h2><p class="story">${esc(v.text)}</p><div class="evopts">${v.opts.map((o, i) => `<button class="evopt ${o.ok ? '' : 'no'}" ${o.ok ? `data-act="road" data-arg="${i}"` : 'disabled'}><b>${esc(o.t)}${o.def ? '<em class="evdef">默认</em>' : ''}</b><small>${esc(o.d)}${o.ok ? '' : ' · 车上没带够'}</small></button>`).join('')}</div><p class="hint">车队停下来等你拿主意。${v.left} 秒内不选，就按「默认」办。</p></div>`);
+    m.classList.add('show');
+    return true;
+  }
+
   // ---------- 手感：数字滚动、资源飞进顶栏、升级闪光 ----------
   rolled(k, v) { const r = this.roll && this.roll[k]; if (!r) return v; const e = Math.min(1, (performance.now() - r.t0) / r.dur); return r.from + (v - r.from) * (1 - Math.pow(1 - e, 3)); }
   // 每 0.3 秒比一次库存：一下子多出一大笔（奖励、带回的物资、返还）就飞图标、滚数字；花掉一大笔也滚
@@ -571,10 +580,10 @@ export class UI {
       }
     }
     const goal = nextGoal(S), chs = Sim.chapters(S), cur = chs[chs.length - 1], gift = chs.some(c => c.done && !c.got);
-    const ge = this.$('goal'), gk = goal + '|' + (cur ? cur.i + ':' + cur.tasks.filter(t => t.ok).length : '') + '|' + gift;
+    const ge = this.$('goal'), gk = goal + '|' + (cur ? cur.i + ':' + cur.tasks.filter(t => t.ok).length : '') + '|' + gift + '|' + !!this.g.view.followTrip;
     if (ge.dataset.t !== gk) {
       ge.dataset.t = gk; ge.dataset.act = 'chapter';
-      const tripGo = Sim.journeyOf(S).trip && Sim.journeyOf(S).trip.phase === 'go', chip = tripGo ? `<i class="gplan" data-act="followtrip">${this.g.view.followTrip ? '不跟了' : '跟着看'}</i>` : '<i class="gplan" data-act="plan">规划</i>';
+      const tr = Sim.journeyOf(S).trip, tripGo = tr && tr.phase === 'go', chip = tr && tr.road ? '<i class="gplan" data-act="roadopen">拿主意</i>' : tripGo ? `<i class="gplan" data-act="followtrip">${this.g.view.followTrip ? '不跟了' : '跟着看'}</i>` : '<i class="gplan" data-act="plan">规划</i>';
       ge.innerHTML = iconize(cur ? `<b>${cur.ch.n.split(' · ')[0]}</b>${goal ? esc(goal) : esc(cur.ch.n.split(' · ')[1])}${gift ? '<i class="gift">🎁 领奖励</i>' : `<i class="gprog">${cur.tasks.filter(t => t.ok).length}/3</i>`}${chip}` : goal ? `<b>目标</b>${esc(goal)}${chip}` : '');
       ge.classList.toggle('gift', gift);
       ge.style.display = ge.innerHTML ? '' : 'none';
@@ -768,6 +777,8 @@ export class UI {
     else if (a.act === 'scout') this.open('scout');
     else if (a.act === 'migrate' || a.act === 'arrive') this.open('migrate');
     else if (a.act === 'place' || a.act === 'spot') this.actDo(a.act, a.arg);
+    else if (a.act === 'roadopen') this.roadModal();
+    else if (a.kind === 'trip') { this.close(); g.view.followTrip = true; }
     else if (a.act === 'furnace' || a.kind === 'fuel' || a.kind === 'cold') furnace(a.camp);
     else if (a.kind === 'food') { if (a.camp) S.active = a.camp; this.open('stock'); }
     else this.open('chapter');
@@ -2018,6 +2029,8 @@ export class UI {
       case 'lmgo': { const l = LANDMARKS[+arg]; g.view.focus(l.x, l.row); this.open('landmark', +arg); break; }
       case 'auto': { const c = Sim.getCamp(S, +arg); c.auto = c.auto === false; break; }
       case 'ev': { const msg = Sim.resolveEvent(S, +arg); this.closeModal(); if (msg) { this.toast(msg, 'story'); g.sfx('tap'); } break; }
+      case 'road': { const msg = Sim.resolveRoad(S, +arg); this.closeModal(); if (msg) { this.toast(msg, 'story'); g.sfx('tap'); } break; }
+      case 'roadopen': { this.roadModal(); break; }
       case 'openbld': { const id = +arg; g.view.select(id); this.open('bld', id); break; }
       case 'tutskip': S.meta.tut = true; this.tutorial(); this.toast('已跳过新手引导。「菜单 → 怎么玩」里能看到玩法说明。', 'info'); break;
       case 'survey': { const r = Sim.startSurvey(S, +arg); if (!r.ok) this.toast(r.reason, 'bad'); else { this.toast(`勘探队出发了，去找${SPOTS[r.kind].n}。`, 'good'); g.sfx && g.sfx('tap'); } break; }
@@ -2134,6 +2147,7 @@ export function nextGoal(S) {
   ];
   if (S.site === 0 && Sim.journeyOf(S).stage === 0) for (const [cond, txt] of steps) if (cond()) return txt;
   const J = Sim.journeyOf(S);
+  if (J.trip && J.trip.road) return `车队停下了：${Sim.roadView(S).title}`;
   if (J.trip) return J.trip.phase === 'arrive' ? `车队到了「${Sim.stopOf(S, J.trip.to).n}」：放下新熔炉` : `车队往「${Sim.stopOf(S, J.trip.to).n}」去 ${Math.round(J.trip.d / J.trip.len * 100)}%`;
   // 这一章的产能目标
   const g = Sim.rateGoals(S).find(x => !x.eternal) || Sim.rateGoals(S)[0];

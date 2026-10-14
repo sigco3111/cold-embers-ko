@@ -204,6 +204,8 @@ export function advisor(S) {
   }
   const nr = nextRaid(S);
   if (nr && nr.in < 300 && !raidPrep(S, nr)) return { pri: 0, kind: 'raid', camp: nr.camp, text: `袭营还有 ${Math.max(1, Math.ceil(nr.in / 60))} 分钟就到「${(getCamp(S, nr.camp) || {}).name}」：点开去备战。`, act: 'raid' };
+  if (J.trip && J.trip.road) return { pri: 0, kind: 'road', text: '车队在路上遇到了事，停下来等你拿主意。', act: 'roadopen' };
+  if (J.trip && J.trip.hold > 0) return { pri: 1, kind: 'trip', text: `车队停下来歇一会儿（还要 ${Math.ceil(J.trip.hold)} 秒），后面的营地照常运转。`, act: null };
   if (J.trip) return { pri: 1, kind: 'trip', text: J.trip.phase === 'arrive' ? `车队到了「${stopOf(S, J.trip.to).n}」：挑一块平地放下新熔炉。` : `车队正往「${stopOf(S, J.trip.to).n}」走，后面的营地照常运转。`, act: J.trip.phase === 'arrive' ? 'arrive' : null };
   // 主线卡在哪
   const g = rateGoals(S).find(x => !x.eternal) || rateGoals(S)[0];
