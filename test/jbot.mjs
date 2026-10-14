@@ -221,7 +221,7 @@ function campThink(camp, main) {
       const t = Object.keys(BLD).find(t => BLD[t].out && BLD[t].out[k] && G.unlocked(S, t));
       if (t && want.has(t) && count(camp, t) < 8 && G.idleLabor(S, camp) >= (BLD[t].w || 0)) tryBuild(camp, t);
     }
-    if (br.status === '附近资源点已采空') { G.demolish(S, b.id); tryBuild(camp, b.type); }
+    if (br.status === '附近资源点已采空' && !b.deep && !(G.deepable(b.type) && !G.deepBlock(S, b))) { G.demolish(S, b.id); tryBuild(camp, b.type); }
   }
   if (cr.tH < 0 && S.known >= 3 && count(camp, 'heater') < 3) tryBuild(camp, 'heater');
 }
@@ -231,7 +231,7 @@ function buildSleds(plan) {
   const main = G.mainCamp(S), V = G.VEH, sheds = S.buildings.filter(b => b.type === 'sledshed');
   // 哪个营地的雪橇棚都能造车：挑一座那边料够的，主营地优先
   const shed = sheds.sort((a, b) => (b.camp === main.id) - (a.camp === main.id)).find(b => !G.vehBlock(S, b, 'sled') || !G.vehBlock(S, b, 'tractor')) || sheds[0];
-  if (!shed) { if (!tryBuild(main, 'sledshed')) { makeRoom(main); tryBuild(main, 'sledshed'); } return; }
+  if (!shed) { if (!tryBuild(main, 'sledshed') && S.t - (main.shedRoomT || -1e9) > 900) { main.shedRoomT = S.t; makeRoom(main); tryBuild(main, 'sledshed'); } return; }
   const P = G.tripPlan(S); if (P.roomOk) return;
   let lack = P.lack - sheds.reduce((s, b) => s + (b.vq || []).reduce((t, q) => t + V[q.v].cap, 0), 0), n = 0;
   while (lack > 0 && n < 10) {

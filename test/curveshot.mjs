@@ -20,7 +20,7 @@ export default async function (page) {
   console.log('panel', await page.evaluate(() => document.querySelector('#sheet').innerText.replace(/\s+/g, ' ').slice(0, 300)));
   await page.screenshot({ path: `${OUT}/curve_camp_${TAG}.png`, timeout: 120000 });
   // 悬停 / 按住
-  const box = await page.evaluate(() => { const r = document.querySelector('.cv[data-cv=mood] svg').getBoundingClientRect(); return { x: r.left + r.width * 0.55, y: r.top + r.height * 0.5 }; });
+  const box = await page.evaluate(() => { const sv = document.querySelector('.cv[data-cv=mood] svg'); sv.scrollIntoView({ block: 'center' }); const r = sv.getBoundingClientRect(); return { x: r.left + r.width * 0.55, y: r.top + r.height * 0.5 }; });
   if (TAG === 'phone') await page.evaluate(({ x, y }) => { const el = document.elementFromPoint(x, y); el.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: x, clientY: y, pointerType: 'touch' })); }, box);
   else await page.mouse.move(box.x, box.y, { steps: 3 });
   await page.waitForTimeout(400);
