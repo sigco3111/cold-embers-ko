@@ -5,7 +5,7 @@ import { W, H, T_ROCK, getWorld, idx, inMap, mulberry32 } from './worldgen.js';
 import {
   rt, dirty, getB, getCamp, logMsg, revealCircle, canAfford, missing, pay, chapters, makeCamp, markFounded, trimWorkers,
   autoAssign, clearFootprint, landmarkBlock, siteAt, occAt, housingOf, bumpMood, diffOf, relicSum, upgradeCost, maxWorkers, levelMul,
-  storeCap, addPeople, up, techSum,
+  storeCap, addPeople, up, techSum, weatherAt,
   EAT, FOUND_DIST, CAMP_GAP,
 } from './sim.js';
 
@@ -414,6 +414,7 @@ const ROAD = [
     ] },
 ];
 export const ROAD_IDS = ROAD.map(e => e.id);
+export const roadName = id => (ROAD.find(e => e.id === id) || {}).n || id;
 // 出发时抽好这一程会遇到的事和地点（按路程的比例），路上走到了才弹出来
 export function rollRoad(S, T) {
   const r = mulberry32((S.runSeed * 131 + T.to * 7919 + Math.floor(T.t0)) >>> 0);
@@ -423,7 +424,21 @@ export function rollRoad(S, T) {
     while (x >= pool[k].w) { x -= pool[k].w; k++; }
     pick.push(pool.splice(k, 1)[0].id);
   }
-  return pick.map((id, i) => ({ id, at: 0.18 + (i + 0.2 + 0.6 * r()) * 0.66 / n }));
+  const ev = pick.map((id, i) => ({ id, at: 0.18 + (i + 0.2 + 0.6 * r()) * 0.66 / n }));
+  // 这一程会碰上暴风雪：那段路一定要停下来拿主意（扎营等它过去，或者顶着走）
+  const wx = tripWeather(S, T.len / Math.max(1e-6, T.speed));
+  if (wx) {
+    const at = Math.max(0.12, Math.min(0.92, wx.f + 0.02)), s = ev.find(e => e.id === 'storm');
+    if (s) s.at = at; else if (ev.length >= 3) ev[ev.length - 1] = { id: 'storm', at }; else ev.push({ id: 'storm', at });
+    // 别和别的事挤在一起
+    for (const e of ev) if (e.id !== 'storm' && Math.abs(e.at - at) < 0.06) e.at = Math.max(0.12, Math.min(0.95, at + (e.at < at ? -0.08 : 0.08)));
+  }
+  return ev;
+}
+// 车队路上的天气：出发以后这一程会不会碰上暴风雪（极光观测站以后，北迁面板里直接能看到）
+export function tripWeather(S, secs) {
+  for (let t = 0; t <= secs; t += 10) { const w = weatherAt(S, S.t + t); if (w.blizzard) return { at: t, f: t / Math.max(1, secs), left: w.until - S.t - t }; }
+  return null;
 }
 function roadPop(S, T, e) {
   const def = ROAD.find(x => x.id === e.id); if (!def) return;
@@ -728,10 +743,10 @@ export function journeyStep(S, dt) {
       T.d = T.len; T.phase = 'arrive'; T.at = S.t;
       const st = stopOf(S, T.to);
       revealCircle(S, st.x, st.y, 14);
-      logMsg(S, `车队到了「${st.n}」。选一块地放下新熔炉吧（${ARRIVE_AUTO / 60 | 0} 分钟内没选，就放在推荐的位置）。`, 'good', { act: 'arrive', label: '去放熔炉' });
+      logMsg(S, `车队到了「${st.n}」。选一块地放下新熔炉吧（${ARRIVE_AUTO} 秒内没选，就放在推荐的位置）。`, 'good', { act: 'arrive', label: '去放熔炉' });
       rt(S).fx.push({ kind: 'trip-arrived', k: T.to });
     }
-  } else if (T.phase === 'arrive' && (rt(S).offline || S.t - T.at >= ARRIVE_AUTO)) {
+  } else if (T.phase === 'arrive' && S.t - T.at >= ARRIVE_AUTO) { // 关着页面补算时也一样：先等这一分半
     const r = arrive(S);
     if (!r.ok) T.at = S.t; // 实在放不下就过一会儿再试
   }

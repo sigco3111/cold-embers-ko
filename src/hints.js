@@ -34,6 +34,10 @@ export const HINTS = [
     when: (S, c) => (c.hope ?? 50) < 50 && S.buildings.filter(b => b.camp === c.id).length >= 16 && !S.buildings.some(b => BLD[b.type].cat === 'deco') ? { act: 'tb', arg: 'build' } : false },
   { id: 'curve', ic: '📈', n: '数据曲线', d: '按 G（或「物资」面板最上面）看曲线：人口、温度、物资储量这几个小时是怎么变的，哪里在慢慢往下掉。',
     when: (S, c) => (c.hist && c.hist.f && c.hist.f.n >= 40) ? { act: 'curve' } : false },
+  { id: 'depart', ic: '🛷', n: '可以北迁了', d: '出发前的四件事都备好了。打开「北迁」面板，挑好带多少人、多少货，后面的营地是留守还是熄火，再按出发。车队在路上的时候，营地照常干活。',
+    when: S => { const g = Sim.departGate(S); return g && g.ok && !Sim.journeyOf(S).trip ? { act: 'tb', arg: 'migrate' } : false; } },
+  { id: 'trip', ic: '🚩', n: '车队上路了', d: '「北迁」面板里能看车队走到哪儿、还要多久，点「跟着车队」镜头就跟过去。到了以后挑一块平地放下新熔炉，那里就是新的主营地。',
+    when: S => { const T = Sim.journeyOf(S).trip; return T && T.phase !== 'arrive' && !Sim.roadView(S) ? { act: 'tb', arg: 'migrate' } : false; } },
   { id: 'photo', ic: '📷', n: '拍照模式', d: '按 H（或菜单里）进拍照模式：藏起界面，换时辰、滤镜和镜头角度，给营地拍一张。',
     when: S => S.camps.length >= 2 || S.buildings.length >= 40 ? { act: 'photo' } : false },
 ];
@@ -81,11 +85,15 @@ export class Hints {
   hide() { this.cur = null; this.el.classList.remove('show'); }
 }
 
-// 老存档第一次打开第十一版：说一下这版加了什么
-export const WHATS_NEW = 11;
-export const WHATS_NEW_HTML = `<h2>第十一版 · 新内容</h2>
-<div class="wn"><b>⚙ 生产</b><span>矿挖空了可以打深井，侦察营还能勘探新矿脉；生产链总览图（C）；传送带和蒸汽轨道；数据曲线（G）；同类建筑一键升级、一键派满，建造时一次摆一排。</span></div>
-<div class="wn"><b>🔥 营地生活</b><span>等床位的窝棚、堆雪人的孩子、夜里巡逻的人；营地里的人会托你办事；篝火庆典；路灯、旗杆、雕像、花窖；医务所和何大夫；雪橇犬舍；熔炉 5 级以后可以给营地选专精。</span></div>
-<div class="wn"><b>❄ 天气与危险</b><span>冰风暴、极寒夜、冰湖开裂，都会提前预报，可以花材料提前准备；北边的掠夺者营地会来索贡：交贡、做买卖，或者靠箭塔顶回去。</span></div>
-<div class="wn"><b>✨ 其他</b><span>极光夜、迷路的驯鹿、流星坑；收集册和成就（K）；拍照模式（H）；三个存档位和三档难度；手机上更流畅。</span></div>
-<p class="hint">这些玩法第一次用得上时，左下角会再提示一句怎么用（菜单里可以关）。</p>`;
+// 老存档第一次打开第十二版：说一下这版改了什么，老存档是怎么接上的
+export const WHATS_NEW = 12;
+export function whatsNewHtml(S) {
+  const J = Sim.journeyOf(S), main = Sim.mainCamp(S), depots = S.camps.filter(c => c.depot);
+  const back = S.meta.refund12 || 0;
+  return `<h2>第十二版 · 一路往北</h2>
+<div class="wn"><b>🛷 北迁</b><span>北迁不再重开一局。造好雪橇和拖车，带上人和货上路；到了新地标点起新熔炉，那里就是新的主营地。后面的营地可以留守，变成补给站往北送货，也可以熄火换余烬。全程十二站，永恒之炉以北还有六站。</span></div>
+<div class="wn"><b>📈 产能主线</b><span>每一章的头一个目标改成「每分钟产多少」。产线能升星，有支线和里程碑；规划器帮你算要几座建筑；老向导会指出现在卡在哪一环。整条产线可以一键复制。</span></div>
+<div class="wn"><b>⚖ 节奏</b><span>多了 4 倍速；离开一阵回来会看到一份报告。离线也会攒资源，但比在线慢。升级和同一种建筑越建越贵，加成有上限，数字不会一下子涨飞。</span></div>
+<div class="wn"><b>🏔 模型</b><span>建筑、人和地面都做得更细了。</span></div>
+<div class="wn"><b>💾 你的存档</b><span>已经接上了，什么都没丢：「${main.name}」现在是主营地${depots.length ? `，${depots.map(c => '「' + c.name + '」').join('、')}变成补给站，自己运转、往北送货` : ''}。还没领奖的章节换成了新的产能目标。${back ? `巧手强化现在最多 15 级，多出来的几级退回了 🔥${back} 余烬，可以在「北迁 → 余烬强化」里重新分配。` : ''}</span></div>`;
+}

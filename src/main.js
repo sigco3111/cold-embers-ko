@@ -9,7 +9,7 @@ import { iconize, injectIcons } from './icons.js';
 import { BigMap } from './bigmap.js';
 import { ChainMap } from './chainmap.js';
 import { Photo } from './photo.js';
-import { Hints, WHATS_NEW, WHATS_NEW_HTML } from './hints.js';
+import { Hints, WHATS_NEW, whatsNewHtml } from './hints.js';
 
 const KEY = 'hanjin-beixing-v1';
 // 三个存档位：1 号沿用原来的存档键，老存档直接就在 1 号位
@@ -185,11 +185,13 @@ class Game {
       if (this.ui.panel && this.ui.panel.kind === 'menu') this.ui.renderPanel(true);
     }
   }
-  migrate(site) {
-    this.S = Sim.migrate(this.S, site);
+  // 通关以后：新的北行，从灰烬营地重新出发
+  migrate() {
+    const N = Sim.migrate(this.S); if (N === this.S) return;
+    this.S = N; this.cancelModes();
     this.view.bind(this.S);
     this.save();
-    this.ui.toast(`从「${LANDMARKS[site].n}」重新出发。`, 'story');
+    this.ui.toast('新的北行开始了：从灰烬营地重新出发。', 'story');
   }
 
   // ---------- 暂停 / 倍速 ----------
@@ -248,7 +250,7 @@ class Game {
       const free = !this.titleOn && !this.place && !document.getElementById('modal').classList.contains('show');
       const grown = S.meta.tut || S.buildings.length > 8;
       if (!this.titleOn && !window.__noEvents) { if (grown) Sim.rollRequest(S); Sim.rollSurprise(S, grown); }
-      if (free && this.whatsNew) { this.whatsNew = false; S.meta.ver = WHATS_NEW; this.ui.modal(WHATS_NEW_HTML, [{ t: '知道了', a: 'close-modal', cls: 'go' }]); }
+      if (free && this.whatsNew) { this.whatsNew = false; S.meta.ver = WHATS_NEW; this.ui.modal(whatsNewHtml(S), [{ t: '知道了', a: 'close-modal', cls: 'go' }]); }
       else if (free && Sim.roadView(S)) { if (this.ui.roadModal()) this.sfx('event'); }
       else if (free && Sim.expPending(S)) { if (this.ui.siteModal()) this.sfx('event'); }
       else if (free && this.chapQ && this.chapQ.length) { if (this.ui.chapterModal(this.chapQ.shift())) this.sfx('win'); }
@@ -283,6 +285,7 @@ class Game {
       else if (f.kind === 'douse') { if (!quiet) { this.view.burst('dust', f.x, f.y, 40, 2, 1.5); this.view.ringFx && this.view.ringFx(f.x, f.y, 3); } }
       else if (f.kind === 'veh') { if (!quiet) { this.sfx('build'); const b = Sim.getB(this.S, f.b); if (b) { const h = BLD[b.type].size / 2; this.view.burst('dust', b.x + h, b.y + h, 18, 0.8, 1); this.view.ringFx && this.view.ringFx(b.x + h, b.y + h, 1.2); } } }
       else if (f.kind === 'trip-arrived') { if (!quiet) this.sfx('event'); }
+      else if (f.kind === 'trip-arrived') { if (!quiet) { if (this.speed > 1) this.setSpeed(1); this.sfx('horn'); if (!document.getElementById('modal').classList.contains('show') && !this.titleOn && !this.place) this.startArrive(); } }
       else if (f.kind === 'arrive-stop') { if (!quiet) { this.sfx('win'); const c = Sim.mainCamp(this.S); if (c) { this.view.focus(c.x, c.y); this.fireworks(c.x, c.y, 6); } } }
       else if (f.kind === 'trueend') { if (!quiet) { this.sfx('win'); const c = Sim.mainCamp(this.S); if (c) this.fireworks(c.x, c.y, 10); } this.modalOrLater(`<h2>🏔 世界之脊</h2><p class="story">${STORY.trueEnd}</p><p>这是北行真正的终点。你可以留在这里接着经营，往北还有无尽的冰原；也可以在菜单里开始一次新的北行，余烬、专家、收集册和遗物都会留着。</p>`, [{ t: '好', a: 'ending', cls: 'go' }]); }
       else if (f.kind === 'ending') this.ui.modal(`<h2>🌟 永恒之炉重燃</h2><p class="story">${STORY.ending}</p><p>你用了 ${this.S.meta.runs} 次北行完成了旅程。车队可以接着往北走，世界之脊还在更远的地方；也可以在菜单里开始一次新的北行。</p>`, [{ t: '继续', a: 'ending', cls: 'go' }]);
@@ -343,6 +346,35 @@ class Game {
     document.getElementById('placePic').innerHTML = tc ? `<i class="th ${tc}"></i>` : iconize(ICON[type]);
     this.updateGhost();
   }
+  // 车队到了：在地标附近挑一块地放下新熔炉（预览先放在推荐的位置）
+  startArrive() {
+    const S = this.S, T = Sim.journeyOf(S).trip;
+    if (!T || T.phase !== 'arrive') { this.ui.toast('车队还没到', 'warn'); return; }
+    this.cancelModes(true); this.ui.close();
+    const st = Sim.stopOf(S, T.to), a = Sim.arriveSpot(S) || { x: Math.floor(st.x) - 1, y: Math.floor(st.y) - 7 };
+    this.place = { type: 'furnace', arrive: true, x: a.x, y: a.y, rec: Sim.arriveSpot(S), check: null, end: null, rowMode: false };
+    this.mode = 'place';
+    document.getElementById('placeRow').style.display = 'none';
+    document.body.classList.add('placing');
+    document.getElementById('placeName').textContent = `在「${st.n}」点起新熔炉`;
+    const tc = this.ui.thumb('furnace', 2);
+    document.getElementById('placePic').innerHTML = tc ? `<i class="th ${tc}"></i>` : iconize(ICON.furnace);
+    this.view.followTrip = false;
+    this.view.focus(a.x + 1.5, a.y + 1.5);
+    this.updateGhost();
+  }
+  updateArrive() {
+    const P = this.place, S = this.S, T = Sim.journeyOf(S).trip;
+    if (!T || T.phase !== 'arrive') { this.cancelModes(); return; }
+    P.check = Sim.arriveCheck(S, P.x, P.y);
+    this.view.setGhost({ type: 'furnace', x: P.x, y: P.y, ok: P.check.ok, soft: false, storage: null });
+    const btn = document.getElementById('placeOk');
+    btn.disabled = !P.check.ok; btn.classList.remove('q'); btn.title = '在这里点起新熔炉';
+    const left = Math.max(0, Math.ceil(Sim.ARRIVE_AUTO - (S.t - T.at))), touch = this.isTouch();
+    const atRec = P.rec && P.rec.x === P.x && P.rec.y === P.y;
+    const why = P.check.ok ? `<span class="pok">${atRec ? '推荐的位置 · ' : ''}${touch ? '再点一次或按 ✓' : '点击地面'}在这里点起新熔炉</span>` : `<span class="pbad">${P.check.reason}</span>`;
+    document.getElementById('placeCost').innerHTML = iconize(`👥${T.people} 人和车上的货都卸在这里 · ${left} 秒后自动放在推荐的位置<br>${why}`);
+  }
   // 一键复制产线：整组蓝图跟着手指 / 鼠标走，放下就排进建造队列
   startCopy(r) {
     const bp = Sim.lineBlueprint(this.S, r);
@@ -381,6 +413,7 @@ class Game {
   }
   updateGhost() {
     const P = this.place; if (!P) return;
+    if (P.arrive) { this.updateArrive(); return; }
     if (P.type === 'bp') { this.updateBlueprint(); return; }
     const slots = this.rowSlots();
     if (slots) { this.updateRow(slots); return; }
@@ -445,6 +478,13 @@ class Game {
   }
   confirmPlace() {
     const P = this.place; if (!P) return;
+    if (P.arrive) {
+      const r = Sim.arrive(this.S, P.x, P.y);
+      if (!r.ok) { this.ui.toast(r.reason || '不能放在这里', 'warn'); this.sfx('warn'); return; }
+      this.sfx('build'); this.cancelModes();
+      const c = Sim.getCamp(this.S, r.camp); if (c) this.view.focus(c.x, c.y);
+      return;
+    }
     if (P.type === 'bp') {
       const r = Sim.placeBlueprint(this.S, P.bp, P.x, P.y), n = RES[P.bp.r].n;
       if (!r.built && !r.queued) { this.ui.toast(r.reason || '这里放不下', 'warn'); this.sfx('warn'); return; }

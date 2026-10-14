@@ -40,7 +40,7 @@ export class BigMap {
     this.el.classList.add('show');
     this.el.innerHTML = iconize(`<div class="bmbox"><div class="phead"><b>北行地图 <small>点一处，镜头就飞过去</small></b><button class="x" data-act="mapclose">✕</button></div>
       <div class="bmscroll"><div class="bmin"><canvas></canvas><div class="bmmk"></div></div></div>
-      <div class="bmleg"><span>🔥 营地</span><span>📍 发现的地标</span><span>❔ 未知</span><span>🧭 雾里的地点</span><span>🆘 幸存者</span>${S.gangs && Object.keys(S.gangs).length ? "<span>🏴 掠夺者</span>" : ""}<span><i class="vw"></i>镜头</span></div></div>`);
+      <div class="bmleg"><span>🔥 营地</span>${S.camps.some(c => c.depot) ? "<span>📦 补给站</span>" : ""}${(Sim.journeyOf(S).ruins || []).length ? "<span>🏚 熄火的老营地</span>" : ""}<span><i class="rt"></i>探好的路</span><span>📍 发现的地标</span><span>❔ 未知</span><span>🧭 雾里的地点</span><span>🆘 幸存者</span>${S.gangs && Object.keys(S.gangs).length ? "<span>🏴 掠夺者</span>" : ""}<span><i class="vw"></i>镜头</span></div></div>`);
     this.render(true);
     clearInterval(this.timer);
     this.timer = setInterval(() => { if (this.open) this.render(false); }, 1000);
@@ -57,8 +57,8 @@ export class BigMap {
     // 显示到最北边揭开的那一行再往上一截，至少能看到下一个地标
     let top = 0;
     for (let y = H - 1; y >= 0 && !top; y--) for (let x = 0; x < W; x++) if (S.reveal[idx(x, y)] === 1) { top = y; break; }
-    const nextLm = LANDMARKS.find(l => l.row > top) || (S.eternal && S.eternal.stage >= 3 ? FAR_MARKS.find(f => f.row > top) : null);
-    const maxRow = Math.min(H - 1, Math.max(top + 30, nextLm ? nextLm.row + 12 : 0, 120));
+    const J = Sim.journeyOf(S), nxs = Sim.stopOf(S, J.stage + 1);
+    const maxRow = Math.min(H - 1, Math.max(top + 30, nxs ? Math.ceil(nxs.y) + 12 : 0, 120));
     const k = Math.max(4, (sc.clientWidth - 2) / W);
     this.k = k; this.maxRow = maxRow;
     const cw = Math.round(W * k), ch = Math.round((maxRow + 1) * k);
@@ -97,6 +97,12 @@ export class BigMap {
       ctx.fillStyle = b.type === 'furnace' ? '#ff8a2b' : '#7a5232';
       ctx.fillRect(b.x * k + 0.5, Y(b.y + s) + 0.5, s * k - 1, s * k - 1);
     }
+    // 北迁走过的路：一条浅色的车辙；探好的下一程：一串金点；车队在路上就画它走的那条
+    const path = (P, w, col, dash) => { if (!P || P.length < 2) return; ctx.lineWidth = w; ctx.strokeStyle = col; ctx.setLineDash(dash || []); ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.beginPath(); P.forEach((p, i) => i ? ctx.lineTo(p[0] * k, Y(p[1])) : ctx.moveTo(p[0] * k, Y(p[1]))); ctx.stroke(); };
+    for (const l of J.legs || []) { path(l.path, Math.max(3, k * 0.9), 'rgba(70,58,46,.55)'); path(l.path, Math.max(1.2, k * 0.3), 'rgba(236,226,206,.95)'); }
+    if (J.trip) { path(J.trip.path, Math.max(2, k * 0.5), 'rgba(255,186,90,.95)', [k * 0.9, k * 0.7]); }
+    else { const ri = Sim.routeInfo(S); if (ri.ok) path(ri.path, Math.max(2, k * 0.45), 'rgba(255,196,96,.9)', [1, k * 1.1]); }
+    ctx.setLineDash([]);
     // 运输线
     ctx.lineWidth = 2; ctx.setLineDash([5, 4]);
     for (const l of S.lines || []) {
@@ -138,13 +144,14 @@ export class BigMap {
     // 标记（HTML，方便点和显示图标）
     const mk = [];
     const add = (x, y, cls, html, extra = '') => mk.push(`<div class="bmk ${cls}" data-mx="${x}" data-my="${y}" ${extra} style="left:${(x * k).toFixed(1)}px;top:${Y(y).toFixed(1)}px">${html}</div>`);
+    const taken = (x, y) => S.camps.some(c => Math.abs(c.x - x) + Math.abs(c.y - y) < 7) || (J.ruins || []).some(r => Math.abs(r.x - x) + Math.abs(r.y - y) < 7);
     LANDMARKS.forEach((l, i) => {
       const st = S.founded.includes(i) ? 'done' : S.discovered.includes(i) ? 'seen' : 'unk';
-      if (l.row > maxRow || S.camps.some(c => Math.abs(c.x - l.x) + Math.abs(c.y - l.row) < 7)) return;
+      if (l.row > maxRow || taken(l.x, l.row)) return;
       add(l.x + 0.5, l.row + 0.5, 'lm ' + st, `<i>${st === 'done' ? '🏁' : st === 'seen' ? '📍' : '❔'}</i><span>${st === 'unk' && i > S.known ? '？？？' : esc(l.n)}</span>`);
     });
     (w.far || []).forEach((p, i) => {
-      const st = Sim.farState(S, i); if (st === 'none' || p.y > maxRow || S.camps.some(c => Math.abs(c.x - p.x) + Math.abs(c.y - p.y) < 7)) return;
+      const st = Sim.farState(S, i); if (st === 'none' || p.y > maxRow || taken(p.x, p.y)) return;
       add(p.x + 0.5, p.y + 0.5, 'lm ' + (st === 'lit' ? 'done' : 'seen'), `<i>${st === 'lit' ? '✨' : '📍'}</i><span>${esc(FAR_MARKS[i].n)}</span>`);
     });
     for (const s of w.sites) {
@@ -161,7 +168,12 @@ export class BigMap {
       add(p.x + 0.5, p.y + 0.5, 'poi', `<i>🆘</i>`);
     }
     for (const sc2 of S.scouts) add(sc2.x, sc2.y, 'scout', `<i>${sc2.kind === 'exp' ? '🧭' : sc2.kind === 'rescue' ? '🆘' : sc2.kind === 'survey' ? '⛏' : '🚩'}</i>`);
-    for (const c of S.camps) add(c.x, c.y, 'camp' + (c.id === S.active ? ' on' : ''), `<i>🔥</i><span>${esc(c.name)}</span>`, `data-camp="${c.id}"`);
+    for (const r of J.ruins || []) if (r.y <= maxRow) add(r.x, r.y, 'ruin', `<i>🏚</i><span>${esc(r.n)}</span>`, `data-tip="熄了火的老营地"`);
+    for (const c of S.camps) {
+      const main = Sim.isMain(S, c);
+      add(c.x, c.y, 'camp' + (c.id === S.active ? ' on' : '') + (main ? ' main' : c.depot ? ' depot' : ''), `<i>${main || !c.depot ? '🔥' : '📦'}</i><span>${main ? '<b>主营地</b> ' : c.depot ? '<b>补给站</b> ' : ''}${esc(c.name)}</span>`, `data-camp="${c.id}"`);
+    }
+    if (J.trip) { const p = Sim.tripPos(J.trip); add(p.x, p.y, 'trip', `<i>🛷</i><span>车队 · 往「${esc(Sim.stopOf(S, J.trip.to).n)}」</span>`); }
     const html = iconize(mk.join(''));
     const box = inner.querySelector('.bmmk'); if (box.dataset.h !== html) { box.dataset.h = html; box.innerHTML = html; }
     if (first) {

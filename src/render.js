@@ -1819,6 +1819,8 @@ void main() {
 
   // ---------- 镜头 ----------
   focus(x, y, instant) { this.cam.ttx = x; this.cam.tty = y; if (instant) { this.cam.tx = x; this.cam.ty = y; } }
+  // 北迁面板里「在地图上看路线」：镜头拉远，从主营地沿路扫到下一站
+  previewRoute(path) { if (!path || !path.length) return; this.followTrip = false; this.routePrev = { t: 0 }; this.focus(path[0][0], path[0][1]); this.cam.tdist = Math.max(this.cam.tdist, 34); }
   // 面板挡住一部分画面时，把画面中心挪到没被挡住的那块（只平移投影，镜头本身不动）
   setInset(px, py) { this.insetT = [px || 0, py || 0]; }
   updateInset(dt) {
@@ -1831,7 +1833,7 @@ void main() {
     this.camera.setViewOffset(w, h, c[0], c[1], w, h);
   }
   pan(dxPx, dyPx) {
-    this.followTrip = false;
+    this.followTrip = false; this.routePrev = null;
     const k = this.cam.tdist / (this.canvas.clientHeight || 800) * 1.15;
     const c = Math.cos(this.cam.tyaw), s = Math.sin(this.cam.tyaw);
     // 屏幕向右 = 世界 (c, -s)，屏幕向上 = 向北
@@ -2026,7 +2028,7 @@ void main() {
     this.animMovers(dt);
     this.animPeople(dt);
     this.animDeer(dt);
-    this.animCaravan(dt);
+    this.animCaravan(dt, rdt);
     this.animParticles(dt);
     this.animFx(dt);
     this.animRaids(dt);
@@ -2166,7 +2168,7 @@ void main() {
     };
     this.cv = { sled: mk(M.caravanSledGeo(true), 16), tractor: mk(M.steamTractorGeo(), 8), icebreaker: mk(M.icebreakerGeo(), 6) };
     const mg = new THREE.CylinderGeometry(0.12, 0.12, 0.03, 6);
-    this.cvMarks = new THREE.InstancedMesh(mg, new THREE.MeshBasicMaterial({ color: '#ffcf6a', transparent: true, opacity: 0.75, depthWrite: false }), 260);
+    this.cvMarks = new THREE.InstancedMesh(mg, new THREE.MeshBasicMaterial({ color: '#ffcf6a', transparent: true, opacity: 0.75, depthWrite: false }), 420);
     this.cvMarks.count = 0; this.cvMarks.frustumCulled = false; this.scene.add(this.cvMarks);
     // 雪橇道：走过的每一程踩出来的路，补给站的小雪橇沿着它往北送货
     this.supSled = new THREE.InstancedMesh(M.caravanSledGeo(true).geo, this.matStd, 48); this.supSled.count = 0; this.supSled.frustumCulled = false; this.supSled.castShadow = true; this.scene.add(this.supSled);
@@ -2221,7 +2223,7 @@ void main() {
       this.supRoutes.push({ id: c.id, path: P, len });
     }
   }
-  animCaravan(dt) {
+  animCaravan(dt, rdt = dt) {
     const J = Sim.journeyOf(this.S), T = J.trip, cv = this.cv;
     const tsig = (J.legs || []).length + ':' + this.S.camps.map(c => c.id + (c.depot ? 'd' : '')).join(',');
     if (tsig !== this.trailSig) { this.trailSig = tsig; this.syncTrail(); }
@@ -2247,9 +2249,26 @@ void main() {
       // 前面的路：每隔一格一个小路标，一闪一闪往前走
       if (moving) {
         const ph = ((this.time || 0) * 1.2) % 1;
-        for (let d = T.d + 1.2 + ph; d < T.len && nm < 260; d += 1.1) { const p = Sim.tripPos({ path: T.path, d }); m.compose(v.set(p.x, 0.04, -p.y), q.identity(), one); this.cvMarks.setMatrixAt(nm++, m); }
+        for (let d = T.d + 1.2 + ph; d < T.len && nm < 420; d += 1.1) { const p = Sim.tripPos({ path: T.path, d }); m.compose(v.set(p.x, 0.04, -p.y), q.identity(), one); this.cvMarks.setMatrixAt(nm++, m); }
       }
-    } else this.followTrip = false;
+      this.routePrev = null;
+    } else {
+      this.followTrip = false;
+      // 路探通了：地上一串小路标从主营地指到下一站（看路线时一闪一闪往前走，镜头沿路扫过去）
+      const ri = Sim.routeInfo(this.S), P = this.routePrev;
+      if (ri.ok) {
+        let len = 0; for (let i = 1; i < ri.path.length; i++) len += Math.hypot(ri.path[i][0] - ri.path[i - 1][0], ri.path[i][1] - ri.path[i - 1][1]);
+        const gap = Math.max(1.6, len / 400), ph = P ? ((this.time || 0) * 1.5) % 1 * gap : 0;
+        const big = this._cbig || (this._cbig = new THREE.Vector3()); big.set(P ? 2.6 : 2, 1, P ? 2.6 : 2);
+        for (let d = 1.5 + ph; d < len && nm < 420; d += gap) { const p = Sim.tripPos({ path: ri.path, d }); m.compose(v.set(p.x, 0.06, -p.y), q.identity(), big); this.cvMarks.setMatrixAt(nm++, m); }
+        if (P) {
+          P.t += Math.min(0.1, rdt); const f = Math.min(1, Math.max(0, (P.t - 0.6) / 5)), e2 = f * f * (3 - 2 * f), p = Sim.tripPos({ path: ri.path, d: e2 * len });
+          this.cam.ttx = p.x; this.cam.tty = p.y;
+          if (P.t > 7.5) this.routePrev = null;
+        }
+      } else this.routePrev = null;
+    }
+    this.cvMarks.material.opacity = T ? 0.75 : this.routePrev ? 0.9 : 0.45;
     for (const k in cv) { cv[k].body.count = n[k]; cv[k].body.instanceMatrix.needsUpdate = true; if (cv[k].glow) { cv[k].glow.count = n[k]; cv[k].glow.instanceMatrix.needsUpdate = true; } }
     this.cvMarks.count = nm; this.cvMarks.instanceMatrix.needsUpdate = true;
   }

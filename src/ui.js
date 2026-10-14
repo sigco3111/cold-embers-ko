@@ -69,7 +69,7 @@ function techLayout(list) {
   return { at, cols: Math.max(...vals.map(v => v.col)) + 1, lanes: Math.max(...vals.map(v => v.lane)) + 1 };
 }
 // 有页签的面板
-const PANEL_TABS = { camp: [['sum', '概况'], ['infra', '基建'], ['road', '旅程']] };
+const PANEL_TABS = { camp: [['sum', '概况'], ['infra', '基建'], ['road', '旅程']], migrate: [['go', '北迁'], ['ember', '余烬强化']] };
 
 export class UI {
   constructor(game) {
@@ -233,8 +233,9 @@ export class UI {
   // 路上的事：跟随机事件一样的弹窗；第一项是默认，一分钟没人选就按它办
   roadModal() {
     const v = Sim.roadView(this.S); if (!v) return false;
-    const T = Sim.journeyOf(this.S).trip, m = this.$('modal');
-    m.innerHTML = iconize(`<div class="mbox ev"><div class="evtag">车队 · 往「${esc(Sim.stopOf(this.S, T.to).n)}」的路上</div><h2>${esc(v.title)}</h2><p class="story">${esc(v.text)}</p><div class="evopts">${v.opts.map((o, i) => `<button class="evopt ${o.ok ? '' : 'no'}" ${o.ok ? `data-act="road" data-arg="${i}"` : 'disabled'}><b>${esc(o.t)}${o.def ? '<em class="evdef">默认</em>' : ''}</b><small>${esc(o.d)}${o.ok ? '' : ' · 车上没带够'}</small></button>`).join('')}</div><p class="hint">车队停下来等你拿主意。${v.left} 秒内不选，就按「默认」办。</p></div>`);
+    const T = Sim.journeyOf(this.S).trip, m = this.$('modal'), hs = (this.S.meta.hints ||= {}), first = !hs.road || hs.road === T.t0;
+    hs.road = hs.road || T.t0; // 同一趟里重新打开也还显示；下一趟就不说了
+    m.innerHTML = iconize(`<div class="mbox ev"><div class="evtag">车队 · 往「${esc(Sim.stopOf(this.S, T.to).n)}」的路上</div><h2>${esc(v.title)}</h2><p class="story">${esc(v.text)}</p><div class="evopts">${v.opts.map((o, i) => `<button class="evopt ${o.ok ? '' : 'no'}" ${o.ok ? `data-act="road" data-arg="${i}"` : 'disabled'}><b>${esc(o.t)}${o.def ? '<em class="evdef">默认</em>' : ''}</b><small>${esc(o.d)}${o.ok ? '' : ' · 车上没带够'}</small></button>`).join('')}</div><p class="hint">车队停下来等你拿主意。${v.left} 秒内不选，就按「默认」办。</p>${first ? '<p class="hint wnfirst">✨ 第一次碰上路上的事：车上带的货能多给一条路。搭桥要木板，扎营要燃料，丢给狼群要生肉；灰掉的选项就是车上没带够。</p>' : ''}</div>`);
     m.classList.add('show');
     return true;
   }
@@ -782,7 +783,8 @@ export class UI {
     if (a.act === 'plan') { this.close(); g.chainmap.plan(a.arg); }
     else if (a.act === 'raid') this.open('raid');
     else if (a.act === 'scout') this.open('scout');
-    else if (a.act === 'migrate' || a.act === 'arrive') this.open('migrate');
+    else if (a.act === 'arrive') g.startArrive();
+    else if (a.act === 'migrate') this.open('migrate');
     else if (a.act === 'place' || a.act === 'spot') this.actDo(a.act, a.arg);
     else if (a.act === 'roadopen') this.roadModal();
     else if (a.act === 'campgo') { S.active = a.arg; const c = this.camp(); g.view.focus(c.x, c.y); this.open('camp'); }
@@ -1818,22 +1820,88 @@ export class UI {
   }
 
   p_migrate(part) {
+    const S = this.S, J = Sim.journeyOf(S);
+    if (part === 'title') return J.trip ? '车队在路上' : '北迁';
+    const tab = this.tabOf('migrate', PANEL_TABS.migrate);
+    let h = '';
+    if (tab === 'ember') return this.emberHtml();
+    if (J.trip) return h + this.tripHtml(J.trip);
+    const g = Sim.departGate(S);
+    if (!g) return h + `<div class="story">${esc(STORY.trueEnd || '')}</div><div class="hint">一路走到了世界之脊。再往北是无尽的冰原，想走多远都行。</div>`;
+    const P = g.plan, V = Sim.VEH, main = Sim.mainCamp(S);
+    h += `<div class="mighero"><div class="mgto">下一站 · <b>${esc(g.next.n)}</b></div><small>${g.route.ok ? `路长约 ${Math.round(g.route.len)} 格，车队要走 ${Math.max(1, Math.round(P.secs / 60))} 分钟左右` : '路还没探通'}${g.next.far ? '' : ` · 纬度 ${Math.round(g.next.y)}`}</small></div>`;
+    // 四条门槛
+    h += `<div class="sec">出发前要做到 <small class="mgn">${g.n}/4</small></div>`;
+    const go = { route: '去探路', chap: '看章节', flvl: '去熔炉', car: '去雪橇棚' };
+    for (const it of g.items) h += `<div class="row mgate ${it.ok ? 'ok' : ''}"><span><b class="mgt"><i class="mgk">${it.ok ? '✓' : ''}</i>${esc(it.t)}</b><small>${esc(it.sub)}</small></span>${it.ok ? '' : `<button class="small" data-act="gatego" data-arg="${it.id}">${go[it.id]}</button>`}</div>`;
+    // 车队装载
+    h += `<div class="sec">车队</div>`;
+    const mc = P.camps.find(c => c.main);
+    h += `<div class="row"><span>上路的人<small>${mc && mc.mode === 'douse' ? `主营地熄火：留 ${mc.stay} 人守火，车队到了跟上` : `主营地留 ${mc ? mc.stay : 0} 人守成补给站（至少 ${Sim.DEPOT_MIN} 人）`}</small></span><span class="stepper">${mc && mc.mode !== 'douse' ? `<button data-act="mstay" data-arg="5">−</button>` : ''}<b>👥${P.people}</b>${mc && mc.mode !== 'douse' ? `<button data-act="mstay" data-arg="-5">＋</button>` : ''}</span></div>`;
+    if (P.specs.length) h += `<div class="row sub"><span>专家</span><span>${P.specs.length} 位一起走</span></div>`;
+    const fl = J.fleet, vs = Sim.VEH_KEYS.filter(v => (fl[v] || 0) || (v === 'sled')).map(v => `${Sim.vehName(v)} ${P.veh[v] || 0}/${fl[v] || 0}`).join(' · ');
+    h += `<div class="row"><span>车<small>${vs}（用上的/有的）</small></span><span>${fmt(P.load)} / ${fmt(P.cap)} 份</span></div>`;
+    h += `<div class="bar ${P.roomOk ? '' : 'over'}"><i style="width:${Math.min(100, P.load / Math.max(1, P.cap) * 100).toFixed(0)}%"></i></div>`;
+    if (!P.roomOk) h += `<div class="row sub"><span></span><span class="miss">还差 ${fmt(P.lack)} 份地方：在雪橇棚多造几辆车，或者少带点货</span></div>`;
+    // 货：每样都能加减，点炉的材料和路上的口粮燃料另算
+    h += `<div class="sec">带上的货 <button class="small ghost" data-act="mgoodreset">按推荐的带</button></div>`;
+    const keys = Object.keys(P.goods).filter(k => P.goods[k] > 0);
+    for (const k of keys) {
+      const n = P.goods[k], st = Math.max(10, Math.pow(10, Math.floor(Math.log10(Math.max(10, n)))) / 2), have = Math.floor(main.stock[k] || 0), need = P.need[k] || 0;
+      h += `<div class="row mgood"><span>${RICON[k]} ${RES[k].n}<small>库里 ${fmt(have)}${need > have ? ' · <b class="miss">不够</b>' : ''}</small></span><span class="stepper"><button data-act="mgood" data-arg="${k}:${-st}">−</button><b>${fmt(n)}</b><button data-act="mgood" data-arg="${k}:${st}">＋</button></span></div>`;
+    }
+    const extra = RES_KEYS.filter(k => !keys.includes(k) && (main.stock[k] || 0) >= 10 && RES[k].t <= S.known);
+    if (extra.length) h += `<div class="row sub"><span>再带一样</span><span><select data-act="mgoodadd"><option value="">挑一样…</option>${extra.map(k => `<option value="${k}">${RICON[k]} ${RES[k].n}（库里 ${fmt(main.stock[k])}）</option>`).join('')}</select></span></div>`;
+    const sup = Object.keys(P.supplies).map(k => `${RICON[k]}${fmt(P.supplies[k])}`).join(' '), kit = Object.keys(P.kit).map(k => `${RICON[k]}${fmt(P.kit[k])}`).join(' ');
+    h += `<div class="row sub"><span>路上吃的烧的</span><span>${sup}（自动算）</span></div>`;
+    h += `<div class="row sub"><span>点新熔炉</span><span>${kit}（自动算）</span></div>`;
+    if (P.short.length) h += `<div class="row sub"><span></span><span class="miss">主营地库里不够：${esc(P.short.join('，'))}</span></div>`;
+    h += `<div class="hint">路上的事有的要用车上的货：搭桥要木板（冰原裂谷要钢材），扎营要燃料，丢给狼群要生肉。多带一点，到时候就多一条路。</div>`;
+    // 后面的营地：留守还是熄火
+    h += `<div class="sec">后面的营地</div>`;
+    for (const c of P.camps) {
+      const em = Sim.douseEmbers(S, c.lvl);
+      h += `<div class="mcamp"><div class="row"><span><b>${esc(c.name)}${c.main ? '<i class="tagm">主营地</i>' : ''}</b><small>👥${c.people} · 熔炉 ${c.lvl} 级</small></span></div>
+        <div class="seg"><button class="btn ${c.mode !== 'douse' ? 'on' : ''}" data-act="mmode" data-arg="${c.id}:keep">留守<small>${c.main ? `留 ${Math.max(Sim.DEPOT_MIN, c.stay)} 人` : '变成补给站'}，往北送货</small></button><button class="btn ${c.mode === 'douse' ? 'on' : ''}" data-act="mmode" data-arg="${c.id}:douse">熄火<small>换 🔥${em}，人跟上来</small></button></div></div>`;
+    }
+    // 路上的天气：极光观测站以后看得到
+    if (J.stage >= 9 && g.route.ok) {
+      const wx = Sim.tripWeather(S, P.secs);
+      h += `<div class="row sub"><span>路上的天气</span><span>${wx ? `<b class="miss">出发后约 ${Math.max(1, Math.round(wx.at / 60))} 分钟碰上暴风雪</b>，车队得停下来拿主意` : '这一路没有暴风雪'}</span></div>`;
+    }
+    if (g.route.ok) h += `<button class="btn wide ghost" data-act="routeprev">在地图上看路线</button>`;
+    h += `<button class="btn wide ${g.ok ? 'go' : ''}" data-act="depart" ${g.ok ? '' : 'disabled'}>${g.ok ? `出发去「${esc(g.next.n)}」` : `还差 ${4 - g.n} 条才能出发`}</button>`;
+    return h;
+  }
+  // 车队在路上：进度、路上的事、跟着看；到了以后去放熔炉
+  tripHtml(T) {
+    const S = this.S, st = Sim.stopOf(S, T.to), left = T.phase === 'arrive' ? 0 : (T.len - T.d) / Math.max(1e-6, T.speed) + (T.hold || 0);
+    let h = `<div class="mighero"><div class="mgto">往「<b>${esc(st.n)}</b>」</div><small>${T.phase === 'arrive' ? '车队到了' : `走了 ${Math.round(T.d / T.len * 100)}% · 还要 ${fmtTime(left)} 左右`}</small></div>`;
+    h += `<div class="bar"><i style="width:${(T.d / T.len * 100).toFixed(0)}%"></i></div>`;
+    const vs = Sim.VEH_KEYS.filter(v => T.veh[v]).map(v => `${Sim.vehName(v)} ${T.veh[v]}`).join(' · ');
+    h += `<div class="row"><span>车上</span><span>👥${T.people}${T.specs.length ? ` · 专家 ${T.specs.length}` : ''} · ${vs}</span></div>`;
+    if (T.sick) h += `<div class="row sub"><span></span><span>${T.sick} 人冻伤，到了先养病</span></div>`;
+    if (T.phase === 'arrive') {
+      h += `<div class="hint">在「${esc(st.n)}」附近挑一块平地放下新熔炉，车上的人和货就是新主营地的开局。${Math.max(0, Math.ceil(Sim.ARRIVE_AUTO - (S.t - T.at)))} 秒内没选，就放在推荐的位置。</div>`;
+      return h + `<button class="btn wide go" data-act="arrive">去放熔炉</button>`;
+    }
+    if (T.road) h += `<button class="btn wide go" data-act="roadopen">车队停下了：${esc(Sim.roadView(S).title)} · 拿主意</button>`;
+    else if (T.hold > 0) h += `<div class="row sub"><span></span><span>车队扎营等着，还要 ${Math.ceil(T.hold)} 秒</span></div>`;
+    if ((T.done || []).length) h += `<div class="sec">路上的事</div>` + T.done.map(([id, i]) => `<div class="row sub"><span>${esc(Sim.roadName(id))}</span><span>${i === 0 ? '按稳妥的办' : '选了另一条路'}</span></div>`).join('');
+    h += `<div class="hint">车队在路上时，后面的营地照常运转。关掉页面车队也照样走，路上的事一分钟没人管就按稳妥的办。</div>`;
+    h += `<button class="btn wide ${this.g.view.followTrip ? '' : 'go'}" data-act="followtrip">${this.g.view.followTrip ? '不跟了' : '跟着车队看'}</button>`;
+    return h;
+  }
+  // 余烬强化：永久的，跟着一路叠上去；通关以后可以开新的北行
+  emberHtml() {
     const S = this.S;
-    if (part === 'title') return '北迁与余烬';
-    const gain = Sim.emberGain(S);
-    let h = `<div class="story">${esc(STORY.migrate)}</div>`;
-    h += `<div class="row"><span>手上的余烬</span><b>🔥 ${S.meta.embers}</b></div>`;
-    h += `<div class="row"><span>现在北迁能带走</span><b>+${gain}</b></div>`;
-    h += `<div class="row sub"><span></span><span>来自：每座熔炉的等级、本轮新到达的地标、总产量${S.t < 1800 ? '（本轮不满 30 分钟，没有余烬）' : ''}</span></div>`;
-    h += `<div class="sec">从哪里出发</div><div class="sites">`;
-    for (const i of S.meta.sites) h += `<button class="site ${this.site === i ? 'on' : ''}" data-act="site" data-arg="${i}">${LANDMARKS[i].n}<small>${i === 0 ? '最暖' : '纬度 ' + LANDMARKS[i].row}</small></button>`;
-    h += `</div><div class="hint">越往北起点越冷、越难，但离永恒之炉越近。建筑、物资和解锁都会重置；余烬强化和专家会保留。</div>`;
-    h += `<button class="btn wide go" data-act="migrate">向北出发</button>`;
-    h += `<div class="sec">余烬强化（永久）</div>`;
+    let h = `<div class="row"><span>手上的余烬</span><b>🔥 ${Math.floor(S.meta.embers)}</b></div>`;
+    h += `<div class="hint">余烬从这些地方来：熄火的营地（熔炉每级 2 点）、第一次到达地标、做完章节、成就、路上的事、商队订单和营地委托。</div>`;
     for (const k in EMBER_UPS) {
       const u = EMBER_UPS[k], lv = Sim.up(S, k), cost = emberCost(k, lv);
       h += `<div class="row"><span><b>${u.n}</b> ${lv}/${u.max}<br><small>${u.d}</small></span><span>${lv >= u.max ? '已满' : `<button class="small ${S.meta.embers >= cost ? 'go' : ''}" data-act="ember" data-arg="${k}">🔥${cost}</button>`}</span></div>`;
     }
+    if (S.meta.graduated) h += `<div class="sec">新的北行</div><div class="hint">永恒之炉已经点燃。可以从灰烬营地重新出发：余烬强化、专家、收集册和遗物都带着走，还能换更难的难度。</div><button class="btn wide" data-act="newjourney">开始新的北行</button>`;
     return h;
   }
 
@@ -2120,13 +2188,43 @@ export class UI {
         const [lid, i] = arg.split(':').map(Number); const l = S.lines.find(x => x.id === lid);
         const r = l.routes[i] || (l.routes[i] = { res: '', from: 'a' }); r.from = r.from === 'b' ? 'a' : 'b'; break;
       }
-      case 'site': this.site = +arg; this.renderPanel(true); break;
-      case 'migrate': {
-        const site = this.site ?? Math.max(...S.meta.sites);
-        this.modal(`<p>${esc(STORY.migrate)}</p><p>带走 <b>🔥${Sim.emberGain(S)}</b> 点余烬，从「${LANDMARKS[site].n}」重新出发。当前营地的建筑和物资都会留在原地。</p>`, [{ t: '出发', a: 'migrate-yes', arg: site, cls: 'go' }, { t: '再等等', a: 'close-modal' }]);
+      case 'gatego': {
+        const m = Sim.mainCamp(S);
+        if (arg === 'route') this.open('scout');
+        else if (arg === 'chap') this.open('chapter');
+        else if (arg === 'flvl') { S.active = m.id; this.actDo('reqgo', m.furnace); }
+        else if (arg === 'car') {
+          const sh = S.buildings.filter(b => b.type === 'sledshed').sort((a, b) => (b.camp === m.id) - (a.camp === m.id))[0];
+          if (sh) { S.active = sh.camp; this.actDo('reqgo', sh.id); } else { S.active = m.id; this.close(); g.startPlace('sledshed'); this.toast('先建一座雪橇棚，在里面造雪橇', 'info'); }
+        }
         break;
       }
-      case 'migrate-yes': this.closeModal(); this.close(); g.migrate(+arg); break;
+      case 'mstay': {
+        const mc = Sim.tripPlan(S).camps.find(c => c.main); if (!mc) break;
+        Sim.setPlan(S, { stay: Math.max(Sim.DEPOT_MIN, Math.min(mc.people, mc.stay + +arg)) }); this.renderPanel(true); break;
+      }
+      case 'mgood': {
+        const [k, d] = arg.split(':'), goods = { ...Sim.tripPlan(S).goods };
+        goods[k] = Math.max(0, Math.round((goods[k] || 0) + +d)); if (!goods[k]) delete goods[k];
+        Sim.setPlan(S, { goods }); this.renderPanel(true); break;
+      }
+      case 'mgoodreset': Sim.setPlan(S, { goods: null }); this.renderPanel(true); break;
+      case 'mmode': { const [cid, m] = arg.split(':'); Sim.setCampMode(S, +cid, m); this.renderPanel(true); break; }
+      case 'routeprev': { const r = Sim.routeInfo(S); if (!r.ok) break; this.close(); g.view.previewRoute(r.path); break; }
+      case 'depart': {
+        const gt = Sim.departGate(S); if (!gt || !gt.ok) { res({ ok: false, reason: '还没准备好' }); break; }
+        const P = gt.plan, douse = P.camps.filter(c => c.mode === 'douse'), keep = P.camps.filter(c => c.mode !== 'douse');
+        const vs = Sim.VEH_KEYS.filter(v => P.veh[v]).map(v => `${P.veh[v]} ${v === 'sled' ? '架' : '台'}${Sim.vehName(v)}`).join('、');
+        this.modal(`<h2>出发去「${esc(gt.next.n)}」</h2><p class="story">${esc(STORY.migrate)}</p>
+          <p>${P.people} 人${P.specs.length ? `、${P.specs.length} 位专家` : ''}坐上 ${vs}，路上大约 ${Math.max(1, Math.round(P.secs / 60))} 分钟。</p>
+          ${keep.length ? `<p>留守成补给站：${keep.map(c => esc(c.name)).join('、')}</p>` : ''}${douse.length ? `<p>熄火：${douse.map(c => `${esc(c.name)}（🔥${Sim.douseEmbers(S, c.lvl)}）`).join('、')}，到了以后人跟上来，营地变成废墟。</p>` : ''}`,
+          [{ t: '出发', a: 'depart-yes', cls: 'go' }, { t: '再等等', a: 'close-modal' }]);
+        break;
+      }
+      case 'depart-yes': { this.closeModal(); const r = res(Sim.depart(S)); if (r && r.ok) { this.close(); g.view.followTrip = true; g.sfx('horn'); } break; }
+      case 'arrive': g.startArrive(); break;
+      case 'newjourney': this.modal(`<h2>开始新的北行</h2><p>从灰烬营地重新出发。这一局的营地和物资留在这里；余烬强化、专家、收集册和遗物都带着走。</p>`, [{ t: '出发', a: 'newjourney-yes', cls: 'go' }, { t: '再想想', a: 'close-modal' }]); break;
+      case 'newjourney-yes': this.closeModal(); this.close(); g.migrate(); break;
       case 'ember': res(Sim.buyEmber(S, arg)); break;
       case 'eternal': res(Sim.deliverEternal(S)); break;
       case 'help': this.modal(HELP); break;
@@ -2151,6 +2249,7 @@ export class UI {
     if (!el) return;
     const S = this.S, act = el.dataset.act, arg = el.dataset.arg;
     if (act === 'fuel') { Sim.getCamp(S, +arg).fuelPref = el.value; }
+    if (act === 'mgoodadd' && el.value) { const k = el.value, goods = { ...Sim.tripPlan(S).goods }; goods[k] = Math.min(Math.floor(Sim.mainCamp(S).stock[k] || 0), (goods[k] || 0) + 100); Sim.setPlan(S, { goods }); }
     if (act === 'spec') { if (el.value) Sim.assignSpec(S, el.value, +arg); }
     if (act === 'route-res' || act === 'route-keep') {
       const [lid, i] = arg.split(':').map(Number); const l = S.lines.find(x => x.id === lid);
@@ -2198,21 +2297,23 @@ export function nextGoal(S) {
 }
 
 export const HELP = `<h3>怎么玩</h3>
-<p><b>目标：</b>一程一程往北走，最终重新点燃传说中的永恒之炉。</p>
+<p><b>目标：</b>带着营地一站一站往北走，重新点燃传说中的永恒之炉；过了永恒之炉还有六站。</p>
 <p><b>熔炉</b>是营地的心脏。只有熔炉周围橙色圈里（供热区）能盖房子。升级熔炉让圈变大、营地更暖。熔炉要一直烧燃料：木材，之后是煤、焦煤块、晶体电池。</p>
 <p><b>采集与加工：</b>采集建筑要建在资源点旁边（白圈范围内），矿藏会被采光；树林和猎场砍光了会长回来，伐木场、猎人小屋附近的长得快好几倍；附近没树了就建「育林场」自己种。加工建筑把原料做成更高级的材料；锯木厂、炼钢厂默认会给建造留一些木材和铁锭（「物资」面板里可以关）。相邻的上下游建筑会互相加成。</p>
 <p><b>小人：</b>每座建筑要派工人；仓库里的人是搬运工，他们在仓库/熔炉和建筑之间来回搬货。离仓库越远，越费搬运工——把仓库建在生产区中间。</p>
 <p><b>升级门槛：</b>建筑每升 5 级，就要用下一层的材料。下一层的原料只在更北的地方有，所以要不断往北走。</p>
-<p><b>往北：</b>建侦察营，派侦察队揭开迷雾，找资源、幸存者、专家和地标。在远处建「前哨熔炉」开新营地，用运输线把营地连起来。在地标旁点起熔炉，就能在以后从那里出发。</p>
+<p><b>往北：</b>建侦察营，派侦察队揭开迷雾，找资源、幸存者、专家和地标，也把去下一站的路探出来。主营地和下一站之间可以建「前哨熔炉」开新营地，用运输线连起来。</p>
 <p><b>人心：</b>每个营地有「希望」和「不满」。吃不饱、太冷、有人死去会让人失望；住得好、有进展会让人振奋。希望高干活更快、来投奔的人更多；不满太高会有人离开。在「人心」面板里签署营地律令，每条都有好处也有代价。</p>
 <p><b>研究：</b>建工程站，派工程师攒研究点数，解锁三条分支的 17 项改良。探险带回的图纸可以直接抵研究点数。</p>
 <p><b>探索：</b>迷雾里藏着废弃仓库、冻住的列车、观测站这样的地点。侦察队揭开后，从侦察营派 4 人的探险队去；带足补给更安全，到了还能做更多选择。</p>
 <p><b>章节：</b>每到一个新地标就开始新的一章，有自己的故事和三个任务，做完可以领奖励。点左上角的目标栏查看。</p>
+<p><b>产能主线：</b>每章的头一个任务是某样材料每分钟产多少。点目标栏的「规划」看这条线：每一环要几座建筑、几个人，现在卡在哪一环。产量稳住一阵，产线就升星，升星加产量；累计产量到了里程碑也有奖励。自己还能立几条支线。一条线搭好了，可以「复制这条线」整组搬到别处。老向导（左上角「老」）会一直指着下一步。</p>
 <p><b>营地基建：</b>在「营地」面板修路（搬运更快）和蒸汽管道（供热圈更大、更暖）。</p>
 <p><b>危险：</b>暴风雪提前一小时就有预报（点顶上的 ❄ 看撑不撑得住），记得囤燃料和熟食，熔炉还能超载顶一阵；雪狼和掠夺者会来袭，多建箭塔；侦察兵会提前 15 分钟发现它们，可以点火墙、召集民兵。人可能会冻死饿死，但营地永远不会全灭。</p>
 <p><b>生产链：</b>按 C 看整条生产链哪里卡住，按 G 看数据曲线。加工建筑挨着上下游时可以接传送带（之后升级成蒸汽轨道），直接供料、少用搬运工。矿快挖空时可以打深井，侦察营也能勘探新矿脉。</p>
 <p><b>营地生活：</b>人多了以后可以在熔炉面板办篝火庆典；路灯、旗杆、雕像、花窖这些装饰能加希望；有人生病就建医务所。营地里的人偶尔会托你办点事（委托），做完有谢礼。熔炉到 5 级可以给营地选专精。犬舍养的雪橇犬让侦察队和运输线跑得更快。</p>
 <p><b>天气与掠夺者：</b>除了暴风雪，还有冰风暴（暖炉和管道会冻住）、极寒夜（多烧燃料）、冰湖开裂（绕路），都会提前预报，点顶上的天气图标花点材料准备。北边有掠夺者营地，侦察到以后它们会来索贡：交贡、做买卖，或者靠箭塔顶回去，打退两次他们就走了。</p>
-<p><b>收集册：</b>建过的建筑、见过的物资和风物、达成的成就都记在收集册里（K），成就给余烬，北迁后也保留。</p>
-<p><b>北迁：</b>卡住时可以“北迁”：带上余烬（永久强化）和专家，从已到达的地标重新开始。</p>
+<p><b>收集册：</b>建过的建筑、见过的物资和风物、达成的成就都记在收集册里（K），成就给余烬。</p>
+<p><b>北迁：</b>出发前要做到四件事：路探到了、这一章做完、主营地熔炉够级、车队备好了（在雪橇棚造雪橇和蒸汽拖车，之后还有破冰车）。在「北迁」面板挑带多少人和货，后面的营地选留守（变成补给站，自己运转、往北送货）还是熄火（换余烬，人跟上来）。路上会碰到事，车上带的货能多给一条路。到了以后挑一块平地放下新熔炉，那里就是新的主营地。余烬在「北迁 → 余烬强化」里换永久强化。</p>
+<p><b>倍速与离线：</b>右边的按钮能切暂停、1×、2×、4×。关掉页面时营地也会慢慢攒资源，但比在线时慢，回来会看到一份报告。</p>
 <p><b>操作：</b>拖动地图平移，双指缩放/旋转（电脑：滚轮缩放，右键或 Q/E 旋转）。建造时拖动预览，到合适位置再点 ✓；电脑上按住左键拖一下能一次摆一排，手机上先点「一排」。同类建筑的面板里能一键全升级、全派满。H 是拍照模式，M 是北行地图。菜单里有三个存档位，难度随时可以改。</p>`;
