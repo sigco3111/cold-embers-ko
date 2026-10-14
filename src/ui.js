@@ -1070,7 +1070,7 @@ export class UI {
     if (br.status) h += `<div class="status ${br.status === '运转中' || br.status === '研究中' ? 'ok' : 'bad'}">${esc(br.status)}</div>`;
     h += `<div class="desc">${esc(d.desc)}</div></div></div>`;
     if (b.type === 'workshop') { const T = S.tech || {}, ct = T.cur && TECHS.find(t => t.id === T.cur); h += `<button class="mlink" data-act="tb" data-arg="research"><span>🔬</span><span>${ct ? `正在研究「${ct.n}」 ${Math.floor(T.prog / ct.pts * 100)}%` : '挑一项研究'}<small>这座工程站每分钟 ${fmt(br.rp || 0)} 点</small></span><i>›</i></button>`; }
-    const mx = Sim.maxWorkers(b.type, b.lvl);
+    const mx = Sim.bMax(S, b);
     if (mx) {
       h += `<div class="row"><span>${b.type === 'warehouse' ? '搬运工' : '工人'}</span><span class="stepper"><button data-act="w-" data-arg="${b.id}">−</button><b>${b.workers}/${mx}</b><button data-act="w+" data-arg="${b.id}">＋</button><button class="small" data-act="wmax" data-arg="${b.id}">满</button></span></div>`;
       h += `<div class="row sub"><span>营地空闲人手</span><span>${Sim.idleLabor(S, c)}</span></div>`;
@@ -1155,7 +1155,7 @@ export class UI {
       h += `<div class="hint">病床上的人就算外面冷、口粮紧也会好起来，而且好得更快；住进医务所的病人，大家也没那么揪心。${S.meta.specs.he ? '把何大夫安排到这里，好得更快。' : '医务所开张、有人守着，过一阵会有位老大夫来投奔。'}</div>`;
     }
     if (d.cat === 'deco') {
-      const one = Sim.decoOne(b), dh = Sim.decoHope(S, c), mx2 = Sim.maxWorkers(b.type, b.lvl), sf = mx2 ? Math.min(1, b.workers / mx2) : 1;
+      const one = Sim.decoOne(b), dh = Sim.decoHope(S, c), mx2 = Sim.bMax(S, b), sf = mx2 ? Math.min(1, b.workers / mx2) : 1;
       h += `<div class="row"><span>希望</span><span>这栋 +${fmt(one * sf)}${sf < 1 ? ` <b class="warn">要 ${mx2} 人照看才有 +${fmt(one)}</b>` : ''}</span></div>`;
       h += `<div class="row sub"><span>全营地装饰</span><span>合计 +${fmt(dh.v)} 希望（上限 ${Sim.DECO_CAP}，越多加得越少）</span></div>`;
       h += `<div class="hint">装饰不产东西，只让人心里亮一点：放在大家来回走的路边、熔炉旁边都行。升级一级多 25%。</div>`;

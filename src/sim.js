@@ -7,6 +7,8 @@ import {
 import { W, H, T_SNOW, T_ICE, getWorld, idx, inMap, hash3, mulberry32 } from './worldgen.js';
 import { journeyOf, journeyStep, mainCamp, outpostBlock, outpostKit, moveFuel, fuelUnits, stopOf } from './journey.js';
 export * from './journey.js';
+import { linesTick, bMax, lineProd } from './lines.js';
+export * from './lines.js';
 
 export const VERSION = 1;
 export const MIN_PEOPLE = 3;          // 营地永远不会全灭
@@ -407,6 +409,8 @@ export function pay(stock, cost) { for (const k in cost) stock[k] = (stock[k] ||
 export function missing(stock, cost) { const m = []; for (const k in cost) if ((stock[k] || 0) < cost[k]) m.push(`${RES[k].n} ${Math.ceil(cost[k] - (stock[k] || 0))}`); return m; }
 
 // ---------- 摆放 ----------
+// 建筑每升一级的产量倍数
+export const levelMul = lvl => Math.pow(1.2, lvl - 1);
 export function maxWorkers(type, lvl) { const d = BLD[type]; return d.w ? d.w + Math.floor((lvl - 1) / 3) : 0; }
 export function housingOf(b) { return BLD.tent.housing + 3 * (b.lvl - 1); }
 // 床位：帐篷总床位；出门侦察、探险的人床位给他们留着
@@ -594,9 +598,9 @@ export function idleLabor(S, camp) { return camp.people + camp.bots - assignedWo
 function scoutsOut(S, cid) { return 0 * cid; } // 侦察队成员出发时已从人口中扣除
 export function setWorkers(S, bid, n) {
   const b = getB(S, bid); if (!b) return;
-  b.hold = n < maxWorkers(b.type, b.lvl); // 玩家手动减人后，自动分配就不再往这里塞人
+  b.hold = n < bMax(S, b); // 玩家手动减人后，自动分配就不再往这里塞人
   const camp = getCamp(S, b.camp);
-  const mx = maxWorkers(b.type, b.lvl);
+  const mx = bMax(S, b);
   const free = idleLabor(S, camp) + b.workers;
   b.workers = Math.max(0, Math.min(mx, n, free));
 }
@@ -1093,7 +1097,7 @@ export function step(S, dt) {
   scoutsStep(S, dt);
   raidsStep(S, dt);
   journeyStep(S, dt);
-  R.chapT = (R.chapT || 0) + dt; if (R.chapT >= 1) { R.chapT = 0; chapterStep(S); farStep(S); gangsStep(S); }
+  R.chapT = (R.chapT || 0) + dt; if (R.chapT >= 1) { const cdt = R.chapT; R.chapT = 0; chapterStep(S); linesTick(S, cdt); farStep(S); gangsStep(S); }
   R.qT = (R.qT || 0) + dt; if (R.qT >= 2) { R.qT = 0; queueStep(S); caravanStep(S); }
   R.bookT = (R.bookT || 0) + dt; if (R.bookT >= 3) { R.bookT = 0; bookTick(S); }
   S.t += dt;
@@ -1180,12 +1184,12 @@ export function bulkUpgrade(S, bid) {
 // 同类都派满：手动减过人的也重新派满；空闲人手不够时先派给等级高的
 export function bulkStaff(S, bid) {
   const b = getB(S, bid); if (!b) return { add: 0, short: 0, n: 0 };
-  const L = sameType(S, b).filter(x => maxWorkers(x.type, x.lvl)).sort((x, y) => y.lvl - x.lvl || x.id - y.id);
+  const L = sameType(S, b).filter(x => bMax(S, x)).sort((x, y) => y.lvl - x.lvl || x.id - y.id);
   let add = 0, short = 0;
-  for (const x of L) { const w0 = x.workers, mx = maxWorkers(x.type, x.lvl); setWorkers(S, x.id, mx); add += x.workers - w0; short += mx - x.workers; }
+  for (const x of L) { const w0 = x.workers, mx = bMax(S, x); setWorkers(S, x.id, mx); add += x.workers - w0; short += mx - x.workers; }
   return { add, short, n: L.length };
 }
-export function staffOf(S, b) { let w = 0, mx = 0; for (const x of sameType(S, b)) { w += x.workers; mx += maxWorkers(x.type, x.lvl); } return { w, mx }; }
+export function staffOf(S, b) { let w = 0, mx = 0; for (const x of sameType(S, b)) { w += x.workers; mx += bMax(S, x); } return { w, mx }; }
 // 拖出一排：沿拖动的主方向，按建筑宽度一栋挨一栋，最多 ROW_MAX 栋
 export const ROW_MAX = 10;
 export function rowSlots(type, x0, y0, x1, y1) {
@@ -1347,13 +1351,13 @@ export function autoAssign(S, camp) {
   let idle = idleLabor(S, camp);
   const mine = S.buildings.filter(b => b.camp === camp.id && !b.hold);
   const idleShop = b => b.type === 'workshop' && !(S.tech && S.tech.cur); // 没有研究课题的工程站不派人
-  const need = mine.filter(b => b.workers < maxWorkers(b.type, b.lvl) && st(b) !== FULL && !idleShop(b));
+  const need = mine.filter(b => b.workers < bMax(S, b) && st(b) !== FULL && !idleShop(b));
   if (!need.length) return;
   need.sort((a, b) => autoPr(a.type) - autoPr(b.type) || a.id - b.id);
   // 产出堆满仓库的建筑等于在白干，把那里的人调去缺人的地方
   const donors = mine.filter(b => b.workers > 0 && (st(b) === FULL || idleShop(b))).sort((a, b) => autoPr(b.type) - autoPr(a.type));
   for (const b of need) {
-    let want = maxWorkers(b.type, b.lvl) - b.workers;
+    let want = bMax(S, b) - b.workers;
     const k = Math.min(idle, want); b.workers += k; idle -= k; want -= k;
     for (const d of donors) { if (want <= 0) break; if (d === b || !d.workers) continue; const m = Math.min(d.workers, want); d.workers -= m; b.workers += m; want -= m; }
     if (idle <= 0 && !donors.some(d => d.workers > 0)) break;
@@ -1539,13 +1543,13 @@ function campStep(S, camp, dt, w) {
   for (const b of bs) {
     const d = BLD[b.type];
     if (!d.out) continue;
-    const mx = maxWorkers(b.type, b.lvl);
+    const mx = bMax(S, b);
     const staff = mx ? Math.min(1, b.workers * lf / mx) : 1;
     const syn = R.adj.get(b.id) || 0;
     const bo = R.beltOut.get(b.id), bi = R.beltIn.get(b.id);
     let beltB = 0;
     if (bi && d.in) { const ks = Object.keys(d.in); for (const k of ks) if (bi[k]) beltB += BELT[bi[k]].bonus / ks.length; }
-    const mult = Math.pow(1.2, b.lvl - 1) * staff * workEff * (1 + SYN_PER * syn) * (1 + specOf(S, b)) * prodMul * (1 + techBP(S, b.type)) * (1 + beltB) * (1 + focusProd(camp, b.type)) * (ev && ev.kind === 'ice' && BLD[b.type].cat === 'gather' ? WXE_ICE_GATHER : 1);
+    const mult = levelMul(b.lvl) * (1 + lineProd(S, b)) * staff * workEff * (1 + SYN_PER * syn) * (1 + specOf(S, b)) * prodMul * (1 + techBP(S, b.type)) * (1 + beltB) * (1 + focusProd(camp, b.type)) * (ev && ev.kind === 'ice' && BLD[b.type].cat === 'gather' ? WXE_ICE_GATHER : 1);
     const br = R.b[b.id] || (R.b[b.id] = {});
     br.staff = staff;
     if (mult <= 0) { br.act = 0; br.status = b.workers ? '没人干活' : '没有派人'; br.haul = 0; continue; }

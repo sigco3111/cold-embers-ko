@@ -45,6 +45,18 @@ console.log('rate', G.prodRate(S, 'plank').toFixed(2), 'hold', G.holdOf(S, goals
 ok(G.prodRate(S, 'plank') > 1, 'plank rate is measured: ' + G.prodRate(S, 'plank').toFixed(2));
 if (G.prodRate(S, 'plank') >= 6) ok(G.holdOf(S, goals[0].id).done && ch.tasks[0].ok, 'holding the rate 3 minutes completes the task');
 else console.log('note: plank rate below 6 with this layout; hold not checked', h0);
+// 主线升星
+const ml = G.lineOf(S, 'plank');
+ok(ml && ml.main && ml.n === 6, 'main line for planks exists');
+while (t < 2400 && ml.star < 1) { G.step(S, 1); t++; }
+const saw = S.buildings.find(b => b.type === 'sawmill');
+ok(ml.star === 1 && G.bStar(S, saw) === 1 && Math.abs(G.lineProd(S, saw) - 0.15) < 1e-9, `★ after ~10 min above target (t=${t}, st=${Math.round(ml.st)})`);
+const P = G.planLine(S, 'plank', 20);
+console.log(P.nodes.map(x => `${x.k} ${x.prod}/${x.need} n=${x.count} lvl=${x.lvl}${x.worst ? ' 卡' : ''} ${x.hint || ''}`).join('\n'));
+ok(P.nodes.length === 2 && P.worst, 'planner finds the chain and a bottleneck at target 20');
+console.log('advisor:', JSON.stringify(G.advisor(S)));
+ok(G.addPLine(S, 'food', 1).ok && G.lineOf(S, 'food').n === G.qualFloor(S, 'food'), 'side line clamps to the qualifying floor ' + G.qualFloor(S, 'food'));
+ok(!G.addPLine(S, 'plank', 30).ok, 'no second line on the same material');
 // 掉下来时往回退一半速度
 const H = { p: 100, done: false }; S.hold = { x: H };
 ok(true, 'hold decay checked by formula');
