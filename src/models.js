@@ -2068,6 +2068,21 @@ export function ruinGeo(size = 2) {
   return { geo: merge(parts), glow: null };
 }
 
+// 塌掉的帐篷（2×2）：倒在雪里的几根撑杆、半埋的兽皮和一个冷掉的火塘
+export function tentRuinGeo() {
+  const parts = [], add = (g, c, o) => parts.push(P(g, c, o));
+  groundPad(1.7, parts);
+  const HIDE = ['#8a6a48', '#7a5c40', '#96785a'];
+  // 帐篷往一边倒：兽皮塌成一堆，撑杆大多顺着同一个方向横在上面
+  for (let k = 0; k < 3; k++) add(G.hemiLo, HIDE[k], { sx: 1.0 - k * 0.2, sy: 0.24 - k * 0.04, sz: 0.75 - k * 0.12, x: -0.1 + k * 0.18, y: 0.02, z: -0.05 + k * 0.1, ry: 0.3 + k * 0.5 });
+  for (let k = 0; k < 4; k++) { const ry = 0.25 + (k - 1.5) * 0.18, l = 1.05 + 0.2 * (k % 2); add(G.cyl8, k % 2 ? WOOD : WOOD2, { sx: 0.055, sy: l, sz: 0.055, x: -0.15 + k * 0.12, y: 0.2 + 0.03 * (k % 2), z: -0.2 + k * 0.13, rz: Math.PI / 2 - 0.1 + 0.05 * k, ry }); }
+  add(G.cyl8, WOOD2, { sx: 0.055, sy: 1.0, sz: 0.055, x: -0.38, y: 0.4, z: -0.25, rx: 0.15, rz: 0.55 }); // 还斜撑着的一根
+  add(G.hemi, SNOW, { sx: 0.85, sy: 0.16, sz: 0.6, x: 0.2, y: 0.12, z: 0.0, ry: 0.4 });
+  add(G.hemiLo, SNOW2, { sx: 0.5, sy: 0.12, sz: 0.4, x: -0.4, y: 0.03, z: 0.35 });
+  for (let k = 0; k < 6; k++) { const a = k / 6 * 6.28; add(G.dode, '#6a6f78', { sx: 0.09, sy: 0.06, sz: 0.08, x: 0.45 + Math.cos(a) * 0.16, y: 0.03, z: 0.4 + Math.sin(a) * 0.16 }); }
+  return { geo: merge(parts), glow: null };
+}
+
 // 熄灭的熔炉（3×3，和熔炉同一个占地）：冷透的石台和炉身结了霜，炉门黑洞洞挂着冰凌，炉顶的炭床上积着雪。
 // 返回值和 buildingGeo 一样：{ geo, glow: null, movers: [], flame: null, flameY: 0, h: 3 }
 export function coldFurnaceGeo(lvl = 1) {

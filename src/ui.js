@@ -706,6 +706,12 @@ export class UI {
       const role = c.depot ? '<em class="ctrole dep">补给站</em>' : S.camps.length > 1 && Sim.isMain(S, c) ? '<em class="ctrole">主营地</em>' : '';
       if (p.on) html += `<div class="camptag" style="transform:translate(${p.x | 0}px,${p.y | 0}px)">${role}${F ? `<i class="fch xs" style="background:${F.col}" title="${F.n}营地">${F.ch}</i>` : ''}${esc(c.name)} <small>${Sim.getB(S, c.furnace).lvl}级</small>${nf ? `<b class="ctfull" data-camp="${c.id}" title="${nf} 栋建筑因为仓库满了停工">📦满 ${nf}</b>` : ''}</div>`;
     }
+    // 熄火的营地留下的废墟
+    for (const r of Sim.journeyOf(S).ruins || []) {
+      if (Math.abs(r.y - v.cam.ty) > 30) continue;
+      const p = v.project(r.x, r.y, 2.2);
+      if (p.on) html += `<div class="camptag ruin" style="transform:translate(${p.x | 0}px,${p.y | 0}px)"><em>废墟</em>${esc(r.n)}</div>`;
+    }
     // 发现的幸存者、地标
     const w = getWorld(S.runSeed);
     for (const p0 of w.sites || []) {
@@ -778,6 +784,7 @@ export class UI {
     else if (a.act === 'migrate' || a.act === 'arrive') this.open('migrate');
     else if (a.act === 'place' || a.act === 'spot') this.actDo(a.act, a.arg);
     else if (a.act === 'roadopen') this.roadModal();
+    else if (a.act === 'campgo') { S.active = a.arg; const c = this.camp(); g.view.focus(c.x, c.y); this.open('camp'); }
     else if (a.kind === 'trip') { this.close(); g.view.followTrip = true; }
     else if (a.act === 'furnace' || a.kind === 'fuel' || a.kind === 'cold') furnace(a.camp);
     else if (a.kind === 'food') { if (a.camp) S.active = a.camp; this.open('stock'); }
@@ -1148,6 +1155,8 @@ export class UI {
     h += `<div class="bhero"><div class="hpic">${tc ? `<i class="th ${tc}"></i>` : ICON[b.type]}</div><div>`;
     if (br.status) h += `<div class="status ${br.status === '运转中' || br.status === '研究中' ? 'ok' : 'bad'}">${esc(br.status)}</div>`;
     h += `<div class="desc">${esc(d.desc)}</div></div></div>`;
+    if (c.depot && b.type === 'furnace') h += this.depotHtml(c);
+    else if (Sim.depotAuto(c)) h += `<button class="mlink" data-act="tb" data-arg="camp"><span>🏚️</span><span>「${esc(c.name)}」是补给站<small>自己运转，不升级。要改先在营地面板里「临时接手」</small></span><i>›</i></button>`;
     if (b.type === 'workshop') { const T = S.tech || {}, ct = T.cur && TECHS.find(t => t.id === T.cur); h += `<button class="mlink" data-act="tb" data-arg="research"><span>🔬</span><span>${ct ? `正在研究「${ct.n}」 ${Math.floor(T.prog / ct.pts * 100)}%` : '挑一项研究'}<small>这座工程站每分钟 ${fmt(br.rp || 0)} 点</small></span><i>›</i></button>`; }
     const mx = Sim.bMax(S, b);
     if (mx) {
@@ -1441,6 +1450,7 @@ export class UI {
       h += `<button class="mlink" data-act="tb" data-arg="log"><span>📜</span><span>消息记录<small>最近发生的事都在这里</small></span><i>›</i></button>`;
       return h;
     }
+    if (this.camp().depot) h += this.depotHtml(this.camp()); // 补给站：先说它自己的事，手机上不用往下翻
     for (const c of S.camps) {
       const cr = Sim.rt(S).c[c.id] || {};
       const f = Sim.getB(S, c.furnace);
@@ -1449,7 +1459,7 @@ export class UI {
         <div class="cd">👥${c.people}/${cr.housing || 0} · 🌡${Math.round(cr.tH ?? 0)}° · 🍖${fmt(c.stock.food)}（${(cr.foodNet || 0) >= 0 ? '+' : ''}${fmt(cr.foodNet)}/分）· 🔥${cr.burnPerMin ? fmtTime(cr.fuelUnits / cr.burnPerMin * 60) : '—'} · 搬运 ${fmt(cr.haulers)}/${fmt(cr.demand)} · 防御 ${Sim.campDefense(S, c)}</div></div></div>`;
     }
     const c0 = this.camp(), cr0 = Sim.rt(S).c[c0.id] || {};
-    h += this.focusHtml(c0);
+    if (!c0.depot) h += this.focusHtml(c0);
     h += `<div class="sec">居民 <small>${esc(c0.name)}</small></div>`;
     h += `<div class="folk"><span><b>${c0.people}</b>人</span><span><b>${Math.min(c0.people, cr0.housing || 0)}</b>住帐篷</span><span class="${c0.people > (cr0.housing || 0) ? 'bad' : ''}"><b>${Math.max(0, c0.people - (cr0.housing || 0))}</b>露宿</span>${c0.wait > 0 ? `<span class="bad"><b>${c0.wait}</b>等床位</span>` : ''}<span class="${cr0.sick ? 'bad' : ''}"><b>${cr0.sick || 0}</b>生病</span><span class="${(cr0.hunger || 0) > 0.05 ? 'bad' : ''}"><b>${(cr0.hunger || 0) > 0.05 ? Math.round(cr0.hunger * 100) + '%' : '0'}</b>挨饿</span></div>`;
     h += `<div class="voices">${campVoices(S, c0, Sim.rt(S)).map(q => `<div>「${esc(q)}」</div>`).join('')}</div>`;
@@ -1459,6 +1469,21 @@ export class UI {
     return h;
   }
 
+  // 补给站：留守的人、撑不撑得住、往北送什么、临时接手、熄火
+  depotHtml(c) {
+    const S = this.S, cr = Sim.rt(S).c[c.id] || {}, picks = Sim.supplyPicks(S, c), sent = cr.sent || {}, m = Sim.mainCamp(S);
+    let h = `<div class="sec">补给站 <small>${esc(c.name)}</small></div>`;
+    h += `<div class="hint">${c.manual ? '你正在临时接手：可以盖房、升级了。管完交回去，它会自己转。' : '这座营地自己派人、自己生产，不盖新房、不升级。你只管往北送什么。'}</div>`;
+    const fm = cr.burnPerMin ? cr.fuelUnits / cr.burnPerMin : 0, why = Sim.depotTrouble(S, c);
+    h += `<div class="row"><span>留守</span><span>${c.people} 人${c.people < Sim.DEPOT_MIN ? `（不到 ${Sim.DEPOT_MIN} 人）` : ''}</span></div>`;
+    h += `<div class="row sub"><span>撑不撑得住</span><span class="${why ? 'bad' : ''}">${why ? '⚠ ' + why : `燃料够 ${fm ? fmtTime(fm * 60) : '—'} · 熟食 ${fmt(c.stock.food)}`}</span></div>`;
+    h += `<div class="row"><span>往北送<small>雪橇道每分钟运 ${fmt(Sim.supplyRate(S, c))} 件到「${esc(m.name)}」，最多挑 ${Sim.SEND_MAX} 样</small></span><span><button class="small ${c.send ? '' : 'go'}" data-act="dsend" data-arg="${c.id}:auto">${c.send ? '改回自动挑' : '自动挑缺的'}</button></span></div>`;
+    const ks = RES_KEYS.filter(k => RES[k].t <= S.known && ((c.stock[k] || 0) >= 1 || picks.includes(k))).sort((a, b) => (picks.includes(b) - picks.includes(a)) || (c.stock[b] || 0) - (c.stock[a] || 0)).slice(0, 12);
+    h += `<div class="dchips">${ks.map(k => { const on = picks.includes(k); return `<button class="dchip ${on ? 'on' : ''}" data-act="dsend" data-arg="${c.id}:${k}">${RICON[k]}${RES[k].n}<small>${on ? (sent[k] ? `${fmt(sent[k])}/分` : (cr.sendWhy || {})[k] === 'full' ? '那边满了' : '没有多余的') : fmt(c.stock[k])}</small></button>`; }).join('') || '<div class="hint">仓库里什么都没有。</div>'}</div>`;
+    const emb = Sim.douseEmbers(S, Sim.getB(S, c.furnace).lvl);
+    h += `<div class="drow"><button class="btn ${c.manual ? 'go' : ''}" data-act="dtake" data-arg="${c.id}:${c.manual ? 0 : 1}">${c.manual ? '交回去自己转' : '临时接手'}</button><button class="btn bad" data-act="ddouse" data-arg="${c.id}">熄火换 ${emb} 余烬</button></div>`;
+    return h;
+  }
   // 营地专精：四个方向的卡片，强一样、弱一样
   focusHtml(c) {
     const S = this.S, f = Sim.getB(S, c.furnace), left = Sim.focusLeft(S, c);
@@ -2031,6 +2056,11 @@ export class UI {
       case 'ev': { const msg = Sim.resolveEvent(S, +arg); this.closeModal(); if (msg) { this.toast(msg, 'story'); g.sfx('tap'); } break; }
       case 'road': { const msg = Sim.resolveRoad(S, +arg); this.closeModal(); if (msg) { this.toast(msg, 'story'); g.sfx('tap'); } break; }
       case 'roadopen': { this.roadModal(); break; }
+      case 'dsend': { const [cid, k] = String(arg).split(':'); Sim.setSend(S, +cid, k); g.sfx('tap'); this.renderPanel(true); break; }
+      case 'dtake': { const [cid, on] = String(arg).split(':'); Sim.takeOver(S, +cid, on === '1'); g.sfx('tap'); this.toast(on === '1' ? '接手了：现在可以在这里盖房、升级' : '交回去了：它会自己运转', 'info'); this.renderPanel(true); this.hud(); break; }
+      case 'ddouse': { const c = Sim.getCamp(S, +arg); if (!c) break; const emb = Sim.douseEmbers(S, Sim.getB(S, c.furnace).lvl);
+        this.modal(`<h3>让「${esc(c.name)}」熄火？</h3><p>${c.people} 个人会往北去「${esc(Sim.mainCamp(S).name)}」，拆下三成的物资一起带走，换来 ${emb} 点余烬。营地会变成一片积雪的废墟，不能再点着。</p>`, [{ t: '熄火', a: 'ddouse-go', arg: c.id, cls: 'bad' }, { t: '算了', a: 'close-modal' }]); break; }
+      case 'ddouse-go': { const r = Sim.douseDepot(S, +arg); this.closeModal(); if (!r.ok) this.toast(r.reason, 'warn'); else { g.sfx('lose'); this.toast(`熄火了，换来 ${r.embers} 点余烬`, 'story'); this.close(); } this.hud(); break; }
       case 'openbld': { const id = +arg; g.view.select(id); this.open('bld', id); break; }
       case 'tutskip': S.meta.tut = true; this.tutorial(); this.toast('已跳过新手引导。「菜单 → 怎么玩」里能看到玩法说明。', 'info'); break;
       case 'survey': { const r = Sim.startSurvey(S, +arg); if (!r.ok) this.toast(r.reason, 'bad'); else { this.toast(`勘探队出发了，去找${SPOTS[r.kind].n}。`, 'good'); g.sfx && g.sfx('tap'); } break; }

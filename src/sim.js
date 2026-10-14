@@ -5,7 +5,7 @@ import {
   SPECS, SPEC_MAX, specBonus, specTrainCost, EMBER_UPS, emberCost, RAIDERS, STORY, DAY_LEN, LAWS, LAW_CD, TECHS, SITES, CHAPTERS, INFRA, LM_R, FAR_MARKS, DIFF, DIFF_KEYS, FOCUS, FOCUS_KEYS, FOCUS_LVL, FOCUS_CD,
 } from './data.js';
 import { W, H, T_SNOW, T_ICE, getWorld, idx, inMap, hash3, mulberry32 } from './worldgen.js';
-import { journeyOf, journeyStep, mainCamp, outpostBlock, outpostKit, moveFuel, fuelUnits, stopOf } from './journey.js';
+import { journeyOf, journeyStep, mainCamp, outpostBlock, outpostKit, moveFuel, fuelUnits, stopOf, depotAuto } from './journey.js';
 export * from './journey.js';
 import { linesTick, bMax, bStar, lineProd, plinesOf, STAR_PROD } from './lines.js';
 export * from './lines.js';
@@ -496,6 +496,7 @@ export function checkPlace(S, type, x, y, selfQ = 0) {
   }
   res.camp = camp;
   const cobj = getCamp(S, camp);
+  if (depotAuto(cobj)) { res.reason = `「${cobj.name}」是补给站，自己运转，不盖新房（要盖先「临时接手」）`; return res; }
   res.cost = buildCost(S, type, camp, y);
   res.dist = haulDistOf(S, camp, x, y, s, -1);
   if (d.gather) res.spots = findSpots(S, type, x, y).filter(p => spotLeft(S, p.i) > 0).length;
@@ -617,6 +618,7 @@ export function setWorkers(S, bid, n) {
 export function upgrade(S, bid) {
   const b = getB(S, bid); if (!b) return { ok: false };
   const camp = getCamp(S, b.camp);
+  if (depotAuto(camp)) return { ok: false, reason: `「${camp.name}」是补给站，自己运转，不升级（要升先「临时接手」）` };
   const cost = upgradeCost(S, b);
   for (const k in cost) if (RES[k].t > S.known) return { ok: false, reason: `需要「${RES[k].n}」——先往北侦察到它所在的纬度` };
   if (!canAfford(camp.stock, cost)) return { ok: false, reason: '缺：' + missing(camp.stock, cost).join('，') };
@@ -1384,7 +1386,7 @@ function caravanStep(S) {
 const AUTO_ORDER = ['kitchen', 'hunter', 'greenhouse', 'lumber', 'nursery', 'coalmine', 'warehouse', 'tower', 'heater'];
 function autoPr(t) { const i = AUTO_ORDER.indexOf(t); return i < 0 ? 50 + BLD[t].t : i; }
 export function autoAssign(S, camp) {
-  if (camp.auto === false) return;
+  if (camp.auto === false && !depotAuto(camp)) return;
   const R = rt(S), FULL = '仓库满了';
   const st = b => (R.b[b.id] || {}).status;
   let idle = idleLabor(S, camp);

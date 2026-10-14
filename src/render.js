@@ -76,6 +76,7 @@ if (uDetail > 0.0) {
 
     this.root = new THREE.Group(); this.scene.add(this.root);
     this.bldGroup = new THREE.Group(); this.scene.add(this.bldGroup);
+    this.ruinGroup = new THREE.Group(); this.scene.add(this.ruinGroup);
     this.buildings = new Map();
     this.lights = [0, 1, 2, 3].map(() => { const l = new THREE.PointLight('#ff8a30', 0, 18, 1.5); this.scene.add(l); return l; });
 
@@ -1041,10 +1042,35 @@ if (uDetail > 0.0) {
       this.buildings.set(b.id, ent);
     }
     for (const [id, e] of this.buildings) if (!seen.has(id)) { this.bldGroup.remove(e.g); if (e.scaf) this.bldGroup.remove(e.scaf); this.buildings.delete(id); }
+    this.syncRuins();
     this.buildPaths();
     this.refreshPools();
   }
 
+  // 熄火的营地：冷掉的熔炉 + 每栋建筑一堆积雪的断墙，一直留在地图上；压到现在的建筑的那几堆不画
+  syncRuins() {
+    const list = Sim.journeyOf(this.S).ruins || [], g = this.ruinGroup;
+    for (const o of g.children.slice()) { g.remove(o); if (o.isInstancedMesh) o.dispose(); }
+    if (!list.length) return;
+    const G = this.ruinGeos || (this.ruinGeos = {});
+    const by = { 1: [], 2: [], 3: [], tent: [] }, m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), v = new THREE.Vector3(), one = new THREE.Vector3(1, 1, 1);
+    for (const r of list) {
+      const fk = 'f' + Math.min(30, r.lvl), fg = G[fk] || (G[fk] = M.coldFurnaceGeo(r.lvl).geo);
+      const fm = new THREE.Mesh(fg, this.matStd); fm.castShadow = true; fm.receiveShadow = true; fm.position.set(r.x, 0, -r.y); g.add(fm);
+      for (const [t, x, y] of r.b || []) {
+        const sz = Math.min(3, (BLD[t] && BLD[t].size) || 2);
+        let hit = false;
+        for (let yy = y; yy < y + sz && !hit; yy++) for (let xx = x; xx < x + sz; xx++) if (Sim.occAt(this.S, xx, yy)) { hit = true; break; }
+        if (!hit) by[t === 'tent' ? 'tent' : sz].push([x + sz / 2, y + sz / 2, Math.floor(hash3(x, y, 77) * 4), 0.7 + 0.45 * hash3(x, y, 78)]);
+      }
+    }
+    for (const sz in by) {
+      const L = by[sz]; if (!L.length) continue;
+      const im = new THREE.InstancedMesh(G[sz] || (G[sz] = sz === 'tent' ? M.tentRuinGeo().geo : M.ruinGeo(+sz).geo), this.matStd, L.length);
+      L.forEach(([x, y, k, h], i) => { if (sz === 'tent') h = 1; e.set(0, k * Math.PI / 2, 0); q.setFromEuler(e); m4.compose(v.set(x, 0, -y), q, one.set(1, h, 1)); im.setMatrixAt(i, m4); });
+      im.castShadow = true; im.receiveShadow = true; im.computeBoundingSphere(); g.add(im);
+    }
+  }
   // 寻路：在格子上绕开建筑、岩石和还没采完的资源点，返回平滑后的折线
   route(ax, ay, bx, by, blockedTile) {
     const sx = Math.floor(ax), sy = Math.floor(ay), ex = Math.floor(bx), ey = Math.floor(by);
@@ -2142,9 +2168,64 @@ void main() {
     const mg = new THREE.CylinderGeometry(0.12, 0.12, 0.03, 6);
     this.cvMarks = new THREE.InstancedMesh(mg, new THREE.MeshBasicMaterial({ color: '#ffcf6a', transparent: true, opacity: 0.75, depthWrite: false }), 260);
     this.cvMarks.count = 0; this.cvMarks.frustumCulled = false; this.scene.add(this.cvMarks);
+    // 雪橇道：走过的每一程踩出来的路，补给站的小雪橇沿着它往北送货
+    this.supSled = new THREE.InstancedMesh(M.caravanSledGeo(true).geo, this.matStd, 48); this.supSled.count = 0; this.supSled.frustumCulled = false; this.supSled.castShadow = true; this.scene.add(this.supSled);
+    this.trail = new THREE.Group(); this.scene.add(this.trail);
+  }
+  // 补给站的小雪橇：送得越多车越多，一直沿路往北走
+  animSupply() {
+    const R = Sim.rt(this.S), t = this.time || 0, im = this.supSled;
+    const m = this._sm || (this._sm = new THREE.Matrix4()), q = this._sq || (this._sq = new THREE.Quaternion()), e = this._se || (this._se = new THREE.Euler()), v = this._sv || (this._sv = new THREE.Vector3()), sc = this._ss || (this._ss = new THREE.Vector3(0.7, 0.7, 0.7));
+    let n = 0;
+    for (const r of this.supRoutes || []) {
+      const sent = (R.c[r.id] || {}).sent || {}; let tot = 0; for (const k in sent) tot += sent[k];
+      if (tot <= 0 || r.len < 4) continue;
+      const k = Math.min(8, Math.max(1, Math.round(tot / 8)));
+      for (let i = 0; i < k && n < 48; i++) {
+        const d = (t * 1.1 + i * r.len / k + r.id * 7.3) % r.len, p = Sim.tripPos({ path: r.path, d }), yaw = Math.atan2(-Math.cos(p.dir), Math.sin(p.dir));
+        e.set(0, yaw, Math.sin(t * 3 + i) * 0.02); q.setFromEuler(e); m.compose(v.set(p.x, 0.01, -p.y), q, sc); im.setMatrixAt(n++, m);
+      }
+    }
+    im.count = n; im.instanceMatrix.needsUpdate = true;
+  }
+  // 一条折线铺成贴地的带子（w 宽，往左偏 off）
+  static ribbon(paths, w, off, col, y0 = 0.018) {
+    const pos = [], step = 0.5;
+    for (const P of paths) {
+      const pts = [];
+      for (let i = 1; i < P.length; i++) { const [ax, ay] = P[i - 1], [bx, by] = P[i], L = Math.hypot(bx - ax, by - ay), n = Math.max(1, Math.ceil(L / step)); for (let k = i === 1 ? 0 : 1; k <= n; k++) pts.push([ax + (bx - ax) * k / n, ay + (by - ay) * k / n]); }
+      for (let i = 1; i < pts.length; i++) {
+        const [ax, ay] = pts[i - 1], [bx, by] = pts[i], L = Math.hypot(bx - ax, by - ay) || 1, nx = -(by - ay) / L, ny = (bx - ax) / L;
+        const a0 = [ax + nx * (off - w / 2), ay + ny * (off - w / 2)], a1 = [ax + nx * (off + w / 2), ay + ny * (off + w / 2)], b0 = [bx + nx * (off - w / 2), by + ny * (off - w / 2)], b1 = [bx + nx * (off + w / 2), by + ny * (off + w / 2)];
+        for (const [x, y] of [a0, b0, a1, a1, b0, b1]) pos.push(x, y0, -y);
+      }
+    }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals();
+    const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ color: col, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+    m.receiveShadow = true; return m;
+  }
+  syncTrail() {
+    const S = this.S, J = Sim.journeyOf(S), m = Sim.mainCamp(S);
+    for (const o of this.trail.children.slice()) { this.trail.remove(o); o.geometry.dispose(); o.material.dispose(); }
+    const paths = (J.legs || []).map(l => l.path).filter(p => p && p.length > 1);
+    if (paths.length) { this.trail.add(View.ribbon(paths, 0.9, 0, '#d4dbe3')); this.trail.add(View.ribbon(paths, 0.1, 0.22, '#a3aebb', 0.026)); this.trail.add(View.ribbon(paths, 0.1, -0.22, '#a3aebb', 0.026)); }
+    // 每座补给站往主营地的路：先直走到车队踩出的路上，再沿着它往北
+    const all = paths.flat();
+    this.supRoutes = [];
+    for (const c of S.camps) {
+      if (!c.depot || !m || c.id === m.id) continue;
+      const P = [[c.x, c.y]];
+      for (const p of all) if (p[1] > c.y + 3 && p[1] < m.y - 3 && p[1] > P[P.length - 1][1]) P.push(p);
+      P.push([m.x, m.y]);
+      let len = 0; for (let i = 1; i < P.length; i++) len += Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]);
+      this.supRoutes.push({ id: c.id, path: P, len });
+    }
   }
   animCaravan(dt) {
     const J = Sim.journeyOf(this.S), T = J.trip, cv = this.cv;
+    const tsig = (J.legs || []).length + ':' + this.S.camps.map(c => c.id + (c.depot ? 'd' : '')).join(',');
+    if (tsig !== this.trailSig) { this.trailSig = tsig; this.syncTrail(); }
+    this.animSupply();
     const m = this._cm || (this._cm = new THREE.Matrix4()), q = this._cq || (this._cq = new THREE.Quaternion()), e = this._ce || (this._ce = new THREE.Euler()), v = this._cv || (this._cv = new THREE.Vector3()), one = this._c1 || (this._c1 = new THREE.Vector3(1, 1, 1));
     const n = { sled: 0, tractor: 0 }; let nm = 0;
     this.cvEmit = null;

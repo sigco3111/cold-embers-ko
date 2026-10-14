@@ -195,6 +195,8 @@ export function advisor(S) {
   // 急事
   for (const c of S.camps) {
     const cr = R.c[c.id] || {};
+    // 补给站自己运转，只在撑不住时说一句
+    if (c.depot && !c.manual) { if (c.dWarn) return { pri: 0, kind: 'depot', camp: c.id, text: `补给站「${c.name}」${c.dWarn}：可以临时接手管一下，或者让它熄火换余烬。`, act: 'campgo', arg: c.id }; continue; }
     if (cr.foodNet != null && cr.foodNet < -0.05) {
       const m = (c.stock.food || 0) / -cr.foodNet;
       if (m < 10) return { pri: 0, kind: 'food', camp: c.id, text: `「${c.name}」的熟食只够 ${Math.max(1, Math.floor(m))} 分钟了：多派人去打猎和做饭，或者从别的营地运吃的过来。` };

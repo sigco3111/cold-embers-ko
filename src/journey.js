@@ -1,10 +1,11 @@
 // 寒烬北行 · 一路往北：每一程的状态、北迁门槛、车队、新营地的范围
 // 整局只有一条路：主营地带着车队从一个地标搬到下一个，留在后面的营地变成补给站或者熄火
-import { LANDMARKS, FAR_MARKS, BLD, RES, FUEL, FUEL_ORDER, SPOT_KEYS, furnaceBurn } from './data.js';
+import { LANDMARKS, FAR_MARKS, BLD, RES, RES_KEYS, FUEL, FUEL_ORDER, SPOT_KEYS, furnaceBurn } from './data.js';
 import { W, H, T_ROCK, getWorld, idx, inMap, mulberry32 } from './worldgen.js';
 import {
   rt, dirty, getB, getCamp, logMsg, revealCircle, canAfford, missing, pay, chapters, makeCamp, markFounded, trimWorkers,
   autoAssign, clearFootprint, landmarkBlock, siteAt, occAt, housingOf, bumpMood, diffOf, relicSum, upgradeCost, maxWorkers, levelMul,
+  storeCap, addPeople, up, techSum,
   EAT, FOUND_DIST, CAMP_GAP,
 } from './sim.js';
 
@@ -517,10 +518,10 @@ export function arrive(S, x, y) {
       embers += douseEmbers(S, lvl);
       J.ruins.push({ x: c.x, y: c.y, lvl, n: c.name, t: S.t, b: S.buildings.filter(b => b.camp === c.id && b.type !== 'furnace').map(b => [b.type, b.x, b.y]) });
       removeCamp(S, c.id, camp.id);
-    } else { c.depot = true; delete c.focus; }
+    } else { c.depot = true; c.auto = true; delete c.focus; delete c.manual; }
   }
   if (embers) { S.meta.embers += embers; S.meta.emberTotal = (S.meta.emberTotal || 0) + embers; }
-  J.legs.push({ from: T.from, to: T.to, t0: T.t0, t1: S.t, people: T.people, road: T.done || [] });
+  J.legs.push({ from: T.from, to: T.to, t0: T.t0, t1: S.t, people: T.people, road: T.done || [], path: [...T.path, [camp.x, camp.y]].map(p => [Math.round(p[0] * 10) / 10, Math.round(p[1] * 10) / 10]) });
   J.stage = T.to; J.main = camp.id; J.trip = null; J.plan = {};
   S.active = camp.id;
   S.safeUntil = Math.max(S.safeUntil || 0, S.t + 3600); // 刚到的营地一小时内不会遇袭
@@ -583,9 +584,116 @@ export function removeCamp(S, cid, to) {
   dirty(S);
 }
 
+// ---------- 老营地：补给站自己运转、沿路往北送货；也可以临时接手，或者熄火换余烬 ----------
+export const isDepot = c => !!(c && c.depot);
+export const depotAuto = c => !!(c && c.depot && !c.manual); // 补给站自己管自己：不盖新房、不升级
+export const SEND_MAX = 3;
+// 雪橇道的运量（件/分钟）：留守的人越多越快；离主营地越远越慢；狗、研究、遗物照样加
+export function supplyRate(S, c) {
+  const m = mainCamp(S); if (!m || m.id === c.id) return 0;
+  const d = Math.hypot(c.x - m.x, c.y - m.y);
+  return 24 * (1 + c.people / 40) * Math.max(0.35, Math.min(1, 80 / Math.max(1, d))) * (1 + 0.12 * up(S, 'haul') + techSum(S, 'line') + relicSum(S, 'haul'));
+}
+// 补给站自己要留的：半小时的燃料和口粮，自己生产要用的十分钟原料，其余都算多出来的
+function depotKeep(S, c, k) {
+  const cr = rt(S).c[c.id] || {}, f = (cr.flow || {})[k];
+  if (k === 'food') return c.people * EAT * 30;
+  return 50 + (f ? f.c * 10 : 0);
+}
+function depotSpare(S, c, k) {
+  const st = c.stock[k] || 0; if (st <= 0) return 0;
+  if (FUEL[k]) { const cr = rt(S).c[c.id] || {}, units = fuelUnits(c.stock), keepU = (cr.burnPerMin || furnaceBurn(getB(S, c.furnace).lvl)) * 30; return Math.max(0, Math.min(st, (units - keepU) / FUEL[k])); }
+  return Math.max(0, st - depotKeep(S, c, k));
+}
+// 默认送主营地缺的那几样：主营地想用却拿不到的、快烧完的燃料、快吃完的口粮、熔炉下一级要的门槛材料
+export function supplyAuto(S, c) {
+  const m = mainCamp(S), R = rt(S), mr = R.c[m.id] || {}, fl = mr.flow || {}, cap = storeCap(S, m);
+  const upC = upgradeCost(S, getB(S, m.furnace)), fuelMin = mr.burnPerMin ? (mr.fuelUnits || 0) / mr.burnPerMin : 99;
+  const sc = [];
+  for (const k of RES_KEYS) {
+    const sp = depotSpare(S, c, k); if (sp < 5) continue;
+    const have = m.stock[k] || 0; if (have >= cap * 0.8) continue;
+    let v = 0; const f = fl[k];
+    if (f && f.want - f.c > 0.05) v += 100 + (f.want - f.c) * 10;
+    if (FUEL[k] && fuelMin < 60) v += 80 + FUEL[k];
+    if (k === 'food' && have < m.people * EAT * 60) v += 80;
+    if (upC[k] && have < upC[k]) v += 60;
+    if (!v && have < (c.stock[k] || 0)) v = Math.min(20, sp / 100);
+    if (v > 0) sc.push([k, v]);
+  }
+  return sc.sort((a, b) => b[1] - a[1]).slice(0, SEND_MAX).map(x => x[0]);
+}
+export function supplyPicks(S, c) { return c.send ? c.send.filter(k => RES[k]) : (rt(S).c[c.id] || {}).sendAuto || supplyAuto(S, c); }
+export function setSend(S, cid, k) {
+  const c = getCamp(S, cid); if (!c || !c.depot) return;
+  if (k === 'auto') { delete c.send; dirty(S); return; }
+  const cur = c.send ? c.send.slice() : supplyPicks(S, c).slice(), i = cur.indexOf(k);
+  if (i >= 0) cur.splice(i, 1); else { cur.push(k); if (cur.length > SEND_MAX) cur.shift(); }
+  c.send = cur; dirty(S);
+}
+export function takeOver(S, cid, on) {
+  const c = getCamp(S, cid); if (!c || !c.depot) return { ok: false };
+  c.manual = !!on; if (!on) c.auto = true;
+  logMsg(S, on ? `你临时接手了补给站「${c.name}」：可以盖房、升级了。管完记得交回去让它自己转。` : `补给站「${c.name}」交回去自己运转了。`, 'info');
+  dirty(S); return { ok: true };
+}
+// 补给站熄火：人去主营地，拆下三成材料送过去，按熔炉等级换余烬，原地留下一片废墟
+export function douseDepot(S, cid) {
+  const c = getCamp(S, cid), m = mainCamp(S);
+  if (!c || !c.depot || !m || c.id === m.id) return { ok: false, reason: '只有补给站能熄火' };
+  if (journeyOf(S).trip) return { ok: false, reason: '车队在路上，等到了再说' };
+  const lvl = getB(S, c.furnace).lvl, embers = douseEmbers(S, lvl), n = c.people;
+  const a = addPeople(S, m, n);
+  for (const k in c.stock) if (c.stock[k] > 0) m.stock[k] = (m.stock[k] || 0) + Math.floor(c.stock[k] * 0.3);
+  S.meta.embers += embers; S.meta.emberTotal = (S.meta.emberTotal || 0) + embers;
+  journeyOf(S).ruins.push({ x: c.x, y: c.y, lvl, n: c.name, t: S.t, b: S.buildings.filter(b => b.camp === c.id && b.type !== 'furnace').map(b => [b.type, b.x, b.y]) });
+  removeCamp(S, c.id, m.id);
+  logMsg(S, `🕯 「${c.name}」熄火了。${n} 个人往北去了「${m.name}」${a.wait ? `（${a.wait} 人先在窝棚里等床位）` : ''}，换来 ${embers} 点余烬。`, 'story');
+  rt(S).fx.push({ kind: 'douse', x: c.x, y: c.y });
+  return { ok: true, embers };
+}
+// 补给站撑不住了：燃料不到 10 分钟、挨饿、人太少，提醒一次（好了再坏会再提醒）
+export function depotTrouble(S, c) {
+  const cr = rt(S).c[c.id] || {};
+  if (c.people < DEPOT_MIN) return `只剩 ${c.people} 个人`;
+  if ((cr.hunger || 0) > 0.1) return '在挨饿';
+  if (cr.burnPerMin && (cr.fuelUnits || 0) / cr.burnPerMin < 10) return '燃料撑不到 10 分钟';
+  return '';
+}
+function supplyStep(S, dt) {
+  const J = journeyOf(S), m = mainCamp(S), R = rt(S);
+  if (!m) return;
+  J.supT = (J.supT || 0) + dt;
+  const re = J.supT >= 30; if (re) J.supT = 0;
+  const mr = R.c[m.id] || (R.c[m.id] = {}); mr.recv = {};
+  const cap = storeCap(S, m);
+  for (const c of S.camps) {
+    if (!c.depot || c.id === m.id) continue;
+    const cr = R.c[c.id] || (R.c[c.id] = {});
+    if (re || !cr.sendAuto) cr.sendAuto = supplyAuto(S, c);
+    const picks = supplyPicks(S, c), sent = cr.sent = {}, why = cr.sendWhy = {};
+    if (picks.length) {
+      const per = supplyRate(S, c) / 60 * dt / picks.length;
+      for (const k of picks) {
+        const sp = depotSpare(S, c, k), room = cap - (m.stock[k] || 0);
+        const mv = Math.max(0, Math.min(per, sp, room));
+        if (mv <= 0) { why[k] = room <= 0 ? 'full' : 'none'; continue; }
+        c.stock[k] -= mv; m.stock[k] = (m.stock[k] || 0) + mv;
+        sent[k] = mv / dt * 60; mr.recv[k] = (mr.recv[k] || 0) + mv / dt * 60;
+      }
+    }
+    if (re && !c.manual) {
+      const why = depotTrouble(S, c);
+      if (why && c.dWarn !== why) logMsg(S, `⚠ 补给站「${c.name}」${why}：可以临时接手管一下，或者让它熄火换余烬。`, 'warn', { act: 'campgo', arg: c.id, label: '去看看' });
+      c.dWarn = why;
+    }
+  }
+}
+
 // ---------- 每一步 ----------
 export function journeyStep(S, dt) {
   vehStep(S, dt);
+  supplyStep(S, dt);
   const J = journeyOf(S), T = J.trip;
   if (!T) return;
   if (T.phase === 'go') {
