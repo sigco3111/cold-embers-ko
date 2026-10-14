@@ -732,7 +732,11 @@ export class UI {
       const p = v.project(t.x + 0.5, t.y + 0.5, 0.5);
       if (p.on) html += `<div class="poitag target" style="transform:translate(${p.x | 0}px,${p.y | 0}px)">🚩 目标</div>`;
     }
-    if (this.g.place && this.g.place.plan) {
+    if (this.g.place && this.g.place.type === 'bp') {
+      const P = this.g.place, pl = P.bpPlan;
+      const p = v.project(P.x + P.bp.w / 2, P.y + P.bp.h / 2, 3);
+      if (pl && p.on) html += `<div class="ghosttag ${pl.ok ? 'ok' : pl.q ? 'soft' : 'bad'}" style="transform:translate(${p.x | 0}px,${p.y | 0}px)">${esc(RES[P.bp.r].n)}线 ${P.bp.items.length} 栋<br>${[pl.ok && `✓ 马上建 ${pl.ok}`, pl.q && `排队 ${pl.q}`, pl.bad && `${pl.bad} 处放不下`].filter(Boolean).join(' · ')}</div>`;
+    } else if (this.g.place && this.g.place.plan) {
       // 拖出来的一排：标签放在这一排中间，写合计
       const P = this.g.place, pl = P.plan, s = BLD[P.type].size, L = pl.plan, m = L[L.length - 1];
       const p = v.project((P.x + m.x) / 2 + s / 2, (P.y + m.y) / 2 + s / 2, 2.6);

@@ -253,6 +253,7 @@ export class ChainMap {
       const floor = cur.main ? cur.n0 || cur.n : Sim.qualFloor(S, cur.r), step = Math.max(1, Math.round(floor / 4));
       body = `<div class="plhead">${RICON[cur.r]}<b>${RES[cur.r].n}${cur.main ? '主线' : '支线'}</b>${stars(cur.star)}
           <span class="pltg">目标 <button class="small" data-plset="${-step}" ${cur.n - step < floor ? 'disabled' : ''}>−</button><b>${fr(cur.n)}</b>/分钟<button class="small" data-plset="${step}">＋</button></span>
+          ${Sim.lineBlueprint(S, cur.r) ? `<button class="small" data-plcopy="${cur.r}" title="把这条线的建筑整组复制到别处">复制这条线</button>` : ''}
           ${cur.main ? '' : `<button class="small ghostb" data-pldrop="${cur.id}">撤掉</button>`}</div>
         <div class="plrate ${cur.on ? 'up' : ''}"><span class="plbar"><i style="width:${(pct * 100).toFixed(1)}%"></i></span><b>${fr(P.rate)}</b>/${fr(cur.n)} 每分钟</div>
         <div class="pltimers">${goal ? `<span class="${h.done ? 'ok' : ''}">${h.done ? '✓ 已经达标' : `达标：稳住 ${mmss(h.p)} / 3:00${cur.on ? '' : '（掉下来了，在往回退）'}`}</span>` : ''}
@@ -286,6 +287,8 @@ export class ChainMap {
     if (add) { const r = Sim.addPLine(S, add.dataset.pladd); if (r.ok) { this.planR = add.dataset.pladd; this.adding = false; } else this.g.ui.toast(r.reason, 'warn'); this.render(); return true; }
     const set = t.closest('[data-plset]');
     if (set) { const l = Sim.lineOf(S, this.planR); if (l) { const r = Sim.setPLine(S, l.id, l.n + +set.dataset.plset); if (!r.ok && r.reason) this.g.ui.toast(r.reason, 'warn'); } this.render(); return true; }
+    const cp = t.closest('[data-plcopy]');
+    if (cp) { this.hide(); this.g.startCopy(cp.dataset.plcopy); return true; }
     const dr = t.closest('[data-pldrop]');
     if (dr) { Sim.dropPLine(S, +dr.dataset.pldrop); this.planR = null; this.render(); return true; }
     const g = t.closest('[data-plgo]');

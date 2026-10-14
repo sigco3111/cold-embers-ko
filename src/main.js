@@ -121,6 +121,8 @@ class Game {
       <p>👥 人口 ${sum.people >= 0 ? '+' : ''}${sum.people}（投奔 ${sum.arrivals}，遇难 ${sum.deaths}）</p>
       ${sum.blizzards ? `<p>❄ 经历了 ${sum.blizzards} 场暴风雪</p>` : ''}
       ${sum.raids ? `<p>🐺 袭营 ${sum.raids} 次，击退 ${sum.raidsWon} 次</p>` : ''}
+      ${sum.lines && sum.lines.length ? `<div class="sec">产线</div><div class="offl">${sum.lines.map(l => `<div><span>${RICON[l.r]} ${RES[l.r].n}${l.main ? '主线' : '支线'}</span><span>做了 ${fmt(l.made)}（平均 ${fmt(l.per)}/分）</span><span class="st">${l.star > l.star0 ? `升到 ${'★'.repeat(l.star)}` : '★'.repeat(l.star) || '还没有星'}</span></div>`).join('')}</div>` : ''}
+      ${sum.stage !== sum.stage0 ? `<p>🛷 车队到了「${Sim.stopOf(S, sum.stage).n}」，新熔炉已经点着了。</p>` : ''}
       <p class="hint">（结算用了 ${Math.round(performance.now() - t0)} 毫秒）</p>`);
   }
   resume() {
@@ -336,15 +338,45 @@ class Game {
     document.getElementById('placePic').innerHTML = tc ? `<i class="th ${tc}"></i>` : iconize(ICON[type]);
     this.updateGhost();
   }
+  // 一键复制产线：整组蓝图跟着手指 / 鼠标走，放下就排进建造队列
+  startCopy(r) {
+    const bp = Sim.lineBlueprint(this.S, r);
+    if (!bp) { this.ui.toast('这条线还没有建好的建筑可以复制。', 'warn'); return; }
+    this.cancelModes(true); this.ui.close();
+    const v = this.view;
+    this.place = { type: 'bp', bp, x: Math.round(v.cam.tx - bp.w / 2), y: Math.round(v.cam.ty - bp.h / 2), check: null, plan: null, end: null };
+    this.mode = 'place';
+    document.getElementById('placeRow').style.display = 'none';
+    document.body.classList.add('placing');
+    document.getElementById('placeName').textContent = `复制${RES[r].n}线（${bp.items.length} 栋）`;
+    document.getElementById('placePic').innerHTML = iconize(RICON[r]);
+    this.ui.toast('把蓝图拖到供热圈里的空地上：绿色马上建，黄色排队等材料，红色放不下。', 'info');
+    this.updateGhost();
+  }
+  updateBlueprint() {
+    const P = this.place, S = this.S, pl = Sim.blueprintPlan(S, P.bp, P.x, P.y);
+    P.bpPlan = pl;
+    this.view.setGhost(null);
+    this.view.setBlueprint(pl.plan.map(e => ({ type: e.type, x: e.x, y: e.y, ok: e.st === 'ok', soft: e.st === 'q' })));
+    const btn = document.getElementById('placeOk');
+    btn.disabled = !pl.ok && !pl.q; btn.classList.toggle('q', !pl.ok && pl.q > 0); btn.title = '按这张蓝图建';
+    const camp = Sim.getCamp(S, pl.camp ?? S.active) || { stock: {} };
+    const costHtml = Object.keys(pl.total).map(k => `<span class="${(camp.stock[k] || 0) >= pl.total[k] ? '' : 'miss'}">${RICON[k]}${fmt(pl.total[k])}</span>`).join(' ');
+    const bad = pl.plan.find(e => e.st === 'bad');
+    const parts = [pl.ok && `<span class="pok">马上建 ${pl.ok} 栋</span>`, pl.q && `<span class="pwarn">排队 ${pl.q} 栋</span>`, pl.bad && `<span class="pbad">${pl.bad} 栋放不下${bad ? `（${bad.reason}）` : ''}</span>`].filter(Boolean).join(' · ');
+    const ppl = pl.workers ? ` · 要 ${pl.workers} 人${pl.idle < pl.workers ? `<span class="pwarn">（空闲只有 ${pl.idle} 人）</span>` : ''}` : '';
+    document.getElementById('placeCost').innerHTML = iconize(`${costHtml}<br>${parts || '<span class="pbad">这里放不下</span>'}${ppl}`);
+  }
   isTouch() { return this.touchSeen || this.view.lowEnd || matchMedia('(pointer:coarse)').matches; }
   // 拖出来的一排（第一栋就是预览本身）
   rowSlots() {
-    const P = this.place; if (!P || !P.end || P.type === 'furnace') return null;
+    const P = this.place; if (!P || !P.end || P.type === 'furnace' || P.type === 'bp') return null;
     const sl = Sim.rowSlots(P.type, P.x, P.y, P.end.x, P.end.y);
     return sl.length > 1 ? sl : null;
   }
   updateGhost() {
     const P = this.place; if (!P) return;
+    if (P.type === 'bp') { this.updateBlueprint(); return; }
     const slots = this.rowSlots();
     if (slots) { this.updateRow(slots); return; }
     P.plan = null;
@@ -393,6 +425,7 @@ class Game {
   }
   ghostTile(px, py) {
     const P = this.place, p = this.view.pickTile(px, py); if (!P || !p) return null;
+    if (P.type === 'bp') return { x: Math.floor(p.x - P.bp.w / 2 + 0.5), y: Math.floor(p.y - P.bp.h / 2 + 0.5) };
     const s = BLD[P.type].size;
     return { x: Math.floor(p.x - s / 2 + 0.5), y: Math.floor(p.y - s / 2 + 0.5) };
   }
@@ -402,11 +435,19 @@ class Game {
   }
   // 拖一排：起点是预览所在的位置，终点跟着手指 / 鼠标
   rowTo(px, py) {
-    const P = this.place, t = this.ghostTile(px, py); if (!t || P.type === 'furnace') return;
+    const P = this.place, t = this.ghostTile(px, py); if (!t || P.type === 'furnace' || P.type === 'bp') return;
     if (!P.end || t.x !== P.end.x || t.y !== P.end.y) { P.end = t; this.updateGhost(); }
   }
   confirmPlace() {
     const P = this.place; if (!P) return;
+    if (P.type === 'bp') {
+      const r = Sim.placeBlueprint(this.S, P.bp, P.x, P.y), n = RES[P.bp.r].n;
+      if (!r.built && !r.queued) { this.ui.toast(r.reason || '这里放不下', 'warn'); this.sfx('warn'); return; }
+      this.sfx(r.built ? 'build' : 'tap');
+      this.ui.toast([`${n}线复制好了`, r.built && `马上建 ${r.built} 栋`, r.queued && `${r.queued} 栋排进建造队列`, r.failed && `${r.failed} 栋放不下`].filter(Boolean).join('，') + '。', r.failed ? 'warn' : 'good');
+      this.cancelModes();
+      return;
+    }
     if (this.confirmRow()) return;
     const r = P.type === 'furnace' ? Sim.place(this.S, P.type, P.x, P.y) : Sim.queueBuild(this.S, P.type, P.x, P.y);
     if (!r.ok) { this.ui.toast(r.reason || '不能建在这里', 'warn'); this.sfx('warn'); return; }
@@ -426,6 +467,7 @@ class Game {
     const same = P.x === ox && P.y === oy;
     if (!same && P.end) { P.end = null; this.updateGhost(); }
     if (!mouse && same && this.rowSlots()) { this.confirmRow(); return; }
+    if (P.type === 'bp') { if (mouse || same) { if (P.bpPlan && (P.bpPlan.ok || P.bpPlan.q)) this.confirmPlace(); else this.ui.toast('这里放不下这条线', 'warn'); } return; }
     if (mouse || same) {
       if (P.check && (P.check.ok || (P.check.soft && P.type !== 'furnace'))) this.confirmPlace();
       else if (P.check) this.ui.toast(P.check.reason || '不能建在这里', 'warn');
@@ -440,7 +482,7 @@ class Game {
   cancelModes(keepPanel) {
     this.place = null; this.mode = null;
     document.body.classList.remove('placing');
-    this.view.setGhost(null);
+    this.view.setGhost(null); this.view.setBlueprint(null);
     if (!keepPanel) this.scoutTarget = null;
   }
 
@@ -497,7 +539,7 @@ class Game {
         downAt = { x: e.clientX, y: e.clientY, t: performance.now() }; moved = 0;
         const P = this.mode === 'place' ? this.place : null;
         // 摆放时：鼠标左键按住拖 = 连成一排；触屏单指拖动的是预览建筑（开了「一排」就是往外拉一排）
-        rowDrag = !!P && P.type !== 'furnace' && (e.pointerType === 'mouse' ? e.button === 0 && !e.shiftKey : P.rowMode);
+        rowDrag = !!P && P.type !== 'furnace' && P.type !== 'bp' && (e.pointerType === 'mouse' ? e.button === 0 && !e.shiftKey : P.rowMode);
         dragGhost = !!P && e.pointerType !== 'mouse' && !rowDrag;
         ghostAt = P ? { x: P.x, y: P.y, end: P.end } : null;
         if (rowDrag && e.pointerType === 'mouse') { const had = P.end; P.end = null; this.moveGhostTo(e.clientX, e.clientY); if (had) this.updateGhost(); }

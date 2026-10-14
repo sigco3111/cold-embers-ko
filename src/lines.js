@@ -3,7 +3,7 @@
 import { BLD, RES, RES_KEYS, CHAPTERS } from './data.js';
 import {
   rt, dirty, getCamp, logMsg, prodRate, rateGoals, holdOf, popCap, maxWorkers, heatRadius, levelMul,
-  nextRaid, raidPrep, idleLabor, unlocked, checkPlace, HOLD,
+  nextRaid, raidPrep, idleLabor, unlocked, checkPlace, HOLD, buildCost, canAfford, pay, queueBuild, QUEUE_MAX,
 } from './sim.js';
 import { journeyOf, mainCamp, stopOf, departGate, gateFlvl } from './journey.js';
 
@@ -246,4 +246,54 @@ function nextNeeds(S, r) {
   const locked = raw.filter(([, t]) => !unlocked(S, t));
   if (locked.length) return `要${locked.map(([k]) => RES[k].n).join('、')}，得先派侦察队往北探，解锁${locked.map(([, t]) => BLD[t].n).join('、')}。`;
   return `要${[...new Set(raw.map(([k]) => RES[k].n))].join('、')}。先把这几样的矿场和采集点找好。`;
+}
+
+// ---------- 一键复制产线：从一座营地里挑出这条线的建筑，记下相对位置，拖到别处放下就排进建造队列 ----------
+export const COPY_MAX = 12;
+export function lineBlueprint(S, r, cid) {
+  const types = lineTypes(r), core = b => BLD[b.type].out && BLD[b.type].out[r];
+  if (cid == null) { // 默认挑这条线成品建筑最多的营地
+    const n = {}; for (const b of S.buildings) if (core(b)) n[b.camp] = (n[b.camp] || 0) + 1;
+    cid = +Object.keys(n).sort((a, b) => n[b] - n[a])[0];
+  }
+  const all = S.buildings.filter(b => b.camp === cid && types.has(b.type));
+  const cs = all.filter(core);
+  if (!cs.length) return null;
+  const cx = cs.reduce((a, b) => a + b.x, 0) / cs.length, cy = cs.reduce((a, b) => a + b.y, 0) / cs.length;
+  const pick = all.sort((a, b) => Math.hypot(a.x - cx, a.y - cy) - Math.hypot(b.x - cx, b.y - cy)).slice(0, COPY_MAX);
+  const x0 = Math.min(...pick.map(b => b.x)), y0 = Math.min(...pick.map(b => b.y));
+  const items = pick.map(b => ({ type: b.type, dx: b.x - x0, dy: b.y - y0 }));
+  return { r, camp: cid, items, w: Math.max(...items.map(i => i.dx + BLD[i.type].size)), h: Math.max(...items.map(i => i.dy + BLD[i.type].size)) };
+}
+// 预演：每栋能马上建（ok）、排队等材料（q）、还是放不下（bad）
+export function blueprintPlan(S, bp, ax, ay) {
+  const left = {}, extra = {}, qn = {}, plan = [], total = {};
+  let ok = 0, q = 0, bad = 0, workers = 0, camp = null;
+  for (const it of bp.items) {
+    const x = ax + it.dx, y = ay + it.dy, type = it.type;
+    const ck = checkPlace(S, type, x, y);
+    if (!ck.ok && !ck.soft) { plan.push({ type, x, y, st: 'bad', reason: ck.reason }); bad++; continue; }
+    if (BLD[type].gather && !ck.spots) { plan.push({ type, x, y, st: 'bad', reason: '附近没有资源点' }); bad++; continue; }
+    const cid = ck.camp, c = getCamp(S, cid); camp = camp ?? cid;
+    const st = left[cid] || (left[cid] = { ...c.stock });
+    const cost = buildCost(S, type, cid, y, extra[cid] || 0);
+    for (const k in cost) total[k] = (total[k] || 0) + cost[k];
+    workers += maxWorkers(type, 1);
+    if (canAfford(st, cost)) { pay(st, cost); extra[cid] = (extra[cid] || 0) + 1; plan.push({ type, x, y, st: 'ok', camp: cid }); ok++; continue; }
+    const inQ = (S.queue || []).filter(e => e.camp === cid).length + (qn[cid] || 0);
+    if (inQ >= QUEUE_MAX) { plan.push({ type, x, y, st: 'bad', reason: `这个营地已经排了 ${QUEUE_MAX} 栋在等材料` }); bad++; continue; }
+    qn[cid] = (qn[cid] || 0) + 1; plan.push({ type, x, y, st: 'q', camp: cid }); q++;
+  }
+  const c = camp != null ? getCamp(S, camp) : null;
+  return { plan, ok, q, bad, total, workers, camp, idle: c ? Math.max(0, idleLabor(S, c)) : 0 };
+}
+export function placeBlueprint(S, bp, ax, ay) {
+  const pl = blueprintPlan(S, bp, ax, ay);
+  let built = 0, queued = 0, failed = 0, reason = '';
+  for (const e of pl.plan) {
+    if (e.st === 'bad') { failed++; reason = reason || e.reason; continue; }
+    const r = queueBuild(S, e.type, e.x, e.y);
+    if (!r.ok) { failed++; reason = reason || r.reason; } else if (r.queued) queued++; else built++;
+  }
+  return { built, queued, failed, reason };
 }

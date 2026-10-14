@@ -7,7 +7,7 @@ import {
 import { W, H, T_SNOW, T_ICE, getWorld, idx, inMap, hash3, mulberry32 } from './worldgen.js';
 import { journeyOf, journeyStep, mainCamp, outpostBlock, outpostKit, moveFuel, fuelUnits, stopOf } from './journey.js';
 export * from './journey.js';
-import { linesTick, bMax, lineProd } from './lines.js';
+import { linesTick, bMax, lineProd, plinesOf } from './lines.js';
 export * from './lines.js';
 
 export const VERSION = 1;
@@ -2623,6 +2623,8 @@ export function buyEmber(S, key) {
 export const OFFLINE_RATE = 0.25;
 export function catchUp(S, secs, rate = OFFLINE_RATE) {
   const before = snapshot(S);
+  const lines0 = plinesOf(S).map(l => ({ r: l.r, main: l.main, star: l.star, made: S.stats.prod[l.r] || 0 }));
+  const stage0 = journeyOf(S).stage;
   const camp0 = new Map(S.camps.map(c => [c.id, { ...c.stock }]));
   const dt = secs > 86400 * 10 ? 120 : secs > 86400 * 2 ? 60 : secs > 3 * 3600 ? 30 : secs > 600 ? 10 : 2;
   let left = secs;
@@ -2636,6 +2638,9 @@ export function catchUp(S, secs, rate = OFFLINE_RATE) {
   if (secs >= 60) for (const c of S.camps) { const H = c.hist || (c.hist = {}); (H.off || (H.off = [])).push([Math.round(t0), Math.round(S.t)]); if (H.off.length > 16) H.off.shift(); }
   const out = diffSnap(before, snapshot(S), secs);
   out.rate = rate;
+  // 回来时的报告：每条产线这段时间做了多少、升了几颗星
+  out.lines = lines0.map(l => { const L = plinesOf(S).find(x => x.r === l.r); const made = (S.stats.prod[l.r] || 0) - l.made; return { r: l.r, main: l.main, made, per: secs > 0 ? made / secs * 60 : 0, star0: l.star, star: L ? L.star : l.star }; });
+  out.stage0 = stage0; out.stage = journeyOf(S).stage;
   return out;
 }
 // 按物资种类算全部营地的净增长，只留 rate 那一份；多出来的从涨了的营地里按涨幅扣掉（运输线来回搬的不算增长）

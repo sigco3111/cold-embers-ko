@@ -1914,6 +1914,32 @@ void main() {
     if (this.ringMat) { this.ringMat.opacity = 0.95; this.diskMat.opacity = 0.14; }
   }
 
+  // 一键复制产线的蓝图：一组不同种类的建筑，各自一块底色（绿能建、黄排队、红放不下）
+  setBlueprint(list) {
+    const pool = this.bpPool || (this.bpPool = []);
+    list = list || [];
+    for (let i = 0; i < list.length; i++) {
+      const it = list[i];
+      let e = pool[i];
+      if (e && e.type !== it.type) { this.scene.remove(e.g); e.mat.dispose(); e.pad.material.dispose(); e.pad.geometry.dispose(); e = pool[i] = null; }
+      if (!e) {
+        const { geo } = this.bgeo(it.type, 1), s = BLD[it.type].size;
+        const g = new THREE.Group(), mat = new THREE.MeshLambertMaterial({ vertexColors: true, transparent: true, opacity: 0.72, flatShading: true });
+        g.add(new THREE.Mesh(geo, mat));
+        const pad = new THREE.Mesh(new THREE.PlaneGeometry(s, s), new THREE.MeshBasicMaterial({ color: '#40e070', transparent: true, opacity: 0.45, depthWrite: false }));
+        pad.rotation.x = -Math.PI / 2; pad.position.y = 0.11; g.add(pad);
+        this.scene.add(g); e = pool[i] = { type: it.type, g, mat, pad };
+      }
+      const s = BLD[it.type].size;
+      e.g.visible = true; e.g.position.set(it.x + s / 2, 0, -(it.y + s / 2));
+      e.pad.material.color.set(it.ok ? '#40e070' : it.soft ? '#e0c040' : '#e05040');
+      e.mat.color.set(it.ok ? '#c4ffcc' : it.soft ? '#ffe49a' : '#ff9c8c');
+      e.g.children[0].visible = it.ok || it.soft;
+    }
+    for (let i = list.length; i < pool.length; i++) if (pool[i]) pool[i].g.visible = false;
+    if (this.ringMat) { this.ringMat.opacity = list.length ? 0.95 : 0.55; this.diskMat.opacity = list.length ? 0.14 : 0.06; }
+  }
+
   // ---------- 特效事件 ----------
   onFx(fx) {
     if (fx.kind === 'raid') {
