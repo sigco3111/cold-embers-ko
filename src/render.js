@@ -2139,7 +2139,7 @@ void main() {
   }
   // 镜头拉近（< 35）换上精细模型，拉远换回简单的；建筑、资源点变了也重新挑一遍
   lodSync() {
-    const d = this.cam.dist, hi = this.lodHi = this.lodHi ? d < 36.5 : d < 33.5;
+    const d = this.cam.dist, hi = this.lodHi = this.q !== 'low' && (this.lodHi ? d < 36.5 : d < 33.5); // 流畅档（手机、卡顿时自动降到这一档）一直用简模
     const sig = hi + ':' + this.bldSig + ':' + this.spotGen + ':' + (this.remGen || 0);
     if (sig === this._lodSig) return;
     this._lodSig = sig;
