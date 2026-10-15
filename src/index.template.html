@@ -866,6 +866,13 @@ body.photo #hint{display:none!important}
 .ord .prw{font-size:12px;color:#ffb27a;margin-top:4px}
 .mbox .wn{display:grid;grid-template-columns:92px 1fr;gap:10px;padding:7px 0;border-top:1px solid rgba(200,150,78,.18);font-size:13.5px;line-height:1.55}.mbox .wn b{font-family:var(--serif);color:#ffd9a0;font-size:14px}
 @media (max-width:560px){.mbox .wn{grid-template-columns:1fr;gap:2px}}
+.mbox.clbox{max-width:560px}.clog{margin-top:6px}
+.clv{border-top:1px solid rgba(200,150,78,.18);padding:2px 0}
+.clv summary{display:flex;align-items:baseline;gap:10px;cursor:pointer;padding:8px 2px;list-style:none}.clv summary::-webkit-details-marker{display:none}
+.clv summary::before{content:"›";color:var(--brass);font-size:15px;width:10px;transition:transform .15s}.clv[open] summary::before{transform:rotate(90deg)}
+.clv summary b{font-family:var(--serif);color:#ffd9a0;font-size:14.5px;flex:1}.clv summary small{color:var(--muted);font-size:11.5px;font-variant-numeric:tabular-nums}
+.clv ul{margin:0 0 8px;padding-left:22px;font-size:13.5px;line-height:1.6}.clv li{margin:2px 0}.clv li::marker{color:var(--brass)}
+.mbox .wn .wnmore{display:block;margin-top:4px;color:var(--muted);font-size:12px}
 .mbox .hint.wnfirst{color:#ffd9a0;border-top:1px solid rgba(200,150,78,.18);padding-top:8px;margin-top:8px}
 @media (max-width:560px){#coach{left:12px;right:60px;width:auto;translate:none}#coach.top{right:12px}}
 #coach .cstep{font-size:11px;color:var(--ember-hi);letter-spacing:.12em;margin-bottom:2px}
@@ -937,11 +944,8 @@ textarea{width:100%;user-select:text;font-size:11px;word-break:break-all}
 body.titled #modal{z-index:45} /* 标题画面上打开的窗口（存档位、新的北行）要盖在标题上面，不然点不到 */
 .mbox{position:relative;background:var(--panel);border:1px solid #0a0806;border-radius:6px;padding:20px 20px 16px;max-width:520px;width:100%;max-height:86vh;overflow-y:auto;user-select:text;
   box-shadow:inset 0 0 0 1px rgba(200,150,78,.5),inset 0 0 0 5px rgba(20,17,14,.9),inset 0 0 0 6px rgba(200,150,78,.25),0 10px 40px rgba(0,0,0,.7)}
-.mbox{background:var(--grain),var(--brush),var(--panel)}
-.mbox::before{content:"";position:absolute;left:10%;right:10%;top:0;height:2px;background:linear-gradient(90deg,transparent,rgba(190,228,255,.7),transparent)}
-.mbox::after{content:"";position:absolute;inset:9px;pointer-events:none;
-  background:var(--corner) top left/16px 2px no-repeat,var(--corner) top left/2px 16px no-repeat,var(--corner) top right/16px 2px no-repeat,var(--corner) top right/2px 16px no-repeat,
-  var(--corner) bottom left/16px 2px no-repeat,var(--corner) bottom left/2px 16px no-repeat,var(--corner) bottom right/16px 2px no-repeat,var(--corner) bottom right/2px 16px no-repeat}
+/* 角上的铜框和顶上的光画在背景里：长弹窗滚动时它们留在框上，不跟着内容跑 */
+.mbox{background:var(--corner) top 8px left 8px/16px 2px no-repeat,var(--corner) top 8px left 8px/2px 16px no-repeat,var(--corner) top 8px right 8px/16px 2px no-repeat,var(--corner) top 8px right 8px/2px 16px no-repeat,var(--corner) bottom 8px left 8px/16px 2px no-repeat,var(--corner) bottom 8px left 8px/2px 16px no-repeat,var(--corner) bottom 8px right 8px/16px 2px no-repeat,var(--corner) bottom 8px right 8px/2px 16px no-repeat,linear-gradient(90deg,transparent,rgba(190,228,255,.7),transparent) top center/80% 2px no-repeat,var(--grain),var(--brush),var(--panel)}
 .mbox h2{display:flex;align-items:center;gap:10px}.mbox h2::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--brass),transparent)}
 .mbox h2{margin:0 0 10px;color:var(--brass-hi);font-family:var(--serif);font-weight:900;letter-spacing:.08em;font-size:22px;text-shadow:0 0 18px rgba(255,138,43,.35)}
 .mbox h3{margin:0 0 8px;font-family:var(--serif);color:var(--brass-hi)}

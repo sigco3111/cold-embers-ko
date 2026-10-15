@@ -7,6 +7,7 @@ import { iconize } from './icons.js';
 import { chartHtml, chartHover, chartLeave, CV_COL, fmtV, dayLabel } from './curves.js';
 import { drawFlag, drawFrame } from './cosmetic.js';
 import { albumList, AlbumView, ALBUM_MAX } from './album.js';
+import { VERSION_NAME, changelogHtml } from './changelog.js';
 
 export const ICON = {
   furnace: '🔥', tent: '⛺', lumber: '🪓', nursery: '🌲', quarry: '⛏️', hunter: '🏹', sawmill: '🪚', kitchen: '🍲', warehouse: '📦', tower: '🗼', scout: '🚩', sledshed: '🛷', kennel: '🐕', workshop: '🔬', lamp: '🏮', flagpole: '🚩', infirmary: '🩺', statue: '🗽', flowerhouse: '🌷',
@@ -419,7 +420,7 @@ export class UI {
         <button class="tbtn" data-act="help">怎么玩</button>
         ${hasSave ? '<button class="tbtn ghost" data-act="title-new">新的北行</button><button class="tbtn ghost" data-act="slots">存档位</button>' : ''}
       </div></div>
-      <div class="tfoot">第十三版 · 低多边形冬日生存经营</div>`);
+      <div class="tfoot">${VERSION_NAME} · 低多边形冬日生存经营</div>`);
     el.classList.add('show'); document.body.classList.add('titled');
   }
   hideTitle() { const el = this.$('title'); el.classList.add('out'); document.body.classList.remove('titled'); setTimeout(() => { el.classList.remove('show', 'out'); el.innerHTML = ''; }, 700); }
@@ -2100,7 +2101,7 @@ export class UI {
     h += `<button class="mlink" data-act="curve"><span>📈</span><span>数据曲线<small>人口、心情、温度，物资的储量和产量怎么变的</small></span><i>›</i></button>`;
     if (!this.album) this.loadAlbum();
     h += `<div class="mrow2"><button class="mlink" data-act="photo"><span>📷</span><span>拍照模式<small>藏起界面，换时辰、滤镜、相框，拍一张（H）</small></span><i>›</i></button><button class="mlink" data-act="album"><span>📔</span><span>相册<small>${this.album ? `${this.album.length} 张 · ` : ''}一路上自动拍的和你收进来的</small></span><i>›</i></button></div>`;
-    h += `<button class="mlink" data-act="help"><span>📖</span><span>怎么玩<small>建筑、生产线、寒冷和北行的规则</small></span><i>›</i></button>`;
+    h += `<div class="mrow2"><button class="mlink" data-act="help"><span>📖</span><span>怎么玩<small>建筑、生产线、寒冷和北行的规则</small></span><i>›</i></button><button class="mlink" data-act="changelog"><span>📜</span><span>更新日志<small>${VERSION_NAME} · 每一版加了什么</small></span><i>›</i></button></div>`;
     // 声音与画面
     const tg = (k, on, ic, n, d) => `<button class="tgl ${on ? 'on' : ''}" data-act="snd" data-arg="${k}"><span class="ti">${ic}</span><span class="tt">${n}<small>${d}</small></span><i class="sw"></i></button>`;
     h += `<div class="sec">声音与画面</div><div class="tgls">${tg('sfx', g.audio.sfxOn, '🔊', '音效', '风声、炉火、敲打')}${tg('music', g.audio.musicOn, '🎵', '音乐', '低沉的旋律和铃声')}<button class="tgl ${this.floatOn !== false ? 'on' : ''}" data-act="floats"><span class="ti">✨</span><span class="tt">产出飘字<small>建筑上方冒出「+5 🪵」</small></span><i class="sw"></i></button><button class="tgl ${S.meta.hintOff ? '' : 'on'}" data-act="hintsw"><span class="ti">📜</span><span class="tt">新玩法提示<small>某样玩法第一次用得上时说一句</small></span><i class="sw"></i></button><button class="tgl ${g.sugOn ? 'on' : ''}" data-act="sugsw"><span class="ti">⭐</span><span class="tt">推荐位置<small>摆放建筑时地上标出 3 处好位置</small></span><i class="sw"></i></button></div>`;
@@ -2115,7 +2116,7 @@ export class UI {
       <div class="row"><span>存档位 <b>${g.slot}</b> / ${SLOTS}<br><small>三个存档位，各是一局</small></span><span style="flex:none"><button class="small" data-act="slots">换存档位</button></span></div>
       <div class="row"><span>难度 <b>${Sim.diffOf(S).ic}${Sim.diffOf(S).n}</b><br><small>随时可以改</small></span><span style="flex:none"><button class="small" data-act="diff">改难度</button></span></div>
       <div class="mdanger"><button class="btn ghost" data-act="wipe">删除这个存档，从头开始</button></div>
-      <div class="mfoot">寒烬北行 · 第十三版</div>`;
+      <div class="mfoot">寒烬北行 · ${VERSION_NAME}</div>`;
     return h;
   }
 
@@ -2430,6 +2431,7 @@ export class UI {
       case 'ember': res(Sim.buyEmber(S, arg)); break;
       case 'eternal': res(Sim.deliverEternal(S)); break;
       case 'help': this.modal(HELP); break;
+      case 'changelog': this.modal(changelogHtml()); this.$('modal').querySelector('.mbox').classList.add('clbox'); break;
       case 'export': g.exportCode(); break;
       case 'import': this.modal(`<p>粘贴存档码，或者选一个存成文件的存档码：</p><textarea id="importBox" rows="5"></textarea>`, [{ t: '导入', a: 'import-yes', cls: 'go' }, { t: '📂 从文件读取', a: 'importfile' }, { t: '取消', a: 'close-modal' }]); break;
       case 'importfile': g.pickCodeFile(); break;
