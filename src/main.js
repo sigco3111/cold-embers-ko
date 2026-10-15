@@ -106,7 +106,15 @@ class Game {
     this.noSave = true;
     location.reload();
   }
-  deleteSlot(n) { if (n === this.slot) return; try { localStorage.removeItem(slotKey(n)); } catch (e) {} }
+  // 删存档：别的存档位直接删；删正在玩的这一局就换到下一个有存档的位置（都没有就在这个位置从头开始）
+  nextSlot(n) { for (let k = 1; k <= SLOTS; k++) { const i = ((n - 1 + k) % SLOTS) + 1; if (i !== n && !this.slotInfo(i).empty && !this.slotInfo(i).broken) return i; } return 0; }
+  deleteSlot(n) {
+    if (n !== this.slot) { try { localStorage.removeItem(slotKey(n)); } catch (e) {} return; }
+    const nx = this.nextSlot(n);
+    try { localStorage.removeItem(slotKey(n)); localStorage.setItem(KEY + '-slot', String(nx || n)); } catch (e) { this.ui.toast('删除失败：' + e.message, 'bad'); return; }
+    this.noSave = true;
+    location.reload();
+  }
   offline(secs) {
     const S = this.S;
     const t0 = performance.now();

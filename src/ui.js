@@ -198,7 +198,7 @@ export class UI {
     const g = this.g; let rows = '';
     for (let n = 1; n <= SLOTS; n++) {
       const s = g.slotInfo(n);
-      const btns = s.cur ? '<span class="slcur">正在玩</span>'
+      const btns = s.cur ? `<span class="slcur">正在玩</span><button class="small ghost" data-act="slotdel" data-arg="${n}">删除</button>`
         : s.empty ? `<button class="small go" data-act="newrun" data-arg="${n}">开新的一局</button>`
         : `<button class="small go" data-act="slotuse" data-arg="${n}">读取</button><button class="small ghost" data-act="slotdel" data-arg="${n}">删除</button>`;
       rows += `<div class="slotrow ${s.cur ? 'cur' : ''}"><span class="sln">${n}</span><span class="sli">${this.slotLine(s)}</span><span class="slb">${btns}</span></div>`;
@@ -398,7 +398,7 @@ export class UI {
         <button class="tbtn" data-act="help">怎么玩</button>
         ${hasSave ? '<button class="tbtn ghost" data-act="title-new">新的北行</button><button class="tbtn ghost" data-act="slots">存档位</button>' : ''}
       </div></div>
-      <div class="tfoot">v11 · 低多边形冬日生存经营</div>`);
+      <div class="tfoot">第十三版 · 低多边形冬日生存经营</div>`);
     el.classList.add('show'); document.body.classList.add('titled');
   }
   hideTitle() { const el = this.$('title'); el.classList.add('out'); document.body.classList.remove('titled'); setTimeout(() => { el.classList.remove('show', 'out'); el.innerHTML = ''; }, 700); }
@@ -1947,7 +1947,7 @@ export class UI {
       <div class="row"><span>存档位 <b>${g.slot}</b> / ${SLOTS}<br><small>三个存档位，各是一局</small></span><span style="flex:none"><button class="small" data-act="slots">换存档位</button></span></div>
       <div class="row"><span>难度 <b>${Sim.diffOf(S).ic}${Sim.diffOf(S).n}</b><br><small>随时可以改</small></span><span style="flex:none"><button class="small" data-act="diff">改难度</button></span></div>
       <div class="mdanger"><button class="btn ghost" data-act="wipe">删除这个存档，从头开始</button></div>
-      <div class="mfoot">寒烬北行 · 第十二版</div>`;
+      <div class="mfoot">寒烬北行 · 第十三版</div>`;
     return h;
   }
 
@@ -2170,8 +2170,13 @@ export class UI {
       case 'title-new': this.newRunModal(); break;
       case 'slots': this.slotsModal(); break;
       case 'slotuse': g.useSlot(+arg); break;
-      case 'slotdel': { const s = g.slotInfo(+arg); this.modal(`<p>删除存档 ${arg} 里的「${esc(s.name || '')}」？这一局的所有进度（包括余烬、专家和收集册）都会消失。</p>`, [{ t: '删除', a: 'slotdel-yes', arg, cls: 'bad' }, { t: '算了', a: 'slots' }]); break; }
-      case 'slotdel-yes': g.deleteSlot(+arg); this.slotsModal(); this.toast(`存档 ${arg} 已删除。`, 'info'); break;
+      case 'slotdel': {
+        const s = g.slotInfo(+arg), nx = s.cur && g.nextSlot(+arg);
+        const then = s.cur ? `<p class="hint">删掉以后${nx ? `会读取存档 ${nx}「${esc(g.slotInfo(nx).name || '')}」` : '会从头开始一局新的北行'}。</p>` : '';
+        this.modal(`<p>删除存档 ${arg}${s.broken ? '（已经坏了）' : `里的「${esc(s.name || '')}」${s.cur ? '（正在玩的这一局）' : ''}`}？这一局的所有进度（包括余烬、专家和收集册）都会消失，不能恢复。</p>${then}`, [{ t: '删除', a: 'slotdel-yes', arg, cls: 'bad' }, { t: '算了', a: 'slots' }]);
+        break;
+      }
+      case 'slotdel-yes': if (+arg === g.slot) { g.deleteSlot(+arg); break; } g.deleteSlot(+arg); this.slotsModal(); this.toast(`存档 ${arg} 已删除。`, 'info'); break;
       case 'newrun': this.newRunModal(+arg); break;
       case 'nrslot': this.newRunModal(+arg); break;
       case 'nrdiff': this.newRunModal(this.nr.slot, arg); break;
