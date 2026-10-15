@@ -136,6 +136,14 @@ export class BigMap {
     fx.putImageData(img, 0, 0);
     ctx.save(); ctx.imageSmoothingEnabled = true; ctx.filter = `blur(${Math.max(1, k * 0.45)}px)`;
     ctx.drawImage(fc, 0, -k * 0.5, cw, ch); ctx.restore();
+    // 烽火塔：点亮的塔之间连一道光，塔的位置一团暖光
+    { const L = Sim.towerList(S);
+      if (L.length) {
+        ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        if (L.length > 1) for (const [lw, col] of [[Math.max(7, k * 1.8), 'rgba(255,170,70,.22)'], [Math.max(2, k * 0.42), 'rgba(255,228,160,.95)']]) { ctx.lineWidth = lw; ctx.strokeStyle = col; ctx.beginPath(); L.forEach((t, i) => i ? ctx.lineTo(t.x * k, Y(t.y)) : ctx.moveTo(t.x * k, Y(t.y))); ctx.stroke(); }
+        for (const t of L) { const r = k * (t.type === 'skyfire' ? 4.5 : 3), g = ctx.createRadialGradient(t.x * k, Y(t.y), 0, t.x * k, Y(t.y), r); g.addColorStop(0, 'rgba(255,240,190,1)'); g.addColorStop(0.35, 'rgba(255,190,90,.8)'); g.addColorStop(1, 'rgba(255,150,50,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(t.x * k, Y(t.y), r, 0, 7); ctx.fill(); }
+        ctx.restore();
+      } }
     // 纬度带
     ctx.font = `600 ${Math.max(10, k * 1.25)}px "Noto Serif SC",serif`; ctx.textBaseline = 'bottom';
     const bands = BAND_START.map((row, t) => [row, t]).slice(2);
@@ -174,6 +182,7 @@ export class BigMap {
       if (p.y > maxRow || taken(p.x, p.y) || (!done && !nx && S.reveal[idx(p.x, p.y)] !== 1)) continue;
       add(p.x + 0.5, p.y + 0.5, 'lm ' + (done ? 'done' : 'seen'), `<i>${done ? '🏁' : '📍'}</i><span>北境第 ${p.k} 站·${esc(p.name)} ${NORTH_RULES[p.rule].ic}</span>`);
     }
+    for (const t of Sim.towerList(S)) add(t.x, t.y, 'lm done tw', `<i>🔥</i><span>${Sim.towerName(t.n)}</span>`);
     for (const s of w.sites) {
       if (s.y > maxRow || S.reveal[idx(s.x, s.y)] !== 1 || (S.siteDone || {})[s.id]) continue;
       add(s.x + 0.5, s.y + 0.5, 'site', `<i>🧭</i><span>${esc(SITES[s.kind].n)}</span>`);

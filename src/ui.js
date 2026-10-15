@@ -1,5 +1,5 @@
 // 界面：顶部状态、资源条、底部工具栏、面板、提示
-import { BRIEF, RES, RES_KEYS, BLD, BLD_KEYS, CATS, TIER_NAMES, LANDMARKS, FAR_MARKS, SPECS, SPEC_MAX, EMBER_UPS, emberCost, specTrainCost, specBonus, FUEL, furnaceRadius, furnaceHeat, furnaceBurn, baseTempOfRow, tierOfRow, ETERNAL_STAGES, GATE, GATE_EVERY, STORY, SPOTS, SPOT_KEYS, dayCycle, LAWS, TECHS, TECH_BR, SITES, CHAPTERS, INFRA, RAIDERS, DAY_LEN, DIFF, DIFF_KEYS, SLOTS, FOCUS, FOCUS_KEYS, FOCUS_LVL, NORTH_RULES } from './data.js';
+import { BRIEF, RES, RES_KEYS, BLD, BLD_KEYS, CATS, TIER_NAMES, LANDMARKS, FAR_MARKS, SPECS, SPEC_MAX, EMBER_UPS, emberCost, specTrainCost, specBonus, FUEL, furnaceRadius, furnaceHeat, furnaceBurn, baseTempOfRow, tierOfRow, ETERNAL_STAGES, GATE, GATE_EVERY, STORY, SPOTS, SPOT_KEYS, dayCycle, LAWS, TECHS, TECH_BR, SITES, CHAPTERS, INFRA, RAIDERS, DAY_LEN, DIFF, DIFF_KEYS, SLOTS, FOCUS, FOCUS_KEYS, FOCUS_LVL, NORTH_RULES, TOWER_FX } from './data.js';
 import * as Sim from './sim.js';
 import { personOf, personState, campVoices } from './people.js';
 import { getWorld, idx, W, H } from './worldgen.js';
@@ -633,7 +633,7 @@ export class UI {
     // 头顶提示：严重的（缺料、没人、采空）一直显示小图标；轻的只在拉近时显示；仓库满了不再逐栋显示，合并到营地牌子上
     const list = [], full = new Map();
     for (const b of S.buildings) {
-      const br = R.b[b.id]; if (!br || !br.status || br.status === '运转中') continue;
+      const br = R.b[b.id]; if (!br || !br.status || br.status === '运转中' || br.status === '塔身在长') continue;
       if (br.status === '仓库满了') { full.set(b.camp, (full.get(b.camp) || 0) + 1); continue; }
       const s = BLD[b.type].size;
       if (Math.abs(b.x + s / 2 - cx) > near || Math.abs(b.y + s / 2 - cy) > near) continue;
@@ -934,7 +934,7 @@ export class UI {
     let tabs = '<div class="tabs" data-sx="btabs">';
     for (let t = 1; t <= 7; t++) tabs += `<button class="tab ${t === this.buildTier ? 'on' : ''} ${t > S.known ? 'locked' : ''} ${t !== this.buildTier && this.newBld(t).length ? 'hasnew' : ''}" data-act="btier" data-arg="${t}">${t > S.known ? '🔒' : ''}${TIER_NAMES[t]}</button>`;
     tabs += '</div>';
-    const list = BLD_KEYS.filter(k => BLD[k].t === this.buildTier && k !== 'furnace' && (!BLD[k].rule || Sim.unlocked(S, k) || Sim.countType(S, c.id, k))); // 北境地貌的建筑只在那种站里出现
+    const list = BLD_KEYS.filter(k => BLD[k].t === this.buildTier && k !== 'furnace' && (!(BLD[k].rule || BLD[k].tower) || Sim.unlocked(S, k) || Sim.countType(S, c.id, k))); // 北境地貌的建筑只在那种站里出现
     if (this.buildTier === 1) list.push('furnace');
     const seen = this.seenB(), shown = [];
     let cards = '';
@@ -1175,14 +1175,15 @@ export class UI {
     const S = this.S, b = Sim.getB(S, this.panel.arg);
     if (!b) { this.close(); return ''; }
     const d = BLD[b.type], c = Sim.getCamp(S, b.camp), R = Sim.rt(S), br = R.b[b.id] || {}, cr = R.c[c.id] || {};
-    if (part === 'title') return `${d.n} <small>${b.lvl} 级 · ${esc(c.name)}</small>`;
+    if (part === 'title') return d.tower ? `${Sim.towerName(b.tn)} <small>${esc(c.name)}</small>` : `${d.n} <small>${b.lvl} 级 · ${esc(c.name)}</small>`;
     let h = '';
     const tc = this.thumb(b.type, b.lvl);
     h += `<div class="bhero"><div class="hpic">${tc ? `<i class="th ${tc}"></i>` : ICON[b.type]}</div><div>`;
-    if (br.status) h += `<div class="status ${br.status === '运转中' || br.status === '研究中' ? 'ok' : 'bad'}">${esc(br.status)}</div>`;
+    if (br.status) h += `<div class="status ${['运转中', '研究中', '塔身在长', '塔身建好了，等点火'].includes(br.status) ? 'ok' : 'bad'}">${esc(br.status)}</div>`;
     h += `<div class="desc">${esc(d.desc)}</div></div></div>`;
     if (c.depot && b.type === 'furnace') h += this.depotHtml(c);
     else if (Sim.depotAuto(c)) h += `<button class="mlink" data-act="tb" data-arg="camp"><span>🏚️</span><span>「${esc(c.name)}」是补给站<small>自己运转，不升级。要改先在营地面板里「临时接手」</small></span><i>›</i></button>`;
+    if (d.tower) return h + this.towerHtml(b, c, br);
     if (b.type === 'workshop') { const T = S.tech || {}, ct = T.cur && TECHS.find(t => t.id === T.cur); h += `<button class="mlink" data-act="tb" data-arg="research"><span>🔬</span><span>${ct ? `正在研究「${ct.n}」 ${Math.floor(T.prog / ct.pts * 100)}%` : '挑一项研究'}<small>这座工程站每分钟 ${fmt(br.rp || 0)} 点</small></span><i>›</i></button>`; }
     const mx = Sim.bMax(S, b);
     if (mx) {
@@ -1322,6 +1323,35 @@ export class UI {
         : locked ? `<button class="btn" data-act="upgrade" data-arg="${b.id}">⬆ 升级</button>`
         : `<button class="btn qup ${b.qup ? 'on' : ''}" data-act="qup" data-arg="${b.id}" title="${b.qup ? '已排队：材料到齐自动升级（点一下取消）' : '材料到齐后自动升级'}">${b.qup ? '⏳ 已排队' : '⏳ 排队升级'}</button>`;
       h += `<div class="pfoot"><span class="pfc"><small>升到 ${b.lvl + 1} 级${b.qup && !can ? ' · 材料到了自动升' : ''}</small><span>${costHtml(c.stock, cost, S.known)}</span></span>${btn}</div>`; }
+    return h;
+  }
+
+  // 烽火塔：地基 → 塔身（几种高级材料一起喂）→ 点火
+  towerHtml(b, c, br) {
+    const S = this.S, sp = Sim.towerSpec(S, b.tn), T = b.tw, st = T.lit ? 3 : T.p >= sp.dur ? 2 : 1;
+    let h = `<div class="twsteps">${['地基', '塔身', '点火'].map((n, i) => `<span class="${i < st ? 'ok' : i === st ? 'on' : ''}">${i < st ? '✓' : i + 1} ${n}</span>`).join('<i>›</i>')}</div>`;
+    const mm = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+    if (!T.lit) {
+      h += `<div class="row"><span>塔身</span><span>${mm(T.p)} / ${mm(sp.dur)} <small>（游戏时间）</small></span></div><div class="mbar tw"><i style="width:${(T.p / sp.dur * 100).toFixed(1)}%"></i></div>`;
+      if (T.p < sp.dur) {
+        for (const k of sp.kinds) { const short = br.status === '缺' + RES[k].n, have = c.stock[k] || 0, pr = Sim.prodRate(S, k);
+          h += `<div class="row sub"><span>${RICON[k]} ${RES[k].n}</span><span>每分钟 ${fmt(sp.rate)} · 库存 ${fmt(have)} · 现在产 ${fmt(pr)}/分${short ? ' <b class="warn">缺货，塔身停着</b>' : pr < sp.rate ? ' <b class="warn">产得比塔吃得慢</b>' : ''}</span></div>`; }
+        h += `<div class="row sub"><span>搬运</span><span>${(br.dist || 0).toFixed(1)} 格 · 占用搬运工 ${fmt(br.haul || 0)}</span></div>`;
+        h += `<div class="hint">几种材料都够量时塔身才往上长，缺一种就停，但不会倒退。塔是真的把货用掉，产线要有余量；章节的产能目标照算毛产量，喂进塔里的也算。</div>`;
+        h += `<div class="row sub"><span>点火要</span><span>${costHtml(c.stock, sp.fuel, S.known)}</span></div>`;
+      } else {
+        const ck = Sim.towerIgniteCheck(S, b);
+        h += `<div class="hint">塔身砌好了。交齐燃料就能点火，光柱会一直亮着。</div>`;
+        h += `<div class="pfoot"><span class="pfc"><small>点火要</small><span>${costHtml(c.stock, sp.fuel, S.known)}</span></span><button class="btn go" data-act="ignite" data-arg="${b.id}" ${ck.ok ? '' : 'disabled'}>🔥 点火</button></div>`;
+      }
+    } else {
+      h += `<div class="row"><span>已经点亮</span><span>${fmtTime(S.t - (T.litT || S.t))}前</span></div>`;
+      h += `<div class="row sub"><span>效果</span><span>「${esc(c.name)}」希望 +${TOWER_FX.hope} · 暖圈 +${TOWER_FX.warm} 格（只管这座营地）</span></div>`;
+      h += `<div class="hint">塔顶的光柱一直亮着，营地留守还是熄火都不影响。往南望，能看见前一座塔的光。</div>`;
+    }
+    h += `<div class="row sub"><span>北境的塔</span><span>已点亮 ${Sim.towersLit(S)} / ${Sim.TOWER_N} 座</span></div>`;
+    if (!Sim.moveBlock(S, b)) h += `<button class="btn wide" data-act="movebld" data-arg="${b.id}">↔ 挪位置 <small>塔身开始长之前还能挪</small></button>`;
+    if (!T.lit && !T.p) h += `<button class="btn wide ghost" data-act="demolish" data-arg="${b.id}">拆掉地基（返还一半材料）</button>`;
     return h;
   }
 
@@ -2169,6 +2199,7 @@ export class UI {
       case 'veh': { const [bid, v, n] = String(arg).split(':'); const r = Sim.orderVeh(S, +bid, v, +n || 1); if (!r.ok) this.toast(r.reason, 'warn'); else { g.sfx('tap'); if (r.reason && +n > 1) this.toast(`排了 ${r.n} 辆，${r.reason}`, 'warn'); } break; }
       case 'vehx': { const [bid, i] = String(arg).split(':'); Sim.cancelVeh(S, +bid, +i); break; }
       case 'followtrip': g.view.followTrip = !g.view.followTrip; if (g.view.followTrip) { this.close(); this.toast('镜头跟着车队走（拖动画面就停下）'); } break;
+      case 'ignite': { const r = Sim.igniteTower(S, +arg); if (!r.ok) this.toast(r.reason, 'warn'); else this.close(); break; }
       case 'ruin': { const r = Sim.dismantleRuin(S, +arg); if (!r.ok) this.toast(r.reason, 'warn'); else { this.g.sfx('build'); this.close(); } break; }
       case 'spot': { const b = Sim.getB(S, +arg); if (b) { g.view.focus(b.x + 1, b.y + 1); this.open('bld', b.id); g.view.select(b.id); } break; }
       case 'campgo': { S.active = +arg; const c = this.camp(); g.view.focus(c.x, c.y); break; }
@@ -2322,6 +2353,14 @@ export class UI {
 }
 
 // 新手引导：给出下一步建议
+// 烽火塔这一项走到哪了：立地基 → 塔身百分比（缺什么）→ 点火
+function towerGoal(S, n) {
+  const b = S.buildings.find(x => x.tn === n && BLD[x.type].tower), nm = Sim.towerName(n);
+  if (!b) return `立${nm}的地基：建造 › 核心`;
+  const sp = Sim.towerSpec(S, n), st = (Sim.rt(S).b[b.id] || {}).status || '';
+  if (b.tw.p < sp.dur) return `${nm}塔身 ${Math.floor(b.tw.p / sp.dur * 100)}%${st.startsWith('缺') ? `：${st}` : ''}`;
+  return `${nm}的塔身砌好了：交燃料点火`;
+}
 export function nextGoal(S) {
   const has = t => S.buildings.some(b => b.type === t);
   const c0 = S.camps[0];
@@ -2349,7 +2388,7 @@ export function nextGoal(S) {
   }
   // 这一章别的任务
   const chs = Sim.chapters(S), cur = chs.find(c => c.i === J.stage);
-  if (cur) { const t = cur.tasks.find(x => !x.ok); if (t) return t.t + (t.n > 1 && !t.low ? `（${typeof t.cur === 'number' ? Math.min(t.cur, t.n) : t.cur}/${t.n}）` : ''); }
+  if (cur) { const j = cur.tasks.findIndex(x => !x.ok), t = cur.tasks[j], q = j >= 0 && Sim.chapterDef(S, cur.i).tasks[j]; if (q && q.k === 'tower') return towerGoal(S, q.tn); if (t) return t.t + (t.n > 1 && !t.low ? `（${typeof t.cur === 'number' ? Math.min(t.cur, t.n) : t.cur}/${t.n}）` : ''); }
   // 北迁门槛
   const gt = Sim.departGate(S);
   if (gt) { const m = gt.items.find(i => !i.ok); return m ? `北迁准备 ${gt.n}/4：${m.t}` : `北迁准备好了：往「${gt.next.n}」出发`; }

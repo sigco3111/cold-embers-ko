@@ -555,7 +555,7 @@ export function arrive(S, x, y) {
       camp.people += c.people;
       for (const k in c.stock) if (c.stock[k] > 0) camp.stock[k] = (camp.stock[k] || 0) + Math.floor(c.stock[k] * 0.3);
       embers += douseEmbers(S, lvl);
-      J.ruins.push({ x: c.x, y: c.y, lvl, n: c.name, t: S.t, b: S.buildings.filter(b => b.camp === c.id && b.type !== 'furnace').map(b => [b.type, b.x, b.y]) });
+      J.ruins.push({ x: c.x, y: c.y, lvl, n: c.name, t: S.t, b: S.buildings.filter(b => b.camp === c.id && b.type !== 'furnace' && !BLD[b.type].tower).map(b => [b.type, b.x, b.y]) });
       removeCamp(S, c.id, camp.id);
     } else { c.depot = true; c.auto = true; delete c.focus; delete c.manual; }
   }
@@ -709,7 +709,7 @@ export function douseDepot(S, cid) {
   const a = addPeople(S, m, n);
   for (const k in c.stock) if (c.stock[k] > 0) m.stock[k] = (m.stock[k] || 0) + Math.floor(c.stock[k] * 0.3);
   S.meta.embers += embers; S.meta.emberTotal = (S.meta.emberTotal || 0) + embers;
-  journeyOf(S).ruins.push({ x: c.x, y: c.y, lvl, n: c.name, t: S.t, b: S.buildings.filter(b => b.camp === c.id && b.type !== 'furnace').map(b => [b.type, b.x, b.y]) });
+  journeyOf(S).ruins.push({ x: c.x, y: c.y, lvl, n: c.name, t: S.t, b: S.buildings.filter(b => b.camp === c.id && b.type !== 'furnace' && !BLD[b.type].tower).map(b => [b.type, b.x, b.y]) });
   removeCamp(S, c.id, m.id);
   logMsg(S, `🕯 「${c.name}」熄火了。${n} 个人往北去了「${m.name}」${a.wait ? `（${a.wait} 人先在窝棚里等床位）` : ''}，换来 ${embers} 点余烬。`, 'story');
   rt(S).fx.push({ kind: 'douse', x: c.x, y: c.y });

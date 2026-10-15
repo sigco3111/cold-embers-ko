@@ -472,7 +472,7 @@ export function buildingGeo(type, lvl, deep = false) {
   if (d.cat === 'deco' && type !== 'flowerhouse') {
     // 小摆设不铺整块地基，只有一圈踩实的雪
     groundPad(s * 0.75, parts);
-  } else if (type !== 'furnace') foundation(K, s, vt);
+  } else if (type !== 'furnace' && !d.tower) foundation(K, s, vt);
 
   switch (type) {
     case 'furnace': {
@@ -1211,6 +1211,62 @@ export function buildingGeo(type, lvl, deep = false) {
       });
       break;
     }
+    case 'pyre': case 'skyfire': {
+      // 烽火塔：八角石台 → 一圈圈砌上去的石塔（没砌完时围着脚手架和吊杆）→ 塔顶一口铁火盆。lvl 当阶段用：1 地基，2–5 塔身 1/4…满，6 点亮
+      const stage = Math.min(6, lvl), f = stage >= 5 ? 1 : (stage - 1) / 4, sky = type === 'skyfire', on = stage >= 6;
+      const R0 = sky ? 1.45 : 1.05, FULL = sky ? 5.4 : 3.9, base = 0.42, rAt = y => R0 * (1 - 0.3 * Math.max(0, y - base) / FULL);
+      groundPad(s, parts);
+      add(G.cyl8, '#70747c', { sx: R0 * 2 + 0.75, sy: 0.24, sz: R0 * 2 + 0.75, y: 0.12, ry: Math.PI / 8, jit: 0.1 });
+      add(G.cyl8, '#868a92', { sx: R0 * 2 + 0.35, sy: 0.18, sz: R0 * 2 + 0.35, y: 0.33, ry: Math.PI / 8, jit: 0.08 });
+      for (let k = 0; k < 3; k++) box('#9aa0a8', 0.9, 0.09, 0.2, 0, 0.05 + k * 0.1, R0 + 0.62 - k * 0.15);
+      // 台子四角的石墩，上面插着铁火把架
+      for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2 + Math.PI / 4, x = Math.cos(a) * (R0 + 0.32), z = Math.sin(a) * (R0 + 0.32); box('#7c8088', 0.26, 0.34, 0.26, x, 0.55, z, { ry: a, jit: 0.1 }); box(p.metal, 0.05, 0.42, 0.05, x, 0.93, z); (on ? lit : add)(G.cone5, on ? '#ffb040' : '#4a4038', { sx: 0.13, sy: 0.18, sz: 0.13, x, y: 1.2, z }); }
+      const h = FULL * f;
+      if (h > 0) {
+        const n = Math.max(2, Math.round(h / 0.3));
+        for (let i = 0; i < n; i++) { const y0 = base + i * h / n, r = rAt(y0 + h / n / 2); add(G.cyl8, i % 2 ? '#a0968a' : '#8c8378', { sx: r * 2, sy: h / n * 0.97, sz: r * 2, y: y0 + h / n / 2, ry: Math.PI / 8 + (i % 3) * 0.035, jit: 0.07 }); }
+        for (let y = base + 0.85; y < base + h - 0.15; y += 0.85) add(G.torus16, '#4a4e56', { s: rAt(y) * 2.02, rx: Math.PI / 2, y });
+        // 竖着的八根石肋
+        for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2, r0 = rAt(base) * 0.97, r1 = rAt(base + h) * 0.97; seg('#7a736a', [Math.cos(a) * r0, base, Math.sin(a) * r0], [Math.cos(a) * r1, base + h, Math.sin(a) * r1], 0.05); }
+        // 窗缝：点亮以后透出火光
+        for (let k = 0; k < 4; k++) for (const q of [0.3, 0.55, 0.8]) {
+          const y = base + FULL * q; if (y > base + h - 0.25) continue;
+          const a = k * Math.PI / 2 + (q === 0.55 ? Math.PI / 4 : 0), r = rAt(y) * 0.99;
+          (on ? lit : add)(G.box, on ? '#ffb24a' : '#2a2622', { sx: 0.1, sy: 0.32, sz: 0.06, x: Math.cos(a) * r, y, z: Math.sin(a) * r, ry: -a + Math.PI / 2 });
+        }
+        // 门洞
+        add(G.arch, DARK, { sx: 0.5, sy: 0.5, sz: 0.2, x: 0, y: base, z: rAt(base) * 0.95 });
+        if (on) lit(G.arch, '#ff9a3a', { sx: 0.36, sy: 0.4, sz: 0.04, x: 0, y: base + 0.02, z: rAt(base) * 0.97 });
+      }
+      if (f >= 1) {
+        // 塔顶：一圈雉堞托着铁火盆，四根弯铁撑着一顶小铁冠
+        const top = base + FULL, rt = rAt(top);
+        add(G.cyl8, '#7e776d', { sx: rt * 2 + 0.3, sy: 0.18, sz: rt * 2 + 0.3, y: top + 0.09, ry: Math.PI / 8 });
+        for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2 + Math.PI / 8; box('#8c8378', 0.2, 0.22, 0.14, Math.cos(a) * (rt + 0.08), top + 0.29, Math.sin(a) * (rt + 0.08), { ry: -a }); }
+        add(G.frust12, p.metal, { sx: rt * 1.3, sy: 0.32, sz: rt * 1.3, y: top + 0.36, rx: Math.PI });
+        add(G.cyl12, on ? '#ff8a28' : '#3a3430', { sx: rt * 1.1, sy: 0.04, sz: rt * 1.1, y: top + 0.5 });
+        for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2 + Math.PI / 4; seg(p.metal, [Math.cos(a) * rt * 0.62, top + 0.48, Math.sin(a) * rt * 0.62], [Math.cos(a) * rt * 0.3, top + 1.35, Math.sin(a) * rt * 0.3], 0.035); }
+        add(G.cone8, p.metal, { sx: rt * 0.75, sy: 0.3, sz: rt * 0.75, y: top + 1.45 });
+        if (sky) for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2; add(G.oct, on ? '#ffd27a' : '#b89a5a', { sx: 0.12, sy: 0.4, sz: 0.12, x: Math.cos(a) * (rt + 0.2), y: top + 0.65, z: Math.sin(a) * (rt + 0.2) }); }
+      } else if (h > 0) {
+        // 没砌完：一圈脚手架、一根吊杆吊着石块
+        const top = base + h + 0.25, r = rAt(base + h) + 0.28;
+        for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2; box(WOOD, 0.06, top, 0.06, Math.cos(a) * r, top / 2, Math.sin(a) * r); }
+        for (let y = 0.9; y < top; y += 0.8) for (let k = 0; k < 6; k++) { const a = (k + 0.5) / 6 * Math.PI * 2; box(WOOD2, 0.05, 0.05, r * 1.02, Math.cos(a) * r * 0.87, y, Math.sin(a) * r * 0.87, { ry: -a }); }
+        seg(WOOD, [0, base + h, 0], [r + 0.4, top + 0.7, 0], 0.045);
+        seg('#d8dde4', [r + 0.4, top + 0.7, 0], [r + 0.4, top - 0.4, 0], 0.008);
+        box('#9a9086', 0.24, 0.18, 0.2, r + 0.4, top - 0.5, 0);
+      }
+      // 台边堆着的料：石块、木料，还有封好的货箱
+      if (!on) { crate(-R0 - 0.3, R0 + 0.05, 0.42, 0.3); crate(-R0 + 0.05, R0 + 0.35, 0.42, 0.24); for (let k = 0; k < 3; k++) box(k % 2 ? '#8c8378' : '#a0968a', 0.34, 0.16, 0.24, R0 + 0.3, 0.4 + k * 0.16, R0 + 0.1, { ry: k * 0.3 }); }
+      hi(() => {
+        // 精细：旗杆上的三角旗、台阶两边的石兽、塔身上的铁梯
+        for (const sg of [-1, 1]) { box(p.post, 0.04, 1.0, 0.04, sg * 0.62, 0.85, R0 + 0.55); box(on ? '#d04030' : '#8a5a3a', 0.02, 0.22, 0.3, sg * 0.62, 1.22, R0 + 0.7); }
+        for (const sg of [-1, 1]) { add(G.dode, '#80848c', { sx: 0.2, sy: 0.24, sz: 0.28, x: sg * 0.58, y: 0.5, z: R0 + 0.32 }); add(G.dode, '#80848c', { s: 0.13, x: sg * 0.58, y: 0.66, z: R0 + 0.44 }); }
+        if (h > 0.6) { const x = -rAt(base) * 0.72, z = -rAt(base) * 0.72; for (let y = base + 0.2; y < base + h - 0.2; y += 0.22) box(p.metal, 0.28, 0.025, 0.025, x, y, z, { ry: Math.PI / 4 }); }
+      });
+      break;
+    }
     case 'geowell': {
       // 地热井：石砌井沿围着一汪冒热气的泉水（边上结着黄白的矿物），井上一座钢三脚架吊着套管，阀门轮、保温管往营地那边走
       add(G.cyl12, '#6f6a66', { sx: 1.4, sy: 0.18, sz: 1.4, y: 0.21, jit: 0.08 });
@@ -1264,15 +1320,16 @@ export function buildingGeo(type, lvl, deep = false) {
     default: house(1.2, 0.8, 1.0);
   }
   // 高层级：屋檐下一圈装饰条
-  if (vt >= 4 && type !== 'furnace' && type !== 'tower') box(p.trim, s - 0.2, 0.05, 0.05, 0, 0.15, s / 2 - 0.12);
+  if (vt >= 4 && type !== 'furnace' && type !== 'tower' && !d.tower) box(p.trim, s - 0.2, 0.05, 0.05, 0, 0.15, s / 2 - 0.12);
   let flame = null, flameY = 0;
   if (type === 'furnace') {
     const r = 1.08 + 0.025 * Math.min(lvl, 20), h = 1.15 + 0.075 * Math.min(lvl, 25);
     flameY = 0.32 + h + 0.26;
     flame = merge(furnaceFlame(r, lvl));
   }
+  if (d.tower && lvl >= 6) { const sky = type === 'skyfire', R0 = sky ? 1.45 : 1.05, FULL = sky ? 5.4 : 3.9, rt = R0 * 0.7; flameY = 0.42 + FULL + 0.5; flame = merge(furnaceFlame(rt * 0.85, sky ? 20 : 10)); }
   const out = K.done();
-  return { geo: out.geo, glow: out.glow, movers: out.movers, flame, flameY, h: type === 'furnace' || type === 'beacon' ? 3 : type === 'colossus' ? 2.8 : 1.5 };
+  return { geo: out.geo, glow: out.glow, movers: out.movers, flame, flameY, h: type === 'furnace' || type === 'beacon' ? 3 : type === 'colossus' ? 2.8 : d.tower ? (type === 'skyfire' ? 6.5 : 5) : 1.5 };
 }
 
 // 熔炉的火焰：一簇歪斜的火舌，外红内黄，中心发白（原点在炭床上，便于动画缩放）

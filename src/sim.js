@@ -2,10 +2,10 @@
 import {
   RES, RES_KEYS, FUEL, FUEL_ORDER, GATE, GATE_EVERY, SPOTS, SPOT_KEYS, LANDMARKS, BAND_START,
   tierOfRow, baseTempOfRow, ETERNAL_STAGES, BLD, furnaceHeat, furnaceRadius, furnaceBurn,
-  SPECS, SPEC_MAX, specBonus, specTrainCost, EMBER_UPS, emberCost, RAIDERS, STORY, DAY_LEN, LAWS, LAW_CD, TECHS, SITES, CHAPTERS, INFRA, LM_R, FAR_MARKS, DIFF, DIFF_KEYS, FOCUS, FOCUS_KEYS, FOCUS_LVL, FOCUS_CD, NORTH_RULES, RULE_FX, NORTH_HI, NORTH_TASK, NORTH_STORY, NORTH_END,
+  SPECS, SPEC_MAX, specBonus, specTrainCost, EMBER_UPS, emberCost, RAIDERS, STORY, DAY_LEN, LAWS, LAW_CD, TECHS, SITES, CHAPTERS, INFRA, LM_R, FAR_MARKS, DIFF, DIFF_KEYS, FOCUS, FOCUS_KEYS, FOCUS_LVL, FOCUS_CD, NORTH_RULES, RULE_FX, NORTH_HI, NORTH_TASK, NORTH_STORY, NORTH_END, TOWER_STEPS, TOWER_FX,
 } from './data.js';
 import { W, H, BASE_H, setRows, rowsFor, northStop, T_SNOW, T_ICE, getWorld, idx, inMap, hash3, mulberry32 } from './worldgen.js';
-import { journeyOf, journeyStep, mainCamp, outpostBlock, outpostKit, moveFuel, fuelUnits, stopOf, depotAuto, growNext, ruleNow, campRule, ruleSpan, ruleSpans, nsOf, SPINE } from './journey.js';
+import { journeyOf, journeyStep, mainCamp, outpostBlock, outpostKit, moveFuel, fuelUnits, stopOf, depotAuto, growNext, ruleNow, campRule, ruleSpan, ruleSpans, nsOf, SPINE, northN } from './journey.js';
 export * from './journey.js';
 import { linesTick, bMax, bStar, lineProd, plinesOf, STAR_PROD } from './lines.js';
 export * from './lines.js';
@@ -279,7 +279,7 @@ function synergyOf(S, type, x, y, selfId) {
 export const SYN_PER = 0.12;
 
 // 供热圈半径：熔炉等级 + 蒸汽管道
-export function heatRadius(S, camp) { return furnaceRadius(getB(S, camp.furnace).lvl) + (camp.pipe || 0) + (firstLeg(S) ? 2 : 0) + ruleWarm(S, camp); }
+export function heatRadius(S, camp) { return furnaceRadius(getB(S, camp.furnace).lvl) + (camp.pipe || 0) + (firstLeg(S) ? 2 : 0) + ruleWarm(S, camp) + (towerLitAt(S, camp) ? TOWER_FX.warm : 0); }
 // 地貌规则改暖圈：地热谷 +3，富矿带 −2（只管这一站的主营地）
 // 暖圈变小的站（富矿带）：到站头两天照样给首程那 +2 格，抵掉 −2，先把营地铺开
 export const RICH_GRACE = 2 * DAY_LEN;
@@ -450,9 +450,9 @@ export function storeCap(S, camp) {
   for (const b of S.buildings) if (b.camp === camp.id && b.type === 'warehouse') cap += BLD.warehouse.store * Math.pow(b.lvl, 1.2);
   return Math.round(cap * (1 + techSum(S, 'cap')));
 }
-export function unlocked(S, type) { const d = BLD[type]; return d.t <= S.known && (!d.stage || journeyOf(S).stage >= d.stage) && (!d.rule || ruleNow(S) === d.rule); }
+export function unlocked(S, type) { const d = BLD[type]; return d.t <= S.known && (!d.stage || journeyOf(S).stage >= d.stage) && (!d.rule || ruleNow(S) === d.rule) && (!d.tower || !towerLock(S, type)); }
 // 永恒之炉以北的新东西：走到那一程才解锁；北境地貌的建筑：只有那种地貌的站能建
-export const stageLock = (S, type) => { const d = BLD[type]; if (d.rule && ruleNow(S) !== d.rule) return `只有在「${NORTH_RULES[d.rule].n}」的站才能建`; return d.stage && journeyOf(S).stage < d.stage ? `走到「${stopOf(S, d.stage).n}」才能建` : ''; };
+export const stageLock = (S, type) => { const d = BLD[type]; if (d.rule && ruleNow(S) !== d.rule) return `只有在「${NORTH_RULES[d.rule].n}」的站才能建`; if (d.tower && towerLock(S, type)) return towerLock(S, type); return d.stage && journeyOf(S).stage < d.stage ? `走到「${stopOf(S, d.stage).n}」才能建` : ''; };
 export const forecastOf = S => FORECAST * (journeyOf(S).stage >= 9 ? 2 : 1) * (ruleNow(S) === 'storm' ? 2 : 1); // 到了极光观测站，天气预报提前一倍；风暴走廊再早一倍
 // 加工厂不把基础建材吃光：锯木厂不会把木材全锯成木板、炼钢厂不会把铁锭用完——仓库里留两成（最多 300）给建造。
 // 只管前两层的建材；更高层的中间品本来就是为了往下加工，留料会卡住整条链
@@ -510,6 +510,7 @@ export function checkPlace(S, type, x, y, selfQ = 0, selfB = 0) {
   res.camp = camp;
   const cobj = getCamp(S, camp);
   if (d.rule && camp !== journeyOf(S).main) { res.reason = `只能建在「${NORTH_RULES[d.rule].n}」这一站的主营地`; return res; }
+  if (d.tower && camp !== journeyOf(S).main) { res.reason = `${d.n}只能建在这一站的主营地`; return res; }
   if (depotAuto(cobj)) { res.reason = `「${cobj.name}」是补给站，自己运转，不盖新房（要盖先「临时接手」）`; return res; }
   res.cost = buildCost(S, type, camp, y);
   res.dist = haulDistOf(S, camp, x, y, s, selfB || -1);
@@ -549,6 +550,7 @@ export function place(S, type, x, y) {
   const b = { id: S.nextId++, type, x, y, lvl: 1, workers: 0, camp: c.camp };
   S.buildings.push(b);
   dirty(S);
+  if (BLD[type].tower) { b.tn = northN(journeyOf(S).stage); b.tw = { p: 0 }; const sp = towerSpec(S, b.tn); logMsg(S, `🗼 ${towerName(b.tn)}的地基立起来了。塔身要${sp.kinds.map(k => RES[k].n).join('、')}各 ${sp.rate}/分钟，一起喂满 ${sp.dur / 60} 分钟，缺一种就停。`, 'story'); }
   // 默认派满人
   b.workers = Math.min(maxWorkers(type, 1), Math.max(0, idleLabor(S, camp)));
   if (b.workers < maxWorkers(type, 1)) autoAssign(S, camp);
@@ -647,6 +649,7 @@ export function upgrade(S, bid) {
   const b = getB(S, bid); if (!b) return { ok: false };
   const camp = getCamp(S, b.camp);
   if (depotAuto(camp)) return { ok: false, reason: `「${camp.name}」是补给站，自己运转，不升级（要升先「临时接手」）` };
+  if (BLD[b.type].tower) return { ok: false, reason: `${BLD[b.type].n}不用升级` };
   const cost = upgradeCost(S, b);
   if (cost.starcore && journeyOf(S).stage < RES.starcore.stage) return { ok: false, reason: `熔炉 35 级以后要用星核：走到「${stopOf(S, RES.starcore.stage).n}」才挖得到` };
   for (const k in cost) if (RES[k].t > S.known) return { ok: false, reason: `需要「${RES[k].n}」——先往北侦察到它所在的纬度` };
@@ -664,6 +667,7 @@ export function upgrade(S, bid) {
 export function demolish(S, bid) {
   const b = getB(S, bid);
   if (!b || b.type === 'furnace') return { ok: false };
+  if (BLD[b.type].tower && (b.tw.lit || b.tw.p > 0)) return { ok: false, reason: '塔身已经开始建了，拆不得' };
   const camp = getCamp(S, b.camp);
   const d = BLD[b.type];
   for (const k in d.cost) camp.stock[k] = (camp.stock[k] || 0) + Math.floor(d.cost[k] * 0.5);
@@ -680,6 +684,7 @@ export function moveBlock(S, b) {
   if (!b) return '建筑不在了';
   if (b.type === 'furnace') return '熔炉不能挪';
   if (BLD[b.type].nomove) return `${BLD[b.type].n}不能挪`;
+  if (BLD[b.type].tower && (b.tw.lit || b.tw.p > 0)) return '塔身已经开始建了，不能挪';
   if (depotAuto(getCamp(S, b.camp))) return '补给站自己运转，要挪先「临时接手」';
   return '';
 }
@@ -1160,6 +1165,7 @@ export function moodFactors(S, camp, cr) {
   { const D = diffOf(S); if (D.hope) hope.push([`难度：${D.n}`, D.hope]); }
   { const dh = decoHope(S, camp); if (dh.raw > 0) hope.push(['装饰', dh.v]); }
   if (campRule(S, camp) === 'night') hope.push(['永夜的极光', RULE_FX.nightHope]);
+  if (towerLitAt(S, camp)) hope.push(['烽火塔的光', TOWER_FX.hope]);
   { const F = focusOf(camp); if (F && F.hope) hope.push([`${F.n}营地`, F.hope]); if (F && F.disc) disc.push([`${F.n}营地`, F.disc]); }
   const glow = (camp.buffs || []).some(b => b.n === '庆典余温' && b.until > S.t);
   if (camp.fest) { hope.push(['篝火庆典', 18]); disc.push(['篝火庆典', -10]); }
@@ -1814,6 +1820,14 @@ function campStep(S, camp, dt, w) {
     demand += dem;
     plans.push({ b, d, mult, dem, br, dist });
   }
+  // 烽火塔的塔身：搬运工像给加工厂送料一样往塔里送
+  const towers = [];
+  for (const b of bs) {
+    if (!BLD[b.type].tower || !b.tw || b.tw.lit) continue;
+    const sp = towerSpec(S, b.tn), feeding = b.tw.p < sp.dur;
+    const dem = feeding ? sp.rate * sp.kinds.length / 60 * (2 * (R.dist.get(b.id) || 1) / speed + 1.5) / carry : 0;
+    demand += dem; towers.push({ b, sp, dem });
+  }
   const hf = demand > 0 ? Math.min(1, haulers / demand) : 1;
 
   // 第二遍：真正生产（上游先算）
@@ -1876,6 +1890,8 @@ function campStep(S, camp, dt, w) {
     br.deep = deepX > 0;
   }
 
+  { const offK = R.offline && R.histOff ? R.histOff.rate : 1; // 离线时塔身按离线收益的比例吃货、长进度
+    for (const t of towers) { towerFeed(S, t.b, t.sp, dt, hf, offK, st, R, t.dem); plans.push({ b: t.b, d: BLD[t.b.type], br: R.b[t.b.id], mult: 0, dem: t.dem }); } }
   // 空闲的人会在营地附近拾柴、设陷阱（保证任何时候都能慢慢恢复）
   let stalled = 0;
   for (const p of plans) stalled += p.b.workers * lf * (1 - (p.br.avail != null ? p.br.avail : 1));
@@ -2746,7 +2762,7 @@ function northChapter(S, i) {
   }
   const tasks = pair.map(r => { const n = rnd5((SPINE_RATE[r] || 6) * m); return { t: `${RES[r].n}产量稳住 ${n}/分钟`, k: 'rate', r, n }; });
   if (rich) tasks.push(rich); else if (NORTH_TASK[st.rule]) tasks.push({ ...NORTH_TASK[st.rule] });
-  if (N <= TOWER_N) tasks.push({ t: N === TOWER_N ? '点亮天火塔' : `点亮第 ${N} 座烽火塔`, k: 'tower', n: N });
+  if (N <= TOWER_N) tasks.push({ t: `点亮${towerName(N)}`, k: 'tower', tn: N, n: 1 });
   const pick = (L, salt) => L[Math.floor(hash3(S.runSeed, N, salt) * L.length) % L.length].replace('{n}', name);
   return { n: `北境第 ${N} 站 · ${name}`, story: pick(NORTH_STORY, 77), end: pick(NORTH_END, 78), tasks, north: N, rule: st.rule,
     reward: { res: { [pair[0]]: 30, [pair[1]]: 30 }, hope: 8, people: 10 } };
@@ -2762,7 +2778,69 @@ export function chapIdx(S) {
   for (let i = SPINE + 1; i <= J.stage; i++) if (i === J.stage || !C.got[i]) out.push(i);
   return out;
 }
-export function towersLit(S) { return (S.tower && S.tower.lit) || 0; }
+// ---------- 烽火塔（第十三版）：北境前十站每站一座；地基 → 塔身吃货 → 点火 ----------
+export const towerList = S => (S.tower || (S.tower = { list: [] })).list;
+export const towerLit = (S, n) => towerList(S).some(t => t.n === n);
+export const towersLit = S => towerList(S).length;
+export const towerName = n => n >= TOWER_N ? '天火塔' : `第 ${n} 座烽火塔`;
+export const towerType = n => n >= TOWER_N ? 'skyfire' : 'pyre';
+export function towerLitAt(S, camp) { return towerList(S).some(t => t.camp === camp.id); }
+// 这一站能不能建塔：北境前十站各一座，第十站是天火塔
+export function towerLock(S, type) {
+  const N = northN(journeyOf(S).stage);
+  if (!N || N > TOWER_N) return '北境前十站每站建一座烽火塔';
+  if (towerType(N) !== type) return type === 'skyfire' ? '北境第 10 站才建天火塔' : '这一站要建的是天火塔';
+  if (towerLit(S, N) || S.buildings.some(b => b.tn === N)) return '这一站的塔已经立起来了';
+  return '';
+}
+// 这座塔要喂哪几种、每种多少/分钟、喂多久、点火要什么燃料。第一种和这一站的产能目标重叠
+export function towerSpec(S, n) {
+  const R = rt(S), C = R.tspec || (R.tspec = {});
+  if (C[n]) return C[n];
+  const j = TOWER_STEPS.findIndex(q => n <= q[0]), [, nk, r0, dur] = TOWER_STEPS[Math.max(0, j)], first = j > 0 ? TOWER_STEPS[j - 1][0] + 1 : 1;
+  const rate = r0 + 0.5 * (n - first), pair = northPair(S, n);
+  const rest = NORTH_HI.filter(k => k !== pair[0]), o = Math.floor(hash3(S.runSeed, n, 131) * rest.length);
+  const kinds = [pair[0], ...rest.map((_, i) => rest[(o + i) % rest.length])].slice(0, nk);
+  const fuel = n >= TOWER_N ? { starcore: 60 } : n <= 5 ? { battery: 40 + 10 * n } : { starcore: 12 + 3 * n };
+  return (C[n] = { n, kinds, rate, dur, fuel });
+}
+function towerFeed(S, b, sp, dt, hf, offK, st, R, dem) {
+  const br = R.b[b.id] || (R.b[b.id] = {}), T = b.tw;
+  br.rate = {}; br.inRate = {}; br.want = {}; br.haul = 0; br.act = 0; br.staff = 1;
+  if (T.p >= sp.dur) { br.status = '塔身建好了，等点火'; return; }
+  if (b.moveT > S.t) { br.status = '在搬家'; return; }
+  const f = Math.min(dt * hf * offK, sp.dur - T.p), need = sp.rate * f / 60;
+  let lim = 1, whyK = null;
+  for (const k of sp.kinds) { const have = Math.max(0, st[k] || 0); if (have < need && have / need < lim) { lim = have / need; whyK = k; } }
+  for (const k of sp.kinds) { st[k] = Math.max(0, (st[k] || 0) - need * lim); br.inRate[k] = sp.rate * hf * lim; br.want[k] = sp.rate * hf; }
+  if (lim < 0.999 && T.p < sp.dur / 2) T.cut = 1; // 喂到一半以前断过货（成就用）
+  T.p = Math.min(sp.dur, T.p + f * lim);
+  br.act = lim; br.haul = dem * hf * lim;
+  br.status = lim < 0.95 ? `缺${RES[whyK].n}` : hf < 0.7 ? '搬运工不够' : '塔身在长';
+  if (T.p >= sp.dur - 1e-6) { T.p = sp.dur; logMsg(S, `🔥 ${towerName(b.tn)}的塔身建好了：交齐${Object.entries(sp.fuel).map(([k, v]) => `${RES[k].n} ${v}`).join('、')}就能点火。`, 'good', { act: 'spot', arg: b.id, label: '去点火' }); }
+}
+export function towerIgniteCheck(S, b) {
+  if (!b || !BLD[b.type].tower) return { ok: false, reason: '不是烽火塔' };
+  if (b.tw.lit) return { ok: false, reason: '已经点亮了' };
+  const sp = towerSpec(S, b.tn); if (b.tw.p < sp.dur) return { ok: false, reason: `塔身还差 ${Math.ceil((sp.dur - b.tw.p) / 60)} 分钟` };
+  const camp = getCamp(S, b.camp);
+  if (!canAfford(camp.stock, sp.fuel)) return { ok: false, reason: '缺：' + missing(camp.stock, sp.fuel).join('，'), fuel: sp.fuel };
+  return { ok: true, fuel: sp.fuel };
+}
+export function igniteTower(S, bid) {
+  const b = getB(S, bid), ck = towerIgniteCheck(S, b); if (!ck.ok) return ck;
+  const camp = getCamp(S, b.camp), s = BLD[b.type].size;
+  pay(camp.stock, ck.fuel);
+  b.tw.lit = 1; b.tw.litT = S.t;
+  towerList(S).push({ n: b.tn, x: b.x + s / 2, y: b.y + s / 2, t: S.t, camp: camp.id, type: b.type, cut: b.tw.cut ? 1 : 0 });
+  towerList(S).sort((a, c) => a.n - c.n);
+  bumpMood(camp, 8, -4);
+  revealCircle(S, camp.x, camp.y, heatRadius(S, camp) + 2);
+  dirty(S);
+  logMsg(S, `🔥 ${towerName(b.tn)}点亮了！光柱直冲天上，往南的人远远就能看见。「${camp.name}」希望 +${TOWER_FX.hope}、暖圈 +${TOWER_FX.warm} 格。`, 'story');
+  rt(S).fx.push({ kind: 'tower-lit', n: b.tn, x: b.x + s / 2, y: b.y + s / 2, bid });
+  return { ok: true };
+}
 export function chapState(S) { return S.chap || (S.chap = { ok: {}, got: {} }); }
 function chapVal(S, q) {
   switch (q.k) {
@@ -2783,7 +2861,7 @@ function chapVal(S, q) {
     case 'bldm': { const J = journeyOf(S); return S.buildings.filter(b => b.type === q.b && b.camp === J.main).length; }
     case 'ns': return Math.floor(nsOf(S)[q.f] || 0);
     case 'hhold': return Math.floor((nsOf(S).hh || 0) / 6) / 10;
-    case 'tower': return towersLit(S);
+    case 'tower': return towerLit(S, q.tn) ? 1 : 0;
   }
   return 0;
 }

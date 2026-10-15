@@ -24,7 +24,7 @@ const spineRate = {}; CHAPTERS.forEach(c => c.tasks.forEach(q => { if (q.k === '
     const ruleT = st.rule === 'rich' ? rates.find(t => !NORTH_HI.includes(t.r)) : ch.tasks.find(t => t.k === want && t.k !== 'rate');
     const tower = ch.tasks.find(t => t.k === 'tower');
     const scaled = hi.every(t => Math.abs(t.n - spineRate[t.r] * G.northMult(N)) <= (t.n >= 10 ? 0.5 : 0.25));
-    const fine = hi.length === 2 && hi[0].r !== hi[1].r && scaled && (st.rule === 'flat' ? !ruleT : !!ruleT) && (N <= 10 ? tower && tower.n === N : !tower) && ch.n.startsWith(`北境第 ${N} 站 · `) && ch.story.includes(st.short);
+    const fine = hi.length === 2 && hi[0].r !== hi[1].r && scaled && (st.rule === 'flat' ? !ruleT : !!ruleT) && (N <= 10 ? tower && tower.tn === N : !tower) && ch.n.startsWith(`北境第 ${N} 站 · `) && ch.story.includes(st.short);
     if (!fine) good = false;
     if (N <= 11 || !fine) msg.push(`${N}${st.rule}:${hi.map(t => t.r + t.n).join('+')}${ruleT ? '+' + (ruleT.f || ruleT.b || ruleT.r || ruleT.k) : ''}${tower ? '+T' : ''}`);
   }
@@ -60,7 +60,7 @@ ok(G.plinesOf(S).filter(l => l.main && l.stage === k1).length === 2, 'and become
 {
   const C = G.chapState(S); C.ok[k1 + ':0'] = 1; C.ok[k1 + ':1'] = 1;
   ok(!G.chapters(S).at(-1).done, 'tower task still open');
-  S.tower = { lit: 1 }; // 第八步才有真的塔
+  G.towerList(S).push({ n: 1, x: 0, y: 0, camp: -1 }); // 真的塔在 tower.mjs 里测
   const c = G.chapters(S).at(-1); ok(c.done, 'tower lit → chapter done');
   const m = G.mainCamp(S), em = S.meta.embers, [a, b] = G.northPair(S, 1), a0 = m.stock[a], b0 = m.stock[b];
   ok(!G.chapterReward(S, k1).some(x => /余烬/.test(x)), 'reward list has no embers: ' + G.chapterReward(S, k1).join('，'));

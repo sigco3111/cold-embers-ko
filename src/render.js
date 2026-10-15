@@ -694,6 +694,55 @@ if (uDetail > 0.0) {
 
   // ---------- 建筑 ----------
   // 同类型同外观的建筑共用一份几何体
+  // 烽火塔按建到哪一步换模型：1 地基，2–5 塔身四分之一到砌满，6 点亮
+  blvl(b) { if (!BLD[b.type].tower) return b.lvl; const T = b.tw || {}; if (T.lit) return 6; const d = Sim.towerSpec(this.S, b.tn).dur; return 1 + Math.min(4, Math.floor((T.p || 0) / d * 4 + 1e-9)); }
+  // 点亮的塔：塔顶一道光柱，营地熄火走了塔也照样立着、亮着
+  syncPillars(rdt) {
+    const S = this.S, L = Sim.towerList(S), ids = new Set(S.buildings.filter(b => BLD[b.type].tower).map(b => b.tn + ':' + b.camp));
+    const sig = L.map(t => t.n + ':' + (ids.has(t.n + ':' + t.camp) ? 1 : 0)).join(',');
+    const P = this.pillars ||= { sig: null, list: [], group: new THREE.Group() };
+    if (!P.group.parent) this.scene.add(P.group);
+    if (sig !== P.sig) {
+      const first = P.sig === null;
+      for (const e of P.list) { P.group.remove(e.g); }
+      const old = new Map(P.list.map(e => [e.n, e]));
+      P.list = L.map(t => {
+        const g = new THREE.Group(); g.position.set(t.x, 0, -t.y);
+        const sky = t.type === 'skyfire', H = sky ? 90 : 60, top = sky ? 6.3 : 4.8;
+        const tex = this.pillarTex();
+        for (const [r, op] of [[sky ? 0.5 : 0.34, 0.55], [sky ? 1.5 : 1.0, 0.2]]) {
+          const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 0.55, H, 12, 1, true), new THREE.MeshBasicMaterial({ map: tex, color: sky ? '#ffd890' : '#ffa850', transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false, toneMapped: false }));
+          m.position.y = top + H / 2; m.userData.op = op; m.renderOrder = 6; g.add(m); // 画在迷雾上面，远远就能看见
+        }
+        // 熄火的营地：塔自己立着（建筑已经不在了）
+        if (!ids.has(t.n + ':' + t.camp)) {
+          const { geo, glow, flame, flameY } = this.bgeo(t.type, 6);
+          const m = new THREE.Mesh(geo, this.matStd); m.castShadow = true; m.receiveShadow = true; g.add(m);
+          if (glow) g.add(new THREE.Mesh(glow, this.matWin));
+          if (flame) { const fl = new THREE.Mesh(flame, this.matGlow); fl.position.y = flameY; g.add(fl); g.userData.fl = fl; }
+        }
+        P.group.add(g);
+        const was = old.get(t.n);
+        return { n: t.n, g, grow: first || was ? 1 : 0, H, top };
+      });
+      P.sig = sig;
+    }
+    for (const e of P.list) {
+      if (e.grow < 1) e.grow = Math.min(1, e.grow + rdt / 2.6);
+      const k = 1 - Math.pow(1 - e.grow, 3), pulse = 0.85 + 0.15 * Math.sin(this.time * 1.7 + e.n);
+      e.g.children.forEach((m, i) => { if (i < 2) { m.scale.y = Math.max(0.001, k); m.position.y = e.top + e.H * k / 2; m.material.opacity = m.userData.op * pulse * (0.4 + 0.6 * k); } });
+      if (e.g.userData.fl) { const f = e.g.userData.fl; f.scale.y = 0.85 + 0.2 * Math.sin(this.time * 9 + e.n); }
+    }
+  }
+  pillarTex() {
+    if (this.pTex) return this.pTex;
+    const c = document.createElement('canvas'); c.width = 4; c.height = 128;
+    const x = c.getContext('2d'), gr = x.createLinearGradient(0, 0, 0, 128);
+    gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(0.55, 'rgba(255,255,255,0.35)'); gr.addColorStop(0.92, 'rgba(255,255,255,1)'); gr.addColorStop(1, 'rgba(255,255,255,0.6)');
+    x.fillStyle = gr; x.fillRect(0, 0, 4, 128);
+    this.pTex = new THREE.CanvasTexture(c); this.pTex.colorSpace = THREE.SRGBColorSpace;
+    return this.pTex;
+  }
   gkey(type, lvl) { return type === 'furnace' ? `f:${lvl}` : `${type}:${M.visTier(type, lvl)}:${type === 'tent' && lvl >= 3 ? 1 : 0}:${Math.min(20, lvl)}`; }
   bgeo(type, lvl, deep = false) {
     this.geoCache ||= new Map();
@@ -1055,7 +1104,7 @@ if (uDetail > 0.0) {
     const S = this.S;
     // 每帧都要比一次：用数字摘要，不拼长字符串（手机上少些垃圾回收）
     let sig = S.buildings.length, s2 = 7, s3 = 11;
-    for (const b of S.buildings) { sig = (sig * 31 + b.id * 131 + b.lvl * 7 + (b.deep ? 3 : 0)) | 0; s2 = (s2 * 17 + b.id + b.lvl * 1009 + b.x * 7919 + b.y * 104729) | 0; s3 = (s3 * 31 + b.id + b.x * 61 + b.y * 1031) | 0; }
+    for (const b of S.buildings) { const lv = this.blvl(b); sig = (sig * 31 + b.id * 131 + lv * 7 + (b.deep ? 3 : 0)) | 0; s2 = (s2 * 17 + b.id + lv * 1009 + b.x * 7919 + b.y * 104729) | 0; s3 = (s3 * 31 + b.id + b.x * 61 + b.y * 1031) | 0; }
     sig = S.buildings.length + ':' + sig + ':' + s2;
     if (!force && sig === this.bldSig) return;
     this.bldSig = sig;
@@ -1066,12 +1115,12 @@ if (uDetail > 0.0) {
     const seen = new Set();
     for (const b of S.buildings) {
       seen.add(b.id);
-      const vt = M.visTier(b.type, b.lvl);
-      const key = (b.type === 'furnace' ? `${b.lvl}` : `${vt}:${b.type === 'tent' && b.lvl >= 3 ? 1 : 0}:${Math.min(20, b.lvl)}${b.deep ? ':d' : ''}`) + `@${b.x},${b.y}`; // 挪了位置也要重摆
+      const lv = this.blvl(b), vt = M.visTier(b.type, lv);
+      const key = (b.type === 'furnace' ? `${lv}` : `${vt}:${b.type === 'tent' && lv >= 3 ? 1 : 0}:${Math.min(20, lv)}${b.deep ? ':d' : ''}`) + `@${b.x},${b.y}`; // 挪了位置也要重摆
       let e = this.buildings.get(b.id);
       if (e && e.key === key) continue;
       if (e) { this.bldGroup.remove(e.g); if (e.scaf) this.bldGroup.remove(e.scaf); }
-      const { geo, glow, h, flame, flameY } = this.bgeo(b.type, b.lvl, !!b.deep);
+      const { geo, glow, h, flame, flameY } = this.bgeo(b.type, lv, !!b.deep);
       const g = new THREE.Group();
       const m = new THREE.Mesh(geo, this.matStd); m.castShadow = true; m.receiveShadow = true; g.add(m);
       if (glow) g.add(new THREE.Mesh(glow, this.matWin));
@@ -2112,6 +2161,7 @@ void main() {
     this.syncFireWall(dt);
     this.syncFocus();
     this.syncRings();
+    this.syncPillars(rdt);
     this.syncLines();
     if (R.infraDirty) { R.infraDirty = false; this.buildPaths(); }
     if ((R.mapGrew || 0) !== this.mapGrew) { this.mapGrew = R.mapGrew || 0; this.regrow(); }

@@ -120,6 +120,9 @@ export const RULE_FX = { geoWarm: 3, geoFuel: 0.7, richWarm: -2, nightFuel: 1.2,
 export const NORTH_RULE_KEYS = Object.keys(NORTH_RULES);
 // 北境每站一章：两条产能目标从六种高级材料里轮着抽，加一条地貌任务，前十站各一座烽火塔
 export const NORTH_HI = ['part', 'battery', 'alloy', 'core', 'starcore', 'heart'];
+// 烽火塔：第 1–3 座 2 种材料 4–5/分钟喂 10 分钟；4–6 座 3 种 5–6/分钟 12 分钟；7–9 座 4 种 6–7/分钟 15 分钟；天火塔 6 种 6/分钟 20 分钟
+export const TOWER_STEPS = [[3, 2, 4, 600], [6, 3, 5, 720], [9, 4, 6, 900], [10, 6, 6, 1200]];
+export const TOWER_FX = { hope: 5, warm: 1 };
 export const NORTH_TASK = {
   geo:    { t: '建 2 座地热井', k: 'bldm', b: 'geowell', n: 2 },
   lakes:  { t: '建 2 座冰钓屋', k: 'bldm', b: 'icefish', n: 2 },
@@ -219,6 +222,7 @@ export const BLD = {
   colossus:  { n: '巨像守卫', t: 7, stage: 10, size: 3, cat: 'defense', w: 4, power: 0, guardCd: 3600, desc: '照着冻结的巨像造的石头守卫。派了人就能挡住一整次袭营，之后要歇一小时（升级歇得更短）。', cost: { alloy: 300, part: 120, core: 6 } },
   starpit:   { n: '星核矿', t: 7, stage: 11, size: 2, cat: 'gather', w: 6, gather: ['starfall'], out: { starcore: 2 }, reach: 3, desc: '在星落之坑的坑底凿出发紫光的星核。熔炉 35 级以后升级要用。', cost: { alloy: 260, part: 100, core: 4 } },
   // 北境地貌才能建的（rule：只有在这种地貌的站、主营地里才能建）
+  pyre:      { n: '烽火塔', t: 7, tower: 1, size: 3, cat: 'core', w: 0, desc: '北境每站一座的烽火塔：交齐地基材料就立起来，塔身要持续喂高级材料，喂满了交燃料点火。点亮后这座营地希望 +5、暖圈 +1，光柱一直亮着，给身后的人指路。', cost: { steel: 600, alloy: 200, part: 120 } },
   geowell:   { n: '地热井', t: 5, rule: 'geo', size: 2, cat: 'live', w: 1, heat: 5, hreach: 5, desc: '打到地下的热泉：不烧燃料就能给全营地加温，并在周围 5 格内扩展可建造区。只有地热谷能打。', cost: { steel: 120, gear: 30, alloy: 20 } },
   icefish:   { n: '冰钓屋', t: 5, rule: 'lakes', size: 2, cat: 'gather', w: 2, gather: ['fish'], out: { food: 6 }, reach: 3, desc: '在冰面上凿洞钓鱼，鱼烤一烤就能吃：直接产熟食，不用厨房。要建在冰钓点旁边，只有冰湖群才有。', cost: { plank: 80, steel: 30 }, syn: ['tent', 'kitchen'] },
   forge:     { n: '炉心锻造所', t: 7, size: 2, cat: 'make', w: 6, in: { shard: 3, part: 2, alloy: 2 }, out: { heart: 0.6 }, desc: '锻造永恒炉件，用来重新点燃永恒之炉。', cost: { alloy: 250, part: 120, core: 5 }, syn: ['excavator'] },
