@@ -1,10 +1,12 @@
 // 寒烬北行 · 产线：主线和支线、升星、累计产量里程碑、规划器的配比、老向导
 // 一条产线 = 一种材料 + 一路给它供料的上游建筑。主线由这一程给，支线自己立
-import { BLD, RES, RES_KEYS, CHAPTERS, SPOTS } from './data.js';
+import { BLD, RES, RES_KEYS, CHAPTERS, SPOTS, SPOT_KEYS } from './data.js';
 import {
   rt, dirty, getCamp, logMsg, prodRate, rateGoals, holdOf, popCap, maxWorkers, heatRadius, levelMul,
   nextRaid, raidPrep, idleLabor, unlocked, checkPlace, HOLD, buildCost, canAfford, pay, queueBuild, QUEUE_MAX, ORE_URGENT, gatherTypeFor,
+  servedSpots, spotLeft, moveBlock,
 } from './sim.js';
+import { getWorld, idx, W } from './worldgen.js';
 import { journeyOf, mainCamp, stopOf, departGate, gateFlvl, depotAuto } from './journey.js';
 
 export const STAR_T = [600, 1800, 5400];        // 稳住 10、30、90 分钟（游戏时间）升一颗星
@@ -193,13 +195,30 @@ export function freeLand(S, camp) {
 
 // 采集建筑在供热圈里还有没有能挖到矿的位置（矿点旁边被别的建筑占了、太冷、地不平都算没有）
 export function gatherRoom(S, camp, type) {
-  const R = rt(S), r = heatRadius(S, camp), key = `${camp.id}:${type}:${r}:${S.buildings.length}:${R.revealN || 0}`;
+  const R = rt(S), r = heatRadius(S, camp), key = `${camp.id}:${type}:${r}:${S.buildings.length}:${S.lay || 0}:${R.revealN || 0}`;
   const C = R.groom || (R.groom = {});
   if (C[type] && C[type].key === key) return C[type].ok;
   let ok = false;
   for (let y = Math.floor(camp.y - r); y <= camp.y + r && !ok; y++) for (let x = Math.floor(camp.x - r); x <= camp.x + r; x++) { const q = checkPlace(S, type, x, y); if (q.ok && q.spots > 0) { ok = true; break; } }
   C[type] = { key, ok };
   return ok;
+}
+
+// 矿点旁边最挡路的那栋（离一处没人挖的矿最近的非采集建筑）
+function blockerOf(S, camp, type) {
+  const w = getWorld(S.runSeed), kinds = BLD[type].gather.map(k => SPOT_KEYS.indexOf(k)), r = heatRadius(S, camp), served = servedSpots(S);
+  let best = null, bd = 4.5;
+  for (let y = Math.floor(camp.y - r); y <= camp.y + r; y++) for (let x = Math.floor(camp.x - r); x <= camp.x + r; x++) {
+    if (x < 0 || x >= W || (x + 0.5 - camp.x) ** 2 + (y + 0.5 - camp.y) ** 2 > r * r) continue;
+    const i = idx(x, y);
+    if (!kinds.includes(w.spot[i]) || served.has(i) || !S.reveal[i] || spotLeft(S, i) <= 0) continue;
+    for (const b of S.buildings) {
+      if (b.camp !== camp.id || BLD[b.type].gather || b.type === 'furnace' || moveBlock(S, b)) continue;
+      const s = BLD[b.type].size, d = Math.hypot(Math.max(b.x - x, 0, x - (b.x + s - 1)), Math.max(b.y - y, 0, y - (b.y + s - 1)));
+      if (d < bd) { bd = d; best = b; }
+    }
+  }
+  return best;
 }
 
 // ---------- 老向导：一次只说一句，按急事 → 主线卡在哪 → 人手和地盘 → 下一程的方向 ----------
@@ -255,13 +274,17 @@ export function advisor(S) {
       const why = by ? `${BLD[by.type].n}要 ${fmtR(w.need)}/分，${BLD[w.type].n}只供 ${fmtR(w.prod)}/分` : `目标 ${fmtR(w.need)}/分，现在 ${fmtR(w.prod)}/分`;
       let fix = w.workers < w.count * maxWorkers(w.type, w.lvl) ? '先把人派满' : `再建 ${Math.max(1, Math.ceil((w.need - w.prod) / Math.max(0.1, w.one)))} 座，或者升级`;
       // 采集建筑没地方放了：矿点旁边都被占了
-      if (fix.startsWith('再建') && BLD[w.type].gather && !gatherRoom(S, main, w.type)) fix = `可${RES[w.k].n}矿点旁边已经放不下${BLD[w.type].n}了（被别的建筑占着，或者在供热圈外）：拆掉矿点旁边的一两座建筑，或者升熔炉扩大供热圈，侦察营也能勘探新矿脉`;
+      let blk = null;
+      if (fix.startsWith('再建') && BLD[w.type].gather && !gatherRoom(S, main, w.type)) {
+        blk = blockerOf(S, main, w.type);
+        fix = `可${RES[w.k].n}矿点旁边已经放不下${BLD[w.type].n}了（被别的建筑占着，或者在供热圈外）：${blk ? `把矿点旁边的${BLD[blk.type].n}挪开（点它，选「挪位置」，不花材料）` : '把矿点旁边的一两座建筑挪开（点建筑，选「挪位置」）'}，或者升熔炉扩大供热圈，侦察营也能勘探新矿脉`;
+      }
       // 没有闲人：这条线上产得太多的一环，可以撤人过来
       if (fix.startsWith('再建') && P.idle < (BLD[w.type].w || 1)) {
         const over = P.nodes.filter(x => x.type && x.workers > 0 && x.ratio > 1.8 && x.k !== g.r).sort((a, b) => b.ratio - a.ratio)[0];
         if (over) fix = `没有闲人了：${BLD[over.type].n}产 ${fmtR(over.prod)}/分，这条线只要 ${fmtR(over.need)}/分，可以从那边撤几个人过来`;
       }
-      return { pri: 1, kind: 'line', text: `${RES[g.r].n}线卡在${RES[w.k].n}：${why}。${fix}。`, act: 'plan', arg: g.r };
+      return { pri: 1, kind: 'line', text: `${RES[g.r].n}线卡在${RES[w.k].n}：${why}。${fix}。`, act: blk ? 'spot' : 'plan', arg: blk ? blk.id : g.r };
     }
   }
   // 人手和地盘

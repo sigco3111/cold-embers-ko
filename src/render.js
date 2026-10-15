@@ -993,7 +993,7 @@ if (uDetail > 0.0) {
     const S = this.S;
     // 每帧都要比一次：用数字摘要，不拼长字符串（手机上少些垃圾回收）
     let sig = S.buildings.length, s2 = 7, s3 = 11;
-    for (const b of S.buildings) { sig = (sig * 31 + b.id * 131 + b.lvl * 7 + (b.deep ? 3 : 0)) | 0; s2 = (s2 * 17 + b.id + b.lvl * 1009) | 0; s3 = (s3 * 31 + b.id) | 0; }
+    for (const b of S.buildings) { sig = (sig * 31 + b.id * 131 + b.lvl * 7 + (b.deep ? 3 : 0)) | 0; s2 = (s2 * 17 + b.id + b.lvl * 1009 + b.x * 7919 + b.y * 104729) | 0; s3 = (s3 * 31 + b.id + b.x * 61 + b.y * 1031) | 0; }
     sig = S.buildings.length + ':' + sig + ':' + s2;
     if (!force && sig === this.bldSig) return;
     this.bldSig = sig;
@@ -1005,7 +1005,7 @@ if (uDetail > 0.0) {
     for (const b of S.buildings) {
       seen.add(b.id);
       const vt = M.visTier(b.type, b.lvl);
-      const key = b.type === 'furnace' ? `${b.lvl}` : `${vt}:${b.type === 'tent' && b.lvl >= 3 ? 1 : 0}:${Math.min(20, b.lvl)}${b.deep ? ':d' : ''}`;
+      const key = (b.type === 'furnace' ? `${b.lvl}` : `${vt}:${b.type === 'tent' && b.lvl >= 3 ? 1 : 0}:${Math.min(20, b.lvl)}${b.deep ? ':d' : ''}`) + `@${b.x},${b.y}`; // 挪了位置也要重摆
       let e = this.buildings.get(b.id);
       if (e && e.key === key) continue;
       if (e) { this.bldGroup.remove(e.g); if (e.scaf) this.bldGroup.remove(e.scaf); }

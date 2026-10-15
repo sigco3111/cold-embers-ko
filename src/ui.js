@@ -765,7 +765,7 @@ export class UI {
     } else if (this.g.place && this.g.place.check) {
       const P = this.g.place, ck = P.check, s = BLD[P.type].size;
       const p = v.project(P.x + s / 2, P.y + s / 2, 2.6);
-      let t = ck.ok ? (ck.clears ? `✓ 可以建（清掉 ${ck.clears} 处树木/碎石）` : '✓ 可以建') : esc(ck.reason);
+      let t = ck.ok ? (P.move ? '✓ 挪到这里' : ck.clears ? `✓ 可以建（清掉 ${ck.clears} 处树木/碎石）` : '✓ 可以建') : esc(ck.reason);
       if (ck.blocks && ck.blocks.length) t += `<br><b class="gwarn">⚠ 会挡住旁边的${ck.blocks.join('、')}</b>`;
       if (ck.camp >= 0 && P.type !== 'furnace') {
         t += `<br>到仓库 ${ck.dist.toFixed(1)} 格`;
@@ -1295,6 +1295,7 @@ export class UI {
     if (g > d.t) h += `<div class="row sub"><span>门槛</span><span>${b.lvl} 级以上要用「${TIER_NAMES[g]}」层的${RES[GATE[g]].n}${RES[GATE[g]].t > S.known ? '（还没解锁）' : ''}</span></div>`;
     else { const nextGate = (Math.floor(b.lvl / GATE_EVERY) + 1) * GATE_EVERY; if (d.t < 7) h += `<div class="row sub"><span>门槛</span><span>${nextGate} 级起需要「${TIER_NAMES[d.t + 1]}」层的${RES[GATE[d.t + 1]].n}</span></div>`; }
     h += `</div>`;
+    if (b.type !== 'furnace' && !Sim.moveBlock(S, b)) h += `<button class="btn wide" data-act="movebld" data-arg="${b.id}">↔ 挪位置 <small>不花材料，等级和工人都留着</small></button>`;
     if (b.type !== 'furnace') h += `<button class="btn wide ghost" data-act="demolish" data-arg="${b.id}">拆除（返还一半基础材料）</button>`;
     // 升级按钮钉在面板底部，往下翻也一直看得到
     { const can = Sim.canAfford(c.stock, cost), locked = Object.keys(cost).some(k => RES[k].t > S.known);
@@ -2118,6 +2119,7 @@ export class UI {
         this.renderPanel(true); break;
       }
       case 'upgrade': if (res(Sim.upgrade(S, +arg)).ok) { g.sfx('up'); } break;
+      case 'movebld': g.startMove(+arg); break;
       case 'demolish': this.modal(`<p>确定拆除这座建筑？返还一半基础材料。</p>`, [{ t: '拆除', a: 'demolish-yes', arg, cls: 'bad' }, { t: '算了', a: 'close-modal' }]); break;
       case 'demolish-yes': Sim.demolish(S, +arg); this.closeModal(); this.close(); break;
       case 'unspec': Sim.assignSpec(S, arg, null); break;

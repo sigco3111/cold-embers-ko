@@ -453,7 +453,7 @@ const BUILD_MAT = new Set(); for (const t in BLD) for (const k in BLD[t].cost ||
 export function isBuildMat(k) { return BUILD_MAT.has(k); }
 export function keepOf(camp, k, cap) { return camp.keep !== false && BUILD_MAT.has(k) ? Math.min(KEEP_MAX, cap * KEEP_FRAC) : 0; }
 
-export function checkPlace(S, type, x, y, selfQ = 0) {
+export function checkPlace(S, type, x, y, selfQ = 0, selfB = 0) {
   const d = BLD[type];
   const s = d.size;
   const w = getWorld(S.runSeed);
@@ -471,7 +471,7 @@ export function checkPlace(S, type, x, y, selfQ = 0) {
       if (!CLEARABLE[SPOT_KEYS[w.spot[i]]]) { res.reason = '这里是矿点：建在旁边，用对应的采集建筑开采'; return res; }
       res.clears = (res.clears || 0) + 1;
     }
-    { const o = occAt(S, xx, yy); if (o && o !== -selfQ) { res.reason = o < 0 ? '这里已经排了一栋等材料的建筑' : '和其他建筑重叠'; return res; } }
+    { const o = occAt(S, xx, yy); if (o && o !== -selfQ && (!selfB || o !== selfB)) { res.reason = o < 0 ? '这里已经排了一栋等材料的建筑' : '和其他建筑重叠'; return res; } }
     if (landmarkBlock(xx, yy, S)) { res.reason = '地标遗迹占着这里'; return res; }
     if (siteAt(S, xx, yy, 1)) { res.reason = '这里有一处遗迹'; return res; }
     if (caravanAt(S, xx, yy)) { res.reason = '商队的雪橇停在这里'; return res; }
@@ -503,9 +503,9 @@ export function checkPlace(S, type, x, y, selfQ = 0) {
   const cobj = getCamp(S, camp);
   if (depotAuto(cobj)) { res.reason = `「${cobj.name}」是补给站，自己运转，不盖新房（要盖先「临时接手」）`; return res; }
   res.cost = buildCost(S, type, camp, y);
-  res.dist = haulDistOf(S, camp, x, y, s, -1);
+  res.dist = haulDistOf(S, camp, x, y, s, selfB || -1);
   if (d.gather) res.spots = findSpots(S, type, x, y).filter(p => spotLeft(S, p.i) > 0).length;
-  res.syn = synergyOf(S, type, x, y, -1);
+  res.syn = synergyOf(S, type, x, y, selfB || -1);
   if (!canAfford(cobj.stock, res.cost)) { res.reason = '缺：' + missing(cobj.stock, res.cost).join('，'); res.soft = true; return res; }
   res.ok = true;
   return res;
@@ -659,6 +659,38 @@ export function demolish(S, bid) {
   S.belts = (S.belts || []).filter(e => e.a !== bid && e.b !== bid);
   dirty(S);
   return { ok: true };
+}
+
+// ---------- 挪建筑（第十三版）：同一个营地的暖圈里换个地方，等级、工人、专家都留着，不花材料，停工 30 秒 ----------
+export const MOVE_PAUSE = 30;
+export function moveBlock(S, b) {
+  if (!b) return '建筑不在了';
+  if (b.type === 'furnace') return '熔炉不能挪';
+  if (BLD[b.type].nomove) return `${BLD[b.type].n}不能挪`;
+  if (depotAuto(getCamp(S, b.camp))) return '补给站自己运转，要挪先「临时接手」';
+  return '';
+}
+export function checkMove(S, id, x, y) {
+  const b = getB(S, id), why = moveBlock(S, b);
+  if (why) return { ok: false, reason: why, camp: -1 };
+  const ck = checkPlace(S, b.type, x, y, 0, id);
+  if (!ck.ok && !ck.soft) return ck;
+  if (ck.camp !== b.camp) return { ...ck, ok: false, soft: false, reason: '只能在同一个营地的暖圈里挪' };
+  if (x === b.x && y === b.y) return { ...ck, ok: false, soft: false, reason: '还在原来的地方' };
+  ck.ok = true; ck.soft = false; ck.reason = ''; ck.cost = null;
+  ck.belts = (S.belts || []).filter(e => e.a === id || e.b === id).length;
+  return ck;
+}
+export function moveBuilding(S, id, x, y) {
+  const ck = checkMove(S, id, x, y); if (!ck.ok) return ck;
+  const b = getB(S, id);
+  for (const e of (S.belts || []).filter(e => e.a === id || e.b === id)) removeBelt(S, e.id); // 连着的传送带拆掉，退一半材料
+  clearFootprint(S, b.type, x, y, b.camp);
+  b.x = x; b.y = y; b.moveT = S.t + MOVE_PAUSE;
+  const wasDeep = !!b.deep; b.deep = 0; // 深井留在原地
+  S.lay = (S.lay || 0) + 1;
+  dirty(S);
+  return { ok: true, wasDeep, belts: ck.belts };
 }
 
 // ---------- 传送带 / 蒸汽轨道：挨着的上下游直接供料，省搬运工，下游也快一点 ----------
@@ -1611,6 +1643,7 @@ function campStep(S, camp, dt, w) {
     const mult = levelMul(b.lvl) * (1 + prodBonus(S, b, camp, syn, beltB).sum) * staff * workEff * prodMul * (ev && ev.kind === 'ice' && BLD[b.type].cat === 'gather' ? WXE_ICE_GATHER : 1);
     const br = R.b[b.id] || (R.b[b.id] = {});
     br.staff = staff;
+    if (b.moveT > S.t) { br.act = 0; br.status = '在搬家'; br.haul = 0; br.rate = {}; br.inRate = {}; br.want = {}; br.dep = 0; continue; }
     if (mult <= 0) { br.act = 0; br.status = b.workers ? '没人干活' : '没有派人'; br.haul = 0; continue; }
     const dist = R.dist.get(b.id) || 1;
     let units = 0;
@@ -2064,7 +2097,7 @@ function oreRoom(S, i, cid, avoid) {
 }
 // 摆放预演：放在 (x, y) 会不会占掉某处矿旁边最后的采集位。返回被挡住的矿的名字（没有就是空数组）
 export function blocksOre(S, type, x, y, cid) {
-  const R = rt(S), key = `${type}:${x}:${y}:${cid}:${S.buildings.length}:${(S.queue || []).length}:${R.revealN || 0}`;
+  const R = rt(S), key = `${type}:${x}:${y}:${cid}:${S.buildings.length}:${S.lay || 0}:${(S.queue || []).length}:${R.revealN || 0}`;
   if (R.boKey === key) return R.boVal;
   const w = getWorld(S.runSeed), s = BLD[type].size, foot = [];
   for (let yy = y; yy < y + s; yy++) for (let xx = x; xx < x + s; xx++) if (inMap(xx, yy)) foot.push(idx(xx, yy));

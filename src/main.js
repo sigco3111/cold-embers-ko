@@ -374,6 +374,21 @@ class Game {
     document.getElementById('placePic').innerHTML = tc ? `<i class="th ${tc}"></i>` : iconize(ICON[type]);
     this.updateGhost();
   }
+  // 挪建筑：预览从原来的位置开始，放下就挪过去（不花材料，停工 30 秒）
+  startMove(id) {
+    const S = this.S, b = Sim.getB(S, id); if (!b) return;
+    const why = Sim.moveBlock(S, b); if (why) { this.ui.toast(why, 'warn'); return; }
+    this.cancelModes(); this.ui.close();
+    this.place = { type: b.type, move: id, x: b.x, y: b.y, check: null, end: null, rowMode: false };
+    this.mode = 'place';
+    document.getElementById('placeRow').style.display = 'none';
+    document.body.classList.add('placing');
+    document.getElementById('placeName').textContent = `挪${BLD[b.type].n}`;
+    const tc = this.ui.thumb(b.type, Math.min(b.lvl, 20));
+    document.getElementById('placePic').innerHTML = tc ? `<i class="th ${tc}"></i>` : iconize(ICON[b.type]);
+    const s = BLD[b.type].size; this.view.focus(b.x + s / 2, b.y + s / 2);
+    this.updateGhost();
+  }
   // 车队到了：在地标附近挑一块地放下新熔炉（预览先放在推荐的位置）
   startArrive() {
     const S = this.S, T = Sim.journeyOf(S).trip;
@@ -435,7 +450,7 @@ class Game {
   isTouch() { return this.touchSeen || this.view.lowEnd || matchMedia('(pointer:coarse)').matches; }
   // 拖出来的一排（第一栋就是预览本身）
   rowSlots() {
-    const P = this.place; if (!P || !P.end || P.type === 'furnace' || P.type === 'bp') return null;
+    const P = this.place; if (!P || !P.end || P.type === 'furnace' || P.type === 'bp' || P.move) return null;
     const sl = Sim.rowSlots(P.type, P.x, P.y, P.end.x, P.end.y);
     return sl.length > 1 ? sl : null;
   }
@@ -446,7 +461,7 @@ class Game {
     const slots = this.rowSlots();
     if (slots) { this.updateRow(slots); return; }
     P.plan = null;
-    P.check = Sim.checkPlace(this.S, P.type, P.x, P.y);
+    P.check = P.move ? Sim.checkMove(this.S, P.move, P.x, P.y) : Sim.checkPlace(this.S, P.type, P.x, P.y);
     // 会不会把旁边的矿挡住（占掉它最后的采集位）：照样能放，只是先提醒
     P.check.blocks = (P.check.ok || P.check.soft) && P.type !== 'furnace' && P.check.camp >= 0 ? Sim.blocksOre(this.S, P.type, P.x, P.y, P.check.camp) : [];
     this.placeHints();
@@ -463,6 +478,11 @@ class Game {
     btn.disabled = !P.check.ok && !canQ; btn.classList.toggle('q', canQ); btn.title = canQ ? '加入建造队列' : '确认建造';
     const costHtml = P.check.cost ? Object.keys(P.check.cost).map(k => `<span class="${(this.S.camps.find(c => c.id === P.check.camp) || {stock: {}}).stock[k] >= P.check.cost[k] ? '' : 'miss'}">${RICON[k]}${fmt(P.check.cost[k])}</span>`).join(' ') : '';
     const touch = this.view.lowEnd || matchMedia('(pointer:coarse)').matches;
+    if (P.move) {
+      const mb = Sim.getB(this.S, P.move), extra = [P.check.belts && `连着的 ${P.check.belts} 条传送带会拆掉（退一半材料）`, mb && mb.deep && '深井留在原地，挪过去就是普通矿场了', blk && `会挡住旁边的${P.check.blocks.join('、')}`].filter(Boolean);
+      document.getElementById('placeCost').innerHTML = iconize(`<span class="pok">不花材料，挪过去停工 ${Sim.MOVE_PAUSE} 秒，等级和工人都留着</span><br>${P.check.ok ? (extra.length ? `<span class="pwarn">${extra.join('；')}</span>` : `<span class="pok">${touch ? '再点一次或按 ✓ 挪过去' : '点击地面挪过去'}</span>`) : `<span class="pbad">${P.check.reason}</span>`}`);
+      return;
+    }
     const why = P.check.ok ? (blk ? `<span class="pwarn">会挡住旁边的${P.check.blocks.join('、')}：放下以后那里再也放不下采集建筑</span>` : P.check.clears ? `<span class="pwarn">会清掉 ${P.check.clears} 处树木/碎石</span>` : `<span class="pok">${touch ? '再点一次或按 ✓ 建造' : '点击地面建造'}</span>`)
       : canQ ? `<span class="pwarn">${P.check.reason} · ${touch ? '再点一次或按 ✓' : '点击地面'}排进建造队列，材料到了自动开工</span>` : `<span class="pbad">${P.check.reason}</span>`;
     const rowTip = P.type !== 'furnace' && (P.check.ok || canQ) ? (touch ? (P.rowMode ? ' · 拖动拉出一排' : '') : ' · 按住拖动连成一排') : '';
@@ -525,6 +545,15 @@ class Game {
       this.cancelModes();
       return;
     }
+    if (P.move) {
+      const id = P.move, r = Sim.moveBuilding(this.S, id, P.x, P.y);
+      if (!r.ok) { this.ui.toast(r.reason || '不能挪到这里', 'warn'); this.sfx('warn'); return; }
+      this.sfx('build'); this.cancelModes();
+      const b = Sim.getB(this.S, id);
+      this.ui.toast(`${BLD[b.type].n}挪好了，停工 ${Sim.MOVE_PAUSE} 秒后接着干活。${r.belts ? `拆掉了 ${r.belts} 条传送带。` : ''}`, 'good');
+      this.view.select(id); this.ui.open('bld', id);
+      return;
+    }
     if (this.confirmRow()) return;
     const r = P.type === 'furnace' ? Sim.place(this.S, P.type, P.x, P.y) : Sim.queueBuild(this.S, P.type, P.x, P.y);
     if (!r.ok) { this.ui.toast(r.reason || '不能建在这里', 'warn'); this.sfx('warn'); return; }
@@ -561,7 +590,7 @@ class Game {
     const P = this.place, S = this.S;
     if (!P || P.arrive || P.type === 'bp' || P.type === 'furnace' || !BLD[P.type].gather) { this.view.setHints(null); if (P) P.hintKey = null; return; }
     const c = Sim.getCamp(S, P.check && P.check.camp >= 0 ? P.check.camp : S.active) || Sim.mainCamp(S); if (!c) return;
-    const r = Sim.heatRadius(S, c), key = `${P.type}:${c.id}:${S.buildings.length}:${(S.queue || []).length}:${r}`;
+    const r = Sim.heatRadius(S, c), key = `${P.type}:${c.id}:${S.buildings.length}:${S.lay || 0}:${(S.queue || []).length}:${r}:${P.move || 0}`;
     if (P.hintKey === key) return;
     P.hintKey = key;
     const w = getWorld(S.runSeed), d = BLD[P.type], s = d.size, kinds = d.gather.map(k => SPOT_KEYS.indexOf(k)), served = Sim.servedSpots(S);
@@ -638,7 +667,7 @@ class Game {
         downAt = { x: e.clientX, y: e.clientY, t: performance.now() }; moved = 0;
         const P = this.mode === 'place' ? this.place : null;
         // 摆放时：鼠标左键按住拖 = 连成一排；触屏单指拖动的是预览建筑（开了「一排」就是往外拉一排）
-        rowDrag = !!P && P.type !== 'furnace' && P.type !== 'bp' && (e.pointerType === 'mouse' ? e.button === 0 && !e.shiftKey : P.rowMode);
+        rowDrag = !!P && P.type !== 'furnace' && P.type !== 'bp' && !P.move && (e.pointerType === 'mouse' ? e.button === 0 && !e.shiftKey : P.rowMode);
         dragGhost = !!P && e.pointerType !== 'mouse' && !rowDrag;
         ghostAt = P ? { x: P.x, y: P.y, end: P.end } : null;
         if (rowDrag && e.pointerType === 'mouse') { const had = P.end; P.end = null; this.moveGhostTo(e.clientX, e.clientY); if (had) this.updateGhost(); }
