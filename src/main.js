@@ -87,6 +87,7 @@ class Game {
     v.cam.tdist = this.titleDist || 30; v.focus(c.x, c.y);
     if (this.pendingModal) { const [h, b] = this.pendingModal; this.pendingModal = null; setTimeout(() => this.ui.modal(h, b), 450); }
     if (this.bookLater) this.flushBook(2200);
+    if (Sim.skyEnded(this.S) && !this.S.tower.end.seen) this.skyLater = true; // 终章没看完就关了页面：进来再放一遍
     this.sfx('tap');
   }
   save() {
@@ -254,12 +255,13 @@ class Game {
     const realGap = (t - this.last) / 1000;
     this.last = t;
     if (realGap > 5) this.offline(realGap);
-    else if (!this.paused) {
+    else if (!this.paused && !this.cine) { // 终章镜头放着的时候时间停住
       this.acc += dt * this.speed;
       let n = 0;
       while (this.acc >= 1 && n < 5 * this.speed) { Sim.step(this.S, 1); this.acc -= 1; n++; }
     }
     this.drainFx();
+    if (this.cine) this.cineStep(dt);
     if (this.titleOn) { const cam = this.view.cam; cam.tyaw += dt * 0.045; }
     this.view.frame(dt);
     this.ui.floats(this.paused ? 0 : dt * this.speed); this.ui.juice();
@@ -276,10 +278,11 @@ class Game {
     if (this.evT > 2) {
       this.evT = 0;
       const S = this.S;
-      const free = !this.titleOn && !this.place && !document.getElementById('modal').classList.contains('show');
+      const free = !this.titleOn && !this.place && !this.cine && !document.getElementById('modal').classList.contains('show');
       const grown = S.meta.tut || S.buildings.length > 8;
-      if (!this.titleOn && !window.__noEvents) { if (grown) Sim.rollRequest(S); Sim.rollSurprise(S, grown); }
+      if (!this.titleOn && !this.cine && !window.__noEvents) { if (grown) Sim.rollRequest(S); Sim.rollSurprise(S, grown); }
       if (free && this.whatsNew) { this.whatsNew = false; S.meta.ver = WHATS_NEW; this.ui.modal(whatsNewHtml(S), [{ t: '知道了', a: 'close-modal', cls: 'go' }]); }
+      else if (free && this.skyLater && !this.cine) { this.skyLater = false; this.skyCine(); }
       else if (free && Sim.roadView(S)) { if (this.ui.roadModal()) this.sfx('event'); }
       else if (free && Sim.expPending(S)) { if (this.ui.siteModal()) this.sfx('event'); }
       else if (free && this.chapQ && this.chapQ.length) { if (this.ui.chapterModal(this.chapQ.shift())) this.sfx('win'); }
@@ -317,11 +320,75 @@ class Game {
       else if (f.kind === 'veh') { if (!quiet) { this.sfx('build'); const b = Sim.getB(this.S, f.b); if (b) { const h = BLD[b.type].size / 2; this.view.burst('dust', b.x + h, b.y + h, 18, 0.8, 1); this.view.ringFx && this.view.ringFx(b.x + h, b.y + h, 1.2); } } }
       else if (f.kind === 'trip-arrived') { if (!quiet) this.sfx('event'); }
       else if (f.kind === 'trip-arrived') { if (!quiet) { if (this.speed > 1) this.setSpeed(1); this.sfx('horn'); if (!document.getElementById('modal').classList.contains('show') && !this.titleOn && !this.place) this.startArrive(); } }
-      else if (f.kind === 'tower-lit') { if (!quiet) { this.sfx('win'); this.view.focus(f.x, f.y); this.view.cam.tdist = Math.max(this.view.cam.tdist, 34); this.fireworks(f.x, f.y, 8); this.view.burst('spark', f.x, f.y, 40, 1.2, 1.6); this.view.ringFx && this.view.ringFx(f.x, f.y, 3); } }
+      else if (f.kind === 'skyfire') this.skyCine();
+      else if (f.kind === 'tower-lit') { if (!quiet && f.n < Sim.TOWER_N) { this.sfx('win'); this.view.focus(f.x, f.y); this.view.cam.tdist = Math.max(this.view.cam.tdist, 34); this.fireworks(f.x, f.y, 8); this.view.burst('spark', f.x, f.y, 40, 1.2, 1.6); this.view.ringFx && this.view.ringFx(f.x, f.y, 3); } }
       else if (f.kind === 'arrive-stop') { if (!quiet) { this.sfx('win'); const c = Sim.mainCamp(this.S); if (c) { this.view.focus(c.x, c.y); this.fireworks(c.x, c.y, 6); } } }
       else if (f.kind === 'trueend') { if (!quiet) { this.sfx('win'); const c = Sim.mainCamp(this.S); if (c) this.fireworks(c.x, c.y, 10); } this.modalOrLater(`<h2>🏔 世界之脊</h2><p class="story">${STORY.trueEnd}</p><p>这是北行真正的终点。你可以留在这里接着经营，往北还有无尽的冰原；也可以在菜单里开始一次新的北行，余烬、专家、收集册和遗物都会留着。</p>`, [{ t: '好', a: 'ending', cls: 'go' }]); }
       else if (f.kind === 'ending') this.ui.modal(`<h2>🌟 永恒之炉重燃</h2><p class="story">${STORY.ending}</p><p>你用了 ${this.S.meta.runs} 次北行完成了旅程。车队可以接着往北走，世界之脊还在更远的地方；也可以在菜单里开始一次新的北行。</p>`, [{ t: '继续', a: 'ending', cls: 'go' }]);
     }
+  }
+  // ---------- 终章：天火塔点亮 ----------
+  // 镜头拉远、转过来朝南，从天火塔一座座往南扫：每到一座，那道光闪一下；最后落到永恒之炉，升起最大的一道光，弹出「这一路」
+  skyCine() {
+    const S = this.S, v = this.view, L = Sim.towerList(S).slice().sort((a, b) => b.n - a.n);
+    if (this.cine || !L.length) return;
+    if (this.titleOn) { this.skyLater = true; return; }
+    this.cancelModes(); this.ui.close(); this.ui.closeModal(); this.ui.resDrawer(false);
+    if (this.bigmap.open) this.bigmap.hide(); if (this.chainmap.open) this.chainmap.hide(); if (this.photo.on) this.photo.close();
+    const pts = L.map(t => ({ x: t.x, y: t.y, n: t.n, cap: `${Sim.towerName(t.n)} · ${Sim.stopOf(S, Sim.SPINE + t.n).short}` }));
+    pts.push({ x: Sim.ETERNAL_PT.x, y: Sim.ETERNAL_PT.y, n: 0, cap: '永恒之炉 · 一路走过来的路，现在都亮着' });
+    const segs = []; let t = 2.8; // 先在天火塔上停一会儿，看光柱升起来
+    for (let i = 1; i < pts.length; i++) { const d = Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y), dur = 0.75 + d / 190; segs.push({ a: pts[i - 1], b: pts[i], t0: t, t1: t + dur }); t += dur + (i < pts.length - 1 ? 0.3 : 0); }
+    const c = v.cam;
+    this.cine = { t: 0, pts, segs, i: 0, last: t, end: t + 5.2, back: { tx: c.ttx, ty: c.tty, dist: c.tdist, yaw: c.tyaw } };
+    // 镜头转到塔的西边、侧着朝东看：往南飞就是往右走，一座座塔从右边进来、光柱竖着冲出画面
+    Object.assign(this.cine, { y0: c.yaw, yaw: Math.round((c.yaw + Math.PI / 2) / (Math.PI * 2)) * Math.PI * 2 - Math.PI / 2, p0: v.photoPitch ?? 0.78 + (c.dist - 9) / 81 * 0.42 });
+    c.tdist = 58; v.eternalHold = true; v.focus(pts[0].x, pts[0].y);
+    let bar = document.getElementById('cinebar');
+    if (!bar) { bar = document.createElement('div'); bar.id = 'cinebar'; bar.innerHTML = '<div class="cap"></div><button class="btn" data-skip>跳过 ›</button>'; document.body.appendChild(bar); bar.querySelector('[data-skip]').onclick = () => this.cineEnd(); }
+    document.body.classList.add('cine'); this.cineCap('🔥 天火塔点亮了');
+    this.sfx('win'); this.fireworks(pts[0].x, pts[0].y, 10); v.ringFx && v.ringFx(pts[0].x, pts[0].y, 4);
+  }
+  cineCap(t) { const el = document.querySelector('#cinebar .cap'); if (!el) return; el.classList.remove('in'); void el.offsetWidth; el.textContent = t; el.classList.add('in'); }
+  cineStep(dt) {
+    const C = this.cine, v = this.view; C.t += dt;
+    const seg = C.segs.find(q => C.t < q.t1);
+    if (!seg) { const p = C.pts.at(-1); v.focus(p.x, p.y); }
+    else if (C.t < seg.t0) v.focus(seg.a.x, seg.a.y);
+    else { const u = (C.t - seg.t0) / (seg.t1 - seg.t0), e = u * u * (3 - 2 * u); v.focus(seg.a.x + (seg.b.x - seg.a.x) * e, seg.a.y + (seg.b.y - seg.a.y) * e); }
+    while (C.i < C.segs.length && C.t >= C.segs[C.i].t1) this.cineArrive(C.segs[C.i++].b);
+    const sm = u => u * u * (3 - 2 * u), FP = 0.6, K = innerWidth < innerHeight ? 1.5 : 1; // 竖屏看得窄，镜头再拉远些
+    if (C.t <= C.last + 0.6) { const e = sm(Math.min(1, C.t / 2.4)); v.cam.tyaw = C.y0 + (C.yaw - C.y0) * e; v.photoPitch = C.p0 + (FP - C.p0) * e; v.cam.tdist = 58 * K; }
+    // 到了永恒之炉：镜头慢慢转到朝北、放低，北边天边就是那一串光柱
+    else {
+      const e = sm(Math.min(1, (C.t - C.last - 0.6) / 2.8));
+      v.cam.tyaw = C.yaw + (Math.PI / 2 - 0.3) * e; v.photoPitch = FP + (0.16 - FP) * e; v.cam.tdist = (58 - 12 * e) * K; v.pillarWide = e;
+      if (v.camera.far < 2000) { v.camera.far = 2000; v.camera.updateProjectionMatrix(); }
+    }
+    if (C.t >= C.end) this.cineEnd();
+  }
+  cineArrive(p) {
+    const v = this.view; this.cineCap(p.cap);
+    if (p.n) { v.flashPillar(p.n); this.sfx('up'); v.burst('spark', p.x, p.y, 30, 1.2, 1.6); }
+    else { v.eternalHold = false; this.sfx('win'); this.fireworks(p.x, p.y, 12); v.ringFx && v.ringFx(p.x, p.y, 5); }
+  }
+  // 放完（或者点了跳过）：停在永恒之炉，弹出「这一路」；点「继续往北」再回到主营地
+  cineEnd() {
+    const C = this.cine; if (!C) return;
+    this.cine = null; this.view.eternalHold = false;
+    document.body.classList.remove('cine');
+    // 跳过的话直接到最后那个镜头：永恒之炉，朝北，光柱排到天边
+    if (C.t < C.last + 3.4) { const p = C.pts.at(-1), v = this.view, c = v.cam; for (; C.i < C.segs.length; C.i++) { const q = C.segs[C.i].b; if (q.n) v.flashPillar(q.n); } v.focus(p.x, p.y, true); c.dist = c.tdist = 46 * (innerWidth < innerHeight ? 1.5 : 1); c.yaw = c.tyaw = C.yaw + Math.PI / 2 - 0.3; v.photoPitch = 0.16; v.pillarWide = 1; v.camera.far = 2000; v.camera.updateProjectionMatrix(); }
+    this.skyBackTo = C.back;
+    this.ui.skyEndModal();
+  }
+  skyBack() {
+    const b = this.skyBackTo, v = this.view, m = Sim.mainCamp(this.S); this.skyBackTo = null;
+    Sim.skyfireSeen(this.S);
+    v.photoPitch = null; v.pillarWide = 0; v.camera.far = 400; v.camera.updateProjectionMatrix();
+    if (m) v.focus(m.x, m.y, true);
+    if (b) { v.cam.dist = v.cam.tdist = b.dist; v.cam.yaw = v.cam.tyaw = b.yaw; }
+    this.save();
   }
   sfx(name) { this.audio.play(name); }
   // 烟花：营地上空一阵一阵的火花
@@ -629,7 +696,7 @@ class Game {
   // ---------- 点地图 ----------
   tap(px, py, mouse) {
     const S = this.S, v = this.view;
-    if (this.photo && this.photo.on) return; // 拍照模式里点地图不弹面板
+    if ((this.photo && this.photo.on) || this.cine) return; // 拍照模式、终章镜头里点地图不弹面板
     const p = v.pickTile(px, py); if (!p) return;
     const tx = Math.floor(p.x), ty = Math.floor(p.y);
     if (this.mode === 'place') { this.placeTap(px, py, mouse); return; }
@@ -742,6 +809,7 @@ class Game {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
       const k = e.key.toLowerCase();
       const step = 40;
+      if (this.cine) { if (k === 'escape' || k === 'enter' || k === ' ') this.cineEnd(); return; } // 终章镜头：Esc 跳过
       // 拍照模式：只留镜头按键，Esc / H 退出，回车拍照
       if (this.photo.on && !['w', 's', 'a', 'd', 'q', 'e', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'p'].includes(k)) {
         if (k === 'escape' || k === 'h') { if (this.photo.pv.classList.contains('show')) this.photo.hidePreview(); else this.photo.close(); }

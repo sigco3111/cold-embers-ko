@@ -2839,8 +2839,32 @@ export function igniteTower(S, bid) {
   dirty(S);
   logMsg(S, `🔥 ${towerName(b.tn)}点亮了！光柱直冲天上，往南的人远远就能看见。「${camp.name}」希望 +${TOWER_FX.hope}、暖圈 +${TOWER_FX.warm} 格。`, 'story');
   rt(S).fx.push({ kind: 'tower-lit', n: b.tn, x: b.x + s / 2, y: b.y + s / 2, bid });
+  if (b.tn >= TOWER_N) skyfireEnd(S);
   return { ok: true };
 }
+// ---------- 天火塔点亮：这一程的终章 ----------
+// 记下「这一路」的数（点亮那一刻的），镜头从北往南把光柱一座座扫过去，最后永恒之炉升起一道最大的光
+export const ETERNAL_PT = { x: LANDMARKS[6].x + 0.5, y: LANDMARKS[6].row + 0.5 };
+export const skyEnded = S => !!(S.tower && S.tower.end);
+// 连成一条的光：点燃天火以后，从永恒之炉连到最北的塔
+export function towerChain(S) { const L = towerList(S); return skyEnded(S) ? [{ n: 0, x: ETERNAL_PT.x, y: ETERNAL_PT.y, type: 'eternal' }, ...L] : L; }
+export function journeySum(S) {
+  const J = journeyOf(S), st = S.stats;
+  return { stops: J.stage + 1, north: northN(J.stage) || 0, people: S.camps.reduce((a, c) => a + c.people, 0), arrivals: st.arrivals || 0, deaths: st.deaths || 0,
+    furnaces: S.camps.length + (J.ruins || []).length, towers: towersLit(S), t: S.t, runs: S.meta.runs || 1, raidsWon: st.raidsWon || 0, blizzards: st.blizzards || 0 };
+}
+function skyfireEnd(S) {
+  const T = S.tower; if (T.end) return;
+  T.end = { t: S.t, sum: journeySum(S) };
+  S.meta.skyfire = (S.meta.skyfire || 0) + 1;
+  for (const c of S.camps) bumpMood(c, 10, -6);
+  // 光照到的地方雾散了：永恒之炉和每座塔周围
+  revealCircle(S, ETERNAL_PT.x, ETERNAL_PT.y, 14); for (const t of towerList(S)) revealCircle(S, t.x, t.y, 10);
+  logMsg(S, STORY.skyEnd, 'story');
+  rt(S).fx.push({ kind: 'skyfire' });
+}
+// 终章看完了（存档里记着，没看完就关了页面，下次进来再放一遍）
+export function skyfireSeen(S) { if (S.tower && S.tower.end) S.tower.end.seen = 1; }
 export function chapState(S) { return S.chap || (S.chap = { ok: {}, got: {} }); }
 function chapVal(S, q) {
   switch (q.k) {

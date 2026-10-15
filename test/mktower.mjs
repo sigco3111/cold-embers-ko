@@ -1,7 +1,7 @@
-// 做烽火塔测试存档：从北境第 1 站开始，每站立塔、喂满、点亮，熄火往北走，走到第 N 站（TOWERS=n），存到 OUT
+// 做烽火塔测试存档：从北境第 1 站开始，每站立塔、喂满、点亮，熄火往北走，走到第 N 站（TOWERS=n），存到 OUT；NOLAST=1 时第 N 站的塔不建
 import * as G from '../src/sim.js';
 import fs from 'fs';
-const N = +(process.env.TOWERS || 2), OUT = process.env.OUT || `/tmp/v13/tw${N}.json`;
+const N = +(process.env.TOWERS || 2), NOLAST = !!process.env.NOLAST, OUT = process.env.OUT || `/tmp/v13/tw${N}${NOLAST ? 'x' : ''}.json`;
 const S = G.deserialize(fs.readFileSync('/tmp/v13/north1.json', 'utf8')), J = G.journeyOf(S);
 const fill = () => { const m = G.mainCamp(S); m.people = Math.max(m.people, 120); for (const k of ['wood', 'stone', 'plank', 'food', 'coal', 'iron', 'steel', 'gear', 'seal', 'alloy', 'part', 'battery', 'core', 'engine', 'heart', 'starcore']) m.stock[k] = Math.max(m.stock[k] || 0, 20000); };
 function spotFor(type) {
@@ -10,6 +10,7 @@ function spotFor(type) {
 }
 for (let n = 1; n <= N; n++) {
   fill();
+  if (n === N && NOLAST) break;
   const t = G.towerType(n), p = spotFor(t), r = G.place(S, t, p.x, p.y), b = G.getB(S, r.id);
   b.tw.p = G.towerSpec(S, n).dur; const ig = G.igniteTower(S, b.id); if (!ig.ok) { console.log('ignite failed', ig.reason); process.exit(1); }
   if (n === N) break;

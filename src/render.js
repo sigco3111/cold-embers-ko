@@ -698,7 +698,7 @@ if (uDetail > 0.0) {
   blvl(b) { if (!BLD[b.type].tower) return b.lvl; const T = b.tw || {}; if (T.lit) return 6; const d = Sim.towerSpec(this.S, b.tn).dur; return 1 + Math.min(4, Math.floor((T.p || 0) / d * 4 + 1e-9)); }
   // 点亮的塔：塔顶一道光柱，营地熄火走了塔也照样立着、亮着
   syncPillars(rdt) {
-    const S = this.S, L = Sim.towerList(S), ids = new Set(S.buildings.filter(b => BLD[b.type].tower).map(b => b.tn + ':' + b.camp));
+    const S = this.S, L = Sim.towerChain(S), ids = new Set(S.buildings.filter(b => BLD[b.type].tower).map(b => b.tn + ':' + b.camp));
     const sig = L.map(t => t.n + ':' + (ids.has(t.n + ':' + t.camp) ? 1 : 0)).join(',');
     const P = this.pillars ||= { sig: null, list: [], group: new THREE.Group() };
     if (!P.group.parent) this.scene.add(P.group);
@@ -708,14 +708,14 @@ if (uDetail > 0.0) {
       const old = new Map(P.list.map(e => [e.n, e]));
       P.list = L.map(t => {
         const g = new THREE.Group(); g.position.set(t.x, 0, -t.y);
-        const sky = t.type === 'skyfire', H = sky ? 90 : 60, top = sky ? 6.3 : 4.8;
-        const tex = this.pillarTex();
-        for (const [r, op] of [[sky ? 0.5 : 0.34, 0.55], [sky ? 1.5 : 1.0, 0.2]]) {
-          const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 0.55, H, 12, 1, true), new THREE.MeshBasicMaterial({ map: tex, color: sky ? '#ffd890' : '#ffa850', transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false, toneMapped: false }));
+        // 永恒之炉：点燃天火以后升起一道最粗最高的光
+        const sky = t.type === 'skyfire', et = t.type === 'eternal', H = et ? 140 : sky ? 90 : 60, top = et ? 5.5 : sky ? 6.3 : 4.8;
+        for (const [r, op] of [[et ? 0.9 : sky ? 0.5 : 0.34, 0.55], [et ? 2.6 : sky ? 1.5 : 1.0, 0.2]]) {
+          const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 0.55, H, 16, 1, true), this.pillarMat(et ? '#ffc868' : sky ? '#ffd890' : '#ffa850', op));
           m.position.y = top + H / 2; m.userData.op = op; m.renderOrder = 6; g.add(m); // 画在迷雾上面，远远就能看见
         }
         // 熄火的营地：塔自己立着（建筑已经不在了）
-        if (!ids.has(t.n + ':' + t.camp)) {
+        if (!et && !ids.has(t.n + ':' + t.camp)) {
           const { geo, glow, flame, flameY } = this.bgeo(t.type, 6);
           const m = new THREE.Mesh(geo, this.matStd); m.castShadow = true; m.receiveShadow = true; g.add(m);
           if (glow) g.add(new THREE.Mesh(glow, this.matWin));
@@ -723,16 +723,43 @@ if (uDetail > 0.0) {
         }
         P.group.add(g);
         const was = old.get(t.n);
-        return { n: t.n, g, grow: first || was ? 1 : 0, H, top };
+        return { n: t.n, g, grow: first || was ? 1 : 0, H, top, flash: 0 };
       });
       P.sig = sig;
     }
     for (const e of P.list) {
+      // 终章镜头还没飞到永恒之炉：那道光先藏着，到了再升起来
+      if (e.n === 0 && this.eternalHold) { e.g.visible = false; e.grow = 0; continue; }
+      e.g.visible = true;
       if (e.grow < 1) e.grow = Math.min(1, e.grow + rdt / 2.6);
-      const k = 1 - Math.pow(1 - e.grow, 3), pulse = 0.85 + 0.15 * Math.sin(this.time * 1.7 + e.n);
-      e.g.children.forEach((m, i) => { if (i < 2) { m.scale.y = Math.max(0.001, k); m.position.y = e.top + e.H * k / 2; m.material.opacity = m.userData.op * pulse * (0.4 + 0.6 * k); } });
+      const k = 1 - Math.pow(1 - e.grow, 3), pulse = 0.85 + 0.15 * Math.sin(this.time * 1.7 + e.n), fl = e.flash;
+      if (fl > 0) e.flash = Math.max(0, fl - rdt * 0.9);
+      // 终章最后那个镜头：远处的光柱按离镜头的远近加粗，排到天边也看得见
+      const wide = this.pillarWide ? 1 + this.pillarWide * Math.max(0, Math.hypot(e.g.position.x - this.camera.position.x, e.g.position.z - this.camera.position.z) / 140 - 0.5) : 1;
+      e.g.children.forEach((m, i) => { if (i < 2) { m.scale.set((1 + fl * 0.9) * wide, Math.max(0.001, k), (1 + fl * 0.9) * wide); m.position.y = e.top + e.H * k / 2; m.material.uniforms.uOp.value = Math.min(1, m.userData.op * pulse * (0.4 + 0.6 * k) * (1 + fl * 1.6) * (e.n === 0 && this.pillarWide ? 1 - 0.55 * this.pillarWide : 1)); } });
       if (e.g.userData.fl) { const f = e.g.userData.fl; f.scale.y = 0.85 + 0.2 * Math.sin(this.time * 9 + e.n); }
     }
+  }
+  // 终章镜头经过一座塔：那道光闪一下
+  flashPillar(n) { const e = this.pillars && this.pillars.list.find(q => q.n === n); if (e) e.flash = 1; }
+  // 光柱的材质：边上淡、中间亮（按水平方向看过去的角度算，从哪个角度看都是一道软软的光，不是一根实心的管子）
+  pillarMat(color, op) {
+    return new THREE.ShaderMaterial({
+      uniforms: { map: { value: this.pillarTex() }, uC: { value: new THREE.Color(color) }, uOp: { value: op } },
+      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+      vertexShader: `varying vec2 vUv; varying float vF;
+void main() {
+  vUv = uv; vec4 wp = modelMatrix * vec4(position, 1.0); vec3 wn = mat3(modelMatrix) * normal; vec2 d = cameraPosition.xz - wp.xz;
+  vF = abs(dot(normalize(wn.xz + 1e-5), normalize(d + 1e-5)));
+  gl_Position = projectionMatrix * viewMatrix * wp;
+}`,
+      fragmentShader: `uniform sampler2D map; uniform vec3 uC; uniform float uOp; varying vec2 vUv; varying float vF;
+void main() {
+  float a = texture2D(map, vUv).a * uOp * (0.1 + 0.9 * pow(vF, 2.2));
+  gl_FragColor = vec4(uC, a);
+  #include <colorspace_fragment>
+}`,
+    });
   }
   pillarTex() {
     if (this.pTex) return this.pTex;

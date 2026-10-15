@@ -223,6 +223,7 @@ export const BLD = {
   starpit:   { n: '星核矿', t: 7, stage: 11, size: 2, cat: 'gather', w: 6, gather: ['starfall'], out: { starcore: 2 }, reach: 3, desc: '在星落之坑的坑底凿出发紫光的星核。熔炉 35 级以后升级要用。', cost: { alloy: 260, part: 100, core: 4 } },
   // 北境地貌才能建的（rule：只有在这种地貌的站、主营地里才能建）
   pyre:      { n: '烽火塔', t: 7, tower: 1, size: 3, cat: 'core', w: 0, desc: '北境每站一座的烽火塔：交齐地基材料就立起来，塔身要持续喂高级材料，喂满了交燃料点火。点亮后这座营地希望 +5、暖圈 +1，光柱一直亮着，给身后的人指路。', cost: { steel: 600, alloy: 200, part: 120 } },
+  skyfire:   { n: '天火塔', t: 7, tower: 10, size: 4, cat: 'core', w: 0, desc: '北境第 10 站的最后一座塔：六种高级材料一起喂，喂满了交星核点火。点着的那一刻，十道光柱一路往南连回永恒之炉。点亮后这座营地希望 +5、暖圈 +1。', cost: { steel: 1500, alloy: 500, part: 300, core: 20 } },
   geowell:   { n: '地热井', t: 5, rule: 'geo', size: 2, cat: 'live', w: 1, heat: 5, hreach: 5, desc: '打到地下的热泉：不烧燃料就能给全营地加温，并在周围 5 格内扩展可建造区。只有地热谷能打。', cost: { steel: 120, gear: 30, alloy: 20 } },
   icefish:   { n: '冰钓屋', t: 5, rule: 'lakes', size: 2, cat: 'gather', w: 2, gather: ['fish'], out: { food: 6 }, reach: 3, desc: '在冰面上凿洞钓鱼，鱼烤一烤就能吃：直接产熟食，不用厨房。要建在冰钓点旁边，只有冰湖群才有。', cost: { plank: 80, steel: 30 }, syn: ['tent', 'kitchen'] },
   forge:     { n: '炉心锻造所', t: 7, size: 2, cat: 'make', w: 6, in: { shard: 3, part: 2, alloy: 2 }, out: { heart: 0.6 }, desc: '锻造永恒炉件，用来重新点燃永恒之炉。', cost: { alloy: 250, part: 120, core: 5 }, syn: ['excavator'] },
@@ -290,6 +291,7 @@ export const STORY = {
   migrate: '营火将熄，但余烬还在。带上它们和同伴，向北，去下一个营地。',
   trueEnd: '车队翻上世界之脊的那天，风停了。回头望去，一路上的营火连成一条细细的光，从灰烬营地一直亮到脚下。往北再没有人走过的路——可我们已经知道怎么走了。',
   ending: '永恒之炉重新燃起。火光沿着你们一路留下的营地向南蔓延，冰原第一次听见了融水的声音。旅程结束了——但这座炉子，会一直烧下去。',
+  skyEnd: '天火塔点着的那一刻，光柱冲进了云里。往南，九道光一道接一道亮起来，一路连回永恒之炉——那就是我们走过的路。往后再有人往北走，抬头就能看见方向。',
 };
 
 // ---------- 昼夜（只影响画面，不影响产出） ----------

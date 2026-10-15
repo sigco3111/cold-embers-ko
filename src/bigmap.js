@@ -137,11 +137,11 @@ export class BigMap {
     ctx.save(); ctx.imageSmoothingEnabled = true; ctx.filter = `blur(${Math.max(1, k * 0.45)}px)`;
     ctx.drawImage(fc, 0, -k * 0.5, cw, ch); ctx.restore();
     // 烽火塔：点亮的塔之间连一道光，塔的位置一团暖光
-    { const L = Sim.towerList(S);
+    { const L = Sim.towerChain(S); // 点燃天火以后，这道光从永恒之炉连起
       if (L.length) {
         ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
         if (L.length > 1) for (const [lw, col] of [[Math.max(7, k * 1.8), 'rgba(255,170,70,.22)'], [Math.max(2, k * 0.42), 'rgba(255,228,160,.95)']]) { ctx.lineWidth = lw; ctx.strokeStyle = col; ctx.beginPath(); L.forEach((t, i) => i ? ctx.lineTo(t.x * k, Y(t.y)) : ctx.moveTo(t.x * k, Y(t.y))); ctx.stroke(); }
-        for (const t of L) { const r = k * (t.type === 'skyfire' ? 4.5 : 3), g = ctx.createRadialGradient(t.x * k, Y(t.y), 0, t.x * k, Y(t.y), r); g.addColorStop(0, 'rgba(255,240,190,1)'); g.addColorStop(0.35, 'rgba(255,190,90,.8)'); g.addColorStop(1, 'rgba(255,150,50,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(t.x * k, Y(t.y), r, 0, 7); ctx.fill(); }
+        for (const t of L) { const r = k * (t.type === 'eternal' ? 6 : t.type === 'skyfire' ? 4.5 : 3), g = ctx.createRadialGradient(t.x * k, Y(t.y), 0, t.x * k, Y(t.y), r); g.addColorStop(0, 'rgba(255,240,190,1)'); g.addColorStop(0.35, 'rgba(255,190,90,.8)'); g.addColorStop(1, 'rgba(255,150,50,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(t.x * k, Y(t.y), r, 0, 7); ctx.fill(); }
         ctx.restore();
       } }
     // 纬度带

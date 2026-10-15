@@ -192,6 +192,20 @@ export class UI {
     m.classList.add('show');
   }
   closeModal() { this.$('modal').classList.remove('show'); }
+  // 终章：天火塔点亮以后的故事和「这一路」（点亮那一刻记下的数）
+  skyEndModal() {
+    const S = this.S, E = S.tower && S.tower.end; if (!E) return false;
+    const s = E.sum, rows = [
+      ['🧭', '走过的站', `${s.stops} 站（世界之脊往北 ${s.north} 站）`], ['🔥', '点亮的熔炉', `${s.furnaces} 座`], ['🗼', '点亮的塔', `${s.towers} 座`],
+      ['👥', '现在的人', `${fmt(s.people)} 人`], ['🤝', '一路投奔来的人', `${fmt(s.arrivals)} 人`], ['🕯', '没能走到的人', `${fmt(s.deaths)} 人`],
+      ['🐺', '守住的袭营', `${s.raidsWon} 次`], ['🌨', '熬过的暴风雪', `${s.blizzards} 场`], ['⏳', '这一程走了', `${fmtTime(s.t)}（第 ${s.runs} 次北行）`]];
+    this.modal(`<div class="evtag">终章 · 天火</div><h2>🔥 天火点亮了</h2><p class="story">${esc(STORY.skyEnd)}</p>
+      <div class="sec">这一路</div><div class="skysum">${rows.map(([i, a, b]) => `<div><span>${i} ${a}</span><b>${b}</b></div>`).join('')}</div>
+      <div class="crw">🎁 解锁：称号「点燃天火的人」、金色炉火、天火纪念碑（菜单 → 装扮）</div>
+      <p class="hint">往北的路还没完：后面的站不再有塔，目标照样一站比一站高。最远纪录接着往上记。</p>`, [{ t: '继续往北', a: 'skyend', cls: 'go' }]);
+    this.$('modal').querySelector('.mbox').classList.add('skyend');
+    return true;
+  }
   // ---------- 存档位与难度 ----------
   slotLine(s) {
     if (s.empty) return '<span class="sl0">空位</span>';
@@ -1974,7 +1988,7 @@ export class UI {
     const next = LANDMARKS.findIndex((l, i) => !S.founded.includes(i) && l.row > far);
     const people = S.camps.reduce((a, c) => a + c.people, 0);
     let h = `<div class="mjour">
-      <div class="mjh"><div><div class="mjt">第 ${S.meta.runs} 次北行</div><small>这一程走了 ${fmtTime(S.t)}${S.meta.graduated ? ' · 🌟 已点燃永恒之炉' : ''}</small></div>
+      <div class="mjh"><div><div class="mjt">第 ${S.meta.runs} 次北行</div><small>这一程走了 ${fmtTime(S.t)}${Sim.skyEnded(S) ? ' · 🔥 已点燃天火' : S.meta.graduated ? ' · 🌟 已点燃永恒之炉' : ''}</small></div>
         <div class="mje" title="余烬：北迁时带到下一程的永久加成"><b>🔥${fmt(S.meta.embers)}</b><small>余烬</small></div></div>
       <div class="route"><i class="rl"><i style="width:${Math.min(100, far / top * 100).toFixed(1)}%"></i></i>
         ${LANDMARKS.map((l, i) => { const cls = S.founded.includes(i) ? 'on' : S.discovered.includes(i) ? 'seen' : ''; return `<span class="rn ${cls} ${i === next ? 'next' : ''} ${i % 2 ? 'up' : ''}" style="left:${(l.row / top * 100).toFixed(1)}%"><em></em><small>${i <= known || cls ? l.n : '？'}</small></span>`; }).join('')}</div>
@@ -1986,6 +2000,7 @@ export class UI {
     </div>`;
     { const N = Sim.bookCount(S), nf = Sim.bookOf(S).fresh.length;
       h += `<button class="mlink book" data-act="book"><span>🏆</span><span>收集册${nf ? `<b class="mnew">${nf} 新</b>` : ''}<small>收集 ${N.got}/${N.all} · 成就 ${N.cats.a[0]}/${N.cats.a[1]}（北迁后也保留）</small></span><i>›</i></button>`; }
+    if (Sim.skyEnded(S)) h += `<button class="mlink" data-act="skyreplay"><span>🔥</span><span>再看一遍天火<small>十道光柱一路往南连回永恒之炉，再看看「这一路」</small></span><i>›</i></button>`;
     h += `<button class="mlink" data-act="curve"><span>📈</span><span>数据曲线<small>人口、心情、温度，物资的储量和产量怎么变的</small></span><i>›</i></button>`;
     h += `<button class="mlink" data-act="photo"><span>📷</span><span>拍照模式<small>藏起界面，换时辰、滤镜和镜头角度，拍一张营地的照片（H）</small></span><i>›</i></button>`;
     h += `<button class="mlink" data-act="help"><span>📖</span><span>怎么玩<small>建筑、生产线、寒冷和北行的规则</small></span><i>›</i></button>`;
@@ -2331,6 +2346,8 @@ export class UI {
       case 'placeok': g.confirmPlace(); break;
       case 'placeno': g.cancelModes(); break;
       case 'ending': this.closeModal(); break;
+      case 'skyend': this.closeModal(); g.skyBack(); break;
+      case 'skyreplay': this.close(); g.skyCine(); break;
     }
     this.renderPanel(true);
     this.hud();
