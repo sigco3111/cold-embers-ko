@@ -2444,6 +2444,95 @@ export function farGeo(i) {
   }
   return { geo: merge(parts), glow: glow.length ? merge(glow) : null };
 }
+// 北境各站的地标：冰封石碑、冻住的古门、巨兽骨架、断掉的冰塔（四种轮着用，半径 2.2～3 格）
+export function northGeo(kind) {
+  const parts = [], glow = [], add = (g, c, o) => parts.push(P(g, c, o)), lit = (g, c, o) => glow.push(P(g, c, o));
+  const rock = (x, z, s, c = '#4e4a56') => add(G.dode, c, { sx: s, sy: s * 0.6, sz: s * 0.9, x, y: s * 0.18, z, ry: x * 3 + z, jit: 0.2 });
+  const icicle = (x, y, z, l) => add(G.cone4, '#cfeaf8', { sx: 0.08 + l * 0.04, sy: l, sz: 0.08 + l * 0.04, x, y: y - l / 2, z, rx: Math.PI });
+  const drift = (x, z, sx, sz, h = 0.2) => add(G.hemiLo, SNOW, { sx, sy: h, sz, x, z, ry: x * 1.7 + z });
+  switch (kind) {
+    case 0: { // 冰封石碑：高高的石碑立在三层台阶上，刻痕发着淡蓝的光，冰从碑顶挂下来
+      const st = '#6e6a78', st2 = '#5a5664';
+      for (let k = 0; k < 3; k++) { add(G.box, k % 2 ? st2 : st, { sx: 2.6 - k * 0.6, sy: 0.22, sz: 1.9 - k * 0.45, y: 0.11 + k * 0.22, jit: 0.1 }); add(G.box, SNOW, { sx: 2.5 - k * 0.6, sy: 0.05, sz: 0.3, y: 0.24 + k * 0.22, z: 0.85 - k * 0.22 }); }
+      add(G.box, st, { sx: 1.15, sy: 3.4, sz: 0.42, y: 0.66 + 1.7, jit: 0.06 });
+      add(G.box, st2, { sx: 1.3, sy: 0.3, sz: 0.55, y: 0.66 + 3.45 });
+      add(G.cone4, st2, { sx: 0.95, sy: 0.45, sz: 0.45, y: 0.66 + 3.82, ry: Math.PI / 4 });
+      add(G.box, SNOW, { sx: 1.34, sy: 0.08, sz: 0.58, y: 0.66 + 3.62 });
+      for (let r = 0; r < 6; r++) for (let c = 0; c < 3; c++) if ((r * 3 + c) % 4 !== 1) lit(G.box, '#8fe6ff', { sx: 0.18, sy: 0.05, sz: 0.03, x: -0.3 + c * 0.3, y: 1.3 + r * 0.42, z: 0.22 });
+      lit(G.oct, '#bff2ff', { sx: 0.22, sy: 0.32, sz: 0.06, y: 0.66 + 3.1, z: 0.22 });
+      // 冰壳从左边裹上来
+      for (const [x, y, h, rz] of [[-0.62, 1.2, 2.2, 0.08], [-0.55, 2.6, 1.4, -0.1], [-0.7, 0.9, 1.2, 0.3], [0.62, 0.95, 1.0, -0.25]]) add(G.oct, '#bfe4f6', { sx: 0.45, sy: h, sz: 0.62, x, y, rz, jit: 0.12 });
+      for (let k = 0; k < 7; k++) icicle(-0.55 + k * 0.18, 0.66 + 3.3, 0.24, 0.25 + (k * 37 % 5) * 0.09);
+      for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2 + 0.4; rock(Math.cos(a) * 2.0, Math.sin(a) * 1.7, 0.6 + (k % 3) * 0.25); }
+      drift(-1.3, 0.4, 1.0, 1.4, 0.35); drift(1.2, -0.6, 0.9, 1.1, 0.28);
+      break;
+    }
+    case 1: { // 冻住的古门：两根石柱撑着拱，门洞里结了一层厚冰，台阶断成几截
+      const st = '#7a7480', st2 = '#625c6a';
+      for (const sg of [-1, 1]) {
+        add(G.box, st2, { sx: 0.95, sy: 0.35, sz: 0.95, x: sg * 1.35, y: 0.17 });
+        add(G.cyl8, st, { sx: 0.7, sy: 3.1, sz: 0.7, x: sg * 1.35, y: 0.35 + 1.55, jit: 0.08 });
+        for (let k = 0; k < 4; k++) add(G.torus16, st2, { s: 0.74, rx: Math.PI / 2, x: sg * 1.35, y: 0.7 + k * 0.8 });
+        add(G.box, st2, { sx: 0.9, sy: 0.25, sz: 0.9, x: sg * 1.35, y: 3.55 });
+        add(G.box, SNOW, { sx: 0.85, sy: 0.08, sz: 0.85, x: sg * 1.35, y: 3.72 });
+        for (let k = 0; k < 3; k++) icicle(sg * 1.35 + (k - 1) * 0.25, 3.42, 0.42, 0.3 + k * 0.1);
+      }
+      add(new THREE.TorusGeometry(0.5, 0.11, 5, 14, Math.PI), st, { sx: 2.7, sy: 1.6, sz: 2.2, y: 3.6, jit: 0.08 });
+      add(G.box, st2, { sx: 3.6, sy: 0.4, sz: 0.85, y: 3.75 });
+      add(G.box, SNOW, { sx: 3.5, sy: 0.1, sz: 0.8, y: 4.0 });
+      lit(G.oct, '#9fe8ff', { sx: 0.35, sy: 0.45, sz: 0.1, y: 4.55, z: 0.3 });
+      // 门洞里的冰
+      add(G.box, '#a9d6ee', { sx: 1.95, sy: 3.0, sz: 0.25, y: 1.85, jit: 0.1 });
+      for (const [x, y, h] of [[-0.5, 1.2, 1.6], [0.45, 2.2, 1.3], [0.1, 0.9, 1.0]]) add(G.oct, '#cfeaf8', { sx: 0.5, sy: h, sz: 0.4, x, y, z: 0.12, jit: 0.15 });
+      lit(G.box, '#7fdcff', { sx: 1.2, sy: 0.04, sz: 0.04, y: 2.0, z: 0.14, rz: 0.5 }); lit(G.box, '#7fdcff', { sx: 0.8, sy: 0.04, sz: 0.04, x: 0.3, y: 1.3, z: 0.14, rz: -0.7 });
+      for (let k = 0; k < 3; k++) add(G.box, k === 1 ? st2 : st, { sx: 2.8 - k * 0.5, sy: 0.18, sz: 0.55, x: (k - 1) * 0.15, y: 0.09, z: 0.9 + k * 0.45, ry: (k - 1) * 0.1, jit: 0.15 });
+      add(G.box, st, { sx: 0.8, sy: 0.5, sz: 0.6, x: 1.9, y: 0.25, z: 1.0, ry: 0.6, rz: 0.3, jit: 0.15 });
+      for (let k = 0; k < 5; k++) { const a = k / 5 * Math.PI * 2 + 0.7; rock(Math.cos(a) * 2.3, Math.sin(a) * 1.9, 0.55 + (k % 2) * 0.3); }
+      drift(-0.9, -0.8, 1.2, 0.9, 0.3); drift(1.0, 0.7, 0.9, 0.7, 0.22);
+      break;
+    }
+    case 2: { // 巨兽骨架：肋骨一根根弯着拱出冰面，头骨朝南，尾椎拖进雪里
+      const bone = '#d6cdbb', bone2 = '#c4b9a4', arch = new THREE.TorusGeometry(0.5, 0.07, 5, 14, Math.PI);
+      for (let k = 0; k < 5; k++) {
+        const z = -1.8 + k * 0.8, sc = 2.2 + Math.sin(k / 4 * Math.PI) * 1.3;
+        add(arch, k % 2 ? bone2 : bone, { sx: sc, sy: sc * 1.05, sz: 1, z, rx: (k - 2) * 0.06, rz: (k - 2) * 0.05, jit: 0.08 });
+        add(G.box, bone, { sx: 0.42, sy: 0.36, sz: 0.42, y: sc * 0.52 + 0.06, z, jit: 0.1 });
+        add(G.cone4, bone2, { sx: 0.16, sy: 0.45, sz: 0.16, y: sc * 0.52 + 0.42, z });
+        add(G.box, SNOW, { sx: 0.4, sy: 0.07, sz: 0.25, y: sc * 0.52 + 0.27, z });
+        for (const sg of [-1, 1]) drift(sg * sc * 0.5, z, 0.45, 0.4, 0.18);
+      }
+      add(G.dode, bone, { sx: 1.25, sy: 0.95, sz: 1.5, y: 0.6, z: 2.4, jit: 0.1 });
+      add(G.box, bone2, { sx: 0.9, sy: 0.3, sz: 0.9, y: 0.2, z: 3.1, rx: 0.25 });
+      for (const sg of [-1, 1]) { add(G.box, '#2a2622', { sx: 0.24, sy: 0.18, sz: 0.1, x: sg * 0.3, y: 0.82, z: 3.1 }); lit(G.box, '#7fe8ff', { sx: 0.12, sy: 0.08, sz: 0.04, x: sg * 0.3, y: 0.82, z: 3.16 }); add(G.cone4, bone, { sx: 0.2, sy: 1.0, sz: 0.2, x: sg * 0.6, y: 1.25, z: 2.2, rz: -sg * 0.55, rx: -0.35 }); }
+      for (let k = 0; k < 4; k++) add(G.box, bone2, { sx: 0.3 - k * 0.05, sy: 0.25, sz: 0.38, y: 0.18 - k * 0.03, z: -2.4 - k * 0.42, jit: 0.1 });
+      add(G.oct, '#bfe4f6', { sx: 1.1, sy: 0.6, sz: 0.9, x: 1.2, y: 0.1, z: -1.0, jit: 0.12 }); add(G.oct, '#bfe4f6', { sx: 0.9, sy: 0.5, sz: 1.1, x: -1.3, y: 0.08, z: 0.6, jit: 0.12 });
+      for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2 + 0.2; rock(Math.cos(a) * 2.5, Math.sin(a) * 3.0, 0.55 + (k % 3) * 0.2); }
+      add(G.hemi, SNOW, { sx: 2.6, sy: 0.25, sz: 3.6, y: 0.0 });
+      break;
+    }
+    case 3: { // 断掉的冰塔：八棱的冰柱从半腰折断，上半截斜插在雪里，断口透出蓝光
+      const ice1 = '#b7def2', ice2 = '#9cc9e4', st = '#5a5866';
+      add(G.cyl8, st, { sx: 2.0, sy: 0.45, sz: 2.0, y: 0.22, jit: 0.1 });
+      add(G.cyl8, SNOW, { sx: 1.9, sy: 0.06, sz: 1.9, y: 0.47 });
+      for (let k = 0; k < 4; k++) add(G.frust8, k % 2 ? ice2 : ice1, { sx: 1.35 - k * 0.08, sy: 0.85, sz: 1.35 - k * 0.08, y: 0.9 + k * 0.85, jit: 0.08 });
+      for (let k = 0; k < 4; k++) add(G.torus16, '#e6f6ff', { s: 1.36 - k * 0.08, rx: Math.PI / 2, y: 0.5 + k * 0.85 });
+      // 参差的断口
+      for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2; add(G.cone4, ice1, { sx: 0.3, sy: 0.4 + (k % 3) * 0.25, sz: 0.3, x: Math.cos(a) * 0.42, y: 4.25 + (k % 3) * 0.1, z: Math.sin(a) * 0.42 }); }
+      lit(G.cyl8, '#7fe0ff', { sx: 0.95, sy: 0.08, sz: 0.95, y: 4.22 });
+      lit(G.oct, '#c8f4ff', { sx: 0.35, sy: 0.6, sz: 0.35, y: 4.45 });
+      for (let k = 0; k < 4; k++) lit(G.box, '#8fe6ff', { sx: 0.16, sy: 0.4, sz: 0.04, x: Math.cos(k * 1.57 + 0.4) * 0.6, y: 1.6 + k * 0.6, z: Math.sin(k * 1.57 + 0.4) * 0.6, ry: -(k * 1.57 + 0.4) + Math.PI / 2 });
+      // 倒下的上半截
+      const rz = 1.25, ry = 0.7;
+      for (let k = 0; k < 3; k++) add(G.frust8, k % 2 ? ice1 : ice2, { sx: 1.0 - k * 0.12, sy: 0.9, sz: 1.0 - k * 0.12, x: 1.3 + k * 0.85 * Math.cos(ry), y: 0.45 + k * 0.12, z: -0.7 - k * 0.85 * Math.sin(ry), rz: -rz, ry, order: 'YXZ', jit: 0.08 });
+      add(G.cone8, ice1, { sx: 0.7, sy: 1.1, sz: 0.7, x: 1.3 + 3 * 0.85 * Math.cos(ry), y: 0.72, z: -0.7 - 3 * 0.85 * Math.sin(ry), rz: -rz, ry, order: 'YXZ' });
+      for (let k = 0; k < 5; k++) add(G.oct, k % 2 ? '#d6eefa' : ice1, { sx: 0.3, sy: 0.25, sz: 0.3, x: -1.4 + k * 0.4, y: 0.12, z: 1.2 - (k % 2) * 0.3, ry: k, jit: 0.15 });
+      for (let k = 0; k < 5; k++) { const a = k / 5 * Math.PI * 2 + 1.3; rock(Math.cos(a) * 2.1, Math.sin(a) * 2.0, 0.5 + (k % 2) * 0.3); }
+      drift(-1.2, -0.9, 1.0, 1.0, 0.3); drift(2.3, -1.6, 0.9, 0.8, 0.3);
+      break;
+    }
+  }
+  return { geo: merge(parts), glow: glow.length ? merge(glow) : null };
+}
 export function eternalFlameGeo() { return merge([P(G.cone6, '#ffd060', { sx: 2.0, sy: 3.0, sz: 2.0, y: 7.5 }), P(G.cone6, '#ffffff', { sx: 1.0, sy: 2.0, sz: 1.0, y: 7.2 })]); }
 
 // ---------- 雾里的地点（探险目标），约 2.4 格见方，周围一圈留空 ----------

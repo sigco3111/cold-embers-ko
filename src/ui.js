@@ -1851,7 +1851,8 @@ export class UI {
     const g = Sim.departGate(S);
     if (!g) return h + `<div class="story">${esc(STORY.trueEnd || '')}</div><div class="hint">一路走到了世界之脊。再往北是无尽的冰原，想走多远都行。</div>`;
     const P = g.plan, V = Sim.VEH, main = Sim.mainCamp(S);
-    h += `<div class="mighero"><div class="mgto">下一站 · <b>${esc(g.next.n)}</b></div><small>${g.route.ok ? `路长约 ${Math.round(g.route.len)} 格，车队要走 ${Math.max(1, Math.round(P.secs / 60))} 分钟左右` : '路还没探通'}${g.next.far ? '' : ` · 纬度 ${Math.round(g.next.y)}`}</small></div>`;
+    const rl = Sim.ruleOf(g.next);
+    h += `<div class="mighero"><div class="mgto">下一站 · <b>${esc(g.next.n)}</b></div><small>${g.route.ok ? `路长约 ${Math.round(g.route.len)} 格，车队要走 ${Math.max(1, Math.round(P.secs / 60))} 分钟左右` : '路还没探通'}${g.next.far ? '' : ` · 纬度 ${Math.round(g.next.y)}`}</small>${rl ? `<div class="mgrule"><b>${rl.ic} 地貌：${esc(rl.n)}</b><span class="good">好：${esc(rl.good)}</span><span class="bad">坏：${esc(rl.bad)}</span></div>` : ''}</div>`;
     // 四条门槛
     h += `<div class="sec">出发前要做到 <small class="mgn">${g.n}/4</small></div>`;
     const go = { route: '去探路', chap: '看章节', flvl: '去熔炉', car: '去雪橇棚' };

@@ -1,25 +1,34 @@
 // 寒烬北行 · 一路往北：每一程的状态、北迁门槛、车队、新营地的范围
 // 整局只有一条路：主营地带着车队从一个地标搬到下一个，留在后面的营地变成补给站或者熄火
-import { LANDMARKS, FAR_MARKS, BLD, RES, RES_KEYS, FUEL, FUEL_ORDER, SPOT_KEYS, furnaceBurn } from './data.js';
-import { W, H, T_ROCK, getWorld, idx, inMap, mulberry32 } from './worldgen.js';
+import { LANDMARKS, FAR_MARKS, BLD, RES, RES_KEYS, FUEL, FUEL_ORDER, SPOT_KEYS, furnaceBurn, NORTH_RULES, NORTH_MARKS } from './data.js';
+import { W, H, T_ROCK, getWorld, idx, inMap, mulberry32, northStop } from './worldgen.js';
 import {
   rt, dirty, getB, getCamp, logMsg, revealCircle, canAfford, missing, pay, chapters, makeCamp, markFounded, trimWorkers,
   autoAssign, clearFootprint, landmarkBlock, siteAt, occAt, housingOf, bumpMood, diffOf, relicSum, upgradeCost, maxWorkers, levelMul,
-  storeCap, addPeople, up, techSum, weatherAt,
+  storeCap, addPeople, up, techSum, weatherAt, growFor,
   EAT, FOUND_DIST, CAMP_GAP,
 } from './sim.js';
 
 // ---------- 一程一程的站 ----------
-// 0～6 是七个地标，7～12 是永恒之炉以北的六个远方地标，世界之脊（12）是终点
-export const STOP_N = LANDMARKS.length + FAR_MARKS.length;
+// 0～6 是七个地标，7～12 是永恒之炉以北的六个远方地标，世界之脊（12）以北是北境，一站接一站没有尽头
+export const STOP_N = LANDMARKS.length + FAR_MARKS.length; // 有名字的站（到世界之脊为止）
+export const SPINE = STOP_N - 1;
+export const northN = k => k > SPINE ? k - SPINE : 0;      // 第 k 站是北境第几站（0：不是北境）
 export function stopOf(S, k) {
-  if (k < 0 || k >= STOP_N) return null;
+  if (k < 0) return null;
   if (k < LANDMARKS.length) { const l = LANDMARKS[k]; return { k, n: l.n, x: l.x, y: l.row, far: false }; }
+  if (k > SPINE) {
+    const p = northStop(S.runSeed, k - SPINE);
+    return { k, n: `北境第 ${p.k} 站·${p.name}`, short: p.name, x: p.x + 0.5, y: p.y + 0.5, far: true, north: p.k, r: p.r, rule: p.rule, mark: p.mark };
+  }
   const i = k - LANDMARKS.length, p = (getWorld(S.runSeed).far || [])[i];
-  return p ? { k, n: FAR_MARKS[i].n, x: p.x + 0.5, y: p.y + 0.5, far: true, fi: i } : null;
+  return p ? { k, n: FAR_MARKS[i].n, x: p.x + 0.5, y: p.y + 0.5, far: true, fi: i, r: FAR_MARKS[i].r } : null;
 }
-// 离开第 k 站时主营地熔炉要几级：3、7、11……27，永恒之炉以北每程再 +2
-export const gateFlvl = k => k < LANDMARKS.length ? 3 + 4 * k : 27 + 2 * (k - LANDMARKS.length + 1);
+export const ruleOf = st => st && st.rule ? NORTH_RULES[st.rule] : null;
+// 离开第 k 站时主营地熔炉要几级：3、7、11……27，永恒之炉以北每程再 +2；到了世界之脊就不再往上加
+export const gateFlvl = k => k < LANDMARKS.length ? 3 + 4 * k : 27 + 2 * (Math.min(k, SPINE - 1) - LANDMARKS.length + 1);
+// 地图得生成到下一站再往北一截
+export function growNext(S) { const J = journeyOf(S), nx = stopOf(S, J.stage + 1); return nx ? growFor(S, nx.y) : false; }
 
 export const ARRIVE_R = 10;      // 探出来的路走到离地标这么近，就算路通了
 export const PERSON_LOAD = 40;   // 一个人在车上占 40 份货的地方
@@ -502,7 +511,7 @@ const spotKey = (w, i) => SPOT_KEYS[w.spot[i]];
 export function arriveSpot(S) {
   const J = journeyOf(S), T = J.trip; if (!T) return null;
   const st = stopOf(S, T.to);
-  const r = st.far ? FAR_MARKS[st.fi].r : 2.5;
+  const r = st.r || 2.5;
   const ideal = { x: st.x, y: st.y - r - 4.5 };
   let best = null, bs = 1e9;
   for (let y = Math.floor(st.y - FOUND_DIST); y <= st.y + FOUND_DIST; y++) for (let x = Math.floor(st.x - FOUND_DIST); x <= st.x + FOUND_DIST; x++) {
@@ -555,8 +564,9 @@ export function arrive(S, x, y) {
   for (const c of S.camps) bumpMood(c, 6, -3);
   logMsg(S, `🔥 车队到了「${st.n}」，新熔炉点着了（${T.fl} 级）。${tents ? `先搭好了 ${tents} 顶帐篷。` : ''}${embers ? `熄火的营地换来 ${embers} 点余烬。` : ''}`, 'story');
   rt(S).fx.push({ kind: 'arrive-stop', k: J.stage });
+  growNext(S);
   // 走到世界之脊：真结局
-  if (J.stage === STOP_N - 1) {
+  if (J.stage === SPINE) {
     const first = !S.meta.trueEnd; S.meta.trueEnd = (S.meta.trueEnd || 0) + 1;
     logMsg(S, '🏔 车队翻上了世界之脊。一路走来的营火连成了一条线——这是真正的终点。', 'story');
     rt(S).fx.push({ kind: 'trueend', first });

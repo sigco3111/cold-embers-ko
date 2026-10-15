@@ -1,5 +1,5 @@
 // 北行大地图：整条北行路线的俯视图（地形、迷雾、营地、地标、雾里的地点），点哪里镜头就飞到哪里
-import { LANDMARKS, FAR_MARKS, BAND_START, TIER_NAMES, SITES, SPOT_KEYS, BLD, baseTempOfRow } from './data.js';
+import { LANDMARKS, FAR_MARKS, BAND_START, TIER_NAMES, SITES, SPOT_KEYS, BLD, baseTempOfRow, SPINE_ROW, NORTH_RULES } from './data.js';
 import * as Sim from './sim.js';
 import { getWorld, idx, W, H, T_ROCK, T_ICE } from './worldgen.js';
 import { iconize } from './icons.js';
@@ -59,24 +59,36 @@ export class BigMap {
     for (let y = H - 1; y >= 0 && !top; y--) for (let x = 0; x < W; x++) if (S.reveal[idx(x, y)] === 1) { top = y; break; }
     const J = Sim.journeyOf(S), nxs = Sim.stopOf(S, J.stage + 1);
     const maxRow = Math.min(H - 1, Math.max(top + 30, nxs ? Math.ceil(nxs.y) + 12 : 0, 120));
-    const k = Math.max(4, (sc.clientWidth - 2) / W);
+    // 画布最高三万像素左右（浏览器的上限），北境走得很远时格子画小一点
+    const k = Math.max(3, Math.min((sc.clientWidth - 2) / W, 30000 / (maxRow + 1)));
     this.k = k; this.maxRow = maxRow;
     const cw = Math.round(W * k), ch = Math.round((maxRow + 1) * k);
     inner.style.width = cw + 'px'; inner.style.height = ch + 'px';
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const dpr = Math.min(2, window.devicePixelRatio || 1, 30000 / ch);
     if (cv.width !== cw * dpr || cv.height !== ch * dpr) { cv.width = cw * dpr; cv.height = ch * dpr; cv.style.width = cw + 'px'; cv.style.height = ch + 'px'; }
     const ctx = cv.getContext('2d');
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const Y = row => (maxRow - row) * k;
-    // 地形
-    for (let y = 0; y <= maxRow; y++) for (let x = 0; x < W; x++) {
-      const i = idx(x, y), t = w.terrain[i], hgt = w.height[i];
-      let col;
-      if (t === T_ROCK) { const l = 34 + hgt * 22; col = `hsl(212,9%,${l}%)`; }
-      else if (t === T_ICE) col = `hsl(200,58%,${74 + hgt * 8}%)`;
-      else { const cold = Math.min(1, y / 340); col = `hsl(${205 - cold * 10},${16 + cold * 18}%,${86 + hgt * 8 - cold * 4}%)`; }
-      ctx.fillStyle = col; ctx.fillRect(x * k, Y(y) - k, k + 0.6, k + 0.6);
+    // 地形（不会变，画一次存起来）；世界之脊以北的北境底色更暗，一眼看出已经走出了老地图
+    const tk = `${S.runSeed}:${maxRow}:${k}:${dpr}`;
+    if (this.terrKey !== tk) {
+      this.terrKey = tk;
+      const tc = this.terrCv || (this.terrCv = document.createElement('canvas'));
+      tc.width = cw * dpr; tc.height = ch * dpr;
+      const tx = tc.getContext('2d'); tx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      for (let y = 0; y <= maxRow; y++) {
+        const nf = Math.max(0, Math.min(1, (y - SPINE_ROW - 20) / 40));
+        for (let x = 0; x < W; x++) {
+          const i = idx(x, y), t = w.terrain[i], hgt = w.height[i];
+          let col;
+          if (t === T_ROCK) { const l = 34 + hgt * 22 - nf * 8; col = `hsl(${212 + nf * 14},${9 + nf * 6}%,${l}%)`; }
+          else if (t === T_ICE) col = `hsl(${200 + nf * 12},${58 - nf * 18}%,${74 + hgt * 8 - nf * 16}%)`;
+          else { const cold = Math.min(1, y / 340); col = `hsl(${205 - cold * 10 + nf * 22},${16 + cold * 18 - nf * 10}%,${86 + hgt * 8 - cold * 4 - nf * 17}%)`; }
+          tx.fillStyle = col; tx.fillRect(x * k, Y(y) - k, k + 0.6, k + 0.6);
+        }
+      }
     }
+    ctx.drawImage(this.terrCv, 0, 0, cw, ch);
     // 资源点（只画揭开的、没采空的）
     for (let y = 0; y <= maxRow; y++) for (let x = 0; x < W; x++) {
       const i = idx(x, y), sp = w.spot[i];
@@ -125,11 +137,13 @@ export class BigMap {
     ctx.drawImage(fc, 0, -k * 0.5, cw, ch); ctx.restore();
     // 纬度带
     ctx.font = `600 ${Math.max(10, k * 1.25)}px "Noto Serif SC",serif`; ctx.textBaseline = 'bottom';
-    for (let t = 2; t < BAND_START.length; t++) {
-      const row = BAND_START[t]; if (row > maxRow) break;
+    const bands = BAND_START.map((row, t) => [row, t]).slice(2);
+    if (maxRow > SPINE_ROW + 40) bands.push([SPINE_ROW + 40, -1]);
+    for (const [row, t] of bands) {
+      if (row > maxRow) break;
       ctx.strokeStyle = 'rgba(200,150,78,.55)'; ctx.lineWidth = 1; ctx.setLineDash([6, 5]);
       ctx.beginPath(); ctx.moveTo(0, Y(row)); ctx.lineTo(cw, Y(row)); ctx.stroke(); ctx.setLineDash([]);
-      const txt = `${TIER_NAMES[t]}带 · ${Math.round(baseTempOfRow(row))}°`;
+      const txt = t < 0 ? `北境 · 世界之脊以北 · ${Math.round(baseTempOfRow(row))}°` : `${TIER_NAMES[t]}带 · ${Math.round(baseTempOfRow(row))}°`;
       ctx.fillStyle = 'rgba(20,16,12,.7)'; const tw = ctx.measureText(txt).width; ctx.fillRect(4, Y(row) - k * 1.7, tw + 10, k * 1.6);
       ctx.fillStyle = '#f2cf8f'; ctx.fillText(txt, 9, Y(row) - k * 0.25);
     }
@@ -154,6 +168,11 @@ export class BigMap {
       const st = Sim.farState(S, i); if (st === 'none' || p.y > maxRow || taken(p.x, p.y)) return;
       add(p.x + 0.5, p.y + 0.5, 'lm ' + (st === 'lit' ? 'done' : 'seen'), `<i>${st === 'lit' ? '✨' : '📍'}</i><span>${esc(FAR_MARKS[i].n)}</span>`);
     });
+    for (const p of w.north || []) {
+      const k2 = Sim.SPINE + p.k, done = J.stage >= k2, nx = J.stage + 1 === k2;
+      if (p.y > maxRow || taken(p.x, p.y) || (!done && !nx && S.reveal[idx(p.x, p.y)] !== 1)) continue;
+      add(p.x + 0.5, p.y + 0.5, 'lm ' + (done ? 'done' : 'seen'), `<i>${done ? '🏁' : '📍'}</i><span>北境第 ${p.k} 站·${esc(p.name)} ${NORTH_RULES[p.rule].ic}</span>`);
+    }
     for (const s of w.sites) {
       if (s.y > maxRow || S.reveal[idx(s.x, s.y)] !== 1 || (S.siteDone || {})[s.id]) continue;
       add(s.x + 0.5, s.y + 0.5, 'site', `<i>🧭</i><span>${esc(SITES[s.kind].n)}</span>`);

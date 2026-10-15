@@ -4,8 +4,8 @@ import {
   tierOfRow, baseTempOfRow, ETERNAL_STAGES, BLD, furnaceHeat, furnaceRadius, furnaceBurn,
   SPECS, SPEC_MAX, specBonus, specTrainCost, EMBER_UPS, emberCost, RAIDERS, STORY, DAY_LEN, LAWS, LAW_CD, TECHS, SITES, CHAPTERS, INFRA, LM_R, FAR_MARKS, DIFF, DIFF_KEYS, FOCUS, FOCUS_KEYS, FOCUS_LVL, FOCUS_CD,
 } from './data.js';
-import { W, H, T_SNOW, T_ICE, getWorld, idx, inMap, hash3, mulberry32 } from './worldgen.js';
-import { journeyOf, journeyStep, mainCamp, outpostBlock, outpostKit, moveFuel, fuelUnits, stopOf, depotAuto } from './journey.js';
+import { W, H, BASE_H, setRows, rowsFor, northStop, T_SNOW, T_ICE, getWorld, idx, inMap, hash3, mulberry32 } from './worldgen.js';
+import { journeyOf, journeyStep, mainCamp, outpostBlock, outpostKit, moveFuel, fuelUnits, stopOf, depotAuto, growNext } from './journey.js';
 export * from './journey.js';
 import { linesTick, bMax, bStar, lineProd, plinesOf, STAR_PROD } from './lines.js';
 export * from './lines.js';
@@ -43,10 +43,11 @@ export function fixMeta(meta) {
 export function newRun(meta, site = 0, seed) {
   meta = fixMeta(meta || defaultMeta());
   const runSeed = seed != null ? seed : (Math.floor(Math.random() * 1e9) + 1);
+  setRows(BASE_H);
   const S = {
     v: VERSION, runSeed, t: 0, savedAt: Date.now(), site, nextId: 1,
     camps: [], buildings: [], belts: [], reqs: [], spots: {}, sap: {}, poiDone: {}, poiFound: {}, scouts: [], lines: [],
-    reveal: new Uint8Array(W * H), discovered: [], founded: [], known: 1,
+    reveal: new Uint8Array(W * H), rows: BASE_H, discovered: [], founded: [], known: 1,
     eternal: { stage: 0, have: 0 }, specAt: {}, raidDone: -1,
     stats: { prod: {}, deaths: 0, arrivals: 0, raids: 0, raidsWon: 0, blizzards: 0 },
     log: [], meta, active: 0, ended: false,
@@ -562,6 +563,10 @@ export function clearFootprint(S, type, x, y, cid) {
 export function landmarkBlock(x, y, S) {
   for (let i = 1; i < LANDMARKS.length; i++) { const l = LANDMARKS[i], r = LM_R[i]; if ((x - l.x) ** 2 + (y - l.row) ** 2 < r * r) return true; }
   if (S && y > 330) { const far = getWorld(S.runSeed).far || []; for (let i = 0; i < far.length; i++) { const r = FAR_MARKS[i].r; if ((x + 0.5 - far[i].x - 0.5) ** 2 + (y + 0.5 - far[i].y - 0.5) ** 2 < r * r) return true; } }
+  if (S && y > 840) { // 北境各站的地标
+    const k0 = Math.max(1, Math.round((y - 800) / 80));
+    for (let k = Math.max(1, k0 - 1); k <= k0 + 1; k++) { const p = northStop(S.runSeed, k); if ((x - p.x) ** 2 + (y - p.y) ** 2 < p.r * p.r) return true; }
+  }
   return false;
 }
 // ---------- 远方地标与遗物 ----------
@@ -2912,13 +2917,28 @@ export function serialize(S) {
 export function deserialize(str) {
   const o = JSON.parse(str);
   if (!o || o.v !== VERSION || !o.camps) throw new Error('存档格式不对');
+  o.rows = setRows(o.rows || BASE_H); // 地图往北接到了哪一行：先接好再读迷雾
   o.reveal = unrle(o.reveal, W * H);
   fixMeta(o.meta);
   rt(o);
+  growNext(o); // 已经在世界之脊或北境：下一站要用的地图先接上
   return o;
 }
 function rle(arr) { const out = []; let cur = arr[0], n = 0; for (let i = 0; i < arr.length; i++) { if (arr[i] === cur) n++; else { out.push(n); cur = arr[i]; n = 1; } } out.push(n); return (arr[0] ? '1:' : '0:') + out.join(','); }
-function unrle(s, N) { const a = new Uint8Array(N); const [h, body] = s.split(':'); let v = +h, p = 0; for (const n of body.split(',').map(Number)) { if (v) a.fill(1, p, p + n); p += n; v = 1 - v; } return a; }
+function unrle(s, N) { const a = new Uint8Array(N); const [h, body] = s.split(':'); let v = +h, p = 0; for (const n of body.split(',').map(Number)) { if (v) a.fill(1, p, Math.min(N, p + n)); p += n; v = 1 - v; } return a; }
+// 地图往北接一段：迷雾数组跟着变长，缓存重算，画面那边收到 mapGrew 再补上新的地形
+export function growMap(S, rows) {
+  if (rows <= (S.rows || BASE_H) && rows <= H) return false;
+  const old = S.reveal, n = setRows(Math.max(rows, S.rows || BASE_H));
+  if (old.length < W * n) { S.reveal = new Uint8Array(W * n); S.reveal.set(old); }
+  S.rows = n;
+  getWorld(S.runSeed);
+  const R = rt(S); R.mapGrew = (R.mapGrew || 0) + 1; R.revealN = (R.revealN || 0) + 1; R.revealDirty = true;
+  dirty(S);
+  return true;
+}
+// 下一站（和再下一站的路）要用到的地图都得先生成好
+export function growFor(S, y) { return growMap(S, rowsFor(y)); }
 
 export { W, H, mulberry32 };
 

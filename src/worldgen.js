@@ -1,8 +1,14 @@
 // 地图生成：地标与资源纬度固定，地形与细节每轮随机
-import { SPOTS, SPOT_KEYS, LANDMARKS, SPECS, FAR_MARKS, tierOfRow } from './data.js';
+import { SPOTS, SPOT_KEYS, LANDMARKS, SPECS, FAR_MARKS, tierOfRow, SPINE_ROW, NORTH_GAP, NORTH_RULE_KEYS, NORTH_MARKS, NORTH_NAME_A, NORTH_NAME_B } from './data.js';
 
 export const W = 48;
-export const H = 1000; // 永恒之炉在 325 行，再往北是没有尽头的永夜冰原
+// 地图先生成 1000 行（世界之脊在 800 行），走进北境以后按段往北接，每段 400 行。
+// H 是现在已经生成到的行数：同一个种子每次接出来的地形都一样，存档里只记生成到哪一行
+export const BASE_H = 1000, SEG_H = 400;
+export let H = BASE_H;
+export function setRows(n) { H = Math.max(BASE_H, BASE_H + SEG_H * Math.ceil(((n | 0) - BASE_H) / SEG_H)); return H; }
+// 要看到第 y 行（再往北留 60 行）地图得生成到多少行
+export const rowsFor = y => Math.max(BASE_H, BASE_H + SEG_H * Math.ceil((y + 60 - BASE_H) / SEG_H));
 export const T_SNOW = 0, T_ROCK = 1, T_ICE = 2;
 
 export function mulberry32(a) {
@@ -31,15 +37,141 @@ function valueNoise(seed, x, y, scale) {
 
 const cache = new Map();
 export function getWorld(seed) {
-  if (!cache.has(seed)) { cache.clear(); cache.set(seed, genWorld(seed)); }
-  return cache.get(seed);
+  let w = cache.get(seed);
+  if (!w || w.rows > H) { cache.clear(); w = genWorld(seed); cache.set(seed, w); }
+  while (w.rows < H) genSegment(w);
+  return w;
 }
+
+// ---------- 北境的站：位置、名字、地貌规则只由种子决定（还没生成到的段也能先算出来） ----------
+const NS = { seed: null, list: [], names: null, bag: [], rr: null };
+export function northStop(seed, k) {
+  if (!(k >= 1)) return null;
+  if (NS.seed !== seed) {
+    NS.seed = seed; NS.list = []; NS.bag = [];
+    // 站名：前半个字轮完一圈才重复，前后两半的搭配整局不重复
+    const r = mulberry32(seed * 97 + 3), shuf = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+    const A = shuf(NORTH_NAME_A), B = shuf(NORTH_NAME_B), nA = A.length, nB = B.length;
+    NS.names = Array.from({ length: nA * nB }, (_, i) => A[i % nA] + B[(Math.floor(i / nA) + i % nA) % nB]);
+    NS.rr = mulberry32(seed * 131 + 17);
+  }
+  const L = NS.list;
+  while (L.length < k) {
+    const n = L.length + 1, prev = L[n - 2];
+    // 第 1 站固定平坦雪原；之后十条规则装一袋轮流抽，抽完再装，连着两站不重复
+    let rule = 'flat';
+    if (n > 1) {
+      if (!NS.bag.length) {
+        const b = NORTH_RULE_KEYS.slice();
+        for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(NS.rr() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; }
+        if (b[0] === prev.rule) b.push(b.shift());
+        NS.bag = b;
+      }
+      rule = NS.bag.shift();
+    }
+    const mark = (n - 1) % NORTH_MARKS.length;
+    L.push({ k: n, y: SPINE_ROW + NORTH_GAP * n + Math.round((hash3(n, 91, seed) - 0.5) * 10), x: 24 + Math.round((hash3(n, 92, seed) - 0.5) * 16), name: NS.names[(n - 1) % NS.names.length], rule, mark, r: NORTH_MARKS[mark].r });
+  }
+  return L[k - 1];
+}
+// 北境第几站离第 y 行最近（往南找）
+export function northAt(seed, y) { if (y < SPINE_ROW + NORTH_GAP / 2) return null; let k = Math.max(1, Math.round((y - SPINE_ROW) / NORTH_GAP)); while (k > 1 && northStop(seed, k).y - NORTH_GAP / 2 > y) k--; while (northStop(seed, k + 1).y - NORTH_GAP / 2 <= y) k++; return northStop(seed, k); }
+// 新营地大概扎在哪：地标南边几格
+export const northCampAt = s => ({ x: s.x + 0.5, y: s.y + 0.5 - s.r - 4.5 });
+const RAW_BASE = ['tree', 'tree', 'tree', 'tree', 'rock', 'rock', 'rock', 'herd', 'herd'];
+// 一站的地面：地标周围铲平、营地那块搬走石头，再保证暖圈里每种原料都有（这些不消耗主随机数）
+function placeNorth(w, s) {
+  const { terrain, spot, spotInit, seed } = w, mx = s.x + 0.5, my = s.y + 0.5, c = northCampAt(s);
+  for (let y = Math.floor(my - s.r - 3); y <= my + s.r + 3; y++) for (let x = Math.max(1, Math.floor(mx - s.r - 3)); x <= Math.min(W - 2, mx + s.r + 3); x++) {
+    const d = Math.hypot(x + 0.5 - mx, y + 0.5 - my), j = idx(x, y);
+    if (d < s.r + 2.5) terrain[j] = T_SNOW;
+    if (d < s.r + 1.5) spot[j] = -1;
+  }
+  for (let y = Math.floor(c.y - 6); y <= c.y + 6; y++) for (let x = Math.max(0, Math.floor(c.x - 6)); x <= Math.min(W - 1, c.x + 6); x++) {
+    const i = idx(x, y);
+    if (terrain[i] !== T_SNOW && Math.hypot(x + 0.5 - c.x, y + 0.5 - c.y) < 5.5 && Math.min(x, W - 1 - x) >= 2) terrain[i] = T_SNOW;
+  }
+  const need = RAW_BASE.slice();
+  for (const k of SPOT_KEYS) if (!['tree', 'rock', 'herd'].includes(k)) need.push(k, k);
+  ensureNear(seed + 5000 + s.k, terrain, spot, spotInit, Math.floor(c.x), Math.floor(c.y), need, 4, 11, SPINE_ROW, (x, y) => Math.hypot(x + 0.5 - mx, y + 0.5 - my) < s.r + 1.8);
+}
+// 离北境站的地标或营地太近（放地点、兴趣点时避开）
+function nearNorth(seed, x, y, r) {
+  for (let k = Math.max(1, Math.floor((y - SPINE_ROW) / NORTH_GAP) - 1); k >= 1; k++) {
+    const s = northStop(seed, k); if (s.y - y > 40) return false;
+    if (Math.hypot(x - s.x, y - s.y) <= s.r + r) return true;
+    const c = northCampAt(s); if (Math.hypot(x - c.x, y - c.y) <= 4 + r * 0.5) return true;
+  }
+  return false;
+}
+// 接着往北生成一段（同一个种子、同一段，每次结果一样）
+function genSegment(w) {
+  const seed = w.seed, y0 = w.rows, y1 = y0 + SEG_H, N1 = W * y1, seg = (y0 - BASE_H) / SEG_H;
+  const grow = (A, T, fill) => { const a = new T(N1); if (fill != null) a.fill(fill); a.set(A); return a; };
+  w.terrain = grow(w.terrain, Uint8Array); w.height = grow(w.height, Float32Array); w.spot = grow(w.spot, Int8Array, -1); w.spotInit = grow(w.spotInit, Float32Array);
+  const { terrain, height, spot, spotInit } = w, rnd = mulberry32(seed * 7919 + 1009 * (seg + 1) + 13);
+  const stops = [];
+  for (let k = 1; ; k++) { const s = northStop(seed, k); if (s.y >= y1) break; if (s.y >= y0) stops.push(s); }
+  const nearStop = (x, y, r) => stops.some(s => (x - s.x) ** 2 + (y - s.y) ** 2 <= (s.r + r) ** 2);
+  for (let y = y0; y < y1; y++) for (let x = 0; x < W; x++) {
+    const i = idx(x, y), n = valueNoise(seed, x, y, 9) * 0.7 + valueNoise(seed + 77, x, y, 4) * 0.3;
+    height[i] = n;
+    let t = T_SNOW;
+    if (n > 0.74 || (Math.min(x, W - 1 - x) < 2 && n > 0.5)) t = T_ROCK;
+    else if (valueNoise(seed + 991, x, y, 7) > 0.8) t = T_ICE;
+    if (nearStop(x, y, 4)) t = T_SNOW;
+    terrain[i] = t;
+  }
+  // 资源点：和永恒之炉以北一样的密度，储量按世界之脊那一行算（越往北不再越多）
+  for (let y = y0; y < y1; y++) for (let x = 1; x < W - 1; x++) {
+    const i = idx(x, y);
+    if (terrain[i] !== T_SNOW || nearStop(x, y, 1)) continue;
+    for (let k = SPOT_KEYS.length - 1; k >= 0; k--) {
+      const key = SPOT_KEYS[k], s = SPOTS[key];
+      if (y < s.from) continue;
+      let dens = s.dens;
+      if (key === 'tree') dens *= 1.6 * valueNoise(seed + 5, x, y, 6) * 0.15;
+      else if (key === 'herd') dens *= 0.12;
+      else if (key === 'shard') dens = 0.025;
+      else dens *= 0.6 + 0.8 * valueNoise(seed + 31 * (k + 1), x, y, 8);
+      if (rnd() < dens) { spot[i] = k; spotInit[i] = Math.round(s.reserve * (0.7 + rnd() * 0.6) * (1 + SPINE_ROW / 160)); break; }
+    }
+  }
+  for (const s of stops) placeNorth(w, s);
+  // 兴趣点和雾里的地点：避开站点
+  let pid = w.pois.reduce((a, p) => Math.max(a, p.id), -1) + 1, sid = w.sites.reduce((a, p) => Math.max(a, p.id), -1) + 1;
+  for (let y = y0 + 4; y < y1 - 6; y += 9) {
+    const r = rnd(), x = 3 + Math.floor(rnd() * (W - 6)), yy = y + Math.floor(rnd() * 6);
+    if (terrain[idx(x, yy)] !== T_SNOW || spot[idx(x, yy)] >= 0 || nearNorth(seed, x, yy, 3)) continue;
+    if (r < 0.5) w.pois.push({ id: pid++, kind: 'survivors', x, y: yy, n: 4 + Math.floor(rnd() * 5 + SPINE_ROW / 30) });
+    else if (r < 0.9) w.pois.push({ id: pid++, kind: 'cache', x, y: yy, tier: 7 });
+  }
+  const r2 = mulberry32(seed * 31 + 7 + 101 * (seg + 1)), kinds = ['train', 'lab', 'wreck', 'camp', 'shrine', 'lab'];
+  for (let y = y0 + 4; y < y1 - 10; y += 20) {
+    const kind = kinds[Math.floor(r2() * kinds.length)];
+    for (let tries = 0; tries < 30; tries++) {
+      const x = 4 + Math.floor(r2() * (W - 8)), yy = y + Math.floor(r2() * 12);
+      let bad = false;
+      for (let dy = -2; dy <= 2 && !bad; dy++) for (let dx = -2; dx <= 2; dx++) {
+        const j = idx(x + dx, yy + dy);
+        if (terrain[j] !== T_SNOW && (Math.abs(dx) < 2 && Math.abs(dy) < 2 || terrain[j] === T_ROCK)) { bad = true; break; }
+        if (Math.abs(dx) < 2 && Math.abs(dy) < 2 && spot[j] >= 0) { bad = true; break; }
+      }
+      if (bad || nearNorth(seed, x, yy, 6) || w.pois.some(p => Math.hypot(p.x - x, p.y - yy) < 3)) continue;
+      w.sites.push({ id: sid++, kind, x, y: yy, t: 7 });
+      break;
+    }
+  }
+  w.north.push(...stops);
+  w.rows = y1;
+}
+
 
 export function idx(x, y) { return y * W + x; }
 export function inMap(x, y) { return x >= 0 && y >= 0 && x < W && y < H; }
 
 export function genWorld(seed) {
-  const N = W * H;
+  const HB = BASE_H, N = W * HB; // 前 1000 行永远按老规则生成（老存档的地图不变）
   const terrain = new Uint8Array(N);
   const height = new Float32Array(N);
   const spot = new Int8Array(N).fill(-1); // SPOT_KEYS 下标
@@ -47,7 +179,7 @@ export function genWorld(seed) {
   const rnd = mulberry32(seed * 7919 + 13);
   const nearLandmark = (x, y, r) => LANDMARKS.some(l => (x - l.x) ** 2 + (y - l.row) ** 2 <= r * r);
 
-  for (let y = 0; y < H; y++) {
+  for (let y = 0; y < HB; y++) {
     for (let x = 0; x < W; x++) {
       const i = idx(x, y);
       const n1 = valueNoise(seed, x, y, 9), n2 = valueNoise(seed + 77, x, y, 4);
@@ -62,7 +194,7 @@ export function genWorld(seed) {
     }
   }
   // 资源点：越往北储量越大；成片出现
-  for (let y = 0; y < H; y++) {
+  for (let y = 0; y < HB; y++) {
     for (let x = 1; x < W - 1; x++) {
       const i = idx(x, y);
       if (terrain[i] !== T_SNOW) continue;
@@ -104,7 +236,7 @@ export function genWorld(seed) {
   // 兴趣点：幸存者、遗迹物资、专家
   const pois = [];
   let pid = 0;
-  for (let y = 18; y < H - 6; y += 9) {
+  for (let y = 18; y < HB - 6; y += 9) {
     const r = rnd();
     const x = 3 + Math.floor(rnd() * (W - 6));
     const yy = y + Math.floor(rnd() * 6);
@@ -122,13 +254,13 @@ export function genWorld(seed) {
   // 雾里的地点（单独的随机数，不影响上面已经生成好的地图）
   const sites = [], r2 = mulberry32(seed * 31 + 7);
   let sid = 0;
-  for (let y = 24; y < H - 10; y += 20) {
+  for (let y = 24; y < HB - 10; y += 20) {
     const t = tierOfRow(y);
     const kinds = t <= 1 ? ['depot', 'camp', 'depot'] : t <= 3 ? ['depot', 'camp', 'train', 'shrine'] : ['train', 'lab', 'wreck', 'camp', 'shrine', 'lab'];
     const kind = kinds[Math.floor(r2() * kinds.length)];
     for (let tries = 0; tries < 30; tries++) {
       const x = 4 + Math.floor(r2() * (W - 8)), yy = y + Math.floor(r2() * 12);
-      if (yy >= H - 4) break;
+      if (yy >= HB - 4) break;
       // 模型约 2.5 格宽：周围一圈不能有资源点，两圈内不能有岩石
       let bad = false;
       for (let dy = -2; dy <= 2 && !bad; dy++) for (let dx = -2; dx <= 2; dx++) {
@@ -198,10 +330,18 @@ export function genWorld(seed) {
       break;
     }
   });
-  return { seed, terrain, height, spot, spotInit, pois, sites, far, gangs };
+  const w = { seed, terrain, height, spot, spotInit, pois, sites, far, gangs, rows: HB, north: [] };
+  // 北境头两站落在前 1000 行里：在最后补上（不消耗随机数，世界之脊以南不受影响），站点周围的地点和兴趣点挪走
+  for (let k = 1; ; k++) {
+    const s = northStop(seed, k); if (s.y >= HB) break;
+    w.sites = w.sites.filter(q => !nearNorth(seed, q.x, q.y, 6));
+    w.pois = w.pois.filter(q => q.kind === 'spec' || !nearNorth(seed, q.x, q.y, 3));
+    placeNorth(w, s); w.north.push(s);
+  }
+  return w;
 }
 
-function ensureNear(seed, terrain, spot, spotInit, cx, cy, list, rmin, rmax) {
+function ensureNear(seed, terrain, spot, spotInit, cx, cy, list, rmin, rmax, capY = Infinity, avoid = null) {
   const rnd = mulberry32(seed * 31 + cy);
   let tries = 0;
   // 统计现有
@@ -218,15 +358,15 @@ function ensureNear(seed, terrain, spot, spotInit, cx, cy, list, rmin, rmax) {
     while (tries++ < 400) {
       const a = rnd() * Math.PI * 2, d = rmin + rnd() * (rmax - rmin);
       const x = Math.round(cx + Math.cos(a) * d), y = Math.round(cy + Math.sin(a) * d);
-      if (!inMap(x, y) || x < 1 || x > W - 2) continue;
+      if (!inMap(x, y) || x < 1 || x > W - 2 || y >= terrain.length / W) continue;
       const i = idx(x, y);
-      if (spot[i] >= 0) continue;
+      if (spot[i] >= 0 || (avoid && avoid(x, y))) continue;
       terrain[i] = T_SNOW;
       spot[i] = SPOT_KEYS.indexOf(key);
-      spotInit[i] = Math.round(SPOTS[key].reserve * (1 + y / 160));
+      spotInit[i] = Math.round(SPOTS[key].reserve * (1 + Math.min(y, capY) / 160));
       // 再放一个相邻的，形成小片
       const j = idx(Math.min(W - 2, x + 1), y);
-      if (spot[j] < 0 && terrain[j] !== T_ROCK) { terrain[j] = T_SNOW; spot[j] = spot[i]; spotInit[j] = spotInit[i]; }
+      if (spot[j] < 0 && terrain[j] !== T_ROCK && !(avoid && avoid(Math.min(W - 2, x + 1), y))) { terrain[j] = T_SNOW; spot[j] = spot[i]; spotInit[j] = spotInit[i]; }
       break;
     }
   }

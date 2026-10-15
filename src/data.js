@@ -83,6 +83,33 @@ export const FAR_MARKS = [
   { n: '世界之脊', row: 800, r: 3.6, desc: '冰原尽头隆起一道巨大的骨脊，像某种远古巨兽的脊梁。翻过去，就再也没有人走过的路了。',
     relic: { k: 'ember', v: 0.25, n: '脊骨火种', d: '北迁时带走的余烬 +25%' } },
 ];
+// 北境：世界之脊以北，一站接一站没有尽头。每站约 80 行，带一条地貌规则和一个地标
+export const SPINE_ROW = 800;
+export const NORTH_GAP = 80;
+// 地貌规则：一好一坏，只管当前这一站（效果在 sim / worldgen 里按 id 生效）
+export const NORTH_RULES = {
+  flat:   { n: '平坦雪原', ic: '🏔', good: '暖圈内空地更多', bad: '矿点偏少' },
+  geo:    { n: '地热谷',   ic: '♨', good: '暖圈 +3 格，燃料消耗 −30%', bad: '煤矿和油页岩减半' },
+  rich:   { n: '富矿带',   ic: '💎', good: '一种矿的储量 ×3', bad: '暖圈 −2 格' },
+  night:  { n: '永夜',     ic: '🌌', good: '极光更多，希望更容易涨', bad: '燃料 +20%，户外工作慢 10%' },
+  wolf:   { n: '狼群领地', ic: '🐺', good: '击退袭营的战利品 ×2', bad: '袭营变多 ×1.5' },
+  lakes:  { n: '冰湖群',   ic: '🎣', good: '能建冰钓屋，产鱼当食物', bad: '冰面不能盖房，冰湖开裂更常见' },
+  ruins:  { n: '古城遗址', ic: '🏛', good: '拆废墟得古代构件和钢材', bad: '废墟占地，拆了才有空地' },
+  storm:  { n: '风暴走廊', ic: '🌪', good: '暴风雪预报提前一倍', bad: '暴风雪 ×2' },
+  meteor: { n: '陨石雨',   ic: '☄', good: '流星坑更多，星核更好挖', bad: '偶尔砸中一栋建筑，停工一会' },
+  tundra: { n: '冻土无林', ic: '🪵', good: '石头和矿点更多', bad: '没有活树，只有枯木堆' },
+};
+export const NORTH_RULE_KEYS = Object.keys(NORTH_RULES);
+// 北境每站的地标，四种轮着用（r：模型半径，不能在上面建造）
+export const NORTH_MARKS = [
+  { n: '冰封石碑', r: 2.2, desc: '一块比人高得多的石碑立在雪原上，刻着没人认得的字，冰从碑顶一直挂到地面。' },
+  { n: '冻住的古门', r: 2.6, desc: '两根石柱撑着一道拱门，门里什么也没有，只有更远的雪。门楣上结着厚厚的冰。' },
+  { n: '巨兽骨架', r: 3.0, desc: '又一副巨兽的骨头半埋在冰里。比世界之脊那副小，肋骨却更弯，像还在呼吸。' },
+  { n: '断掉的冰塔', r: 2.4, desc: '一座冰塔从半腰折断，上半截斜插在雪里，断口还亮着淡蓝的光。' },
+];
+// 北境站名：两半拼起来（同一局里不重复）
+export const NORTH_NAME_A = ['寂风', '白鲸', '断灯', '霜狼', '静水', '回声', '孤星', '冷铁', '长夜', '碎冰', '雪鸮', '灰帆', '冻铃', '沉钟', '苍角', '无声', '银脊', '暮火', '玄冰', '远帆'];
+export const NORTH_NAME_B = ['岭', '湾', '口', '原', '谷', '坡', '台', '渡', '湖', '岬', '崖', '关'];
 // 每个纬度带从哪一行开始（对应资源层级）
 export const BAND_START = [0, 0, 45, 95, 145, 200, 255, 312];
 export function tierOfRow(row) {
@@ -90,7 +117,7 @@ export function tierOfRow(row) {
   for (let i = 2; i <= 7; i++) if (row >= BAND_START[i]) t = i;
   return t;
 }
-export function baseTempOfRow(row) { return Math.round(-6 - row * 0.165); }
+export function baseTempOfRow(row) { return Math.round(-6 - Math.min(row, SPINE_ROW) * 0.165); } // 世界之脊以北不再更冷
 
 // 永恒之炉点燃的三个阶段：永恒炉件的产能目标
 export const ETERNAL_STAGES = [3, 5, 7]; // 每层要永恒炉件每分钟产多少，稳住 3 分钟就亮一层

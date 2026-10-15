@@ -1,6 +1,6 @@
 // 2.5D 画面：斜俯视镜头、低多边形地形、建筑、小人、迷雾、雪、烟
 import * as THREE from 'three';
-import { W, H, getWorld, idx, T_SNOW, T_ROCK, T_ICE, hash3 } from './worldgen.js';
+import { W, H, BASE_H, getWorld, idx, T_SNOW, T_ROCK, T_ICE, hash3 } from './worldgen.js';
 import { SPOT_KEYS, SPOTS, BLD, LANDMARKS, LM_R, FAR_MARKS, RES, furnaceRadius, RAIDERS, tierOfRow, ETERNAL_STAGES, dayCycle, FOCUS } from './data.js';
 import * as M from './models.js';
 import * as Sim from './sim.js';
@@ -12,7 +12,7 @@ const RESCOL = Object.fromEntries(Object.entries(RES).map(([k, v]) => [k, new TH
 const vn = (x, y, sc, sd) => { const fx = x / sc, fy = y / sc, x0 = Math.floor(fx), y0 = Math.floor(fy), tx = fx - x0, ty = fy - y0; const a = hash3(x0, y0, sd), b = hash3(x0 + 1, y0, sd), c = hash3(x0, y0 + 1, sd), d = hash3(x0 + 1, y0 + 1, sd); const sx = tx * tx * (3 - 2 * tx), sy = ty * ty * (3 - 2 * ty); return a + (b - a) * sx + (c - a) * sy + (a - b - c + d) * sx * sy; };
 // 雪地底色：大片的明暗斑块 + 顺风的条纹，避免棋盘感（地图内外共用，接缝看不出来）
 const snowColor = (x, y, c) => {
-  const north = Math.max(0, Math.min(1, y / H));
+  const north = Math.max(0, Math.min(1, y / BASE_H));
   const patch = vn(x, y, 7, 21) - 0.5, fine = vn(x, y, 2.3, 22) - 0.5, streak = vn(x * 0.35, y * 2.2, 3, 23) - 0.5;
   const cold = vn(x, y, 13, 24);
   return c.setHSL(0.58 + north * 0.03 + cold * 0.02, 0.26 + north * 0.15 + cold * 0.1, 0.86 - north * 0.08 + patch * 0.05 + fine * 0.018 + streak * 0.022);
@@ -137,6 +137,7 @@ if (uDetail > 0.0) {
     this.buildSpots();
     this.buildLandmarks();
     this.buildFar();
+    this.buildNorth();
     this.buildSites();
     this.buildFog();
     this.refreshLandmarks();
@@ -148,13 +149,49 @@ if (uDetail > 0.0) {
     this.syncBuildings(true);
     const c = S.camps.find(c => c.id === S.active) || S.camps[0];
     this.focus(c.x, c.y, true);
+    this.refreshTerrain(true);
+    this.mapGrew = Sim.rt(S).mapGrew || 0;
+  }
+  // 地图往北接了一段：新的地形、群山、资源点、迷雾、地点和北境地标补上（建筑和镜头不动）
+  regrow() {
+    const S = this.S, oldH = this.builtH;
+    this.world = getWorld(S.runSeed);
+    for (const [y0, m] of this.terr) if (m.userData.y1 >= oldH - 1) { this.root.remove(m); m.geometry.dispose(); this.terr.delete(y0); }
+    for (const [, m] of this.skirt) { this.root.remove(m); m.geometry.dispose(); }
+    this.skirt.clear();
+    this.builtH = H;
+    this.buildOuter();
+    this.rebuildSpots();
+    this.root.remove(this.fogMesh); this.fogMesh.geometry.dispose(); this.fogMesh.material.dispose(); this.fogTex.dispose();
+    this.buildFog();
+    for (const g of this.siteGroups || []) this.root.remove(g);
+    this.buildSites();
+    for (const g of this.northGroups || []) { this.root.remove(g); g.children.forEach(m => m.geometry.dispose()); }
+    this.buildNorth();
+    this.refreshLandmarks();
+    this.refreshTerrain(true);
   }
 
+  // 地面按 23 行一块，只建镜头附近的几块（地图往北接到几千行也不卡）；岩石只摆镜头附近的
   buildTerrain() {
-    const w = this.world;
-    const CH = 23;
-    const snowCol = snowColor;
-    for (let y0 = 0; y0 < H; y0 += CH) {
+    this.terr = new Map(); this.terrWin = null; this.skirt = new Map(); this.skirtWin = null; this.builtH = H;
+    this.buildOuter();
+    const rg = M.merge([M.P(new THREE.DodecahedronGeometry(0.5, 0), '#8c939d', { sx: 1.25, sy: 1.1, sz: 1.2, y: 0.3, jit: 0.25 }), M.P(new THREE.DodecahedronGeometry(0.5, 0), '#f0f5fa', { sx: 1.0, sy: 0.4, sz: 0.95, y: 0.72 })]);
+    const im = new THREE.InstancedMesh(rg, this.matStd, W * 128);
+    im.castShadow = true; im.receiveShadow = true; im.count = 0;
+    this.rocks = { im };
+    this.root.add(im);
+  }
+  // 远处的雪原（被群山挡住，只在最远处露一点）
+  buildOuter() {
+    if (this.outer) { this.root.remove(this.outer); this.outer.geometry.dispose(); this.outer.material.dispose(); }
+    const outer = new THREE.Mesh(new THREE.PlaneGeometry(900, H + 600), new THREE.MeshLambertMaterial({ color: '#b4c2d2' }));
+    outer.rotation.x = -Math.PI / 2; outer.position.set(W / 2, -0.4, -H / 2); outer.receiveShadow = false;
+    this.outer = outer; this.root.add(outer);
+  }
+  terrChunk(y0) {
+    const w = this.world, CH = 23, snowCol = snowColor;
+    {
       const y1 = Math.min(H, y0 + CH);
       const n = W * (y1 - y0);
       const pos = new Float32Array(n * 18), col = new Float32Array(n * 18);
@@ -183,27 +220,35 @@ if (uDetail > 0.0) {
       g.setAttribute('color', new THREE.BufferAttribute(col, 3));
       g.computeVertexNormals();
       const m = new THREE.Mesh(g, this.matGround);
-      m.receiveShadow = true;
-      this.root.add(m);
+      m.receiveShadow = true; m.userData.y1 = y1;
+      return m;
     }
-    // 远处的雪原（被群山挡住，只在最远处露一点）
-    const outer = new THREE.Mesh(new THREE.PlaneGeometry(900, H + 600), new THREE.MeshLambertMaterial({ color: '#b4c2d2' }));
-    outer.rotation.x = -Math.PI / 2; outer.position.set(W / 2, -0.4, -H / 2); outer.receiveShadow = false;
-    this.root.add(outer);
-    this.buildSkirt();
-    // 岩石
-    const rocks = [];
-    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (w.terrain[idx(x, y)] === T_ROCK) rocks.push([x, y]);
-    const rg = M.merge([M.P(new THREE.DodecahedronGeometry(0.5, 0), '#8c939d', { sx: 1.25, sy: 1.1, sz: 1.2, y: 0.3, jit: 0.25 }), M.P(new THREE.DodecahedronGeometry(0.5, 0), '#f0f5fa', { sx: 1.0, sy: 0.4, sz: 0.95, y: 0.72 })]);
-    const im = new THREE.InstancedMesh(rg, this.matStd, rocks.length);
-    im.castShadow = true; im.receiveShadow = true;
-    this.rocks = { im, list: rocks };
-    this.root.add(im);
   }
-
+  // 镜头附近的地面和群山建好，远的拆掉
+  refreshTerrain(force) {
+    const cy = this.cam.ty, win = Math.round(cy / 20);
+    if (!force && win === this.terrWin) return;
+    this.terrWin = win;
+    const CH = 23;
+    for (let y0 = Math.max(0, Math.floor((cy - 150) / CH) * CH); y0 < Math.min(H, cy + 150); y0 += CH) if (!this.terr.has(y0)) { const m = this.terrChunk(y0); this.terr.set(y0, m); this.root.add(m); }
+    for (const [y0, m] of this.terr) if (y0 + CH < cy - 230 || y0 > cy + 230) { this.root.remove(m); m.geometry.dispose(); this.terr.delete(y0); }
+    this.refreshSkirt(cy);
+  }
   // 地图外的群山：山脚线弯弯曲曲，离地图越远越高；陡的地方露出岩石，缓坡上长着冷杉
-  buildSkirt() {
-    const XR = 45, YS = 39, YN = 36, ST = 1.5;
+  refreshSkirt(cy) {
+    const XR = 45, YS = 39, YN = 36, ST = 1.5, CHY = 40 * ST;
+    const regions = [[-XR, 0, -YS, H + YN], [W, W + XR, -YS, H + YN], [0, W, -YS, 0], [0, W, H, H + YN]];
+    regions.forEach(([x0, x1, y0, y1], ri) => {
+      for (let cy0 = y0; cy0 < y1; cy0 += CHY) {
+        const key = ri + ':' + cy0, cy1 = Math.min(y1, cy0 + CHY), near = cy1 > cy - 170 && cy0 < cy + 170;
+        const m = this.skirt.get(key);
+        if (near && !m) { const mm = this.buildSkirt(x0, x1, cy0, cy1); this.skirt.set(key, mm); this.root.add(mm); }
+        else if (m && (cy1 < cy - 250 || cy0 > cy + 250)) { this.root.remove(m); m.geometry.dispose(); this.skirt.delete(key); }
+      }
+    });
+  }
+  buildSkirt(x0, x1, cy0, cy1) {
+    const ST = 1.5;
     const mtn = (x, y) => {
       const dx = x < 0 ? -x : x > W ? x - W : 0, dy = y < 0 ? -y : y > H ? y - H : 0;
       const d = Math.hypot(dx, dy);
@@ -228,15 +273,12 @@ if (uDetail > 0.0) {
     const boulderG = M.merge([M.P(new THREE.DodecahedronGeometry(0.5, 0), '#7f8792', { sx: 1.2, sy: 0.8, sz: 1.0, y: 0.2, jit: 0.2 }), M.P(new THREE.DodecahedronGeometry(0.5, 0), '#eef3f8', { sx: 0.9, sy: 0.3, sz: 0.8, y: 0.5 })]);
     const tmpl = g => ({ p: g.attributes.position.array, c: g.attributes.color.array });
     const FIR = tmpl(firG), BOU = tmpl(boulderG);
-    const regions = [[-XR, 0, -YS, H + YN], [W, W + XR, -YS, H + YN], [0, W, -YS, 0], [0, W, H, H + YN]];
     const c = new THREE.Color(), rockC = new THREE.Color(), snowC = new THREE.Color();
     const a = new THREE.Vector3(), b = new THREE.Vector3(), e = new THREE.Vector3(), nrm = new THREE.Vector3();
-    for (const [x0, x1, y0, y1] of regions) {
+    {
       const nx = Math.round((x1 - x0) / ST);
       const sx = (x1 - x0) / nx;
-      const CHY = 40;
-      for (let cy0 = y0; cy0 < y1; cy0 += CHY * ST) {
-        const cy1 = Math.min(y1, cy0 + CHY * ST);
+      {
         const ny = Math.max(1, Math.round((cy1 - cy0) / ST)), sy = (cy1 - cy0) / ny;
         // 顶点高度网格
         const hs = new Float32Array((nx + 1) * (ny + 1));
@@ -283,7 +325,7 @@ if (uDetail > 0.0) {
         g.computeVertexNormals(); g.computeBoundingSphere();
         const m = new THREE.Mesh(g, this.matGround);
         m.receiveShadow = true;
-        this.root.add(m);
+        return m;
       }
     }
   }
@@ -493,6 +535,7 @@ if (uDetail > 0.0) {
   refreshLandmarks() {
     for (const g of this.lmGroups) { const l = LANDMARKS[g.userData.lm]; g.visible = this.S.reveal[idx(l.x, l.row)] === 1; }
     for (const g of this.farGroups || []) { const p = g.userData.far; g.visible = this.S.reveal[idx(p.x, p.y)] === 1; }
+    for (const g of this.northGroups || []) { const p = g.userData.north; g.visible = this.S.reveal[idx(p.x, p.y)] === 1; }
   }
   // 永恒之炉以北的远方地标：揭开迷雾才显示
   buildFar() {
@@ -506,6 +549,20 @@ if (uDetail > 0.0) {
       g.userData.far = p; g.userData.fi = i; g.visible = false;
       this.farGroups.push(g); this.root.add(g);
     });
+  }
+  // 北境各站的地标（四种轮着用）：揭开迷雾才显示
+  buildNorth() {
+    this.northGroups = [];
+    const geos = this.northGeos || (this.northGeos = {});
+    for (const p of this.world.north || []) {
+      const G0 = geos[p.mark] || (geos[p.mark] = M.northGeo(p.mark)), g = new THREE.Group();
+      g.position.set(p.x + 0.5, 0, -(p.y + 0.5));
+      g.rotation.y = (hash3(p.k, 23, 5) - 0.5) * 0.9;
+      const m = new THREE.Mesh(G0.geo, this.matStd); m.castShadow = true; m.receiveShadow = true; g.add(m);
+      if (G0.glow) g.add(new THREE.Mesh(G0.glow, this.matGlow));
+      g.userData.north = p; g.visible = false;
+      this.northGroups.push(g); this.root.add(g);
+    }
   }
   buildLandmarks() {
     this.eternalFlame = null;
@@ -572,13 +629,17 @@ if (uDetail > 0.0) {
     }
   }
 
+  // 迷雾：一张贴图盖最多 1000 行；地图接长以后只盖镜头附近那 1000 行，镜头走远了再挪（手机上贴图不能超过 4096 像素高）
+  fogWin() { const FH = Math.min(H, BASE_H); return Math.max(0, Math.min(H - FH, Math.round((this.cam.ty - FH / 2) / 100) * 100)); }
   buildFog() {
-    this.fogBig = document.createElement('canvas'); this.fogBig.width = W * 4; this.fogBig.height = H * 4;
+    const FH = this.fogH = Math.min(H, BASE_H);
+    this.fogF0 = this.fogWin();
+    this.fogBig = document.createElement('canvas'); this.fogBig.width = W * 4; this.fogBig.height = FH * 4;
     this.fogTex = new THREE.CanvasTexture(this.fogBig);
     this.fogTex.colorSpace = THREE.SRGBColorSpace;
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(W + 8, H + 8), new THREE.MeshBasicMaterial({ map: this.fogTex, transparent: true, depthWrite: false, fog: false }));
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(W + 8, FH + 8), new THREE.MeshBasicMaterial({ map: this.fogTex, transparent: true, depthWrite: false, fog: false }));
     m.rotation.x = -Math.PI / 2;
-    m.position.set(W / 2, 1.35, -H / 2);
+    m.position.set(W / 2, 1.35, -(this.fogF0 + FH / 2));
     m.renderOrder = 5;
     this.fogMesh = m;
     this.root.add(m);
@@ -604,20 +665,21 @@ if (uDetail > 0.0) {
     big.drawImage(this.cloud, 0, 0);
     big.globalCompositeOperation = 'destination-out';
     // 把揭开的区域“挖”掉，再用模糊做出柔和的雾边
-    const mask = this.fogMask || (this.fogMask = document.createElement('canvas')); mask.width = W; mask.height = H;
-    const mctx = mask.getContext('2d'); const mi = mctx.createImageData(W, H);
-    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const o = ((H - 1 - y) * W + x) * 4; mi.data[o + 3] = S.reveal[idx(x, y)] ? 255 : 0; }
+    const FH = this.fogH, F0 = this.fogF0;
+    const mask = this.fogMask || (this.fogMask = document.createElement('canvas')); mask.width = W; mask.height = FH;
+    const mctx = mask.getContext('2d'); const mi = mctx.createImageData(W, FH);
+    for (let y = 0; y < FH; y++) for (let x = 0; x < W; x++) { const o = ((FH - 1 - y) * W + x) * 4; mi.data[o + 3] = S.reveal[idx(x, y + F0)] ? 255 : 0; }
     mctx.putImageData(mi, 0, 0);
     big.filter = 'blur(5px)';
     big.imageSmoothingEnabled = true;
     // 平面比地图大 8 格：四周各留 4 格
-    const sx = this.fogBig.width / (W + 8), sy = this.fogBig.height / (H + 8);
-    big.drawImage(mask, 4 * sx, 4 * sy, W * sx, H * sy);
+    const sx = this.fogBig.width / (W + 8), sy = this.fogBig.height / (FH + 8);
+    big.drawImage(mask, 4 * sx, 4 * sy, W * sx, FH * sy);
     // 地图边缘的揭示状态向外延伸到雾面的边框
-    big.drawImage(mask, 0, 0, 1, H, 0, 4 * sy, 4 * sx, H * sy);
-    big.drawImage(mask, W - 1, 0, 1, H, (W + 4) * sx, 4 * sy, 4 * sx, H * sy);
+    big.drawImage(mask, 0, 0, 1, FH, 0, 4 * sy, 4 * sx, FH * sy);
+    big.drawImage(mask, W - 1, 0, 1, FH, (W + 4) * sx, 4 * sy, 4 * sx, FH * sy);
     big.drawImage(mask, 0, 0, W, 1, 4 * sx, 0, W * sx, 4 * sy);
-    big.drawImage(mask, 0, H - 1, W, 1, 4 * sx, (H + 4) * sy, W * sx, 4 * sy);
+    big.drawImage(mask, 0, FH - 1, W, 1, 4 * sx, (FH + 4) * sy, W * sx, 4 * sy);
     big.filter = 'none';
     // 雾面四周渐隐，融进两侧的山里，不留直边
     const fw = 4 * sx, fh = 4 * sy, cw = this.fogBig.width, chh = this.fogBig.height;
@@ -1258,6 +1320,7 @@ if (uDetail > 0.0) {
     for (const p of w.sites || []) for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) occ.add((p.y + dy) * W + p.x + dx);
     // 远方地标和商队营地上不撒杂物
     (w.far || []).forEach((p, i) => { const r = FAR_MARKS[i].r + 0.6; for (let y = Math.floor(p.y - r); y <= p.y + r; y++) for (let x = Math.floor(p.x - r); x <= p.x + r; x++) if (Math.hypot(x - p.x, y - p.y) <= r) occ.add(y * W + x); });
+    for (const p of w.north || []) { if (Math.abs(p.y - cam.ty) > 60) continue; const r = p.r + 0.6; for (let y = Math.floor(p.y - r); y <= p.y + r; y++) for (let x = Math.floor(p.x - r); x <= p.x + r; x++) if (Math.hypot(x - p.x, y - p.y) <= r) occ.add(y * W + x); }
     if (S.car) for (let y = S.car.y - 1; y <= S.car.y + 3; y++) for (let x = S.car.x - 1; x <= S.car.x + 3; x++) occ.add(y * W + x);
     if (S.sur) for (let y = S.sur.y - 1; y <= S.sur.y + 1; y++) for (let x = S.sur.x - 1; x <= S.sur.x + 1; x++) occ.add(y * W + x);
     for (const c of S.camps) if (c.fest) { const f = this.lifeSpots(c).fest; if (f) for (let y = Math.floor(f[1] - f[3] - 0.5); y <= f[1] + f[3] + 0.5; y++) for (let x = Math.floor(f[0] - f[3] - 0.5); x <= f[0] + f[3] + 0.5; x++) if (Math.hypot(x + 0.5 - f[0], y + 0.5 - f[1]) < f[3] + 0.6) occ.add(y * W + x); }
@@ -2050,6 +2113,8 @@ void main() {
     this.syncRings();
     this.syncLines();
     if (R.infraDirty) { R.infraDirty = false; this.buildPaths(); }
+    if ((R.mapGrew || 0) !== this.mapGrew) { this.mapGrew = R.mapGrew || 0; this.regrow(); }
+    if (H > BASE_H && this.fogWin() !== this.fogF0) { this.fogF0 = this.fogWin(); this.fogMesh.position.z = -(this.fogF0 + this.fogH / 2); this.refreshFog(); }
     if (R.revealDirty) { R.revealDirty = false; this.spotBig = (this.spotBig || 0) + 1; this.refreshFog(); this.refreshSpots(); this.refreshRocks(); this.refreshLandmarks(); this.refreshSites(); }
     if (R.gangDirty) { R.gangDirty = false; this.refreshSites(); }
     this.spotTimer = (this.spotTimer || 0) + rdt;
@@ -2061,6 +2126,7 @@ void main() {
       for (const k in X) X[k] += ((wk === k ? 1 : 0) - X[k]) * Math.min(1, rdt * (k === 'crack' ? 0.3 : 0.5)); }
     this.syncCracks();
     this.updateCamera(rdt);
+    this.refreshTerrain();
     this.updateInset(rdt);
     if (Math.round(this.cam.ty / 10) !== this.spotWin) { this.refreshSpots(); this.refreshRocks(); }
     else if (this.spotBld !== this.bldSig) this.refreshSpots();
