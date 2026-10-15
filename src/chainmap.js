@@ -280,8 +280,21 @@ export class ChainMap {
     return `<div class="pln ${x.worst ? 'worst' : ''} ${pct >= 0.999 ? 'ok' : ''}" style="--d:${x.depth}">
       <span class="plni">${RICON[x.k]}</span>
       <span class="plnt"><span><b>${RES[x.k].n}</b>${x.worst ? `<em>${x.comp ? '被分走了' : '最卡'}</em>` : ''}</span><small>${t ? `${BLD[t].n} ×${x.count}${x.count ? ` · ${x.lvl} 级 · ${x.workers} 人` : ''}` : ''}${stat ? ` · ${stat}` : ''}</small>
-        ${x.hint ? `<small class="plh">${x.hint}</small>` : ''}${low}</span>
+        ${x.hint ? `<small class="plh">${x.hint}</small>` : ''}${low}${this.planMiss(x, P)}</span>
       <span class="plnr"><span class="plbar"><i style="width:${(pct * 100).toFixed(1)}%"></i></span><small>现在 <b>${fr(x.prod)}</b> / 要 ${fr(need)} 每分钟</small></span>${go}</div>`;
+  }
+  // 还差几座：按这一环每座的实际产量算；被上游卡住时先说上游；人手、空地不够时说卡在哪
+  planMiss(x, P) {
+    const S = this.g.S, t = x.type, fr = v => (v >= 10 ? Math.round(v) : Math.round(v * 10) / 10);
+    if (!t || x.gap < 0.05 || !Sim.unlocked(S, t)) return '';
+    const short = Object.keys(x.stat).filter(k => k.startsWith('缺')).map(k => k.slice(1));
+    if (x.count && short.length) return `<small class="plh plow">这一环自己不缺座数，是上游的${short.join('、')}不够：先补上游</small>`;
+    const per = x.count && x.prod > 0 ? x.prod / x.count : x.one, nb = Math.max(1, Math.ceil(x.gap / Math.max(0.1, per)));
+    const w = Sim.maxWorkers(t, 1), sz = BLD[t].size;
+    const stuck = P.idle < w ? `没有空闲的人了（一座要 ${w} 人）` : P.free < sz * sz ? '暖圈里没空地了' : '';
+    const bs = x.ids.map(id => Sim.getB(S, id)).filter(Boolean).sort((a, b) => a.lvl - b.lvl), low = bs[0];
+    const upg = low ? per * 0.15 / (1 + 0.15 * (low.lvl - 1)) : 0;
+    return `<span class="plmiss"><small>还差约 <b>${nb}</b> 座${BLD[t].n}${stuck ? `：<em>${stuck}</em>` : ''}</small><span class="plmb"><button class="small go" data-act="place" data-arg="${t}">建一座</button>${low ? `<button class="small" data-plgo="${low.id}">或升级一座：+${fr(upg)}/分，不加人</button>` : ''}</span></span>`;
   }
   planClick(e) {
     const S = this.g.S, t = e.target;

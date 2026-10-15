@@ -4,7 +4,7 @@ import { BLD, RES, RES_KEYS, CHAPTERS, SPOTS, SPOT_KEYS } from './data.js';
 import {
   rt, dirty, getCamp, logMsg, prodRate, rateGoals, holdOf, popCap, maxWorkers, heatRadius, levelMul,
   nextRaid, raidPrep, idleLabor, unlocked, checkPlace, HOLD, buildCost, canAfford, pay, queueBuild, QUEUE_MAX, ORE_URGENT, gatherTypeFor,
-  servedSpots, spotLeft, moveBlock,
+  servedSpots, spotLeft, moveBlock, prodBonus, getB, blocksOre,
 } from './sim.js';
 import { getWorld, idx, W } from './worldgen.js';
 import { journeyOf, mainCamp, stopOf, departGate, gateFlvl, depotAuto } from './journey.js';
@@ -202,6 +202,64 @@ export function gatherRoom(S, camp, type) {
   for (let y = Math.floor(camp.y - r); y <= camp.y + r && !ok; y++) for (let x = Math.floor(camp.x - r); x <= camp.x + r; x++) { const q = checkPlace(S, type, x, y); if (q.ok && q.spots > 0) { ok = true; break; } }
   C[type] = { key, ok };
   return ok;
+}
+
+// ---------- 规划手感（第十三版）：摆放之前就算出这座建筑对产线的影响 ----------
+// 预演：在 (x, y) 放一座 type，产线速度从多少变成多少、上游原料够不够、人手够不够。ck 是 checkPlace 的结果
+export function placePreview(S, type, x, y, ck) {
+  const d = BLD[type]; if (!d || !d.out || !ck || ck.camp == null || ck.camp < 0) return null;
+  const camp = getCamp(S, ck.camp); if (!camp) return null;
+  const r = Object.keys(d.out)[0];
+  const fake = { id: -1, type, lvl: 1, camp: camp.id, x, y, workers: 0 };
+  const bonus = prodBonus(S, fake, camp, ck.syn || 0, 0).sum;
+  const w = maxWorkers(type, 1), idle = Math.max(0, idleLabor(S, camp));
+  const staff = w ? Math.min(1, idle / w) : 1;
+  let full = d.out[r] * (1 + bonus);                  // 满员时一分钟产多少
+  if (d.gather && !ck.spots) full = 0;
+  // 上游：这座满员要吃多少原料，营地里现在有没有余量
+  const flow = (rt(S).c[camp.id] || {}).flow || {}, ins = [];
+  let feed = 1;
+  for (const k in d.in || {}) {
+    const need = d.in[k] * (1 + bonus) * staff, f = flow[k], spare = f ? Math.max(0, f.p - f.want) : 0;
+    ins.push({ k, need, spare });
+    if (need > 0) feed = Math.min(feed, spare / need);
+  }
+  const add = full * staff * Math.min(1, feed);
+  const line = lineOf(S, r), goal = rateGoals(S).find(g => g.r === r);
+  const before = prodRate(S, r);
+  return { r, before, after: before + add, add, full, target: goal ? goal.n : line ? line.n : null, named: !!(line || goal), ins, w, idle, staff };
+}
+// 挪的时候：这一座自己的产量会怎么变（联动加成换了）
+export function movePreview(S, id, x, y, ck) {
+  const b = getB(S, id); if (!b || !BLD[b.type].out || !ck || !ck.ok) return null;
+  const camp = getCamp(S, b.camp), r = Object.keys(BLD[b.type].out)[0], now = ((rt(S).b[b.id] || {}).rate || {})[r] || 0;
+  const b0 = prodBonus(S, b, camp).sum, b1 = prodBonus(S, b, camp, ck.syn || 0).sum;
+  return { r, now, after: now * (1 + b1) / Math.max(0.01, 1 + b0), syn0: rt(S).adj.get(b.id) || 0, syn1: ck.syn || 0 };
+}
+// 推荐位置：营地暖圈里挑最多 3 处（离仓库近、有联动、采集建筑够得着资源点、不挡矿、少清树）
+export function suggestSpots(S, type, cid, n = 3) {
+  const camp = getCamp(S, cid), d = BLD[type]; if (!camp || !d || type === 'furnace') return [];
+  const R = rt(S), key = `${type}:${cid}:${S.buildings.length}:${S.lay || 0}:${(S.queue || []).length}:${R.revealN || 0}`;
+  const C = R.sug || (R.sug = {});
+  if (C.key === key) return C.v;
+  const r = heatRadius(S, camp), s = d.size, cands = [];
+  for (let y = Math.floor(camp.y - r - s); y <= camp.y + r; y++) for (let x = Math.floor(camp.x - r - s); x <= camp.x + r; x++) {
+    const ck = checkPlace(S, type, x, y);
+    if (!(ck.ok || ck.soft) || ck.camp !== cid) continue;
+    if (d.gather && !ck.spots) continue;
+    const sc = (d.gather ? Math.min(6, ck.spots) * 3 : 0) + (ck.syn || 0) * 2 - (ck.dist || 0) * 0.3 - (ck.clears || 0) * 0.4;
+    cands.push({ x, y, s, sc });
+  }
+  cands.sort((a, b) => b.sc - a.sc);
+  const out = [];
+  for (const c of cands.slice(0, 24)) {
+    if (out.length >= n) break;
+    if (out.some(o => Math.abs(o.x - c.x) < s + 1 && Math.abs(o.y - c.y) < s + 1)) continue;
+    if (blocksOre(S, type, c.x, c.y, cid).length) continue;
+    out.push(c);
+  }
+  C.key = key; C.v = out;
+  return out;
 }
 
 // 矿点旁边最挡路的那栋（离一处没人挖的矿最近的非采集建筑）

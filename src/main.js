@@ -37,6 +37,7 @@ class Game {
     let q = null; try { q = localStorage.getItem(KEY + '-q'); } catch (e) {}
     this.quality = ['low', 'high', 'ultra'].includes(q) ? q : (this.view.lowEnd ? 'low' : 'high');
     try { this.noAuto = !!localStorage.getItem(KEY + '-noauto'); } catch (e) {}
+    this.sugOn = true; try { this.sugOn = localStorage.getItem(KEY + '-sug') !== '0'; } catch (e) {} // 摆放时的推荐位置
     // 开场标题画面（测试脚本会设 -notitle 跳过）
     this.titleOn = true; try { if (localStorage.getItem(KEY + '-notitle')) this.titleOn = false; } catch (e) {}
     this.place = null; this.mode = null; this.scoutTarget = null;
@@ -364,6 +365,9 @@ class Game {
         if (sc > bs) { bs = sc; best = [x + dx, y + dy]; }
       }
       if (best) { x = best[0]; y = best[1]; }
+      // 开了推荐位置：预览直接放在最好的那一处（不在画面里就把镜头移过去）
+      const sg = this.sugOn && !Sim.depotAuto(c) ? Sim.suggestSpots(this.S, type, c.id)[0] : null;
+      if (sg) { x = sg.x; y = sg.y; if (Math.hypot(x - v.cam.tx, y - v.cam.ty) > 12) v.focus(x + sg.s / 2, y + sg.s / 2); }
     }
     this.place = { type, x, y, check: null, end: null, rowMode: !!(this.rowPref && type !== 'furnace') };
     this.mode = 'place';
@@ -464,6 +468,8 @@ class Game {
     P.check = P.move ? Sim.checkMove(this.S, P.move, P.x, P.y) : Sim.checkPlace(this.S, P.type, P.x, P.y);
     // 会不会把旁边的矿挡住（占掉它最后的采集位）：照样能放，只是先提醒
     P.check.blocks = (P.check.ok || P.check.soft) && P.type !== 'furnace' && P.check.camp >= 0 ? Sim.blocksOre(this.S, P.type, P.x, P.y, P.check.camp) : [];
+    // 放下去这条线会变成多快（挪的时候：这一座自己的产量）
+    P.prev = P.type === 'furnace' || !(P.check.ok || P.check.soft) ? null : P.move ? Sim.movePreview(this.S, P.move, P.x, P.y, P.check) : Sim.placePreview(this.S, P.type, P.x, P.y, P.check);
     this.placeHints();
     let storage = null;
     if (P.check.camp >= 0 && P.type !== 'furnace') {
@@ -588,11 +594,14 @@ class Game {
   // 摆放提示（采集建筑）：营地暖圈里能采的资源点画圈，放得下、又够得着资源点的格子铺一层浅绿
   placeHints() {
     const P = this.place, S = this.S;
-    if (!P || P.arrive || P.type === 'bp' || P.type === 'furnace' || !BLD[P.type].gather) { this.view.setHints(null); if (P) P.hintKey = null; return; }
+    if (!P || P.arrive || P.type === 'bp' || P.type === 'furnace' || (!BLD[P.type].gather && (P.move || !this.sugOn))) { this.view.setHints(null); if (P) P.hintKey = null; return; }
     const c = Sim.getCamp(S, P.check && P.check.camp >= 0 ? P.check.camp : S.active) || Sim.mainCamp(S); if (!c) return;
-    const r = Sim.heatRadius(S, c), key = `${P.type}:${c.id}:${S.buildings.length}:${S.lay || 0}:${(S.queue || []).length}:${r}:${P.move || 0}`;
+    const r = Sim.heatRadius(S, c), key = `${P.type}:${c.id}:${S.buildings.length}:${S.lay || 0}:${(S.queue || []).length}:${r}:${P.move || 0}:${this.sugOn ? 1 : 0}`;
     if (P.hintKey === key) return;
     P.hintKey = key;
+    // 推荐位置：小星星（设置里能关）
+    const stars = this.sugOn && !P.move && !Sim.depotAuto(c) ? Sim.suggestSpots(S, P.type, c.id) : [];
+    if (!BLD[P.type].gather) { this.view.setHints({ stars }); return; }
     const w = getWorld(S.runSeed), d = BLD[P.type], s = d.size, kinds = d.gather.map(k => SPOT_KEYS.indexOf(k)), served = Sim.servedSpots(S);
     const tiles = new Set(), spots = [];
     for (let y = Math.floor(c.y - r); y <= c.y + r; y++) for (let x = Math.floor(c.x - r); x <= c.x + r; x++) {
@@ -605,7 +614,7 @@ class Game {
       if (!(ck.ok || ck.soft) || ck.camp !== c.id || !ck.spots) continue;
       for (let yy = y; yy < y + s; yy++) for (let xx = x; xx < x + s; xx++) tiles.add(idx(xx, yy));
     }
-    this.view.setHints({ tiles: [...tiles], spots });
+    this.view.setHints({ tiles: [...tiles], spots, stars });
   }
   cancelModes(keepPanel) {
     this.place = null; this.mode = null;

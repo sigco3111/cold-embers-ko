@@ -767,6 +767,19 @@ export class UI {
       const p = v.project(P.x + s / 2, P.y + s / 2, 2.6);
       let t = ck.ok ? (P.move ? '✓ 挪到这里' : ck.clears ? `✓ 可以建（清掉 ${ck.clears} 处树木/碎石）` : '✓ 可以建') : esc(ck.reason);
       if (ck.blocks && ck.blocks.length) t += `<br><b class="gwarn">⚠ 会挡住旁边的${ck.blocks.join('、')}</b>`;
+      const pv = P.prev, fr = v => (v >= 10 ? Math.round(v) : Math.round(v * 10) / 10), phone = innerWidth < 700;
+      if (pv && P.move) { if (Math.abs(pv.after - pv.now) > 0.05) t += `<br><span class="gline">这座 ${fr(pv.now)} → <b>${fr(pv.after)}</b> ${RES[pv.r].n}/分</span>`; }
+      else if (pv) {
+        const hit = pv.target != null && pv.after >= pv.target - 1e-6;
+        const short = pv.ins.filter(x => x.need > x.spare + 0.05), stuck = pv.add < 0.05 && pv.full > 0;
+        if (stuck) t += `<br><span class="gwarn">${short.length ? `缺${short.map(x => RES[x.k].n).join('、')}，建了也不会多产，先补上游` : pv.w && !pv.idle ? '没有空闲的人，建了也没人干活' : `${RES[pv.r].n}暂时不会多产`}</span>`;
+        else t += `<br><span class="gline ${hit ? 'hit' : ''}">${pv.named ? `${RES[pv.r].n}线 ${fr(pv.before)} → <b>${fr(pv.after)}</b>/分${pv.target != null ? `（目标 ${fr(pv.target)}）` : ''}` : `${RES[pv.r].n} +${fr(pv.add)}/分`}</span>`;
+        if (!phone) {
+          if (short.length) t += `<br><span class="gwarn">会多要${short.map(x => `${RES[x.k].n} ${fr(x.need)}/分（现在余 ${fr(x.spare)}）`).join('、')}</span>`;
+          else if (pv.ins.length) t += `<br><span class="gok">原料够</span>`;
+          if (pv.w) t += `<br><span class="${pv.idle < pv.w ? 'gwarn' : 'gok'}">要 ${pv.w} 人，空闲 ${pv.idle} 人</span>`;
+        }
+      }
       if (ck.camp >= 0 && P.type !== 'furnace') {
         t += `<br>到仓库 ${ck.dist.toFixed(1)} 格`;
         if (BLD[P.type].gather) t += ` · 资源点 ${ck.spots}`;
@@ -1941,7 +1954,7 @@ export class UI {
     h += `<button class="mlink" data-act="help"><span>📖</span><span>怎么玩<small>建筑、生产线、寒冷和北行的规则</small></span><i>›</i></button>`;
     // 声音与画面
     const tg = (k, on, ic, n, d) => `<button class="tgl ${on ? 'on' : ''}" data-act="snd" data-arg="${k}"><span class="ti">${ic}</span><span class="tt">${n}<small>${d}</small></span><i class="sw"></i></button>`;
-    h += `<div class="sec">声音与画面</div><div class="tgls">${tg('sfx', g.audio.sfxOn, '🔊', '音效', '风声、炉火、敲打')}${tg('music', g.audio.musicOn, '🎵', '音乐', '低沉的旋律和铃声')}<button class="tgl ${this.floatOn !== false ? 'on' : ''}" data-act="floats"><span class="ti">✨</span><span class="tt">产出飘字<small>建筑上方冒出「+5 🪵」</small></span><i class="sw"></i></button><button class="tgl ${S.meta.hintOff ? '' : 'on'}" data-act="hintsw"><span class="ti">📜</span><span class="tt">新玩法提示<small>某样玩法第一次用得上时说一句</small></span><i class="sw"></i></button></div>`;
+    h += `<div class="sec">声音与画面</div><div class="tgls">${tg('sfx', g.audio.sfxOn, '🔊', '音效', '风声、炉火、敲打')}${tg('music', g.audio.musicOn, '🎵', '音乐', '低沉的旋律和铃声')}<button class="tgl ${this.floatOn !== false ? 'on' : ''}" data-act="floats"><span class="ti">✨</span><span class="tt">产出飘字<small>建筑上方冒出「+5 🪵」</small></span><i class="sw"></i></button><button class="tgl ${S.meta.hintOff ? '' : 'on'}" data-act="hintsw"><span class="ti">📜</span><span class="tt">新玩法提示<small>某样玩法第一次用得上时说一句</small></span><i class="sw"></i></button><button class="tgl ${g.sugOn ? 'on' : ''}" data-act="sugsw"><span class="ti">⭐</span><span class="tt">推荐位置<small>摆放建筑时地上标出 3 处好位置</small></span><i class="sw"></i></button></div>`;
     h += `<div class="mlab">画质<small>卡顿时会自动降一档</small></div>`;
     h += `<div class="seg">${[['low', '流畅', '无阴影'], ['high', '标准', '推荐'], ['ultra', '极致', '细节更多']].map(([k, n, d]) => `<button class="btn ${g.quality === k ? 'on' : ''}" data-act="quality" data-arg="${k}">${n}<small>${d}</small></button>`).join('')}</div>`;
     // 存档
@@ -2178,6 +2191,7 @@ export class UI {
       case 'site-decide': this.siteModal(); break;
       case 'title-go': g.leaveTitle(); break;
       case 'hintsw': S.meta.hintOff = !S.meta.hintOff; if (S.meta.hintOff) g.hints.hide(); this.renderPanel(true); break;
+      case 'sugsw': g.sugOn = !g.sugOn; try { localStorage.setItem('hanjin-beixing-v1-sug', g.sugOn ? '1' : '0'); } catch (e) {} this.renderPanel(true); break;
       case 'floats': this.floatOn = this.floatOn === false; try { localStorage.setItem('hanjin-beixing-v1-floats', this.floatOn ? '1' : '0'); } catch (e) {} this.renderPanel(true); break;
       case 'title-new': this.newRunModal(); break;
       case 'slots': this.slotsModal(); break;

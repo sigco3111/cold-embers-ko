@@ -1977,9 +1977,19 @@ void main() {
     const cA = new THREE.Color('#ffd34d'), cB = new THREE.Color('#ffffff');
     spots.forEach((p, k) => { M.compose(V.set(p.x + 0.5, 0.08, -(p.y + 0.5)), Q, O); sm.setMatrixAt(k, M); sm.setColorAt(k, p.free ? cA : cB); });
     if (sm) { sm.instanceMatrix.needsUpdate = true; if (sm.instanceColor) sm.instanceColor.needsUpdate = true; }
-    const st = need('stars', stars.length, n => new THREE.InstancedMesh(new THREE.CircleGeometry(0.34, 5), new THREE.MeshBasicMaterial({ color: '#ffcf5a', transparent: true, opacity: 0.95, depthWrite: false }), n));
-    stars.forEach((p, k) => { M.compose(V.set(p.x + p.s / 2, 0.14, -(p.y + p.s / 2)), Q, O); st.setMatrixAt(k, M); });
+    // 推荐位置：地上一块金色描边的方框，正中一颗五角星（大小跟着建筑占地走）
+    const star = () => { const sh = new THREE.Shape(); for (let i = 0; i < 10; i++) { const a = Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? 0.19 : 0.46; sh[i ? 'lineTo' : 'moveTo'](Math.cos(a) * r, Math.sin(a) * r); } return new THREE.ShapeGeometry(sh); };
+    const frame = () => { const sh = new THREE.Shape([[-.5, -.5], [.5, -.5], [.5, .5], [-.5, .5]].map(([x, y]) => new THREE.Vector2(x, y))); sh.holes.push(new THREE.Path([[-.44, -.44], [-.44, .44], [.44, .44], [.44, -.44]].map(([x, y]) => new THREE.Vector2(x, y)))); return new THREE.ShapeGeometry(sh); };
+    const st = need('stars', stars.length, n => new THREE.InstancedMesh(star(), new THREE.MeshBasicMaterial({ color: '#ffd45e', transparent: true, opacity: 0.95, depthWrite: false }), n));
+    const sf = need('starbox', stars.length, n => new THREE.InstancedMesh(frame(), new THREE.MeshBasicMaterial({ color: '#ffc23a', transparent: true, opacity: 0.8, depthWrite: false }), n));
+    stars.forEach((p, k) => {
+      const k1 = Math.min(1.6, 0.7 + p.s * 0.3);
+      M.compose(V.set(p.x + p.s / 2, 0.16, -(p.y + p.s / 2)), Q, O.set(k1, k1, 1)); st.setMatrixAt(k, M);
+      M.compose(V.set(p.x + p.s / 2, 0.12, -(p.y + p.s / 2)), Q, O.set(p.s - 0.08, p.s - 0.08, 1)); sf.setMatrixAt(k, M);
+    });
+    O.set(1, 1, 1);
     if (st) st.instanceMatrix.needsUpdate = true;
+    if (sf) sf.instanceMatrix.needsUpdate = true;
   }
 
   // 一键复制产线的蓝图：一组不同种类的建筑，各自一块底色（绿能建、黄排队、红放不下）
