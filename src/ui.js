@@ -597,14 +597,14 @@ export class UI {
     this.renderDrawer(c, cr, ri);
     this.logBadge();
     this.syncInset();
-    // 有建筑在产的物资快满了：提醒一次（同一种物资 10 分钟内不重复）
-    if (!c.trade && cap && performance.now() - (this.fullWarnAt || -1e9) > 120000) {
+    // 有建筑在产的物资快满了：提醒一次（同一种物资 30 分钟内不重复，两条之间至少隔 3 分钟）
+    if (!c.trade && cap && performance.now() - (this.fullWarnAt || -1e9) > 180000) {
       const now = performance.now(), fw = this.fullWarn || (this.fullWarn = {});
       for (const k of keys) {
         const f = (cr.flow || {})[k];
         if (!f || f.p - f.c <= 0.05 || (c.stock[k] || 0) < cap * 0.9 || !S.buildings.some(b => b.camp === c.id && BLD[b.type].out && BLD[b.type].out[k])) continue;
         const key = c.id + k;
-        if (fw[key] && now - fw[key] < 600000) continue;
+        if (fw[key] && now - fw[key] < 1800000) continue;
         fw[key] = now; this.fullWarnAt = now;
         this.toast(`${RICON[k]}${RES[k].n}快满了（上限 ${fmt(cap)}），满了相关建筑会停工。可以升级仓库，或开启「满仓自动兑换」。`, 'warn', { act: 'tb', arg: 'stock', label: '去处理' });
         break;
@@ -2584,4 +2584,5 @@ export const HELP = `<h3>怎么玩</h3>
 <p><b>烽火塔：</b>北境前十站各有一座塔要点：先打地基（要在主营地暖圈里），再给塔身一起喂几种高级材料，缺一种就停，但进度不会倒退；喂满以后用晶体电池（后面是星核）点火。点亮的塔立起光柱，那座营地暖 +1、希望 +5。第十站是 4×4 的天火塔，点着它就是最终结局，之后照样可以往北走。</p>
 <p><b>矿点与挪位置：</b>矿点快挖空时会提前提醒，侦察营的勘探在那时很便宜。摆建筑时如果会挡住旁边矿点，预览框变黄；地上的金色星星是推荐位置（菜单里能关）。建筑面板里点「↔ 挪位置」能免费搬家，等级和工人都留着，搬完停工一小会儿；烽火塔开始喂料以后就不能挪了。</p>
 <p><b>倍速与离线：</b>右边的按钮能切暂停、1×、2×、4×。关掉页面时营地也会慢慢攒资源，但比在线时慢，回来会看到一份报告。</p>
+<p><b>存档与备份：</b>进度自动存在这台设备上，三个存档位各是一局。玩着每 10 分钟自动备份一份，北迁出发、导入存档码、重开、删除之前也会先备份；「菜单 → 自动备份」里点一下就能退回去。换设备用「导出存档码」。</p>
 <p><b>操作：</b>拖动地图平移，双指缩放/旋转（电脑：滚轮缩放，右键或 Q/E 旋转）。建造时拖动预览，到合适位置再点 ✓；电脑上按住左键拖一下能一次摆一排，手机上先点「一排」。同类建筑的面板里能一键全升级、全派满。H 是拍照模式，M 是北行地图。菜单里有三个存档位，难度随时可以改。</p>`;
