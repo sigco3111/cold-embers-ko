@@ -1,5 +1,5 @@
 // 界面：顶部状态、资源条、底部工具栏、面板、提示
-import { BRIEF, RES, RES_KEYS, BLD, BLD_KEYS, CATS, TIER_NAMES, LANDMARKS, FAR_MARKS, SPECS, SPEC_MAX, EMBER_UPS, emberCost, specTrainCost, specBonus, FUEL, furnaceRadius, furnaceHeat, furnaceBurn, baseTempOfRow, tierOfRow, ETERNAL_STAGES, GATE, GATE_EVERY, STORY, SPOTS, SPOT_KEYS, dayCycle, LAWS, TECHS, TECH_BR, SITES, CHAPTERS, INFRA, RAIDERS, DAY_LEN, DIFF, DIFF_KEYS, SLOTS, FOCUS, FOCUS_KEYS, FOCUS_LVL, NORTH_RULES, TOWER_FX } from './data.js';
+import { BRIEF, RES, RES_KEYS, BLD, BLD_KEYS, CATS, TIER_NAMES, LANDMARKS, FAR_MARKS, SPECS, SPEC_MAX, EMBER_UPS, emberCost, specTrainCost, specBonus, FUEL, furnaceRadius, furnaceHeat, furnaceBurn, baseTempOfRow, tierOfRow, ETERNAL_STAGES, GATE, GATE_EVERY, STORY, SPOTS, SPOT_KEYS, dayCycle, LAWS, TECHS, TECH_BR, SITES, CHAPTERS, INFRA, RAIDERS, DAY_LEN, DIFF, DIFF_KEYS, SLOTS, FOCUS, FOCUS_KEYS, FOCUS_LVL, NORTH_RULES, TOWER_FX, TITLES, FLAMES, FLAGS, FRAMES, NDECO } from './data.js';
 import * as Sim from './sim.js';
 import { personOf, personState, campVoices } from './people.js';
 import { getWorld, idx, W, H } from './worldgen.js';
@@ -722,13 +722,14 @@ export class UI {
       const u = S.sur, p = v.project(u.x + 0.5, u.y + 0.5, u.kind === 'deer' ? 1.7 : 1.1);
       if (p.on) html += `<div class="surtag ${u.kind}" style="transform:translate(${p.x | 0}px,${p.y | 0}px)">${u.kind === 'deer' ? '🦌 走失的驯鹿' : '☄ 流星坑'}${close ? `<small>点一下${u.kind === 'deer' ? '领回来' : '挖开'} · ${fmtTime(u.until - S.t)}</small>` : ''}</div>`;
     }
-    // 营地名
+    // 营地名（主营地名字下面挂着称号）
+    const ttl = Sim.titleOf(S), mainId = Sim.journeyOf(S).main;
     for (const c of S.camps) {
       const p = v.project(c.x, c.y, 3.8 + 0.08 * Math.min(25, Sim.getB(S, c.furnace).lvl));
       const nf = full.get(c.id) || 0;
       const F = Sim.focusOf(c);
       const role = c.depot ? '<em class="ctrole dep">补给站</em>' : S.camps.length > 1 && Sim.isMain(S, c) ? '<em class="ctrole">主营地</em>' : '';
-      if (p.on) html += `<div class="camptag" style="transform:translate(${p.x | 0}px,${p.y | 0}px)">${role}${F ? `<i class="fch xs" style="background:${F.col}" title="${F.n}营地">${F.ch}</i>` : ''}${esc(c.name)} <small>${Sim.getB(S, c.furnace).lvl}级</small>${nf ? `<b class="ctfull" data-camp="${c.id}" title="${nf} 栋建筑因为仓库满了停工">📦满 ${nf}</b>` : ''}</div>`;
+      if (p.on) html += `<div class="camptag" style="transform:translate(${p.x | 0}px,${p.y | 0}px)">${role}${F ? `<i class="fch xs" style="background:${F.col}" title="${F.n}营地">${F.ch}</i>` : ''}${esc(c.name)} <small>${Sim.getB(S, c.furnace).lvl}级</small>${ttl && (c.id === mainId || S.camps.length === 1) ? `<i class="cttl">${esc(ttl)}</i>` : ''}${nf ? `<b class="ctfull" data-camp="${c.id}" title="${nf} 栋建筑因为仓库满了停工">📦满 ${nf}</b>` : ''}</div>`;
     }
     // 熄火的营地留下的废墟
     for (const r of Sim.journeyOf(S).ruins || []) {
@@ -1838,6 +1839,42 @@ export class UI {
     return h;
   }
 
+  // ---------- 成就页：按类别排，进度条和奖励；新的二十个只换装扮，老的达成有余烬 ----------
+  achHtml(isNew = () => '') {
+    const S = this.S, B = Sim.bookOf(S), all = Sim.ACH.length, got = Sim.ACH.filter(a => B.a[a.id]).length;
+    let h = `<div class="achtop"><span><b>${got}</b><small>/${all}</small> 个成就</span><button class="btn sm" data-act="dress">🎨 装扮</button></div>`;
+    for (const cat of Sim.ACH_CATS) {
+      const L = Sim.ACH.filter(a => Sim.achCat(a) === cat).map(a => ({ a, done: B.a[a.id], cur: Math.min(a.need, a.cur(S, B) || 0) }));
+      if (cat === '旅程') L.sort((x, y) => (!!y.done - !!x.done) || (y.cur / y.a.need - x.cur / x.a.need));
+      h += `<div class="sec achsec">${cat === '隐藏' ? '❔ 隐藏' : cat}${cat === '旅程' ? '<small>以前的成就，达成有余烬</small>' : ''}<em>${L.filter(x => x.done).length}/${L.length}</em></div>`;
+      for (const { a, done, cur } of L) {
+        const hid = a.hid && !done;
+        const rw = a.gift ? Sim.giftList(a).map(([k, v]) => `<i class="achg${done ? ' on' : ''}">${Sim.GIFT_ICON[k]} ${hid ? '？？？' : `${Sim.GIFT_LABEL[k]}「${esc(Sim.giftName(k, v))}」`}</i>`).join('') : `<i class="achg${done ? ' on' : ''}">🔥 余烬 ${a.rw}</i>`;
+        h += `<div class="bkach ${done ? 'on' : ''}"><span class="bai">${done ? '🏆' : hid ? '❔' : '🔒'}</span><span class="bab"><b>${hid ? '？？？' : a.n}${isNew(a.id)}</b><small>${hid ? '隐藏成就：做到了才知道是什么' : a.d}</small>
+          ${done ? `<em>第 ${done} 次北行达成</em>` : !hid && a.need > 1 ? `<i class="bap"><i style="width:${(cur / a.need * 100).toFixed(0)}%"></i></i><em>${a.id === 'nodeath' ? `${fmtTime(cur * 60)} / 3 小时` : `${cur} / ${a.need}`}</em>` : ''}<span class="achgs">${rw}</span></span></div>`;
+      }
+    }
+    return h;
+  }
+  p_ach(part) {
+    if (part === 'title') return '成就';
+    const S = this.S, B = Sim.bookOf(S);
+    const fr = B.fresh.filter(f => f.startsWith('a:')).map(f => f.slice(2)), shown = this.achShown || (this.achShown = new Set());
+    if (fr.length) { fr.forEach(x => shown.add(x)); Sim.bookSeen(S, 'a'); }
+    return this.achHtml(id => shown.has(id) ? '<i class="bknew">新</i>' : '');
+  }
+  // ---------- 装扮：成就送的称号、炉火颜色、旗子、相框、北境装饰 ----------
+  p_dress(part) {
+    if (part === 'title') return '装扮';
+    const S = this.S, C = Sim.cosOf(S), cur = Sim.titleOf(S);
+    const lockTxt = (k, id) => { const a = Sim.giftFrom(k, id); return a ? `成就「${a.hid && !Sim.bookOf(S).a[a.id] ? '？？？' : a.n}」` : ''; };
+    let h = `<div class="hint">装扮只是好看，不改数值。做到成就就能解锁，北迁以后也留着。</div>`;
+    h += `<div class="sec">🎖 称号<small>显示在主营地名字下面，也印在照片角上</small></div><div class="dgrid">`;
+    h += `<button class="dchip ${!cur ? 'on' : ''}" data-act="settitle" data-arg="none"><b>不显示</b></button>`;
+    for (const id in TITLES) { const have = Sim.cosHave(S, 'title', id); h += `<button class="dchip ${have ? '' : 'off'} ${have && cur === TITLES[id] ? 'on' : ''}" ${have ? `data-act="settitle" data-arg="${id}"` : 'disabled'}><b>${have ? TITLES[id] : '？？？'}</b>${have ? '' : `<small>${lockTxt('title', id)}</small>`}</button>`; }
+    h += '</div>';
+    return h + (this.dressMore ? this.dressMore() : '');
+  }
   p_book(part) {
     const S = this.S;
     if (part === 'title') return '收集册';
@@ -1851,15 +1888,7 @@ export class UI {
     let h = `<div class="bkhead"><div class="bkt"><b>${N.got}</b><small>/${N.all}</small> 收集<span>·</span><b>${N.cats.a[0]}</b><small>/${N.cats.a[1]}</small> 成就</div><div class="bkbar"><i style="width:${(N.got / N.all * 100).toFixed(1)}%"></i></div><div class="bksub">北迁后也会保留。达成成就有余烬。</div></div>`;
     h += '<div class="tabs bktabs" data-sx="bktabs">' + TABS.map(([k, n]) => `<button class="tab ${k === tab ? 'on' : ''} ${k !== tab && B.fresh.some(f => f.startsWith(k + ':')) ? 'hasnew' : ''}" data-act="booktab" data-arg="${k}">${n}<small>${N.cats[k][0]}/${N.cats[k][1]}</small></button>`).join('') + '</div>';
     const pick = this.bookPick && this.bookPick.startsWith(tab + ':') ? this.bookPick.slice(2) : null;
-    if (tab === 'a') {
-      const list = Sim.ACH.map(a => ({ a, done: B.a[a.id], cur: Math.min(a.need, a.cur(S, B) || 0) }));
-      list.sort((x, y) => (!!y.done - !!x.done) || (y.cur / y.a.need - x.cur / x.a.need));
-      for (const { a, done, cur } of list) {
-        h += `<div class="bkach ${done ? 'on' : ''}"><span class="bai">${done ? '🏆' : '🔒'}</span><span class="bab"><b>${a.n}${isNew(a.id)}</b><small>${a.d}</small>
-          ${done ? `<em>第 ${done} 次北行达成</em>` : a.need > 1 ? `<i class="bap"><i style="width:${(cur / a.need * 100).toFixed(0)}%"></i></i><em>${a.id === 'nodeath' ? `${fmtTime(cur * 60)} / 3 小时` : `${cur} / ${a.need}`}</em>` : ''}</span><span class="barw">🔥${a.rw}</span></div>`;
-      }
-      return h;
-    }
+    if (tab === 'a') return h + this.achHtml(isNew);
     const cell = (id, have, pic, name, sub) => `<button class="bkc ${have ? '' : 'off'} ${pick === id ? 'pk' : ''}" data-act="bookpick" data-arg="${tab}:${id}"><span class="bkp">${pic}</span><b>${have ? name : '？？？'}</b><small>${sub}</small>${have ? isNew(id) : ''}</button>`;
     const card = (have, ic, name, sub, desc, id) => `<div class="bkcard ${have ? '' : 'off'}"><span class="bki">${ic}</span><span class="bkb"><b>${have ? name : '？？？'}${have ? isNew(id) : ''}</b><small>${sub}</small>${desc ? `<p>${esc(desc)}</p>` : ''}</span></div>`;
     let detail = '';
@@ -2001,6 +2030,8 @@ export class UI {
     { const N = Sim.bookCount(S), nf = Sim.bookOf(S).fresh.length;
       h += `<button class="mlink book" data-act="book"><span>🏆</span><span>收集册${nf ? `<b class="mnew">${nf} 新</b>` : ''}<small>收集 ${N.got}/${N.all} · 成就 ${N.cats.a[0]}/${N.cats.a[1]}（北迁后也保留）</small></span><i>›</i></button>`; }
     if (Sim.skyEnded(S)) h += `<button class="mlink" data-act="skyreplay"><span>🔥</span><span>再看一遍天火<small>十道光柱一路往南连回永恒之炉，再看看「这一路」</small></span><i>›</i></button>`;
+    { const B = Sim.bookOf(S), got = Sim.ACH.filter(x => B.a[x.id]).length, nf = B.fresh.filter(f => f.startsWith('a:')).length;
+      h += `<div class="mrow2"><button class="mlink" data-act="ach"><span>🏆</span><span>成就${nf ? `<b class="mnew">${nf} 新</b>` : ''}<small>${got}/${Sim.ACH.length} · 按类别看进度和奖励</small></span><i>›</i></button><button class="mlink" data-act="dress"><span>🎨</span><span>装扮<small>称号、炉火、旗子、相框</small></span><i>›</i></button></div>`; }
     h += `<button class="mlink" data-act="curve"><span>📈</span><span>数据曲线<small>人口、心情、温度，物资的储量和产量怎么变的</small></span><i>›</i></button>`;
     h += `<button class="mlink" data-act="photo"><span>📷</span><span>拍照模式<small>藏起界面，换时辰、滤镜和镜头角度，拍一张营地的照片（H）</small></span><i>›</i></button>`;
     h += `<button class="mlink" data-act="help"><span>📖</span><span>怎么玩<small>建筑、生产线、寒冷和北行的规则</small></span><i>›</i></button>`;
@@ -2347,6 +2378,9 @@ export class UI {
       case 'placeno': g.cancelModes(); break;
       case 'ending': this.closeModal(); break;
       case 'skyend': this.closeModal(); g.skyBack(); break;
+      case 'ach': this.achShown = null; this.open('ach'); break;
+      case 'dress': this.open('dress'); break;
+      case 'settitle': Sim.setTitle(S, arg); break;
       case 'skyreplay': this.close(); g.skyCine(); break;
     }
     this.renderPanel(true);

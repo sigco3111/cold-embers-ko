@@ -110,7 +110,7 @@ export class Photo {
       for (const [cx, cy, a] of [[0, 0, 0.3], [w, 0, 0.24], [0, h, 0.24], [w, h, 0.28]]) { gr = x.createRadialGradient(cx, cy, 0, cx, cy, Math.min(w, h) * 0.32); gr.addColorStop(0, `rgba(214,236,255,${a})`); gr.addColorStop(1, 'rgba(214,236,255,0)'); x.fillStyle = gr; x.fillRect(0, 0, w, h); }
       // 落款
       const c = Sim.getCamp(S, S.active) || S.camps[0], fs = Math.max(12, Math.round(h * 0.022));
-      const txt = `寒烬北行 · ${c ? c.name : ''} · 第 ${Math.floor(S.t / DAY_LEN) + 1} 天`;
+      const tt = Sim.titleOf(S), txt = `寒烬北行 · ${c ? c.name : ''}${tt ? ` · ${tt}` : ''} · 第 ${Math.floor(S.t / DAY_LEN) + 1} 天`;
       x.font = `600 ${fs}px "Songti SC","Noto Serif SC","STSong",serif`; x.textAlign = 'right'; x.textBaseline = 'bottom';
       x.shadowColor = 'rgba(0,0,0,.65)'; x.shadowBlur = fs * 0.4;
       x.fillStyle = 'rgba(255,240,215,.92)'; x.fillText(txt, w - fs, h - fs * 0.8);

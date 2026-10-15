@@ -385,6 +385,7 @@ class Game {
   skyBack() {
     const b = this.skyBackTo, v = this.view, m = Sim.mainCamp(this.S); this.skyBackTo = null;
     Sim.skyfireSeen(this.S);
+    if (this.bookLater) this.flushBook(900);
     v.photoPitch = null; v.pillarWide = 0; v.camera.far = 400; v.camera.updateProjectionMatrix();
     if (m) v.focus(m.x, m.y, true);
     if (b) { v.cam.dist = v.cam.tdist = b.dist; v.cam.yaw = v.cam.tyaw = b.yaw; }
@@ -398,11 +399,12 @@ class Game {
   // 收集册：成就单独报（有余烬），其余新进册的合成一条
   bookFx(f) {
     // 标题画面还开着（或刚读档）时先攒着，进游戏后再报，免得提示在看不见的时候就过期了
-    if (this.photo && this.photo.on) { (this.bookLater ||= []).push(f); return; } // 拍照时不弹提示，退出后再报
+    if ((this.photo && this.photo.on) || this.cine || this.skyBackTo) { (this.bookLater ||= []).push(f); return; } // 拍照、终章镜头时不弹提示，退出后再报
     if (this.titleOn || performance.now() - this.bootT < 2500) { (this.bookLater ||= []).push(f); if (!this.titleOn) this.flushBook(1500); return; }
     const ach = f.add.filter(a => a[0] === 'a'), ent = f.add.filter(a => a[0] !== 'a');
     if (f.first) { if (f.add.length > 8 || ach.length) this.ui.toast(`🏆 收集册开张了：补记了 ${ent.length} 项收集${ach.length ? `、${ach.length} 个成就（余烬 +${f.em}）` : ''}`, 'good', { act: 'book', arg: ach.length ? 'a' : 'b', label: '翻翻看' }); return; }
-    for (const [, id] of ach.slice(0, 3)) { const a = Sim.ACH.find(x => x.id === id); this.ui.toast(`🏆 成就达成「${a.n}」：${a.d}（余烬 +${a.rw}）`, 'good', { act: 'book', arg: 'a', label: '看看' }); }
+    // 第十三版的成就不给余烬，给装扮：提示里写解锁了什么，点一下去换上
+    for (const [, id] of ach.slice(0, 3)) { const a = Sim.ACH.find(x => x.id === id); if (a.gift) this.ui.toast(`🏆 成就达成「${a.n}」：解锁${Sim.giftList(a).map(([k, v]) => `${Sim.GIFT_LABEL[k]}「${Sim.giftName(k, v)}」`).join('、')}`, 'good', { act: 'dress', label: '去换上' }); else this.ui.toast(`🏆 成就达成「${a.n}」：${a.d}（余烬 +${a.rw}）`, 'good', { act: 'ach', label: '看看' }); }
     if (ach.length) this.sfx('win');
     if (ent.length) this.ui.toast(`📖 收集册新添：${ent.slice(0, 3).map(([c, id]) => Sim.bookName(c, id)).join('、')}${ent.length > 3 ? ` 等 ${ent.length} 项` : ''}`, 'info', { act: 'book', arg: ent[0][0], label: '看看' });
   }

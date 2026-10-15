@@ -149,6 +149,21 @@ export const NORTH_END = [
   '「{n}」亮起来了，像一颗钉在北境上的钉子。',
   '最后一批货装上了雪橇。「{n}」会一直烧着，等后来的人。',
 ];
+// ---------- 第十三版：成就换来的装扮（只是好看：称号、炉火颜色、旗子、相框、北境装饰）----------
+export const TITLES = { ice: '破冰者', walker: '北境旅人', far: '极北之人', lamp: '点灯人', sky: '点燃天火的人', wolf: '狼口守夜人', storm: '风暴里的人', keeper: '守火人' };
+// 炉火颜色：c = [火心, 火身, 火尖]；aurora 会慢慢变色
+export const FLAMES = {
+  def: { n: '本色' },
+  gold: { n: '金色', c: ['#fff4c8', '#ffc83a', '#ff9418'] },
+  blue: { n: '冰蓝', c: ['#ecfdff', '#7fd8ff', '#2f86ff'] },
+  purple: { n: '星紫', c: ['#f8eaff', '#c58cff', '#7a3cff'] },
+  green: { n: '极光绿', c: ['#efffef', '#6dffae', '#16c48a'] },
+  aurora: { n: '极光', c: ['#effffa', '#7cf0ff', '#b07cff'], shift: 1 },
+};
+export const FLAGS = { def: { n: '本色' }, star: { n: '北极星' }, flame: { n: '火焰' }, wolf: { n: '狼头' }, compass: { n: '罗盘' } };
+export const FRAMES = { none: { n: '不加框' }, copper: { n: '铜框' }, film: { n: '胶片' }, map: { n: '旧地图' }, ruin: { n: '古城石框' } };
+// 八种北境装饰（建筑表里 gift: 1，成就解锁以后才能建）
+export const NDECO = ['icesculpt', 'windchime', 'snowman', 'lanterns', 'deerstatue', 'bonearch', 'pyremem', 'skymem'];
 // 北境每站的地标，四种轮着用（r：模型半径，不能在上面建造）
 export const NORTH_MARKS = [
   { n: '冰封石碑', r: 2.2, desc: '一块比人高得多的石碑立在雪原上，刻着没人认得的字，冰从碑顶一直挂到地面。' },

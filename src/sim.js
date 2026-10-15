@@ -2,7 +2,7 @@
 import {
   RES, RES_KEYS, FUEL, FUEL_ORDER, GATE, GATE_EVERY, SPOTS, SPOT_KEYS, LANDMARKS, BAND_START,
   tierOfRow, baseTempOfRow, ETERNAL_STAGES, BLD, furnaceHeat, furnaceRadius, furnaceBurn,
-  SPECS, SPEC_MAX, specBonus, specTrainCost, EMBER_UPS, emberCost, RAIDERS, STORY, DAY_LEN, LAWS, LAW_CD, TECHS, SITES, CHAPTERS, INFRA, LM_R, FAR_MARKS, DIFF, DIFF_KEYS, FOCUS, FOCUS_KEYS, FOCUS_LVL, FOCUS_CD, NORTH_RULES, RULE_FX, NORTH_HI, NORTH_TASK, NORTH_STORY, NORTH_END, TOWER_STEPS, TOWER_FX,
+  SPECS, SPEC_MAX, specBonus, specTrainCost, EMBER_UPS, emberCost, RAIDERS, STORY, DAY_LEN, LAWS, LAW_CD, TECHS, SITES, CHAPTERS, INFRA, LM_R, FAR_MARKS, DIFF, DIFF_KEYS, FOCUS, FOCUS_KEYS, FOCUS_LVL, FOCUS_CD, NORTH_RULES, RULE_FX, NORTH_HI, TITLES, FLAMES, FLAGS, FRAMES, NDECO, NORTH_TASK, NORTH_STORY, NORTH_END, TOWER_STEPS, TOWER_FX,
 } from './data.js';
 import { W, H, BASE_H, setRows, rowsFor, northStop, T_SNOW, T_ICE, getWorld, idx, inMap, hash3, mulberry32 } from './worldgen.js';
 import { journeyOf, journeyStep, mainCamp, outpostBlock, outpostKit, moveFuel, fuelUnits, stopOf, depotAuto, growNext, ruleNow, campRule, ruleSpan, ruleSpans, nsOf, SPINE, northN } from './journey.js';
@@ -706,7 +706,7 @@ export function moveBuilding(S, id, x, y) {
   clearFootprint(S, b.type, x, y, b.camp);
   b.x = x; b.y = y; b.moveT = S.t + MOVE_PAUSE;
   const wasDeep = !!b.deep; b.deep = 0; // 深井留在原地
-  S.lay = (S.lay || 0) + 1;
+  S.lay = (S.lay || 0) + 1; S.meta.moves = (S.meta.moves || 0) + 1;
   dirty(S);
   return { ok: true, wasDeep, belts: ck.belts };
 }
@@ -1281,7 +1281,7 @@ function ruleStep(S, dt, w) {
     const sk = Math.floor(main.sick || 0);
     if (!ns.bz || ns.bz.k !== w.slot.k) ns.bz = { k: w.slot.k, s0: sk, bad: 0 };
     if (sk > ns.bz.s0) ns.bz.bad = 1;
-  } else if (ns.bz) { ns.bliz = (ns.bliz || 0) + 1; if (!ns.bz.bad) ns.blizOk = (ns.blizOk || 0) + 1; ns.bz = null; }
+  } else if (ns.bz) { ns.bliz = (ns.bliz || 0) + 1; if (!ns.bz.bad) { ns.blizOk = (ns.blizOk || 0) + 1; if (r === 'storm' && ns.blizOk >= 4) flag13(S, 'storm4'); } ns.bz = null; }
   if (r === 'night') { const hp = main.hope ?? 50; ns.hh = hp >= 70 ? Math.min(600, (ns.hh || 0) + dt) : Math.max(0, (ns.hh || 0) - dt / 2); }
   if (r === 'rich' && !ns.shrunk && !richGrace(S)) { ns.shrunk = 1; dirty(S); logMsg(S, `💎 富矿带的头两天过去了，熔炉压不住这里的寒气：「${main.name}」的暖圈缩了 ${-RULE_FX.richWarm} 格。`, 'warn'); }
   if (r === 'meteor') {
@@ -1342,7 +1342,7 @@ export function dismantleRuin(S, i) {
   for (const t of tiles) S.spots[t] = 0;
   for (const k in loot) camp.stock[k] = Math.min(Math.max(cap, camp.stock[k] || 0), (camp.stock[k] || 0) + loot[k]);
   rt(S).spotsDirty = true; dirty(S);
-  S.stats.ruins = (S.stats.ruins || 0) + 1;
+  S.stats.ruins = (S.stats.ruins || 0) + 1; S.meta.ruinsN = (S.meta.ruinsN || 0) + 1;
   if (camp.id === journeyOf(S).main && ruleNow(S)) { const ns = nsOf(S); ns.ruin = (ns.ruin || 0) + 1; }
   const cx = tiles.reduce((a, t) => a + t % W, 0) / tiles.length + 0.5, cy = tiles.reduce((a, t) => a + Math.floor(t / W), 0) / tiles.length + 0.5;
   rt(S).fx.push({ kind: 'ruin', camp: camp.id, x: cx, y: cy });
@@ -2813,7 +2813,7 @@ function towerFeed(S, b, sp, dt, hf, offK, st, R, dem) {
   let lim = 1, whyK = null;
   for (const k of sp.kinds) { const have = Math.max(0, st[k] || 0); if (have < need && have / need < lim) { lim = have / need; whyK = k; } }
   for (const k of sp.kinds) { st[k] = Math.max(0, (st[k] || 0) - need * lim); br.inRate[k] = sp.rate * hf * lim; br.want[k] = sp.rate * hf; }
-  if (lim < 0.999 && T.p < sp.dur / 2) T.cut = 1; // 喂到一半以前断过货（成就用）
+  if (lim < 0.999 && T.p > 0 && T.p < sp.dur / 2) T.cut = 1; // 塔身开始长了以后、长到一半以前断过货（成就用）
   T.p = Math.min(sp.dur, T.p + f * lim);
   br.act = lim; br.haul = dem * hf * lim;
   br.status = lim < 0.95 ? `缺${RES[whyK].n}` : hf < 0.7 ? '搬运工不够' : '塔身在长';
@@ -2834,6 +2834,7 @@ export function igniteTower(S, bid) {
   b.tw.lit = 1; b.tw.litT = S.t;
   towerList(S).push({ n: b.tn, x: b.x + s / 2, y: b.y + s / 2, t: S.t, camp: camp.id, type: b.type, cut: b.tw.cut ? 1 : 0 });
   towerList(S).sort((a, c) => a.n - c.n);
+  S.meta.towerMax = Math.max(S.meta.towerMax || 0, towersLit(S));
   bumpMood(camp, 8, -4);
   revealCircle(S, camp.x, camp.y, heatRadius(S, camp) + 2);
   dirty(S);
@@ -3053,12 +3054,12 @@ function raidsStep(S, dt) {
     if (guard) {
       guard.cd = S.t + BLD.colossus.guardCd / (1 + 0.15 * (guard.lvl - 1));
       S.stats.raidsWon++; bumpMood(camp, 6, -3);
-      if (ns) ns.raidW = (ns.raidW || 0) + 1;
+      if (ns) { ns.raidW = (ns.raidW || 0) + 1; wolfSafe(S, camp, ns); }
       logMsg(S, `🗿 巨像守卫站了起来，${name}（强度 ${str}）一个都没能进「${camp.name}」。守卫要歇 ${Math.round((guard.cd - S.t) / 60)} 分钟。`, 'good');
       R.fx.push({ kind: 'raid', camp: camp.id, won: true, str, def: str, t: S.t, guard: guard.id });
     } else if (def >= str) {
       S.stats.raidsWon++;
-      if (ns) ns.raidW = (ns.raidW || 0) + 1;
+      if (ns) { ns.raidW = (ns.raidW || 0) + 1; wolfSafe(S, camp, ns); }
       const wolf = campRule(S, camp) === 'wolf', g = Math.round(str * 2 * (wolf ? RULE_FX.wolfLoot : 1));
       camp.stock.game = Math.min(storeCap(S, camp), (camp.stock.game || 0) + g);
       bumpMood(camp, 4, -2);
@@ -3398,6 +3399,7 @@ export function watchAurora(S) {
   for (const c of S.camps) c.hope = Math.min(100, (c.hope ?? 50) + 4);
   S.meta.embers = (S.meta.embers || 0) + 1;
   S.stats.aurora = (S.stats.aurora || 0) + 1;
+  if (ruleNow(S) === 'night') { const ns = nsOf(S); ns.aur = (ns.aur || 0) + 1; if (ns.aur >= 5) flag13(S, 'aur5'); }
   logMsg(S, '🌌 大家放下手里的活，一起看了一会儿极光：所有营地希望 +4，余烬 +1。', 'good');
   return { ok: true };
 }
@@ -3423,6 +3425,7 @@ export function startFest(S, cid) {
   for (const k in cost) c.stock[k] -= cost[k];
   c.fest = { t0: S.t, until: S.t + FEST_LEN };
   c.festAt = S.t;
+  if (S.buildings.some(b => b.camp === c.id && b.type === 'icefish')) flag13(S, 'icefest');
   addBuff(S, c, 'prod', -0.5, FEST_LEN, '篝火庆典（大家都去跳舞了）');
   rt(S).fx.push({ kind: 'fest', camp: c.id });
   logMsg(S, `「${c.name}」的篝火庆典开始了！大家放下手里的活，围着篝火跳起舞来。`, 'good');
@@ -3623,7 +3626,59 @@ export const ACH = [
   { id: 'allres', n: '万物皆备', d: '物资一栏全部收集', rw: 3, need: RES_KEYS.length, cur: (S, B) => RES_KEYS.filter(k => B.r[k]).length },
   { id: 'allbld', n: '营造大师', d: '建筑一栏全部收集', rw: 5, need: Object.keys(BLD).length, cur: (S, B) => Object.keys(BLD).filter(k => B.b[k]).length },
   { id: 'allsight', n: '见多识广', d: '风物一栏全部收集', rw: 3, need: SIGHTS.length, cur: (S, B) => SIGHTS.filter(x => B.s[x.id]).length },
+  // ---------- 第十三版：只换装扮、不给余烬（cat 分类，gift 解锁的东西，hid 做到之前是「？？？」）----------
+  { id: 'n1', cat: '北境', n: '破冰者', d: '走到北境第 1 站', rw: 0, need: 1, cur: S => S.meta.northMax || 0, gift: { title: 'ice', deco: 'icesculpt' } },
+  { id: 'n5', cat: '北境', n: '北境旅人', d: '走到北境第 5 站', rw: 0, need: 5, cur: S => S.meta.northMax || 0, gift: { title: 'walker', flag: 'star' } },
+  { id: 'n10', cat: '北境', n: '十站之外', d: '走到北境第 10 站', rw: 0, need: 10, cur: S => S.meta.northMax || 0, gift: { flame: 'blue' } },
+  { id: 'n20', cat: '北境', n: '极北之人', d: '走到北境第 20 站', rw: 0, need: 20, cur: S => S.meta.northMax || 0, gift: { title: 'far', frame: 'map' } },
+  { id: 'rules', cat: '北境', n: '十种地貌', d: '十种北境地貌都走过一遍', rw: 0, need: 10, cur: S => rulesSeen(S), gift: { deco: 'bonearch' } },
+  { id: 'tw1', cat: '烽火塔', n: '点灯人', d: '点亮第一座烽火塔', rw: 0, need: 1, cur: S => Math.max(S.meta.towerMax || 0, towersLit(S)), gift: { title: 'lamp', deco: 'pyremem' } },
+  { id: 'tw5', cat: '烽火塔', n: '连成一线', d: '一程里点亮 5 座烽火塔', rw: 0, need: 5, cur: S => Math.max(S.meta.towerMax || 0, towersLit(S)), gift: { flag: 'flame' } },
+  { id: 'sky', cat: '烽火塔', n: '天火', d: '点燃北境第 10 站的天火塔', rw: 0, need: 1, cur: S => S.meta.skyfire || 0, gift: { title: 'sky', flame: 'gold', deco: 'skymem' } },
+  { id: 'nocut', cat: '烽火塔', n: '一口气', d: '一座塔从开始长到一半，一次都没断过货', rw: 0, need: 1, cur: S => yes(towerList(S).some(t => !t.cut) || (S.meta.f13 || {}).nocut), gift: { frame: 'copper' } },
+  { id: 'hi3', cat: '产线', n: '群星闪耀', d: '六种高级材料的产线都升到三星', rw: 0, need: 6, cur: S => NORTH_HI.filter(k => plinesOf(S).some(l => l.r === k && l.star >= 3)).length, gift: { flame: 'purple' } },
+  { id: 'wolfsafe', cat: '生存', n: '狼口无伤', d: '在狼群领地打退 3 次袭营，一个人都没伤着', rw: 0, need: 1, cur: S => yes((S.meta.f13 || {}).wolfsafe), gift: { title: 'wolf', flag: 'wolf' } },
+  { id: 'storm4', cat: '生存', n: '风暴不倒', d: '在风暴走廊挺过 4 场暴风雪，没人冻伤', rw: 0, need: 4, cur: S => (S.meta.f13 || {}).storm4 ? 4 : ruleNow(S) === 'storm' ? Math.min(4, nsOf(S).blizOk || 0) : 0, gift: { title: 'storm', deco: 'snowman' } },
+  { id: 'deco8', cat: '营地', n: '张灯结彩', d: '一座营地里摆上 8 种不同的装饰', rw: 0, need: 8, cur: S => Math.max(0, ...S.camps.map(c => new Set(S.buildings.filter(b => b.camp === c.id && BLD[b.type].cat === 'deco').map(b => b.type)).size)), gift: { deco: 'lanterns' } },
+  { id: 'flamec', cat: '营地', n: '换个颜色', d: '给一座营地的炉火换一次颜色', rw: 0, need: 1, cur: S => yes((S.meta.cos || {}).fc), gift: { title: 'keeper' } },
+  { id: 'mover', cat: '营地', n: '挪挪更顺', d: '一共挪 10 次建筑的位置', rw: 0, need: 10, cur: S => S.meta.moves || 0, gift: { flag: 'compass' } },
+  { id: 'ruins10', cat: '营地', n: '拆古城的人', d: '一共拆掉 10 处古城废墟', rw: 0, need: 10, cur: S => S.meta.ruinsN || 0, gift: { frame: 'ruin' } },
+  { id: 'decoall', cat: '营地', n: '北境装扮', d: '八种北境装饰都建过', rw: 0, need: NDECO.length, cur: (S, B) => NDECO.filter(k => B.b[k]).length, gift: { flame: 'aurora' } },
+  { id: 'aur5', cat: '隐藏', hid: 1, n: '永夜极光', d: '在永夜的站和大家看 5 次极光', rw: 0, need: 5, cur: S => (S.meta.f13 || {}).aur5 ? 5 : ruleNow(S) === 'night' ? Math.min(5, nsOf(S).aur || 0) : 0, gift: { deco: 'windchime', flame: 'green' } },
+  { id: 'photo20', cat: '隐藏', hid: 1, n: '随手拍', d: '拍 20 张照片', rw: 0, need: 20, cur: S => S.meta.photos || 0, gift: { frame: 'film' } },
+  { id: 'icefest', cat: '隐藏', hid: 1, n: '冰湖庆典', d: '在有冰钓屋的营地办一场篝火庆典', rw: 0, need: 1, cur: S => yes((S.meta.f13 || {}).icefest), gift: { deco: 'deerstatue' } },
 ];
+export const ACH_CATS = ['北境', '烽火塔', '产线', '生存', '营地', '隐藏', '旅程'];
+export const achCat = a => a.cat || '旅程';
+// 成就里记的一次性条件
+function flag13(S, k) { (S.meta.f13 ||= {})[k] = 1; }
+// 狼群领地：打退第 3 次袭营的时候，这一站一个人都没伤着
+function wolfSafe(S, camp, ns) { if (campRule(S, camp) === 'wolf' && ns.raidW >= 3 && !ns.hurt) flag13(S, 'wolfsafe'); }
+// 走过的北境地貌：记在 meta 里（北迁也留着），这一程走过的站也算上（老存档）
+export function rulesSeen(S) {
+  const M = S.meta.rulesSeen ||= {}, J = journeyOf(S), R = rt(S);
+  if (R.rsK !== J.stage) { R.rsK = J.stage; for (let i = SPINE + 1; i <= J.stage; i++) { const st = stopOf(S, i); if (st && st.rule) M[st.rule] = 1; } }
+  return Object.keys(M).length;
+}
+// ---------- 装扮：成就送的东西（从成就记录里推出来，老存档读进来就有）----------
+export const GIFT_KINDS = { title: TITLES, flame: FLAMES, flag: FLAGS, frame: FRAMES };
+export const GIFT_LABEL = { title: '称号', flame: '炉火', flag: '旗子', frame: '相框', deco: '装饰' };
+export const GIFT_ICON = { title: '🎖', flame: '🔥', flag: '🚩', frame: '🖼', deco: '🗿' };
+export function cosOf(S) { const C = S.meta.cos || (S.meta.cos = {}); C.seen ||= {}; return C; }
+export function giftFrom(kind, id) { return ACH.find(a => a.gift && a.gift[kind] === id) || null; }
+export function cosHave(S, kind, id) { if (id === 'def' || id === 'none') return true; const a = giftFrom(kind, id); return !!(a && bookOf(S).a[a.id]); }
+export function giftList(a) { const g = a.gift || {}, out = []; for (const k in g) out.push([k, g[k]]); return out; }
+export function giftName(kind, id) { return kind === 'deco' ? (BLD[id] ? BLD[id].n : id) : (GIFT_KINDS[kind][id]?.n ?? GIFT_KINDS[kind][id] ?? id); }
+// 选中的称号（没选过就用最新拿到的那个）
+export function titleOf(S) {
+  const C = cosOf(S);
+  if (C.title === 'none') return '';
+  if (C.title && cosHave(S, 'title', C.title)) return TITLES[C.title];
+  let best = null, bt = -1; const B = bookOf(S);
+  for (const a of ACH) if (a.gift && a.gift.title && B.a[a.id] && (B.a[a.id] >= bt)) { best = a.gift.title; bt = B.a[a.id]; }
+  return best ? TITLES[best] : '';
+}
+export function setTitle(S, id) { if (id !== 'none' && !cosHave(S, 'title', id)) return { ok: false }; cosOf(S).title = id; return { ok: true }; }
 export const BOOK_BLD = Object.keys(BLD);
 export function bookOf(S) {
   const m = S.meta, B = m.book || (m.book = {});
