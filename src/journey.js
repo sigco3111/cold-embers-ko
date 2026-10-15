@@ -25,6 +25,14 @@ export function stopOf(S, k) {
   return p ? { k, n: FAR_MARKS[i].n, x: p.x + 0.5, y: p.y + 0.5, far: true, fi: i, r: FAR_MARKS[i].r } : null;
 }
 export const ruleOf = st => st && st.rule ? NORTH_RULES[st.rule] : null;
+// ---------- 地貌规则：只管当前这一站的主营地，走了就没了 ----------
+export function ruleNow(S) { const J = journeyOf(S); return J.stage > SPINE ? northStop(S.runSeed, J.stage - SPINE).rule : null; }
+export function campRule(S, camp) { return camp && camp.id === journeyOf(S).main ? ruleNow(S) : null; }
+// 哪段时间在哪条规则下（天气、袭营、流星的时间表按到站时间排，走了以后排好的那些也就没了）
+export function ruleSpans(S, r) { const h = journeyOf(S).rh; return h ? h.filter(x => x.r === r) : []; }
+export function ruleSpan(S, t) { for (const h of journeyOf(S).rh || []) if (t >= h.t0 && (h.t1 == null || t < h.t1)) return h; return null; }
+// 这一站的地貌任务计数（到站时清零）
+export function nsOf(S) { const J = journeyOf(S); return J.ns && J.ns.k === J.stage ? J.ns : (J.ns = { k: J.stage }); }
 // 离开第 k 站时主营地熔炉要几级：3、7、11……27，永恒之炉以北每程再 +2；到了世界之脊就不再往上加
 export const gateFlvl = k => k < LANDMARKS.length ? 3 + 4 * k : 27 + 2 * (Math.min(k, SPINE - 1) - LANDMARKS.length + 1);
 // 地图得生成到下一站再往北一截
@@ -555,6 +563,13 @@ export function arrive(S, x, y) {
   J.legs.push({ from: T.from, to: T.to, t0: T.t0, t1: S.t, people: T.people, road: T.done || [], path: [...T.path, [camp.x, camp.y]].map(p => [Math.round(p[0] * 10) / 10, Math.round(p[1] * 10) / 10]) });
   J.stage = T.to; J.main = camp.id; J.trip = null; J.plan = {};
   S.active = camp.id;
+  // 北境：记下这一站的地貌规则从什么时候开始（上一站的到此为止），任务计数清零
+  if (J.rh) for (const h of J.rh) if (h.t1 == null) h.t1 = S.t;
+  if (st.rule) {
+    (J.rh ||= []).push({ r: st.rule, k: st.north, t0: S.t });
+    if (J.rh.length > 4) J.rh.shift();
+    J.ns = { k: J.stage, plank: Math.max(0, Math.round(((T.goods || {}).plank || 0) - FURNACE_KIT.plank)) }; // 车上带来的木板也算运到的
+  }
   S.safeUntil = Math.max(S.safeUntil || 0, S.t + 3600); // 刚到的营地一小时内不会遇袭
   revealCircle(S, st.x, st.y, 14);
   markFounded(S, camp);
@@ -564,6 +579,7 @@ export function arrive(S, x, y) {
   for (const c of S.camps) bumpMood(c, 6, -3);
   logMsg(S, `🔥 车队到了「${st.n}」，新熔炉点着了（${T.fl} 级）。${tents ? `先搭好了 ${tents} 顶帐篷。` : ''}${embers ? `熄火的营地换来 ${embers} 点余烬。` : ''}`, 'story');
   rt(S).fx.push({ kind: 'arrive-stop', k: J.stage });
+  if (st.rule) logMsg(S, `${NORTH_RULES[st.rule].ic} 老向导：「${NORTH_RULES[st.rule].tip}」`, 'story');
   growNext(S);
   // 走到世界之脊：真结局
   if (J.stage === SPINE) {

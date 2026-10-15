@@ -305,6 +305,8 @@ class Game {
       else if (f.kind === 'sur') { if (!quiet) { this.sfx('event'); const u = f.sur; if (u.kind === 'meteor') this.view.meteorFx = { t: 0, x: u.x, y: u.y }; this.ui.toast(u.kind === 'deer' ? '🦌 营地边上来了一头走失的驯鹿，去把它领回来' : '☄ 一颗流星落在营地附近，坑里可能有好东西', 'info', { act: 'surgo', label: '去看看' }); } }
       else if (f.kind === 'surdone') { if (!quiet) { this.sfx('win'); this.view.ringFx && this.view.ringFx(f.sur.x + 0.5, f.sur.y + 0.5, 1.6); this.view.burst(f.sur.kind === 'deer' ? 'dust' : 'spark', f.sur.x + 0.5, f.sur.y + 0.5, 24, 0.8, 1.2); } }
       else if (f.kind === 'book') this.bookFx(f);
+      else if (f.kind === 'meteor') { if (!quiet) { this.sfx(f.hit ? 'lose' : 'event'); if (!this.view.meteorFx) this.view.meteorFx = { t: 0, x: f.x - 0.5, y: f.y - 0.5 }; } }
+      else if (f.kind === 'ruin') { if (!quiet) { this.view.burst('dust', f.x, f.y, 40, 1.2, 1.4); this.view.ringFx && this.view.ringFx(f.x, f.y, 1.5); } }
       else if (f.kind === 'fest') { if (!quiet) { this.sfx('win'); const c = Sim.getCamp(this.S, f.camp), L = c && this.view.lifeSpots(c); if (L && L.fest) for (let k = 0; k < 4; k++) setTimeout(() => this.view.burst('spark', L.fest[0] + (Math.random() - 0.5) * 2, L.fest[1] + (Math.random() - 0.5) * 2, 30, 0.3, 2.5 + Math.random()), k * 450); } }
       else if (f.kind === 'festdone') { if (!quiet) { this.sfx('up'); const c = Sim.getCamp(this.S, f.camp); if (c) this.view.ringFx && this.view.ringFx(c.x, c.y, 3); } } // 离线补算时达成的也报一下
       else if (f.kind === 'odstall') { if (!quiet) { this.sfx('lose'); const c = Sim.getCamp(this.S, f.camp); if (c) this.view.burst('dust', c.x, c.y, 30, 1.2, 2.5); } }

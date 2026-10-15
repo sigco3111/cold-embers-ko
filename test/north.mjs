@@ -1,7 +1,7 @@
 // 北境：地图按段往北接（同一个种子每次一样、世界之脊以南不变）、站点和站名、地标挡建造、从世界之脊一路往北走
 import * as G from '../src/sim.js';
 import * as WG from '../src/worldgen.js';
-import { NORTH_RULE_KEYS, SPOT_KEYS, SPINE_ROW } from '../src/data.js';
+import { NORTH_RULE_KEYS, SPOT_KEYS, SPOTS, SPINE_ROW } from '../src/data.js';
 const { getWorld, idx, W, northStop, northCampAt, BASE_H, setRows } = WG;
 
 let fail = 0;
@@ -36,7 +36,7 @@ const ok = (c, m) => { if (!c) { fail++; console.log('FAIL', m); } else console.
   for (const s of c.north.slice(0, 9)) {
     const cc = northCampAt(s), have = {};
     for (let y = Math.floor(cc.y - 11.5); y <= cc.y + 11.5; y++) for (let x = 0; x < W; x++) { if (Math.hypot(x + 0.5 - cc.x, y + 0.5 - cc.y) > 11.6) continue; const k = c.spot[idx(x, y)]; if (k >= 0) have[SPOT_KEYS[k]] = (have[SPOT_KEYS[k]] || 0) + 1; }
-    const short = SPOT_KEYS.filter(k => (have[k] || 0) < 2);
+    const short = SPOT_KEYS.filter(k => !SPOTS[k].nw && !(k === 'tree' && s.rule === 'tundra') && (have[k] || 0) < 2).concat(s.rule === 'tundra' && (have.dead || 0) < 6 ? ['dead'] : []);
     let rocks = 0; for (let y = Math.floor(cc.y - 3); y <= cc.y + 3; y++) for (let x = Math.floor(cc.x - 3); x <= cc.x + 3; x++) if (c.terrain[idx(x, y)] === WG.T_ROCK) rocks++;
     ok(!short.length && !rocks, `north ${s.k} ${s.name}（${s.rule}）: every raw kind near the camp${short.length ? ' — short ' + short : ''}${rocks ? `, ${rocks} rocks at the camp` : ''}`);
   }

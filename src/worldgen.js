@@ -1,5 +1,5 @@
 // 地图生成：地标与资源纬度固定，地形与细节每轮随机
-import { SPOTS, SPOT_KEYS, LANDMARKS, SPECS, FAR_MARKS, tierOfRow, SPINE_ROW, NORTH_GAP, NORTH_RULE_KEYS, NORTH_MARKS, NORTH_NAME_A, NORTH_NAME_B } from './data.js';
+import { SPOTS, SPOT_KEYS, LANDMARKS, SPECS, FAR_MARKS, tierOfRow, SPINE_ROW, NORTH_GAP, NORTH_RULE_KEYS, NORTH_MARKS, NORTH_NAME_A, NORTH_NAME_B, RICH_KINDS } from './data.js';
 
 export const W = 48;
 // 地图先生成 1000 行（世界之脊在 800 行），走进北境以后按段往北接，每段 400 行。
@@ -70,7 +70,9 @@ export function northStop(seed, k) {
       rule = NS.bag.shift();
     }
     const mark = (n - 1) % NORTH_MARKS.length;
-    L.push({ k: n, y: SPINE_ROW + NORTH_GAP * n + Math.round((hash3(n, 91, seed) - 0.5) * 10), x: 24 + Math.round((hash3(n, 92, seed) - 0.5) * 16), name: NS.names[(n - 1) % NS.names.length], rule, mark, r: NORTH_MARKS[mark].r });
+    const p = { k: n, y: SPINE_ROW + NORTH_GAP * n + Math.round((hash3(n, 91, seed) - 0.5) * 10), x: 24 + Math.round((hash3(n, 92, seed) - 0.5) * 16), name: NS.names[(n - 1) % NS.names.length], rule, mark, r: NORTH_MARKS[mark].r };
+    if (rule === 'rich') p.rich = RICH_KINDS[Math.floor(hash3(n, 93, seed) * RICH_KINDS.length) % RICH_KINDS.length];
+    L.push(p);
   }
   return L[k - 1];
 }
@@ -79,7 +81,11 @@ export function northAt(seed, y) { if (y < SPINE_ROW + NORTH_GAP / 2) return nul
 // 新营地大概扎在哪：地标南边几格
 export const northCampAt = s => ({ x: s.x + 0.5, y: s.y + 0.5 - s.r - 4.5 });
 const RAW_BASE = ['tree', 'tree', 'tree', 'tree', 'rock', 'rock', 'rock', 'herd', 'herd'];
-// 一站的地面：地标周围铲平、营地那块搬走石头，再保证暖圈里每种原料都有（这些不消耗主随机数）
+// 矿：会挖完、不长回来的那几种（北境地貌专有的不算）
+export const ORE_KEYS = SPOT_KEYS.filter(k => !['tree', 'rock', 'herd'].includes(k) && !SPOTS[k].nw);
+const SK = k => SPOT_KEYS.indexOf(k);
+const spotVal = (key, y, f = 1) => Math.round(SPOTS[key].reserve * (1 + Math.min(y, SPINE_ROW) / 160) * f);
+// 一站的地面：地标周围铲平、营地那块搬走石头，按地貌规则改一改，再保证暖圈里每种原料都有（这些不消耗主随机数）
 function placeNorth(w, s) {
   const { terrain, spot, spotInit, seed } = w, mx = s.x + 0.5, my = s.y + 0.5, c = northCampAt(s);
   for (let y = Math.floor(my - s.r - 3); y <= my + s.r + 3; y++) for (let x = Math.max(1, Math.floor(mx - s.r - 3)); x <= Math.min(W - 2, mx + s.r + 3); x++) {
@@ -91,9 +97,101 @@ function placeNorth(w, s) {
     const i = idx(x, y);
     if (terrain[i] !== T_SNOW && Math.hypot(x + 0.5 - c.x, y + 0.5 - c.y) < 5.5 && Math.min(x, W - 1 - x) >= 2) terrain[i] = T_SNOW;
   }
-  const need = RAW_BASE.slice();
-  for (const k of SPOT_KEYS) if (!['tree', 'rock', 'herd'].includes(k)) need.push(k, k);
-  ensureNear(seed + 5000 + s.k, terrain, spot, spotInit, Math.floor(c.x), Math.floor(c.y), need, 4, 11, SPINE_ROW, (x, y) => Math.hypot(x + 0.5 - mx, y + 0.5 - my) < s.r + 1.8);
+  const lm = (x, y) => Math.hypot(x + 0.5 - mx, y + 0.5 - my) < s.r + 1.8;
+  const need = s.rule === 'tundra' ? RAW_BASE.map(k => k === 'tree' ? 'dead' : k) : RAW_BASE.slice();
+  for (const k of ORE_KEYS) need.push(k, k);
+  ruleGround(w, s, c, need, lm);
+  ensureNear(seed + 5000 + s.k, terrain, spot, spotInit, Math.floor(c.x), Math.floor(c.y), need, 4, 11, SPINE_ROW, lm);
+  if (s.rule === 'rich') { const rk = SK(s.rich); for (let y = Math.floor(c.y - 32); y <= c.y + 32; y++) for (let x = 0; x < W; x++) { const i = idx(x, y); if (y >= 0 && y < terrain.length / W && spot[i] === rk && Math.hypot(x + 0.5 - c.x, y + 0.5 - c.y) <= 32) spotInit[i] *= 3; } }
+  if (s.rule === 'lakes') fishSpots(w, s, c, lm);
+  if (s.rule === 'ruins') ruinSpots(w, s, c, lm);
+}
+// 地貌规则改地面：只动这一站营地周围，用自己的随机数（同一个种子每次一样）
+function ruleGround(w, s, c, need, lm) {
+  const { terrain, spot, spotInit, seed } = w, rr = mulberry32(seed * 389 + s.k * 7 + 1);
+  const each = (R, fn) => {
+    for (let y = Math.floor(c.y - R); y <= c.y + R; y++) for (let x = 1; x < W - 1; x++) {
+      if (y < 0 || y >= terrain.length / W || Math.hypot(x + 0.5 - c.x, y + 0.5 - c.y) > R) continue;
+      fn(idx(x, y), x, y);
+    }
+  };
+  const key = i => spot[i] >= 0 ? SPOT_KEYS[spot[i]] : null;
+  switch (s.rule) {
+    case 'flat': // 暖圈里铲平：岩石、冰湖变雪地；矿点少一半（保底的后面照放）；营地边上的树和石头也稀一些
+      each(17, (i, x, y) => {
+        if (terrain[i] !== T_SNOW && Math.min(x, W - 1 - x) >= 2) terrain[i] = T_SNOW;
+        const k = key(i), d = Math.hypot(x + 0.5 - c.x, y + 0.5 - c.y);
+        if (k && ORE_KEYS.includes(k) && rr() < 0.5) spot[i] = -1;
+        else if ((k === 'tree' || k === 'rock') && d < 9 && rr() < 0.6) spot[i] = -1;
+      });
+      break;
+    case 'geo': // 煤和油页岩减半
+      each(32, i => { const k = key(i); if ((k === 'coal' || k === 'shale') && rr() < 0.5) spot[i] = -1; });
+      break;
+    case 'rich': // 一种矿储量 ×3（保底的放完再乘），再多放一片
+      need.push(s.rich);
+      break;
+    case 'tundra': { // 没有活树：树都成了枯木堆；石头和矿多一些
+      const dk = SK('dead');
+      each(32, (i, x, y) => { if (key(i) === 'tree') { spot[i] = dk; spotInit[i] = spotVal('dead', y, 0.7 + rr() * 0.6); } });
+      need.push('dead', 'rock', 'rock', 'rock');
+      for (const k of ORE_KEYS) need.push(k);
+      break;
+    }
+    case 'meteor': // 星核石多两片
+      need.push('starfall', 'starfall');
+      break;
+    case 'lakes': { // 营地周围冒出几片冰湖（熔炉那块不动）
+      const n = 7;
+      for (let b = 0; b < n; b++) {
+        const a = rr() * Math.PI * 2, d = 7 + rr() * 9, bx = c.x + Math.cos(a) * d, by = c.y + Math.sin(a) * d, br = 1.6 + rr() * 1.6;
+        each(17, (i, x, y) => {
+          const q = Math.hypot(x + 0.5 - bx, (y + 0.5 - by) * 1.2);
+          if (q > br + (hash3(x, y, seed + 7) - 0.5) * 0.9) return;
+          if (Math.hypot(x + 0.5 - c.x, y + 0.5 - c.y) < 6.5 || lm(x, y) || Math.min(x, W - 1 - x) < 2) return;
+          terrain[i] = T_ICE; spot[i] = -1;
+        });
+      }
+      break;
+    }
+  }
+}
+// 冰钓点：冰湖边上（挨着雪地的冰面），离营地 4 到 14 格
+function fishSpots(w, s, c, lm) {
+  const { terrain, spot, spotInit, seed } = w, fk = SK('fish'), cand = [];
+  for (let y = Math.floor(c.y - 14); y <= c.y + 14; y++) for (let x = 2; x < W - 2; x++) {
+    const i = idx(x, y), d = Math.hypot(x + 0.5 - c.x, y + 0.5 - c.y);
+    if (d < 4 || d > 14 || terrain[i] !== T_ICE || spot[i] >= 0 || lm(x, y)) continue;
+    const shore = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => terrain[idx(x + dx, y + dy)] === T_SNOW);
+    if (shore) cand.push([hash3(x, y, seed + 31), i, y]);
+  }
+  cand.sort((a, b) => a[0] - b[0]);
+  const used = [];
+  for (const [, i, y] of cand) {
+    const x = i % W;
+    if (used.some(([ux, uy]) => Math.hypot(ux - x, uy - y) < 3)) continue;
+    spot[i] = fk; spotInit[i] = spotVal('fish', y); used.push([x, y]);
+    if (used.length >= 7) break;
+  }
+}
+// 古城废墟：暖圈里散着几处断墙（每处 2 到 4 格），熔炉那块和地标周围不放
+function ruinSpots(w, s, c, lm) {
+  const { terrain, spot, spotInit, seed } = w, rk = SK('ruin'), rr = mulberry32(seed * 433 + s.k * 11 + 5);
+  const shapes = [[[0, 0], [1, 0], [0, 1], [1, 1]], [[0, 0], [1, 0], [2, 0]], [[0, 0], [1, 0], [0, 1]], [[0, 0], [0, 1], [0, 2]], [[0, 0], [1, 0]]];
+  let n = 0;
+  for (let tries = 0; tries < 400 && n < 8; tries++) {
+    const a = rr() * Math.PI * 2, d = 5 + rr() * 8, x0 = Math.round(c.x + Math.cos(a) * d), y0 = Math.round(c.y + Math.sin(a) * d);
+    const sh = shapes[Math.floor(rr() * shapes.length)];
+    const tiles = sh.map(([dx, dy]) => [x0 + dx, y0 + dy]);
+    const bad = tiles.some(([x, y]) => {
+      if (x < 2 || x > W - 3 || lm(x, y) || Math.hypot(x + 0.5 - c.x, y + 0.5 - c.y) < 4.5) return true;
+      for (let yy = y - 1; yy <= y + 1; yy++) for (let xx = x - 1; xx <= x + 1; xx++) { const j = idx(xx, yy); if (spot[j] === rk || (spot[j] >= 0 && SPOT_KEYS[spot[j]] !== 'tree' && SPOT_KEYS[spot[j]] !== 'rock')) return true; }
+      return terrain[idx(x, y)] === T_ROCK;
+    });
+    if (bad) continue;
+    for (const [x, y] of tiles) { const i = idx(x, y); terrain[i] = T_SNOW; spot[i] = rk; spotInit[i] = 1; }
+    n++;
+  }
 }
 // 离北境站的地标或营地太近（放地点、兴趣点时避开）
 function nearNorth(seed, x, y, r) {
@@ -226,6 +324,7 @@ export function genWorld(seed) {
     const t = tierOfRow(l.row);
     // 从这里重开时也要能做出前面各层的材料：每层的原料都放几处
     for (const k of SPOT_KEYS) {
+      if (SPOTS[k].nw) continue; // 北境地貌专有的不在老地图里放
       const st = SPOTS[k].from > 0 ? tierOfRow(SPOTS[k].from) : 0;
       if (st === t) need.push(k, k, k);
       else if (st >= 2 && st < t) need.push(k, k);

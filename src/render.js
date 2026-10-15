@@ -18,8 +18,8 @@ const snowColor = (x, y, c) => {
   return c.setHSL(0.58 + north * 0.03 + cold * 0.02, 0.26 + north * 0.15 + cold * 0.1, 0.86 - north * 0.08 + patch * 0.05 + fine * 0.018 + streak * 0.022);
 };
 // 资源点模型的占地半径（缩放为 1 时）与每格最多几个
-const SPOT_R = { tree: 0.39, herd: 0.3, rock: 0.42, coal: 0.42, ore: 0.4, lime: 0.4, shale: 0.42, crystal: 0.3, star: 0.45, shard: 0.35, starfall: 0.48 };
-const SPOT_PER = { tree: 3, herd: 2, rock: 1, coal: 2, ore: 2, lime: 2, shale: 1, crystal: 2, star: 1, shard: 2, starfall: 1 };
+const SPOT_R = { tree: 0.39, herd: 0.3, rock: 0.42, coal: 0.42, ore: 0.4, lime: 0.4, shale: 0.42, crystal: 0.3, star: 0.45, shard: 0.35, starfall: 0.48, dead: 0.42, fish: 0.4, ruin: 0.46 };
+const SPOT_PER = { tree: 3, herd: 2, rock: 1, coal: 2, ore: 2, lime: 2, shale: 1, crystal: 2, star: 1, shard: 2, starfall: 1, dead: 1, fish: 1, ruin: 1 };
 const COATS = ['#b8483a', '#3a6ab8', '#c89a3a', '#4a8a5a', '#8a4aa8', '#c86a2a', '#3a8a9a', '#6a6a7a'].map(c => new THREE.Color(c));
 const WSLOT = [-0.15, 0.15, -0.45, 0.45]; // 建筑门前的固定工位
 
@@ -454,8 +454,8 @@ if (uDetail > 0.0) {
         const left = Sim.spotLeft(S, i), mx = Sim.spotMax(S, i);
         if (left <= 0) {
           // 采空：树留下树桩，矿和石头留下坑；猎场什么也不留
-          if (k === 'herd' || k === 'shale') continue;
-          const rk = k === 'tree' ? 'stump' : 'pit', im2 = this.remnants[rk];
+          if (k === 'herd' || k === 'shale' || k === 'fish' || k === 'ruin') continue; // 冰洞冻上了、废墟拆平了：什么也不留
+          const rk = k === 'tree' || k === 'dead' ? 'stump' : 'pit', im2 = this.remnants[rk];
           for (const it of this.spotBuckets.get(i) || []) {
             if (it[3] !== k || (rk === 'pit' && it[6] > 0) || rem[rk] >= 3000) continue;
             const sc = rk === 'stump' ? 0.8 + it[4] * 0.4 : it[4];
@@ -1399,8 +1399,8 @@ if (uDetail > 0.0) {
   syncRings() {
     const S = this.S;
     let sig = '';
-    for (const c of S.camps) sig += c.id + ':' + Sim.getB(S, c.furnace).lvl + ':' + (c.pipe || 0) + ';';
-    for (const b of S.buildings) if (b.type === 'heater') sig += 'h' + b.id;
+    for (const c of S.camps) sig += c.id + ':' + Sim.heatRadius(S, c) + ';';
+    for (const b of S.buildings) if (b.type === 'heater' || b.type === 'geowell') sig += 'h' + b.id;
     if (sig === this.ringSig) return;
     this.ringSig = sig;
     for (const o of [...this.rings.children]) { this.rings.remove(o); o.geometry.dispose(); }
@@ -1414,7 +1414,7 @@ if (uDetail > 0.0) {
       this.rings.add(ring, disk);
     };
     for (const c of S.camps) add(c.x, c.y, Sim.heatRadius(S, c));
-    for (const b of S.buildings) if (b.type === 'heater') add(b.x + 0.5, b.y + 0.5, BLD.heater.hreach);
+    for (const b of S.buildings) if (b.type === 'heater' || b.type === 'geowell') add(b.x + BLD[b.type].size / 2, b.y + BLD[b.type].size / 2, BLD[b.type].hreach);
   }
 
   syncLines() {
@@ -1686,7 +1686,8 @@ void main() {
   dayNight(dt) {
     const S = this.S, dc = dayCycle(this.photoT ?? S.t), C = this.C, bz = this.blizz;
     const k = Math.min(1, dt * 2);
-    this.nf += (dc.nf - this.nf) * k; this.dw += (dc.dw - this.dw) * k;
+    const polar = this.photoT == null && Sim.ruleNow(S) === 'night' ? 0.55 : 0; // 永夜：白天也只有一点暮光
+    this.nf += (Math.max(dc.nf, polar) - this.nf) * k; this.dw += (dc.dw * (1 - polar) - this.dw) * k;
     const nf = this.nf, dw = this.dw;
     const bc = this.bg.copy(C.day).lerp(C.night, nf).lerp(C.dusk, dw * 0.55 * (1 - nf * 0.5));
     bc.lerp(C.t.setRGB(0.5, 0.56, 0.63).lerp(C.night, nf * 0.8), bz * 0.35);
@@ -2821,6 +2822,9 @@ void main() {
       if (Math.abs(bx - cx) > 40 || Math.abs(by - cy) > 40) continue;
       if (b.type === 'furnace') { const cr = R.c[b.camp]; emit.push([bx, by, 3.2 + 0.08 * Math.min(b.lvl, 25), 3 * (cr ? 0.3 + cr.fueled : 1)]); }
       else if (['kitchen', 'smelter', 'coker', 'steelworks', 'refinery', 'forge', 'heater', 'engineworks', 'alloyworks', 'tent'].includes(b.type) && ((R.b[b.id] || {}).act > 0.1 || b.type === 'tent' || b.type === 'heater')) emit.push([bx + (b.type === 'tent' ? 0.45 : 0.5), by + 0.4, b.type === 'tent' ? 1.4 : 2.2, b.type === 'tent' ? 0.3 : 1]);
+      else if (b.type === 'geowell') emit.push([bx + 0.05, by, 0.45, 1.6]); // 热泉一直冒白汽
+      else if (b.type === 'icefish' && (R.b[b.id] || {}).act > 0.1) emit.push([bx + 0.28, by + 0.45, 1.65, 0.4]);
+      if (b.hitT > S.t) emit.push([bx, by, 0.9, 1.4]); // 被陨石砸了：冒着烟在修
     }
     if (this.cvEmit) for (const em of this.cvEmit) emit.push(em);
     const sm = this.smoke;

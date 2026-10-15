@@ -1211,6 +1211,56 @@ export function buildingGeo(type, lvl, deep = false) {
       });
       break;
     }
+    case 'geowell': {
+      // 地热井：石砌井沿围着一汪冒热气的泉水（边上结着黄白的矿物），井上一座钢三脚架吊着套管，阀门轮、保温管往营地那边走
+      add(G.cyl12, '#6f6a66', { sx: 1.4, sy: 0.18, sz: 1.4, y: 0.21, jit: 0.08 });
+      add(G.cyl12, '#d8c08a', { sx: 1.22, sy: 0.02, sz: 1.22, y: 0.305 });
+      lit(G.cyl12, '#4fc4d0', { sx: 1.04, sy: 0.02, sz: 1.04, y: 0.31 });
+      lit(G.cyl12, '#bff6f2', { sx: 0.42, sy: 0.022, sz: 0.36, x: 0.14, y: 0.312, z: 0.08 });
+      for (let k = 0; k < 12; k++) { const a = k / 12 * Math.PI * 2; add(G.dode, k % 3 ? '#7d7772' : '#5f5a56', { sx: 0.2, sy: 0.12, sz: 0.16, x: Math.cos(a) * 0.68, y: 0.31, z: Math.sin(a) * 0.68, ry: a, jit: 0.25 }); }
+      const top = 1.75;
+      for (let k = 0; k < 3; k++) { const a = k / 3 * Math.PI * 2 + 0.5; seg(p.metal, [Math.cos(a) * 0.62, 0.3, Math.sin(a) * 0.62], [0, top, 0], 0.06); }
+      add(G.cyl8, p.trim, { sx: 0.2, sy: 0.1, sz: 0.2, y: top });
+      add(G.cyl8, p.metal, { sx: 0.18, sy: 1.25, sz: 0.18, y: 0.3 + 0.62 });
+      for (let k = 0; k < 3; k++) add(G.torus16, p.trim, { s: 0.22, rx: Math.PI / 2, y: 0.5 + k * 0.32 });
+      add(G.wheel, '#c0503a', { s: 0.26, x: 0, y: 1.05, z: 0.16 }); for (let k = 0; k < 2; k++) box('#c0503a', 0.24, 0.02, 0.02, 0, 1.05, 0.16, { rz: k * Math.PI / 2 });
+      pipe(0, 0, 0.75, 0.7, 0.5, 0.07); vpipe(0.75, 0.7, 0.4, 0.12, 0.08);
+      pipe(0, 0, -0.75, 0.65, 0.42, 0.06); vpipe(-0.75, 0.65, 0.32, 0.12, 0.07);
+      hi(() => {
+        // 井边的木踏板、压力表、警示的小红旗和一摞保温毡
+        for (let k = 0; k < 4; k++) box(k % 2 ? WOOD : WOOD2, 0.1, 0.03, 0.42, -0.25 + k * 0.12, 0.15, 0.82);
+        add(G.cyl12, '#e8e2d0', { sx: 0.14, sy: 0.03, sz: 0.14, x: 0.12, y: 0.82, z: 0.11, rx: Math.PI / 2 });
+        box(DARK, 0.004, 0.05, 0.004, 0.12, 0.82, 0.128, { rz: 0.6 });
+        box(p.post, 0.025, 0.55, 0.025, 0.82, 0.38, -0.62); box('#d04030', 0.16, 0.1, 0.01, 0.9, 0.6, -0.62);
+        for (let k = 0; k < 3; k++) box(k % 2 ? '#8a6a4a' : '#a07a52', 0.34, 0.06, 0.24, -0.72, 0.15 + k * 0.06, -0.66, { ry: k * 0.1 });
+      });
+      break;
+    }
+    case 'icefish': {
+      // 冰钓屋：雪橇板上的小木屋（铁皮烟囱冒着烟），门前一口冰洞架着钓竿，边上晾鱼架挂着一排鱼，桶里装着刚钓上来的
+      for (const sg of [-1, 1]) box(WOOD2, 0.08, 0.06, 1.25, sg * 0.36, 0.15, -0.2);
+      house(0.95, 0.72, 0.9, 0, -0.25, 'gable', p.wall);
+      chimney(0.28, -0.45, 1.55, '#6a6f78');
+      // 冰洞：一圈碎冰围着一口深蓝的洞，钓竿斜插在雪里
+      add(G.cyl12, ICE, { sx: 0.5, sy: 0.03, sz: 0.44, x: -0.45, y: 0.135, z: 0.6 });
+      add(G.cyl12, '#1e3a5a', { sx: 0.3, sy: 0.034, sz: 0.26, x: -0.45, y: 0.14, z: 0.6 });
+      for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2; add(G.dode, '#e4f2fc', { s: 0.06, x: -0.45 + Math.cos(a) * 0.24, y: 0.15, z: 0.6 + Math.sin(a) * 0.2 }); }
+      seg(WOOD2, [-0.1, 0.13, 0.75], [-0.42, 0.72, 0.58], 0.02);
+      seg('#d8dde4', [-0.42, 0.72, 0.58], [-0.45, 0.15, 0.6], 0.006);
+      // 晾鱼架：两根杆一根横梁，挂着六条鱼
+      for (const sg of [-1, 1]) box(p.post, 0.04, 0.62, 0.04, 0.42 + sg * 0.3, 0.43, 0.62);
+      box(p.post, 0.7, 0.035, 0.035, 0.42, 0.72, 0.62);
+      for (let k = 0; k < 6; k++) { const x = 0.17 + k * 0.1; add(G.oct, k % 2 ? '#9fb2c0' : '#b8c6d0', { sx: 0.05, sy: 0.18, sz: 0.035, x, y: 0.58, z: 0.62 }); add(G.tet, '#8a9eae', { sx: 0.06, sy: 0.05, sz: 0.02, x, y: 0.47, z: 0.62 }); }
+      barrel(0.0, 0.72, 0.12, '#5a6a78');
+      hi(() => {
+        // 桶里冒尖的鱼、门前扫出来的小路、窗台上的冰柱、靠墙的冰钻
+        for (let k = 0; k < 3; k++) add(G.oct, '#c0ccd6', { sx: 0.04, sy: 0.04, sz: 0.14, x: -0.04 + k * 0.04, y: 0.36, z: 0.72, rx: 0.3, ry: k });
+        for (let k = 0; k < 3; k++) add(G.cone5, '#e8f6ff', { sx: 0.03, sy: 0.1, sz: 0.03, x: -0.25 + k * 0.2, y: 0.78, z: 0.21, rx: Math.PI });
+        seg('#7d848e', [0.5, 0.13, 0.2], [0.55, 0.72, 0.21], 0.025); add(G.cone5, '#7d848e', { sx: 0.06, sy: 0.14, sz: 0.06, x: 0.5, y: 0.17, z: 0.2, rx: Math.PI });
+        drift(-0.6, -0.55, 0.4, 0.3);
+      });
+      break;
+    }
     default: house(1.2, 0.8, 1.0);
   }
   // 高层级：屋檐下一圈装饰条
@@ -1350,6 +1400,40 @@ function spotHi(kind) {
       add(G.hemiLo, SNOW, { sx: 0.22, sy: 0.05, sz: 0.14, x: -0.38, y: 0.04, z: -0.2 }); add(G.hemiLo, SNOW, { sx: 0.14, sy: 0.04, sz: 0.1, x: 0.36, y: 0.04, z: 0.26 });
       break;
     }
+    case 'dead': {
+      // 枯木堆：几根发灰的枯树干横七竖八压在一起，断口发白，压着雪；边上一截歪着的树桩
+      for (const [x, z, ry, l, r] of [[0, 0, 0.3, 0.9, 0.09], [0.05, 0.12, -0.5, 0.8, 0.08], [-0.08, -0.1, 1.2, 0.7, 0.075], [0.1, 0.02, 2.0, 0.6, 0.07]]) {
+        add(G.cyl6, '#8a8078', { sx: r * 2, sy: l, sz: r * 2, x, y: 0.09 + Math.abs(z) * 0.4, z, rz: Math.PI / 2, ry, jit: 0.1 });
+        add(G.cyl6, '#d8cfc0', { sx: r * 1.6, sy: 0.02, sz: r * 1.6, x: x + Math.cos(ry) * l / 2, y: 0.09 + Math.abs(z) * 0.4, z: z - Math.sin(ry) * l / 2, rz: Math.PI / 2, ry });
+      }
+      for (let k = 0; k < 3; k++) { const a = k * 2.1; add(G.cyl5, '#6e665e', { sx: 0.03, sy: 0.22, sz: 0.03, x: Math.cos(a) * 0.2, y: 0.22, z: Math.sin(a) * 0.15, rz: 0.9 * Math.cos(a), rx: 0.6 }); }
+      add(G.cyl6, '#7a7068', { sx: 0.2, sy: 0.3, sz: 0.2, x: -0.32, y: 0.13, z: 0.26, rz: 0.15 }); add(G.cyl6, SNOW, { sx: 0.2, sy: 0.04, sz: 0.2, x: -0.33, y: 0.29, z: 0.26 });
+      add(G.hemiLo, SNOW, { sx: 0.5, sy: 0.08, sz: 0.3, x: 0.03, y: 0.17, z: 0.02 }); add(G.hemiLo, SNOW2, { sx: 0.5, sy: 0.06, sz: 0.4, y: 0.0 });
+      break;
+    }
+    case 'fish': {
+      // 冰钓点：冰面上一口深蓝的冰洞，一圈碎冰，边上插着一面小红旗，冰下隐约有鱼影
+      add(G.cyl12, '#b8daf2', { sx: 0.8, sy: 0.02, sz: 0.7, y: 0.01 });
+      add(G.cyl12, '#183650', { sx: 0.36, sy: 0.026, sz: 0.3, y: 0.016 });
+      add(G.cyl12, '#2a5a7a', { sx: 0.22, sy: 0.028, sz: 0.18, x: 0.03, y: 0.018 });
+      for (let k = 0; k < 9; k++) { const a = k / 9 * Math.PI * 2; add(k % 2 ? G.dode : G.tet, '#e8f6ff', { s: 0.05 + (k % 3) * 0.02, x: Math.cos(a) * 0.24, y: 0.03, z: Math.sin(a) * 0.2, ry: a }); }
+      for (const [x, z, ry] of [[0.22, -0.18, 0.4], [-0.25, 0.16, 2.2]]) add(G.oct, '#4a6a84', { sx: 0.05, sy: 0.012, sz: 0.16, x, y: 0.012, z, ry });
+      add(G.cyl5, WOOD2, { sx: 0.02, sy: 0.36, sz: 0.02, x: 0.3, y: 0.18, z: 0.12 }); add(G.box, '#d04030', { sx: 0.12, sy: 0.08, sz: 0.008, x: 0.36, y: 0.31, z: 0.12 });
+      break;
+    }
+    case 'ruin': {
+      // 古城废墟：半截断墙（石块砌的，墙头结冰），倒下的柱子，散落的雕花石块和半埋的铜饰
+      add(G.box, '#8a8478', { sx: 0.8, sy: 0.5, sz: 0.16, y: 0.25, ry: 0.2, jit: 0.08 });
+      for (let k = 0; k < 4; k++) add(G.box, k % 2 ? '#9a9488' : '#7a7468', { sx: 0.2, sy: 0.12, sz: 0.17, x: -0.3 + k * 0.2, y: 0.5 + (k % 2) * 0.05, z: -0.06 + k * 0.04, ry: 0.2, jit: 0.15 });
+      add(G.box, SNOW, { sx: 0.6, sy: 0.04, sz: 0.18, x: -0.05, y: 0.58, ry: 0.2 });
+      add(G.box, '#5a5a62', { sx: 0.3, sy: 0.08, sz: 0.012, x: 0.05, y: 0.32, z: 0.09, ry: 0.2 });
+      add(G.cyl8, '#a09a8c', { sx: 0.2, sy: 0.75, sz: 0.2, x: 0.15, y: 0.1, z: 0.32, rz: Math.PI / 2, ry: -0.5, jit: 0.06 });
+      for (let k = 0; k < 3; k++) add(G.torus, '#7a7468', { s: 0.22, x: 0.15 - 0.3 + k * 0.3, y: 0.1, z: 0.32 + (0.3 - k * 0.3) * 0.55, ry: -0.5 + Math.PI / 2, rx: 0 });
+      for (let k = 0; k < 5; k++) add(G.box, '#8a8478', { s: 0.09 + (k % 3) * 0.04, x: -0.35 + k * 0.17, y: 0.04, z: 0.28 - (k % 2) * 0.55, ry: k, jit: 0.2 });
+      add(G.oct, '#c09040', { sx: 0.12, sy: 0.05, sz: 0.12, x: -0.3, y: 0.05, z: 0.2 });
+      add(G.hemiLo, SNOW, { sx: 0.4, sy: 0.08, sz: 0.25, x: -0.3, y: 0.02, z: -0.2 });
+      break;
+    }
     default: return null;
   }
   return merge(out);
@@ -1376,6 +1460,9 @@ function spotLo(kind) {
     case 'crystal': return merge([P(G.oct, '#7fe8ff', { sx: 0.2, sy: 0.8, sz: 0.2, y: 0.4, rz: 0.2 }), P(G.oct, '#a0f0ff', { sx: 0.15, sy: 0.55, sz: 0.15, x: 0.2, y: 0.28, rz: -0.4 }), P(G.oct, '#60d0f0', { sx: 0.14, sy: 0.5, sz: 0.14, x: -0.18, y: 0.25, z: 0.12, rx: 0.4 }), P(G.oct, '#b8f6ff', { sx: 0.1, sy: 0.35, sz: 0.1, x: 0.05, y: 0.18, z: -0.2, rx: -0.5 })]);
     case 'star': return merge([P(G.tet, '#6a5a86', { sx: 0.9, sy: 0.7, sz: 0.6, y: 0.25, ry: 0.5 }), P(G.box, '#9a8ab4', { sx: 0.7, sy: 0.08, sz: 0.2, x: 0.2, y: 0.45, rz: 0.4 }), P(G.box, '#8a7aa4', { sx: 0.08, sy: 0.5, sz: 0.08, x: -0.3, y: 0.3, z: -0.1, rz: -0.3 }), P(G.oct, '#c080ff', { s: 0.18, x: -0.25, y: 0.2, z: 0.2 })]);
     case 'shard': return merge([P(G.oct, '#ff9a40', { sx: 0.3, sy: 0.6, sz: 0.3, y: 0.3 }), P(G.oct, '#ffc060', { s: 0.2, x: 0.25, y: 0.15, z: 0.1 }), P(G.oct, '#ffb050', { sx: 0.12, sy: 0.3, sz: 0.12, x: -0.2, y: 0.15, z: -0.12, rz: 0.4 }), P(G.dode, '#5a4a3a', { sx: 0.6, sy: 0.15, sz: 0.5, y: 0.04 })]);
+    case 'dead': return merge([P(G.cyl6, '#8a8078', { sx: 0.18, sy: 0.9, sz: 0.18, y: 0.09, rz: Math.PI / 2, ry: 0.3 }), P(G.cyl6, '#7e756d', { sx: 0.16, sy: 0.8, sz: 0.16, x: 0.05, y: 0.14, z: 0.12, rz: Math.PI / 2, ry: -0.5 }), P(G.cyl6, '#8a8078', { sx: 0.15, sy: 0.7, sz: 0.15, x: -0.08, y: 0.13, z: -0.1, rz: Math.PI / 2, ry: 1.2 }), P(G.hemiLo, SNOW, { sx: 0.5, sy: 0.08, sz: 0.3, y: 0.17 })]);
+    case 'fish': return merge([P(G.cyl12, '#b8daf2', { sx: 0.8, sy: 0.02, sz: 0.7, y: 0.01 }), P(G.cyl12, '#183650', { sx: 0.36, sy: 0.026, sz: 0.3, y: 0.016 }), P(G.cyl5, WOOD2, { sx: 0.02, sy: 0.36, sz: 0.02, x: 0.3, y: 0.18, z: 0.12 }), P(G.box, '#d04030', { sx: 0.12, sy: 0.08, sz: 0.01, x: 0.36, y: 0.31, z: 0.12 })]);
+    case 'ruin': return merge([P(G.box, '#8a8478', { sx: 0.8, sy: 0.55, sz: 0.16, y: 0.27, ry: 0.2 }), P(G.box, SNOW, { sx: 0.6, sy: 0.04, sz: 0.18, x: -0.05, y: 0.56, ry: 0.2 }), P(G.cyl8, '#a09a8c', { sx: 0.2, sy: 0.75, sz: 0.2, x: 0.15, y: 0.1, z: 0.32, rz: Math.PI / 2, ry: -0.5 }), P(G.box, '#8a8478', { s: 0.14, x: -0.3, y: 0.06, z: 0.28 })]);
     case 'starfall': return merge([P(G.cyl12, '#2a2230', { sx: 0.95, sy: 0.03, sz: 0.85, y: 0.015 }), P(G.dode, '#3a2a48', { sx: 0.45, sy: 0.3, sz: 0.4, y: 0.12, jit: 0.2 }), P(G.oct, '#e070ff', { sx: 0.26, sy: 0.62, sz: 0.26, y: 0.36, rz: 0.25 }), P(G.oct, '#c060f0', { sx: 0.12, sy: 0.34, sz: 0.12, x: 0.22, y: 0.24, z: 0.1, rz: -0.6 }), P(G.oct, '#f090ff', { sx: 0.1, sy: 0.28, sz: 0.1, x: -0.2, y: 0.22, z: 0.14, rz: 0.5 }), ...[0, 2.1, 4.2].map(a => P(G.dode, '#4a4252', { sx: 0.16, sy: 0.09, sz: 0.12, x: Math.cos(a) * 0.42, y: 0.04, z: Math.sin(a) * 0.37 }))]);
   }
 }

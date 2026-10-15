@@ -53,6 +53,10 @@ export const SPOTS = {
   star:    { n: '古代残骸', res: 'star',    reserve: 1400, from: 255, dens: 0.016 },
   shard:   { n: '炉心碎块', res: 'shard',   reserve: 1500, from: 312, dens: 0.02 },
   starfall:{ n: '星核石',   res: 'starcore', reserve: 1600, from: 9999, dens: 0 }, // 不随纬度撒，只放在星落之坑周围（worldgen 单独放）
+  // 北境地貌才有的（nw）：只在对应规则的站里由 worldgen 单独放，老地图里没有
+  dead:    { n: '枯木堆',   res: 'wood',    reserve: 260,  from: 9999, dens: 0, nw: 1 }, // 冻土无林：伐木场砍得动，砍完过一阵风雪又刮出来一堆
+  fish:    { n: '冰钓点',   res: 'food',    reserve: 400,  from: 9999, dens: 0, nw: 1 }, // 冰湖群：冰面上的鱼窝，冰钓屋来钓
+  ruin:    { n: '古城废墟', res: 'part',    reserve: 1,    from: 9999, dens: 0, nw: 1 }, // 古城遗址：占着地，拆了得古代构件和钢材
 };
 export const SPOT_KEYS = Object.keys(SPOTS);
 
@@ -88,17 +92,31 @@ export const SPINE_ROW = 800;
 export const NORTH_GAP = 80;
 // 地貌规则：一好一坏，只管当前这一站（效果在 sim / worldgen 里按 id 生效）
 export const NORTH_RULES = {
-  flat:   { n: '平坦雪原', ic: '🏔', good: '暖圈内空地更多', bad: '矿点偏少' },
-  geo:    { n: '地热谷',   ic: '♨', good: '暖圈 +3 格，燃料消耗 −30%', bad: '煤矿和油页岩减半' },
-  rich:   { n: '富矿带',   ic: '💎', good: '一种矿的储量 ×3', bad: '暖圈 −2 格' },
-  night:  { n: '永夜',     ic: '🌌', good: '极光更多，希望更容易涨', bad: '燃料 +20%，户外工作慢 10%' },
-  wolf:   { n: '狼群领地', ic: '🐺', good: '击退袭营的战利品 ×2', bad: '袭营变多 ×1.5' },
-  lakes:  { n: '冰湖群',   ic: '🎣', good: '能建冰钓屋，产鱼当食物', bad: '冰面不能盖房，冰湖开裂更常见' },
-  ruins:  { n: '古城遗址', ic: '🏛', good: '拆废墟得古代构件和钢材', bad: '废墟占地，拆了才有空地' },
-  storm:  { n: '风暴走廊', ic: '🌪', good: '暴风雪预报提前一倍', bad: '暴风雪 ×2' },
-  meteor: { n: '陨石雨',   ic: '☄', good: '流星坑更多，星核更好挖', bad: '偶尔砸中一栋建筑，停工一会' },
-  tundra: { n: '冻土无林', ic: '🪵', good: '石头和矿点更多', bad: '没有活树，只有枯木堆' },
+  flat:   { n: '平坦雪原', ic: '🏔', good: '暖圈内空地更多', bad: '矿点偏少',
+    tip: '这里地平、空地多，就是矿点少一些。先把每种矿旁边的采集位占好，再铺开盖别的。' },
+  geo:    { n: '地热谷',   ic: '♨', good: '暖圈 +3 格，燃料消耗 −30%', bad: '煤矿和油页岩减半',
+    tip: '地底下是热的：暖圈大三格、熔炉省三成燃料。煤和油页岩只有平常一半，省着挖；能打地热井。' },
+  rich:   { n: '富矿带',   ic: '💎', good: '一种矿的储量 ×3', bad: '暖圈 −2 格（到站头两天照常）',
+    tip: '这一带有一种矿储量是平常的三倍，可暖圈小两格。头两天熔炉还旺，暖圈照常；之后会缩，盖房要算着地方。' },
+  night:  { n: '永夜',     ic: '🌌', good: '极光更多，希望更容易涨', bad: '燃料 +20%，户外工作慢 10%',
+    tip: '这里太阳不出来：熔炉多烧两成燃料，户外采集慢一成。好在夜夜有极光，大家心里亮堂。' },
+  wolf:   { n: '狼群领地', ic: '🐺', good: '击退袭营的战利品 ×2', bad: '袭营变多 ×1.5',
+    tip: '这是狼群的地盘，袭营会多一半。先把箭塔建起来；打退了，战利品是平常的两倍。' },
+  lakes:  { n: '冰湖群',   ic: '🎣', good: '能建冰钓屋，产鱼当食物', bad: '冰面不能盖房，冰湖开裂更常见',
+    tip: '到处是冰湖，冰面上不能盖房，冰湖也容易开裂。湖边能建冰钓屋，钓上来的鱼直接当饭吃。' },
+  ruins:  { n: '古城遗址', ic: '🏛', good: '拆废墟得古代构件和钢材', bad: '废墟占地，拆了才有空地',
+    tip: '暖圈里散着古城的断墙。点一下废墟就能派人拆，拆出来的是古代构件和钢材，也腾出空地。' },
+  storm:  { n: '风暴走廊', ic: '🌪', good: '暴风雪预报提前一倍', bad: '暴风雪 ×2',
+    tip: '风雪从这条走廊里灌过来，暴风雪是平常的两倍，好在预报也早一倍。燃料和熟食要多备。' },
+  meteor: { n: '陨石雨',   ic: '☄', good: '流星坑更多，星核更好挖', bad: '偶尔砸中一栋建筑，停工一会',
+    tip: '天上常有流星落下：流星坑多、星核石也多。偶尔会砸中一栋房子，停工修一会儿，不会砸塌。' },
+  tundra: { n: '冻土无林', ic: '🪵', good: '石头和矿点更多', bad: '没有活树，只有枯木堆',
+    tip: '冻土上一棵活树都没有，只有枯木堆，砍完过一阵才又刮出来。木板最好从后面的营地运上来。' },
 };
+// 富矿带：哪一种矿储量 ×3（按种子抽）
+export const RICH_KINDS = ['coal', 'ore', 'lime', 'shale', 'crystal', 'star', 'shard', 'starfall'];
+// 地貌规则的数值
+export const RULE_FX = { geoWarm: 3, geoFuel: 0.7, richWarm: -2, nightFuel: 1.2, nightOut: 0.9, nightHope: 4, wolfRaid: 1.5, wolfLoot: 2, metHit: 120 };
 export const NORTH_RULE_KEYS = Object.keys(NORTH_RULES);
 // 北境每站的地标，四种轮着用（r：模型半径，不能在上面建造）
 export const NORTH_MARKS = [
@@ -128,7 +146,7 @@ export const ETERNAL_STAGES = [3, 5, 7]; // 每层要永恒炉件每分钟产多
 export const BLD = {
   furnace:   { n: '熔炉', t: 1, size: 3, cat: 'core', w: 0, desc: '营地的心脏：提供热量与供热半径，也是仓储点。升级可扩大供热圈、提高温度。', cost: { wood: 260, stone: 160, plank: 60 } },
   tent:      { n: '帐篷', t: 1, size: 2, cat: 'live', w: 0, housing: 5, insul: 6, desc: '住处。提供床位与保温，升级后住得更多、更暖。', cost: { wood: 25 }, syn: ['tent'] },
-  lumber:    { n: '伐木场', t: 1, size: 2, cat: 'gather', w: 2, gather: ['tree'], out: { wood: 7 }, reach: 3, desc: '砍伐附近的针叶林。', cost: { wood: 15 }, syn: ['sawmill'] },
+  lumber:    { n: '伐木场', t: 1, size: 2, cat: 'gather', w: 2, gather: ['tree', 'dead'], out: { wood: 7 }, reach: 3, desc: '砍伐附近的针叶林（冻土上也能砍枯木堆）。', cost: { wood: 15 }, syn: ['sawmill'] },
   nursery:   { n: '育林场', t: 1, size: 2, cat: 'gather', w: 2, out: { wood: 4 }, desc: '在围栏里育苗种树：不靠附近的树林也有木材，只是慢一些。附近的树砍光了就靠它。', cost: { wood: 40, stone: 15 }, syn: ['lumber', 'sawmill'] },
   quarry:    { n: '采石场', t: 1, size: 2, cat: 'gather', w: 2, gather: ['rock'], out: { stone: 5 }, reach: 3, desc: '开采附近的碎石堆。', cost: { wood: 30 }, syn: ['warehouse'] },
   hunter:    { n: '猎人小屋', t: 1, size: 2, cat: 'gather', w: 2, gather: ['herd'], out: { game: 5 }, reach: 4, desc: '在附近的猎场打猎。', cost: { wood: 25 }, syn: ['kitchen'] },
@@ -172,6 +190,9 @@ export const BLD = {
   beacon:    { n: '信号灯塔', t: 7, stage: 7, size: 2, cat: 'core', w: 2, reveal: 26, desc: '塔顶的大灯把四周一大片的雾都照开（建好就照，升一级再远 4 格）。要两个人守灯。', cost: { alloy: 120, part: 40, battery: 30 } },
   colossus:  { n: '巨像守卫', t: 7, stage: 10, size: 3, cat: 'defense', w: 4, power: 0, guardCd: 3600, desc: '照着冻结的巨像造的石头守卫。派了人就能挡住一整次袭营，之后要歇一小时（升级歇得更短）。', cost: { alloy: 300, part: 120, core: 6 } },
   starpit:   { n: '星核矿', t: 7, stage: 11, size: 2, cat: 'gather', w: 6, gather: ['starfall'], out: { starcore: 2 }, reach: 3, desc: '在星落之坑的坑底凿出发紫光的星核。熔炉 35 级以后升级要用。', cost: { alloy: 260, part: 100, core: 4 } },
+  // 北境地貌才能建的（rule：只有在这种地貌的站、主营地里才能建）
+  geowell:   { n: '地热井', t: 5, rule: 'geo', size: 2, cat: 'live', w: 1, heat: 5, hreach: 5, desc: '打到地下的热泉：不烧燃料就能给全营地加温，并在周围 5 格内扩展可建造区。只有地热谷能打。', cost: { steel: 120, gear: 30, alloy: 20 } },
+  icefish:   { n: '冰钓屋', t: 5, rule: 'lakes', size: 2, cat: 'gather', w: 2, gather: ['fish'], out: { food: 6 }, reach: 3, desc: '在冰面上凿洞钓鱼，鱼烤一烤就能吃：直接产熟食，不用厨房。要建在冰钓点旁边，只有冰湖群才有。', cost: { plank: 80, steel: 30 }, syn: ['tent', 'kitchen'] },
   forge:     { n: '炉心锻造所', t: 7, size: 2, cat: 'make', w: 6, in: { shard: 3, part: 2, alloy: 2 }, out: { heart: 0.6 }, desc: '锻造永恒炉件，用来重新点燃永恒之炉。', cost: { alloy: 250, part: 120, core: 5 }, syn: ['excavator'] },
 
   // 装饰：不产东西，让营地好看一点、大家心里亮一点（希望）。同一座营地的装饰合计最多 +16 希望

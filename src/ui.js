@@ -1,5 +1,5 @@
 // 界面：顶部状态、资源条、底部工具栏、面板、提示
-import { BRIEF, RES, RES_KEYS, BLD, BLD_KEYS, CATS, TIER_NAMES, LANDMARKS, FAR_MARKS, SPECS, SPEC_MAX, EMBER_UPS, emberCost, specTrainCost, specBonus, FUEL, furnaceRadius, furnaceHeat, furnaceBurn, baseTempOfRow, tierOfRow, ETERNAL_STAGES, GATE, GATE_EVERY, STORY, SPOTS, SPOT_KEYS, dayCycle, LAWS, TECHS, TECH_BR, SITES, CHAPTERS, INFRA, RAIDERS, DAY_LEN, DIFF, DIFF_KEYS, SLOTS, FOCUS, FOCUS_KEYS, FOCUS_LVL } from './data.js';
+import { BRIEF, RES, RES_KEYS, BLD, BLD_KEYS, CATS, TIER_NAMES, LANDMARKS, FAR_MARKS, SPECS, SPEC_MAX, EMBER_UPS, emberCost, specTrainCost, specBonus, FUEL, furnaceRadius, furnaceHeat, furnaceBurn, baseTempOfRow, tierOfRow, ETERNAL_STAGES, GATE, GATE_EVERY, STORY, SPOTS, SPOT_KEYS, dayCycle, LAWS, TECHS, TECH_BR, SITES, CHAPTERS, INFRA, RAIDERS, DAY_LEN, DIFF, DIFF_KEYS, SLOTS, FOCUS, FOCUS_KEYS, FOCUS_LVL, NORTH_RULES } from './data.js';
 import * as Sim from './sim.js';
 import { personOf, personState, campVoices } from './people.js';
 import { getWorld, idx, W, H } from './worldgen.js';
@@ -100,6 +100,7 @@ export class UI {
       { const gp = e.target.closest('.pill.gang'); if (gp) { e.preventDefault(); const id = +gp.dataset.gang; if (this.panel && this.panel.kind === 'gang' && this.panel.arg === id) this.close(); else { this.g.cancelModes(); this.open('gang', id); } return; } }
       if (e.target.closest('.pill.car')) { e.preventDefault(); if (this.panel && this.panel.kind === 'caravan') this.close(); else { this.g.cancelModes(); this.open('caravan'); } return; }
       if (e.target.closest('.pill.aurgo')) { e.preventDefault(); this.surAurora(); return; }
+      if (e.target.closest('.pill.rulep')) { e.preventDefault(); const r = NORTH_RULES[Sim.ruleNow(this.S)]; if (r) this.toast(`${r.ic} ${r.n}：好处是${r.good}；坏处是${r.bad}。只管这一站的主营地。`, 'info'); return; }
       if (e.target.closest('.pill.wx')) { e.preventDefault(); if (this.panel && this.panel.kind === 'weather') this.close(); else { this.g.cancelModes(); this.open('weather'); } return; } if (!e.target.closest('.pill.mood')) return; e.preventDefault(); if (this.panel && this.panel.kind === 'mood') this.close(); else { this.g.cancelModes(); this.open('mood'); } });
     // 物资抽屉每 0.3 秒重画，用 pointerdown 接点击
     this.$('resdrawer').addEventListener('pointerdown', e => {
@@ -535,6 +536,8 @@ export class UI {
     }
     const bl = Sim.activeBuffs(S, c);
     const buffs = bl.length ? `<span class="pill buff ${bl.some(b => b.v < 0 && b.k !== 'fuel' || b.k === 'fuel' && b.v > 0) ? 'warn' : ''}" title="${bl.map(b => `${esc(b.n || '')}：${BUFF_TXT(b)}，还剩 ${fmtTime(b.until - S.t)}`).join('\n')}">✨${bl.length > 1 ? bl.length : ''}<small>${fmtTime(Math.min(...bl.map(b => b.until)) - S.t)}</small></span>` : '';
+    const rl = NORTH_RULES[Sim.campRule(S, c)];
+    const rulePill = rl ? `<span class="pill rulep" title="${esc(`这一站的地貌「${rl.n}」：好处是${rl.good}；坏处是${rl.bad}`)}">${rl.ic}<span class="lg"> ${rl.n}</span></span>` : '';
     const dc = dayCycle(S.t), nextName = { 白天: '黄昏', 黄昏: '入夜', 夜晚: '黎明', 黎明: '天亮' }[dc.name];
     const tod = `<span class="pill tod" title="${dc.name}：${fmtTime(dc.left)} 后${nextName}（昼夜只改变光线，不影响产出）">${dc.icon}<small>${fmtTime(dc.left)}</small></span>`;
     const hp = Math.round(c.hope ?? 50), dc2 = Math.round(c.disc ?? 10), mt = cr.mood || { hT: hp, dT: dc2 };
@@ -552,7 +555,7 @@ export class UI {
       <span class="pill core${c.wait > 0 ? ' wait' : ''}" title="人口 / 床位${c.wait > 0 ? ` · ${c.wait} 人在等床位` : ''}">👥${c.people}${c.bots ? '+' + c.bots + '🤖' : ''}<small class="lg">/${cr.housing || 0}</small>${c.wait > 0 ? `<small class="wt">+${c.wait}</small>` : ''}</span>
       <span class="pill core ${foodNet < 0 ? 'bad' : ''}" title="熟食库存 · 每分钟净变化">🍖<span data-rk="food">${fmt(this.rolled('food', c.stock.food))}</span> <small>${foodNet >= 0 ? '+' : ''}${fmt(foodNet)}</small></span>
       <span class="pill core ${fuelMin < 30 ? 'bad' : ''}" title="燃料还能烧多久">🔥<span class="lg">${fuelMin > 6000 ? '充足' : fmtTime(fuelMin * 60)}</span><span class="sh">${fuelShort}</span><span class="fb"><i style="--f:${Math.min(1, fuelMin / 240).toFixed(2)}"></i></span></span>
-      ${urgent(moodPill)}${tod}${buffs}${urgent(weather)}${urgent(raid)}<span class="pill core more" title="展开更多">${this.resOpen ? '▴' : '▾'}</span>`);
+      ${urgent(moodPill)}${rulePill}${tod}${buffs}${urgent(weather)}${urgent(raid)}<span class="pill core more" title="展开更多">${this.resOpen ? '▴' : '▾'}</span>`);
     // 资源条：只常驻几种（缺的、满的、眼下这一层在用的），其余收进「全部」抽屉
     const keys = RES_KEYS.filter(k => (c.stock[k] || 0) >= 1 || (RES[k].t <= S.known && RES[k].t <= 1 && k !== 'food'));
     const cap = cr.cap || 0;
@@ -928,7 +931,7 @@ export class UI {
     let tabs = '<div class="tabs" data-sx="btabs">';
     for (let t = 1; t <= 7; t++) tabs += `<button class="tab ${t === this.buildTier ? 'on' : ''} ${t > S.known ? 'locked' : ''} ${t !== this.buildTier && this.newBld(t).length ? 'hasnew' : ''}" data-act="btier" data-arg="${t}">${t > S.known ? '🔒' : ''}${TIER_NAMES[t]}</button>`;
     tabs += '</div>';
-    const list = BLD_KEYS.filter(k => BLD[k].t === this.buildTier && k !== 'furnace');
+    const list = BLD_KEYS.filter(k => BLD[k].t === this.buildTier && k !== 'furnace' && (!BLD[k].rule || Sim.unlocked(S, k) || Sim.countType(S, c.id, k))); // 北境地貌的建筑只在那种站里出现
     if (this.buildTier === 1) list.push('furnace');
     const seen = this.seenB(), shown = [];
     let cards = '';
@@ -1974,21 +1977,35 @@ export class UI {
   p_spot(part) {
     const S = this.S, i = this.panel.arg, w = getWorld(S.runSeed);
     const k = SPOT_KEYS[w.spot[i]], sp = SPOTS[k];
+    if (k === 'ruin') {
+      // 古城废墟：不是矿，点一下派人拆
+      if (part === 'title') return '🏛 古城废墟';
+      const ck = Sim.ruinBlock(S, i), n = (ck.tiles || []).length, loot = Sim.ruinLoot(n), cost = Sim.ruinCost(n);
+      if (!n) return '<div class="hint">这里的废墟已经拆掉了。</div>';
+      return `<div class="row"><span>占地</span><span>${n} 格断墙</span></div>
+        <div class="row"><span>拆了能得</span><span>${RICON.part} 古代构件 ${loot.part} · ${RICON.steel} 钢材 ${loot.steel}</span></div>
+        <div class="row sub"><span>派人去拆</span><span>${RICON.food} 熟食 ${cost.food}（大家干活要吃饭）</span></div>
+        <button class="go" data-act="ruin" data-arg="${i}" ${ck.why ? 'disabled' : ''}>拆掉这处废墟</button>${ck.why ? `<div class="hint warn">${esc(ck.why)}</div>` : ''}
+        <div class="hint">古城遗址的断墙占着暖圈里的地，拆了就空出来能盖房，还能拆出古代构件和钢材。</div>`;
+    }
     if (part === 'title') return `${RICON[sp.res]} ${sp.n}`;
     const left = Sim.spotLeft(S, i), mx = Sim.spotMax(S, i), grow = !!Sim.REGROW[k];
+    const GW = { tree: ['树苗', '砍', '伐木场在补种'], herd: ['幼崽', '打', '猎人在留种'], dead: ['新的枯木', '砍', '伐木场在照看'], fish: ['鱼苗', '钓', '冰钓屋在照看'] }[k] || ['新的', '采', '有人照看'];
     let g = '';
     if (grow) {
       const rate = Sim.regrowRate(S, i, Sim.tendedSpots(S)), tend = rate > Sim.REGROW[k] * 1.5, sap = Sim.isSapling(S, i);
-      g = `<div class="row sub"><span>恢复</span><span>${left >= mx ? '长满了' : `+${fmt(rate)}/分${tend ? (k === 'tree' ? ' · 伐木场在补种' : ' · 猎人在留种') : ''}`}</span></div>`;
-      if (sap) g += `<div class="row sub"><span>${k === 'tree' ? '树苗' : '幼崽'}</span><span>长到三成（${fmt(mx * Sim.SAP_RIPE)}）才能${k === 'tree' ? '砍' : '打'}，大约 ${Math.max(1, Math.ceil((mx * Sim.SAP_RIPE - left) / Math.max(0.01, rate)))} 分钟</span></div>`;
+      g = `<div class="row sub"><span>恢复</span><span>${left >= mx ? '长满了' : `+${fmt(rate)}/分${tend ? ' · ' + GW[2] : ''}`}</span></div>`;
+      if (sap) g += `<div class="row sub"><span>${GW[0]}</span><span>长到三成（${fmt(mx * Sim.SAP_RIPE)}）才能${GW[1]}，大约 ${Math.max(1, Math.ceil((mx * Sim.SAP_RIPE - left) / Math.max(0.01, rate)))} 分钟</span></div>`;
     }
     if (!grow && left > 0) {
       const by = Sim.minerOf(S, i);
       const eta = by ? Sim.gatherEta(S, by) : null;
       g += by ? `<div class="row sub"><span>正在挖</span><span>${BLD[by.type].n}${eta != null && eta > 0 ? ` · 这一片按现在的速度还能挖约 ${fmtMin(eta)}` : ''}</span></div>` : `<div class="row sub"><span>还没人挖</span><span>在旁边建${BLD[Sim.gatherTypeFor(k)].n}</span></div>`;
     }
+    const gt = BLD[Object.keys(BLD).find(t => BLD[t].gather && BLD[t].gather.includes(k))];
+    const why = { tree: '树砍光了会长回来。附近有伐木场会补种，长得快四倍。', herd: '猎物打光了会回来。附近有猎人小屋会留种，回来得快三倍。', dead: '冻土上没有活树，只有枯木堆。砍完过一阵风雪又刮出来一堆；附近有伐木场照看，刮出来得快三倍。', fish: '冰洞里的鱼钓光了会慢慢回来；附近有冰钓屋照看，回来得快三倍。钓上来的鱼直接当饭吃。' }[k] || '矿藏采完就没有了，到时候得去更远的地方。';
     return `<div class="row"><span>剩余储量</span><span>${fmt(left)} / ${fmt(mx)} ${RES[sp.res].n}</span></div><div class="bar"><i style="width:${(left / mx * 100).toFixed(1)}%"></i></div>${g}
-      <div class="hint">${grow ? (k === 'tree' ? '树砍光了会长回来。附近有伐木场会补种，长得快四倍。' : '猎物打光了会回来。附近有猎人小屋会留种，回来得快三倍。') : '矿藏采完就没有了，到时候得去更远的地方。'}在附近（${BLD[Object.keys(BLD).find(t => BLD[t].gather && BLD[t].gather.includes(k))].reach} 格内）建「${BLD[Object.keys(BLD).find(t => BLD[t].gather && BLD[t].gather.includes(k))].n}」来采集。</div>`;
+      <div class="hint">${why}在附近（${gt.reach} 格内）建「${gt.n}」来采集。</div>`;
   }
 
   p_chapter(part) {
@@ -2147,6 +2164,7 @@ export class UI {
       case 'veh': { const [bid, v, n] = String(arg).split(':'); const r = Sim.orderVeh(S, +bid, v, +n || 1); if (!r.ok) this.toast(r.reason, 'warn'); else { g.sfx('tap'); if (r.reason && +n > 1) this.toast(`排了 ${r.n} 辆，${r.reason}`, 'warn'); } break; }
       case 'vehx': { const [bid, i] = String(arg).split(':'); Sim.cancelVeh(S, +bid, +i); break; }
       case 'followtrip': g.view.followTrip = !g.view.followTrip; if (g.view.followTrip) { this.close(); this.toast('镜头跟着车队走（拖动画面就停下）'); } break;
+      case 'ruin': { const r = Sim.dismantleRuin(S, +arg); if (!r.ok) this.toast(r.reason, 'warn'); else { this.g.sfx('build'); this.close(); } break; }
       case 'spot': { const b = Sim.getB(S, +arg); if (b) { g.view.focus(b.x + 1, b.y + 1); this.open('bld', b.id); g.view.select(b.id); } break; }
       case 'campgo': { S.active = +arg; const c = this.camp(); g.view.focus(c.x, c.y); break; }
       case 'campBtn': if (S.camps.length > 1) { const i = S.camps.findIndex(c => c.id === S.active); S.active = S.camps[(i + 1) % S.camps.length].id; const c = this.camp(); g.view.focus(c.x, c.y); this.toast(`切换到「${c.name}」`); } else this.open('camp'); break;
