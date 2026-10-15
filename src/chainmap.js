@@ -12,7 +12,7 @@ export function statusKind(st) {
   if (!st) return 'idle';
   if (st === '运转中' || st === Sim.DEEP_WHY || st === '研究中') return 'ok';
   if (st === '仓库满了') return 'full';
-  if (st.startsWith('缺') || st === Sim.KEEP_WHY) return 'short';
+  if (st.startsWith('缺') || st === Sim.KEEP_WHY || st === Sim.FUEL_KEEP_WHY) return 'short';
   if (st === '没有派人' || st === '没人干活') return 'idle';
   if (st.includes('采空') || st.startsWith('等')) return 'depl';
   return 'slow';

@@ -18,7 +18,10 @@ const CHAIN = {
   6: ['salvage', 'partworks', 'coreworks', 'bay'],
   7: ['excavator', 'forge'],
 };
-let S = G.newRun(G.defaultMeta(), 0, +(process.env.SEED || 777));
+import fs0 from 'fs';
+// LOAD=存档：从这份存档接着玩（比如世界之脊或北境的测试存档）；MAXSTAGE：走到第几站停（默认世界之脊）
+let S = process.env.LOAD ? G.deserialize(fs0.readFileSync(process.env.LOAD, 'utf8')) : G.newRun(G.defaultMeta(), 0, +(process.env.SEED || 777));
+const MAXSTAGE = +(process.env.MAXSTAGE || G.STOP_N - 1);
 if (process.env.NOGANG) { S.gangs = {}; for (const g of G.gangsOf(S)) S.gangs[g.id] = { seen: 1, gone: 1, next: 9e12, rel: 0, wins: 2, n: 0 }; }
 const day = () => (S.t / 86400).toFixed(2) + 'd';
 const log = (...a) => { if (VERBOSE) console.log(day(), ...a); };
@@ -135,11 +138,25 @@ const STAT = { builds: 0, ups: 0, lineBuild: 0, lineUp: 0 };
 function needs(camp) {
   const out = [];
   if (G.isMain(S, camp)) for (const g of G.rateGoals(S)) out.push([g.r, g.n * 1.25]);
+  // 熔炉的燃料：按眼下的烧法，用能造的最好的燃料补一条线
+  const cr = G.rt(S).c[camp.id];
+  if (cr && cr.burnPerMin > 0) { const fk = [['battery', 'batteryworks'], ['coke', 'coker'], ['coal', 'coalmine']].find(([, t]) => G.unlocked(S, t))?.[0] || 'wood', n = cr.burnPerMin / FUEL[fk] * 1.15, o = out.find(x => x[0] === fk); if (o) o[1] += n; else out.push([fk, n]); }
+  // 烽火塔的塔身要几种高级材料一起喂：照着塔的配方把产线也补上
+  const tw = G.isMain(S, camp) && curTower();
+  if (tw && tw.tw && tw.tw.p < G.towerSpec(S, tw.tn).dur) { const sp = G.towerSpec(S, tw.tn); for (const k of sp.kinds) { const o = out.find(x => x[0] === k); if (o) o[1] += sp.rate; else out.push([k, sp.rate * 1.15]); } }
   const fb = G.getB(S, camp.furnace), c = G.upgradeCost(S, fb);
   for (const k in c) if (RES[k].t > 1 && RES[k].t <= S.known && (camp.stock[k] || 0) < c[k] && !out.some(o => o[0] === k)) out.push([k, 3]);
   return out;
 }
 
+function curTower() { const J = G.journeyOf(S), ct = (G.chapterDef(S, J.stage)?.tasks || []).find(q => q.k === 'tower'); return ct ? S.buildings.find(b => BLD[b.type].tower && b.tn === ct.tn) || null : null; }
+function towerThink(main) {
+  const J = G.journeyOf(S), ct = (G.chapterDef(S, J.stage)?.tasks || []).find(q => q.k === 'tower'); if (!ct) return;
+  const tw = curTower(), type = ct.tn >= G.TOWER_N ? 'skyfire' : 'pyre';
+  if (!tw) { if (G.unlocked(S, type) && G.canAfford(main.stock, BLD[type].cost)) { const r = tryBuild(main, type); if (r) log('tower foundation', ct.tn); } return; }
+  if (S.tower && (S.tower.list || []).some(x => x.n === tw.tn)) return;
+  if (tw.tw.p >= G.towerSpec(S, tw.tn).dur && G.towerIgniteCheck(S, tw).ok) { const r = G.igniteTower(S, tw.id); log('tower lit', tw.tn, r.ok); STAT.towers = (STAT.towers || 0) + 1; }
+}
 function campThink(camp, main) {
   const R = G.rt(S), cr = R.c[camp.id]; if (!cr) return;
   S.active = camp.id;
@@ -359,6 +376,7 @@ function think() {
   scoutThink(main);
   outpostThink(main);
   sideThink(main);
+  towerThink(main);
   // 章节奖励
   for (const c of G.chapters(S)) if (c.done && !c.got) { S.active = main.id; G.claimChapter(S, c.i); log('chapter', c.ch.n); }
   // 北迁
@@ -389,7 +407,8 @@ let invN = 0, lastLog = null, lastDay = -1, lastOff = -1;
 const CAUSE = {};
 const DEATH_RE = [['hunger', /没能熬过去（饥饿/], ['cold', /没能熬过去（严寒/], ['gangLost', /」冲进了「.*人遇难/], ['raidLost', /袭击.*人遇难|狼群.*人遇难/]];
 const OFFS = [];
-while (S.t < DAYS * 86400 && G.journeyOf(S).stage < G.STOP_N - 1) {
+const T_END = S.t + DAYS * 86400;
+while (S.t < T_END && G.journeyOf(S).stage < MAXSTAGE) {
   for (let i = 0; i < THINK / 10; i++) G.step(S, 10);
   think();
   // 每天离线一次

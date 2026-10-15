@@ -457,6 +457,9 @@ export const forecastOf = S => FORECAST * (journeyOf(S).stage >= 9 ? 2 : 1) * (r
 // 加工厂不把基础建材吃光：锯木厂不会把木材全锯成木板、炼钢厂不会把铁锭用完——仓库里留两成（最多 300）给建造。
 // 只管前两层的建材；更高层的中间品本来就是为了往下加工，留料会卡住整条链
 export const KEEP_FRAC = 0.2, KEEP_MAX = 300, KEEP_WHY = '留料给建造';
+// 燃料也留一份给熔炉：工厂和烽火塔塔身拿燃料（木材、煤、焦煤、晶体电池）时，营地的燃料总量不低于熔炉 FUEL_KEEP_MIN 分钟的用量
+export const FUEL_KEEP_MIN = 10, FUEL_KEEP_WHY = '留燃料给熔炉';
+export function fuelKeep(st, k, keepU) { return FUEL[k] && keepU > 0 ? Math.max(0, (keepU - (fuelUnitsOf(st) - (st[k] || 0) * FUEL[k])) / FUEL[k]) : 0; }
 const BUILD_MAT = new Set(); for (const t in BLD) for (const k in BLD[t].cost || {}) if (RES[k].t <= 2) BUILD_MAT.add(k);
 export function isBuildMat(k) { return BUILD_MAT.has(k); }
 export function keepOf(camp, k, cap) { return camp.keep !== false && BUILD_MAT.has(k) ? Math.min(KEEP_MAX, cap * KEEP_FRAC) : 0; }
@@ -1636,6 +1639,7 @@ function campStep(S, camp, dt, w) {
   const frozen = !!ev && ev.kind === 'ice' && !evPrep, coldNight = !!ev && ev.kind === 'cold';
   const cRule = campRule(S, camp);
   let fuelNeed = furnaceBurn(fb.lvl) * Math.max(0.3, 1 + buffOf(S, camp, 'fuel') + lawSum(S, 'fuel') + techSum(S, 'fuel')) * (od ? OD_FUEL : 1) * (coldNight ? WXE_FUEL : 1) * diffOf(S).fuel * (cRule === 'geo' ? RULE_FX.geoFuel : cRule === 'night' ? RULE_FX.nightFuel : 1) / 60 * dt;
+  const fuelKeepU = dt > 0 ? fuelNeed / dt * 60 * FUEL_KEEP_MIN : 0; // 工厂和塔身不许动的那份燃料（按燃料份数算）
   let heaterHeat = 0;
   const heaters = bs.filter(b => b.type === 'heater');
   const order = camp.fuelPref === 'auto' ? FUEL_ORDER : [camp.fuelPref, ...FUEL_ORDER.filter(f => f !== camp.fuelPref)];
@@ -1853,8 +1857,8 @@ function campStep(S, camp, dt, w) {
     if (d.in) for (const k in d.in) {
       const need = d.in[k] * f;
       if (need <= 0) continue;
-      const keep = keepOf(camp, k, cap), have = Math.max(0, (st[k] || 0) - keep);
-      if (have < need) { const r = have / need; if (r < lim) { lim = r; why = keep && (st[k] || 0) >= keep * 0.5 ? KEEP_WHY : `缺${RES[k].n}`; whyK = k; } }
+      const fk = fuelKeep(st, k, fuelKeepU), keep = keepOf(camp, k, cap) + fk, have = Math.max(0, (st[k] || 0) - keep);
+      if (have < need) { const r = have / need; if (r < lim) { lim = r; why = fk > 0 && (st[k] || 0) > need ? FUEL_KEEP_WHY : keep && (st[k] || 0) >= keep * 0.5 ? KEEP_WHY : `缺${RES[k].n}`; whyK = k; } }
     }
     // 产出满仓则停（开了「满仓自动兑换」就不停，多出来的拿去换）
     let room = 1;
@@ -1883,7 +1887,7 @@ function campStep(S, camp, dt, w) {
     br.dep = d.gather ? d.out[Object.keys(d.out)[0]] * p.mult * hf * lim * spotShare : 0; // 每分钟从资源点上挖走多少
     br.inRate = {}; if (d.in) for (const k in d.in) br.inRate[k] = d.in[k] * p.mult * hf * lim;
     // 想要的原料：只有卡住它的那一种按全速算，其它按实际
-    br.want = {}; if (d.in) for (const k in d.in) br.want[k] = k === whyK && (why.startsWith('缺') || why === KEEP_WHY) ? d.in[k] * p.mult * hf * Math.max(0, Math.min(1, gLim, room)) : br.inRate[k];
+    br.want = {}; if (d.in) for (const k in d.in) br.want[k] = k === whyK && (why.startsWith('缺') || why === KEEP_WHY || why === FUEL_KEEP_WHY) ? d.in[k] * p.mult * hf * Math.max(0, Math.min(1, gLim, room)) : br.inRate[k];
     br.haul = p.dem * hf * lim;
     br.dist = p.dist;
     br.status = lim < 0.05 ? why : hf < 0.7 ? '搬运工不够' : lim < 0.95 ? why : br.staff < 0.99 ? '人手不足' : workEff < 0.9 ? '太冷，干活慢' : '运转中';
@@ -1891,7 +1895,7 @@ function campStep(S, camp, dt, w) {
   }
 
   { const offK = R.offline && R.histOff ? R.histOff.rate : 1; // 离线时塔身按离线收益的比例吃货、长进度
-    for (const t of towers) { towerFeed(S, t.b, t.sp, dt, hf, offK, st, R, t.dem); plans.push({ b: t.b, d: BLD[t.b.type], br: R.b[t.b.id], mult: 0, dem: t.dem }); } }
+    for (const t of towers) { towerFeed(S, t.b, t.sp, dt, hf, offK, st, R, t.dem, fuelKeepU); plans.push({ b: t.b, d: BLD[t.b.type], br: R.b[t.b.id], mult: 0, dem: t.dem }); } }
   // 空闲的人会在营地附近拾柴、设陷阱（保证任何时候都能慢慢恢复）
   let stalled = 0;
   for (const p of plans) stalled += p.b.workers * lf * (1 - (p.br.avail != null ? p.br.avail : 1));
@@ -2804,19 +2808,19 @@ export function towerSpec(S, n) {
   const fuel = n >= TOWER_N ? { starcore: 60 } : n <= 5 ? { battery: 40 + 10 * n } : { starcore: 12 + 3 * n };
   return (C[n] = { n, kinds, rate, dur, fuel });
 }
-function towerFeed(S, b, sp, dt, hf, offK, st, R, dem) {
+function towerFeed(S, b, sp, dt, hf, offK, st, R, dem, fuelKeepU = 0) {
   const br = R.b[b.id] || (R.b[b.id] = {}), T = b.tw;
   br.rate = {}; br.inRate = {}; br.want = {}; br.haul = 0; br.act = 0; br.staff = 1;
   if (T.p >= sp.dur) { br.status = '塔身建好了，等点火'; return; }
   if (b.moveT > S.t) { br.status = '在搬家'; return; }
   const f = Math.min(dt * hf * offK, sp.dur - T.p), need = sp.rate * f / 60;
   let lim = 1, whyK = null;
-  for (const k of sp.kinds) { const have = Math.max(0, st[k] || 0); if (have < need && have / need < lim) { lim = have / need; whyK = k; } }
+  for (const k of sp.kinds) { const have = Math.max(0, (st[k] || 0) - fuelKeep(st, k, fuelKeepU)); if (have < need && have / need < lim) { lim = have / need; whyK = k; } }
   for (const k of sp.kinds) { st[k] = Math.max(0, (st[k] || 0) - need * lim); br.inRate[k] = sp.rate * hf * lim; br.want[k] = sp.rate * hf; }
   if (lim < 0.999 && T.p > 0 && T.p < sp.dur / 2) T.cut = 1; // 塔身开始长了以后、长到一半以前断过货（成就用）
   T.p = Math.min(sp.dur, T.p + f * lim);
   br.act = lim; br.haul = dem * hf * lim;
-  br.status = lim < 0.95 ? `缺${RES[whyK].n}` : hf < 0.7 ? '搬运工不够' : '塔身在长';
+  br.status = lim < 0.95 ? (fuelKeep(st, whyK, fuelKeepU) > 0 && (st[whyK] || 0) > need ? FUEL_KEEP_WHY : `缺${RES[whyK].n}`) : hf < 0.7 ? '搬运工不够' : '塔身在长';
   if (T.p >= sp.dur - 1e-6) { T.p = sp.dur; logMsg(S, `🔥 ${towerName(b.tn)}的塔身建好了：交齐${Object.entries(sp.fuel).map(([k, v]) => `${RES[k].n} ${v}`).join('、')}就能点火。`, 'good', { act: 'spot', arg: b.id, label: '去点火' }); }
 }
 export function towerIgniteCheck(S, b) {

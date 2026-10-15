@@ -60,7 +60,7 @@ class Game {
     try { const raw = localStorage.getItem(slotKey(this.slot)); if (raw) S = Sim.deserialize(raw); } catch (e) { console.warn(e); }
     this.hadSave = !!S;
     if (S) {
-      if ((S.meta.ver || 0) < WHATS_NEW) this.whatsNew = true; // 老存档：找个空当说一下这版加了什么（弹出来才记下看过）
+      if ((S.meta.ver || 0) < WHATS_NEW) { this.whatsNew = true; this.whatsFrom = S.meta.ver || 0; } // 老存档：找个空当说一下这版加了什么（弹出来才记下看过）
       // 第十二版改了暖圈的算法，老营地探开的范围可能比暖圈还小：每个营地周围至少探开到暖圈外 2 格
       for (const c of S.camps) if (Sim.getB(S, c.furnace)) Sim.revealCircle(S, c.x, c.y, Sim.heatRadius(S, c) + 2);
       this.S = S;
@@ -282,7 +282,12 @@ class Game {
       const free = !this.titleOn && !this.place && !this.cine && !document.getElementById('modal').classList.contains('show');
       const grown = S.meta.tut || S.buildings.length > 8;
       if (!this.titleOn && !this.cine && !window.__noEvents) { if (grown) Sim.rollRequest(S); Sim.rollSurprise(S, grown); }
-      if (free && this.whatsNew) { this.whatsNew = false; S.meta.ver = WHATS_NEW; this.ui.modal(whatsNewHtml(S), [{ t: '知道了', a: 'close-modal', cls: 'go' }]); }
+      if (free && this.whatsNew) {
+        // 停在世界之脊的老存档：看完直接打开北迁面板，下一站是北境第 1 站
+        this.whatsNew = false; S.meta.ver = WHATS_NEW;
+        const spine = Sim.journeyOf(S).stage === Sim.SPINE && !Sim.journeyOf(S).trip;
+        this.ui.modal(whatsNewHtml(S, this.whatsFrom), spine ? [{ t: '去北境', a: 'wn-north', cls: 'go' }, { t: '知道了', a: 'close-modal' }] : [{ t: '知道了', a: 'close-modal', cls: 'go' }]);
+      }
       else if (free && this.skyLater && !this.cine) { this.skyLater = false; this.skyCine(); }
       else if (free && Sim.roadView(S)) { if (this.ui.roadModal()) this.sfx('event'); }
       else if (free && Sim.expPending(S)) { if (this.ui.siteModal()) this.sfx('event'); }
@@ -324,7 +329,7 @@ class Game {
       else if (f.kind === 'skyfire') this.skyCine();
       else if (f.kind === 'tower-lit') { if (!quiet && f.n < Sim.TOWER_N) { this.sfx('win'); this.view.focus(f.x, f.y); this.view.cam.tdist = Math.max(this.view.cam.tdist, 34); this.fireworks(f.x, f.y, 8); this.view.burst('spark', f.x, f.y, 40, 1.2, 1.6); this.view.ringFx && this.view.ringFx(f.x, f.y, 3); this.albumShot(`${Sim.towerName(f.n)}点亮`, 3200); } }
       else if (f.kind === 'arrive-stop') { if (!quiet) { this.sfx('win'); const c = Sim.mainCamp(this.S); if (c) { this.view.focus(c.x, c.y); this.fireworks(c.x, c.y, 6); } const st = Sim.stopOf(this.S, f.k); this.albumShot(`抵达${st ? st.n : '新的一站'}`, 3600); } }
-      else if (f.kind === 'trueend') { if (!quiet) { this.sfx('win'); const c = Sim.mainCamp(this.S); if (c) this.fireworks(c.x, c.y, 10); } this.modalOrLater(`<h2>🏔 世界之脊</h2><p class="story">${STORY.trueEnd}</p><p>这是北行真正的终点。你可以留在这里接着经营，往北还有无尽的冰原；也可以在菜单里开始一次新的北行，余烬、专家、收集册和遗物都会留着。</p>`, [{ t: '好', a: 'ending', cls: 'go' }]); }
+      else if (f.kind === 'trueend') { if (!quiet) { this.sfx('win'); const c = Sim.mainCamp(this.S); if (c) this.fireworks(c.x, c.y, 10); } this.modalOrLater(`<h2>🏔 世界之脊</h2><p class="story">${STORY.trueEnd}</p><p>旧地图到这里就画完了，可路还在往北：北境一站接一站，没有尽头，前十站各有一座烽火塔等着点亮，第十座是天火塔。你也可以在菜单里开始一次新的北行，余烬、专家、收集册、成就和装扮都会留着。</p>`, [{ t: '往北看看', a: 'wn-north', cls: 'go' }, { t: '先留在这里', a: 'ending' }]); }
       else if (f.kind === 'ending') this.ui.modal(`<h2>🌟 永恒之炉重燃</h2><p class="story">${STORY.ending}</p><p>你用了 ${this.S.meta.runs} 次北行完成了旅程。车队可以接着往北走，世界之脊还在更远的地方；也可以在菜单里开始一次新的北行。</p>`, [{ t: '继续', a: 'ending', cls: 'go' }]);
     }
   }

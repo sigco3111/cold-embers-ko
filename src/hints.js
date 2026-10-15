@@ -85,15 +85,27 @@ export class Hints {
   hide() { this.cur = null; this.el.classList.remove('show'); }
 }
 
-// 老存档第一次打开第十二版：说一下这版改了什么，老存档是怎么接上的
-export const WHATS_NEW = 12;
-export function whatsNewHtml(S) {
+// 老存档第一次打开新版：说一下这版加了什么，老存档是怎么接上的（from：存档原来是第几版）
+export const WHATS_NEW = 13;
+export function whatsNewHtml(S, from = 12) {
   const J = Sim.journeyOf(S), main = Sim.mainCamp(S), depots = S.camps.filter(c => c.depot);
-  const back = S.meta.refund12 || 0;
-  return `<h2>第十二版 · 一路往北</h2>
-<div class="wn"><b>🛷 北迁</b><span>北迁不再重开一局。造好雪橇和拖车，带上人和货上路；到了新地标点起新熔炉，那里就是新的主营地。后面的营地可以留守，变成补给站往北送货，也可以熄火换余烬。全程十二站，永恒之炉以北还有六站。</span></div>
-<div class="wn"><b>📈 产能主线</b><span>每一章的头一个目标改成「每分钟产多少」。产线能升星，有支线和里程碑；规划器帮你算要几座建筑；老向导会指出现在卡在哪一环。整条产线可以一键复制。</span></div>
-<div class="wn"><b>⚖ 节奏</b><span>多了 4 倍速；离开一阵回来会看到一份报告。离线也会攒资源，但比在线慢。升级和同一种建筑越建越贵，加成有上限，数字不会一下子涨飞。</span></div>
-<div class="wn"><b>🏔 模型</b><span>建筑、人和地面都做得更细了。</span></div>
-<div class="wn"><b>💾 你的存档</b><span>已经接上了，什么都没丢：「${main.name}」现在是主营地${depots.length ? `，${depots.map(c => '「' + c.name + '」').join('、')}变成补给站，自己运转、往北送货` : ''}。还没领奖的章节换成了新的产能目标。${back ? `巧手强化现在最多 15 级，多出来的几级退回了 🔥${back} 余烬，可以在「北迁 → 余烬强化」里重新分配。` : ''}</span></div>`;
+  Sim.bookTick(S); // 先把老存档早就做到的新成就补发了，下面好说个数
+  const B = Sim.bookOf(S), got = Sim.ACH.filter(a => a.cat && B.a[a.id]).length;
+  const atSpine = J.stage === Sim.SPINE && !J.trip, north = Sim.northN(J.stage);
+  const notes = [];
+  if (from < 12) {
+    const back = S.meta.refund12 || 0;
+    notes.push(`第十二版的改动也一起来了：北迁不再重开一局，「${main.name}」现在是主营地${depots.length ? `，${depots.map(c => '「' + c.name + '」').join('、')}变成补给站` : ''}；每章的头一个目标改成「每分钟产多少」；多了 4 倍速，离线攒资源比在线慢。${back ? `巧手强化多出来的几级退回了 🔥${back} 余烬。` : ''}`);
+  }
+  if (atSpine) notes.push('车队停在世界之脊，往北的路已经通了：北迁面板里的下一站就是「北境第 1 站」。');
+  else if (north) notes.push(`你已经在北境第 ${north} 站了，接着往北走就行。`);
+  if (got) notes.push(`你以前做到的事已经算数：补发了 ${got} 个新成就，奖励在「菜单 → 装扮」里换上。`);
+  notes.push('存档里的东西都没丢。');
+  return `<h2>第十三版 · 极北篇</h2>
+<div class="wn"><b>🧭 无尽北境</b><span>翻过世界之脊还能一直往北走。北境每一站有一种地貌：地热谷、富矿带、永夜、狼群领地、冰湖群、古城遗址、风暴走廊、陨石雨、冻土无林……各有好处和麻烦，还有一项专属任务。菜单和地图上记着你走到过的最远一站。</span></div>
+<div class="wn"><b>🗼 烽火塔</b><span>北境前十站各点亮一座烽火塔：打地基、喂高级材料、点火，一道光柱连回南边。第十站是天火塔，点着它就是最终结局。</span></div>
+<div class="wn"><b>🏆 成就与装扮</b><span>二十个新成就，奖励称号、炉火颜色、营旗图案、相框和八种北境装饰。相册会自动记下抵达、点塔这些时刻，拍照模式里也能收进去。</span></div>
+<div class="wn"><b>⛏ 矿点规划</b><span>矿快挖空会提前说，便宜的勘探随时补；摆建筑会挡住矿点时预览变黄。建筑能「挪位置」，不花材料；地上的金星是推荐位置；规划器会告诉你还差几座。</span></div>
+<div class="wn"><b>💾 存档</b><span>存档能存成文件、从文件读回来，存档位可以删除；拍的照片能直接保存。</span></div>
+<div class="wn"><b>📜 你的存档</b><span>${notes.join('')}</span></div>`;
 }

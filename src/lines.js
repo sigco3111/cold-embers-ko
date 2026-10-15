@@ -4,7 +4,7 @@ import { BLD, RES, RES_KEYS, SPOTS, SPOT_KEYS } from './data.js';
 import {
   rt, dirty, getCamp, logMsg, prodRate, rateGoals, holdOf, popCap, maxWorkers, heatRadius, levelMul,
   nextRaid, raidPrep, idleLabor, unlocked, checkPlace, HOLD, buildCost, canAfford, pay, queueBuild, QUEUE_MAX, ORE_URGENT, gatherTypeFor,
-  servedSpots, spotLeft, moveBlock, prodBonus, getB, blocksOre, chapIdx, chapterDef,
+  servedSpots, spotLeft, moveBlock, prodBonus, getB, blocksOre, chapIdx, chapterDef, countType,
 } from './sim.js';
 import { getWorld, idx, W } from './worldgen.js';
 import { journeyOf, mainCamp, stopOf, departGate, gateFlvl, depotAuto } from './journey.js';
@@ -292,7 +292,7 @@ export function advisor(S) {
       const m = (c.stock.food || 0) / -cr.foodNet;
       if (m < 10) return { pri: 0, kind: 'food', camp: c.id, text: `「${c.name}」的熟食只够 ${Math.max(1, Math.floor(m))} 分钟了：多派人去打猎和做饭，或者从别的营地运吃的过来。` };
     }
-    if (cr.burnPerMin > 0 && cr.fuelUnits != null && cr.fuelUnits / cr.burnPerMin < 10) return { pri: 0, kind: 'fuel', camp: c.id, text: `「${c.name}」的燃料只够 ${Math.max(1, Math.floor(cr.fuelUnits / cr.burnPerMin))} 分钟了：先保住熔炉，伐木场和煤矿多派人。` };
+    if (cr.burnPerMin > 0 && cr.fuelUnits != null && cr.fuelUnits / cr.burnPerMin < 10) return { pri: 0, kind: 'fuel', camp: c.id, text: `「${c.name}」的燃料只够 ${Math.max(1, Math.floor(cr.fuelUnits / cr.burnPerMin))} 分钟了：先保住熔炉，${countType(S, c.id, 'batteryworks') ? '晶体电池厂多派人、多建几座' : countType(S, c.id, 'coker') ? '煤矿和焦煤炉多派人' : '伐木场和煤矿多派人'}。要用燃料的工厂会先停下，把燃料留给熔炉。` };
     if (cr.tH != null && cr.tH < -8 && c.people > 3) return { pri: 0, kind: 'cold', camp: c.id, text: `「${c.name}」太冷了，有人会冻伤：多烧燃料、开超载，或者给帐篷升级保暖。` };
   }
   const nr = nextRaid(S);

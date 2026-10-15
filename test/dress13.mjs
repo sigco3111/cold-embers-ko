@@ -55,6 +55,13 @@ export default async function (page) {
     await page.waitForTimeout(2500);
     console.log('album btn', await page.evaluate(() => document.querySelector('[data-pv=album]').textContent));
   }
+  if (MODE === 'ach') {
+    await page.evaluate(() => { const g = window.game; g.ui.open('ach'); });
+    await page.waitForTimeout(1500); await shot('ach_top');
+    await page.evaluate(() => { const s = document.querySelector('#sheet'); s.scrollTop = 700; });
+    await page.waitForTimeout(800); await shot('ach_mid');
+    console.log('ach', await page.evaluate(() => document.querySelector('#sheet').innerText.replace(/\s+/g, ' ').slice(0, 300)));
+  }
   if (MODE === 'car') {
     // 出发：车队领头那辆车插着旗
     const r = await page.evaluate(id => {
