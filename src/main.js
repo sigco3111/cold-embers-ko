@@ -81,7 +81,7 @@ class Game {
       this.S = Sim.newRun(meta, 0);
       this.view.bind(this.S);
       this.view.zoom(0.9);
-      this.modalOrLater(`<h2>序 · 余烬</h2><p class="story">${STORY.intro}</p><p>你带着几个人来到<b>灰烬营地</b>。先让熔炉烧起来，盖帐篷、伐木、打猎，然后一程一程往北走。</p><p class="hint">提示：点底部的「建造」开始；不知道怎么玩时打开「菜单 → 怎么玩」。难度：${Sim.diffOf(this.S).n}（菜单里随时能改）。</p>`, [{ t: '点起篝火', a: 'start', cls: 'go' }]);
+      this.modalOrLater(`<h2>序 · 余烬</h2><p class="story">${STORY.intro}</p><p>你带着几个人来到<b>灰烬营地</b>。先让熔炉烧起来，盖帐篷、伐木、打猎，然后一程一程往北走。</p><p class="hint">提示：点底部的「建造」开始；不知道怎么玩时打开「菜单 → 帮助」。难度：${Sim.diffOf(this.S).n}（菜单里随时能改）。</p>`, [{ t: '点起篝火', a: 'start', cls: 'go' }]);
     }
   }
   // 标题画面还开着时，弹窗先存起来，点「继续」后再弹
@@ -273,8 +273,7 @@ class Game {
   syncSpeed() {
     document.body.classList.toggle('paused', !!this.paused);
     const b = document.getElementById('speedBtn'); b.classList.toggle('on', this.speed > 1); b.classList.toggle('x4', this.speed === 4); b.querySelector('i').textContent = this.speed + '×';
-    b.title = this.speed === 4 ? '正在 4 倍速（点一下回到 1 倍速，电脑按 F）' : this.speed === 2 ? '正在 2 倍速（点一下换 4 倍速，电脑按 F）' : '加速到 2 倍速（电脑按 F）';
-    document.getElementById('pauseBtn').title = this.paused ? '继续（P）' : '暂停（P）';
+    b.title = this.paused ? '已暂停（点一下继续，电脑按 P）' : (this.speed === 4 ? '正在 4 倍速（点一下回到 1 倍速' : this.speed === 2 ? '正在 2 倍速（点一下换 4 倍速' : '加速到 2 倍速（点一下') + '，按住暂停；电脑按 F 换倍速、P 暂停）';
     this.view.timeScale = this.paused ? 0 : this.speed;
     if (this.photo && this.photo.on) this.photo.draw();
   }
@@ -380,7 +379,7 @@ class Game {
     const S = this.S, v = this.view, L = Sim.towerList(S).slice().sort((a, b) => b.n - a.n);
     if (this.cine || !L.length) return;
     if (this.titleOn) { this.skyLater = true; return; }
-    this.cancelModes(); this.ui.close(); this.ui.closeModal(); this.ui.resDrawer(false);
+    this.cancelModes(); this.ui.close(); this.ui.closeModal();
     if (this.bigmap.open) this.bigmap.hide(); if (this.chainmap.open) this.chainmap.hide(); if (this.photo.on) this.photo.close();
     const pts = L.map(t => ({ x: t.x, y: t.y, n: t.n, cap: `${Sim.towerName(t.n)} · ${Sim.stopOf(S, Sim.SPINE + t.n).short}` }));
     pts.push({ x: Sim.ETERNAL_PT.x, y: Sim.ETERNAL_PT.y, n: 0, cap: '永恒之炉 · 一路走过来的路，现在都亮着' });
@@ -806,7 +805,6 @@ class Game {
     cv.addEventListener('contextmenu', e => e.preventDefault());
     cv.addEventListener('pointerdown', e => {
       try { cv.setPointerCapture(e.pointerId); } catch (err) { }
-      if (this.ui.resOpen) this.ui.resDrawer(false);
       ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY, b: e.button, type: e.pointerType });
       if (e.pointerType === 'touch') this.touchSeen = true;
       if (ptrs.size === 1) {
@@ -889,7 +887,7 @@ class Game {
       else if (k === 'd' || k === 'arrowright') v.pan(-step, 0);
       else if (k === 'q') v.rotate(0.3);
       else if (k === 'e') v.rotate(-0.3);
-      else if (k === 'escape') { if (this.bigmap.open) { this.bigmap.hide(); return; } if (this.chainmap.open) { this.chainmap.hide(); return; } this.cancelModes(); this.ui.close(); this.ui.resDrawer(false); }
+      else if (k === 'escape') { if (this.bigmap.open) { this.bigmap.hide(); return; } if (this.chainmap.open) { this.chainmap.hide(); return; } this.cancelModes(); this.ui.close(); }
       else if (k === 'enter' && this.mode === 'place') this.confirmPlace();
       else if (k === 'b') this.ui.open('build');
       else if (k === 'm') { if (this.chainmap.open) this.chainmap.hide(); this.bigmap.toggle(); }
@@ -900,6 +898,8 @@ class Game {
       else if (k === 'p') this.togglePause();
       else if (k === 'f') this.setSpeed(this.nextSpeed());
       else if (k === ' ') { const c = Sim.getCamp(this.S, this.S.active); v.focus(c.x, c.y); }
+      else if (k === '+' || k === '=') v.zoom(0.8);
+      else if (k === '-' || k === '_') v.zoom(1.25);
     });
     document.getElementById('placeOk').addEventListener('click', () => this.confirmPlace());
     document.getElementById('placeNo').addEventListener('click', () => this.cancelModes());
@@ -911,8 +911,6 @@ class Game {
       this.updateGhost();
     });
     document.getElementById('homeBtn').addEventListener('click', () => { const c = Sim.getCamp(this.S, this.S.active); v.focus(c.x, c.y); v.cam.tyaw = Math.round(v.cam.tyaw / (Math.PI * 2)) * Math.PI * 2; });
-    document.getElementById('zoomIn').addEventListener('click', () => v.zoom(0.8));
-    document.getElementById('zoomOut').addEventListener('click', () => v.zoom(1.25));
   }
 }
 

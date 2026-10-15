@@ -1221,7 +1221,7 @@ function moodStep(S, camp, cr, dt) {
       logMsg(S, `「${camp.name}」有人对营地失去了信心，趁夜离开了。`, 'bad');
     }
   } else camp.leaveAcc = 0;
-  if (camp.disc >= 70 && !camp.discWarn) { camp.discWarn = true; logMsg(S, `「${camp.name}」的不满在蔓延（${Math.round(camp.disc)}）。超过 85 就会有人离开。看看「人心」面板里是什么让大家不满。`, 'warn'); }
+  if (camp.disc >= 70 && !camp.discWarn) { camp.discWarn = true; logMsg(S, `「${camp.name}」的不满在蔓延（${Math.round(camp.disc)}）。超过 85 就会有人离开。看看「营地 → 人心」里是什么让大家不满。`, 'warn'); }
   if (camp.disc < 60) camp.discWarn = false;
   if (camp.hope <= 20 && !camp.hopeWarn) { camp.hopeWarn = true; logMsg(S, `「${camp.name}」的人快没有盼头了（希望 ${Math.round(camp.hope)}），干活越来越没劲。`, 'warn'); }
   if (camp.hope > 30) camp.hopeWarn = false;

@@ -36,7 +36,7 @@ export class BigMap {
   toggle() { if (this.open) this.hide(); else this.show(); }
   show() {
     const g = this.g, S = g.S;
-    g.cancelModes(); g.ui.close(); g.ui.resDrawer(false);
+    g.cancelModes(); g.ui.close();
     this.open = true;
     this.el.classList.add('show');
     this.el.innerHTML = iconize(`<div class="bmbox"><div class="phead"><b>北行地图 <small>${northRec(S) ? `🧭 ${northRec(S)} · ` : ''}点一处，镜头就飞过去</small></b><button class="x" data-act="mapclose">✕</button></div>

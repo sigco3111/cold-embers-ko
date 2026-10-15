@@ -1,5 +1,6 @@
 // 统一图标：低多边形小图标，取代系统 emoji（各平台显示一致，和画面的低多边形风格一样）
 // 代码里照旧写 emoji，渲染前由 iconize() 把正文里的 emoji 换成 <svg><use>；属性和 <option> 里的保持原样
+import { LINE, LTINT } from './lineicons.js';
 const f2 = v => +v.toFixed(2);
 const reg = (n, cx, cy, r, rot = -90) => Array.from({ length: n }, (_, i) => { const a = (rot + i * 360 / n) * Math.PI / 180; return `${f2(cx + r * Math.cos(a))},${f2(cy + r * Math.sin(a))}`; }).join(' ');
 const star = (n, cx, cy, r1, r2, rot = -90) => Array.from({ length: n * 2 }, (_, i) => { const r = i % 2 ? r2 : r1, a = (rot + i * 180 / n) * Math.PI / 180; return `${f2(cx + r * Math.cos(a))},${f2(cy + r * Math.sin(a))}`; }).join(' ');
@@ -156,10 +157,12 @@ const MAP = {
   '📤': 'export', '📥': 'import', '📏': 'ruler', '🎒': 'pack', '✅': 'check', '☀': 'sun', '🌇': 'dusk', '🌅': 'dawn', '🌙': 'moon', '⏱': 'timer', '🥣': 'bowl', '⚖': 'scales',
   '🩹': 'bandage', '🛡': 'shield', '🧶': 'yarn', '🩺': 'stetho', '🏠': 'house', '🏚': 'ruin', '🗿': 'shrine', '🎈': 'airship', '🔮': 'starcore', '🔦': 'beacon', '🧌': 'giant', '🛳': 'icebreaker',
   '🪓': 'axe', '🏹': 'bow', '🪚': 'saw', '🍲': 'pot', '🗼': 'tower', '🧱': 'brick', '🏗': 'tower', '🛸': 'star', '🦾': 'core', '⚒': 'hammer', '🏭': 'factory', '🌱': 'sprout', '🌲': 'fir', '🦌': 'deer', '🐕': 'wolf', '☄': 'meteor', '🔒': 'lock', '🗑': 'trash', '↩': 'undo', '🕒': 'timer', '📂': 'import', '🔄': 'flag2', '❗': 'bang', '🏮': 'lamp', '🏴': 'flagb', '🗽': 'statue', '🌷': 'flower',
+  '⏳': 'hourglass', '🏆': 'trophy', '🏺': 'vase', '⚠': 'warn', '🔗': 'link', '📈': 'chart', '⚔': 'swords', '🎨': 'palette', '📷': 'camera', '🧊': 'ice', '💧': 'drop', '🎉': 'party', '🤝': 'hands',
+  '🌨': 'snowcloud', '🗺': 'map', '💡': 'bulb', '🎖': 'medal', '🖼': 'frame', '⭐': 'star5', '📔': 'album', '🏛': 'temple', '🏔': 'mountain', '🎣': 'fishing', '🌪': 'tornado', '🌤': 'cloudsun', '⛓': 'chain',
 };
 const KEYS = Object.keys(MAP).sort((a, b) => b.length - a.length);
 const RE = new RegExp('(?:' + KEYS.map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')\\uFE0F?', 'gu');
-const svgOf = name => `<svg class="ic" aria-hidden="true"><use href="#i-${name}"/></svg>`;
+const svgOf = name => LINE[name] ? `<svg class="ic ln t-${name}" aria-hidden="true"><use href="#i-${name}"/></svg>` : `<svg class="ic" aria-hidden="true"><use href="#i-${name}"/></svg>`;
 export const ICON_NAMES = Object.keys(ICONS);
 export function iconSvg(name) { return svgOf(name); }
 // 把一段 HTML 正文里的 emoji 换成图标（不碰标签属性，也不碰 <option>/<textarea> 里的字）
@@ -176,7 +179,10 @@ export function iconize(html) {
 }
 export function injectIcons() {
   if (document.getElementById('iconSprite')) return;
-  const syms = Object.entries(ICONS).map(([k, v]) => `<symbol id="i-${k}" viewBox="0 0 24 24"><g stroke="#160f0a" stroke-opacity=".62" stroke-width=".85" stroke-linejoin="round">${v}</g></symbol>`).join('');
+  const syms = Object.entries(ICONS).filter(([k]) => !LINE[k]).map(([k, v]) => `<symbol id="i-${k}" viewBox="0 0 24 24"><g stroke="#160f0a" stroke-opacity=".62" stroke-width=".85" stroke-linejoin="round">${v}</g></symbol>`).join('')
+    + Object.entries(LINE).map(([k, v]) => `<symbol id="i-${k}" viewBox="0 0 24 24"><path d="${v}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>`).join('');
+  const st = document.createElement('style'); st.textContent = Object.entries(LTINT).map(([k, c]) => `.ic.t-${k}{color:${c}}`).join('');
+  document.head.appendChild(st);
   const holder = document.createElement('div');
   holder.innerHTML = `<svg id="iconSprite" xmlns="http://www.w3.org/2000/svg" style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true">${syms}</svg>`;
   document.body.prepend(holder.firstChild);

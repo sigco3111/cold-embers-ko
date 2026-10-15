@@ -9,22 +9,22 @@ const make = S => c => S.buildings.filter(b => b.camp === c.id && BLD[b.type].ca
 
 // when(S, c, cr, g) 返回 false 表示还用不上；返回 { act, arg } 表示「去看看」按钮要做什么（没有按钮就返回 true）
 export const HINTS = [
-  { id: 'gang', ic: '🏴', n: '掠夺者来索贡了', d: '点顶上的 🏴 答复：交贡、做买卖，或者靠箭塔顶回去。到时候没人答复，守得住就打，守不住就交贡。',
+  { id: 'gang', ic: '🏴', n: '掠夺者来索贡了', d: '点左下角的便签或右上角的提醒铃答复：交贡、做买卖，或者靠箭塔顶回去。到时候没人答复，守得住就打，守不住就交贡。',
     when: S => { const d = Sim.gangDemands(S)[0]; return d ? { act: 'gang', arg: d.g.id } : false; } },
-  { id: 'wxe', ic: '❄', n: '怪天气要来了', d: '冰风暴、极寒夜、冰湖开裂都会提前预报。点顶上的天气图标，花点材料提前准备，能少受很多罪。',
+  { id: 'wxe', ic: '❄', n: '怪天气要来了', d: '冰风暴、极寒夜、冰湖开裂都会提前预报。打开右上角的提醒铃，花点材料提前准备，能少受很多罪。',
     when: (S, c) => { const e = Sim.wxeAt(S, S.t); return e.ev && !e.on && e.inSec <= Sim.forecastOf(S) && Sim.wxeMatters(S, c, e.ev) && !Sim.wxePrepped(S, c, e.ev) ? { act: 'wx' } : false; } },
   { id: 'ward', ic: '🩺', n: '有人病了', d: '建一座医务所，派两个人照看：住进去的病人在冷天里也能慢慢好起来，营地里染病的人也会少。',
     when: (S, c, cr) => (cr.sick || 0) >= 1 && Sim.unlocked(S, 'infirmary') && !Sim.countType(S, c.id, 'infirmary') ? { act: 'tb', arg: 'build' } : false },
   { id: 'deep', ic: '⛏', n: '矿快挖空了', d: '矿场面板里能「打深井」：地表采空以后还能慢慢挖下去。侦察营还能派人勘探新矿脉。',
     when: (S, c) => { const gs = Sim.rt(S).gatherSpots; const b = S.buildings.find(b => b.camp === c.id && !b.deep && Sim.deepable(b.type) && gs && (gs.get(b.id) || []).length && Sim.gatherLeftFrac(S, b) <= 0.25); return b ? { act: 'reqgo', arg: b.id } : false; } },
-  { id: 'chain', ic: '🔗', n: '生产链总览', d: '按 C（或「物资」面板最上面）看整条生产链：哪一环缺人、缺料、堆满了，一眼就能看出来。',
+  { id: 'chain', ic: '🔗', n: '生产链总览', d: '按 C（或「生产 → 产线」里的生产链图）看整条生产链：哪一环缺人、缺料、堆满了，一眼就能看出来。',
     when: (S, c) => make(S)(c).length >= 2 && S.buildings.filter(b => b.camp === c.id).length >= 10 ? { act: 'chainmap' } : false },
   { id: 'bulk', ic: '⬆', n: '一次管一批', d: '同类建筑多了：面板里能「每栋升一级」「都派满」。建造时还能一次摆一排。',
     pc: '建造时按住左键拖一下，一次摆一排。', touch: '建造时先点「一排」，再拖预览，一次摆一排。',
     when: (S, c) => { const n = {}; for (const b of S.buildings) if (b.camp === c.id && b.type !== 'tent' && BLD[b.type].cat !== 'deco' && b.type !== 'furnace') if ((n[b.type] = (n[b.type] || 0) + 1) >= 3) return { act: 'reqgo', arg: b.id }; return false; } },
   { id: 'fest', ic: '🎉', n: '可以办篝火庆典了', d: '熔炉面板里能办庆典：花些熟食和木材，大家歇一会儿，希望一下子涨上去，之后干活也更有劲。',
     when: (S, c) => !Sim.festBlock(S, c) && (c.hope ?? 50) < 60 ? { act: 'reqgo', arg: c.furnace } : false },
-  { id: 'focus', ic: '🧭', n: '营地可以选专精了', d: '熔炉到了 ' + FOCUS_LVL + ' 级：在「营地」面板里选矿业、农垦、工坊或要塞，强一样、弱一样。',
+  { id: 'focus', ic: '🧭', n: '营地可以选专精了', d: '熔炉到了 ' + FOCUS_LVL + ' 级：在「营地 → 概况」里选矿业、农垦、工坊或要塞，强一样、弱一样。',
     when: (S, c) => !c.focus && !c.trade && (Sim.getB(S, c.furnace) || {}).lvl >= FOCUS_LVL ? { act: 'tb', arg: 'camp' } : false },
   { id: 'belt', ic: '⛓', n: '传送带', d: '加工建筑的面板里能接传送带：上下游挨得近，就能直接供料，少用搬运工，下游还快一点。',
     slow: true,
@@ -33,13 +33,13 @@ export const HINTS = [
     when: (S, c) => Sim.countType(S, c.id, 'scout') && !S.buildings.some(b => b.type === 'kennel') && S.buildings.filter(b => b.camp === c.id).length >= 14 ? { act: 'tb', arg: 'build' } : false },
   { id: 'deco', ic: '🏮', n: '装饰建筑', d: '路灯、旗杆、雕像、花窖不产东西，但能让人心里亮一点（加希望）。放在大家常走的路边、熔炉旁边。',
     when: (S, c) => (c.hope ?? 50) < 50 && S.buildings.filter(b => b.camp === c.id).length >= 16 && !S.buildings.some(b => BLD[b.type].cat === 'deco') ? { act: 'tb', arg: 'build' } : false },
-  { id: 'curve', ic: '📈', n: '数据曲线', d: '按 G（或「物资」面板最上面）看曲线：人口、温度、物资储量这几个小时是怎么变的，哪里在慢慢往下掉。',
+  { id: 'curve', ic: '📈', n: '数据曲线', d: '按 G（或「菜单 → 收藏」）看曲线：人口、温度、物资储量这几个小时是怎么变的，哪里在慢慢往下掉。',
     when: (S, c) => (c.hist && c.hist.f && c.hist.f.n >= 40) ? { act: 'curve' } : false },
-  { id: 'depart', ic: '🛷', n: '可以北迁了', d: '出发前的四件事都备好了。打开「北迁」面板，挑好带多少人、多少货，后面的营地是留守还是熄火，再按出发。车队在路上的时候，营地照常干活。',
+  { id: 'depart', ic: '🛷', n: '可以北迁了', d: '出发前的四件事都备好了。打开「北行 → 北迁」，挑好带多少人、多少货，后面的营地是留守还是熄火，再按出发。车队在路上的时候，营地照常干活。',
     when: S => { const g = Sim.departGate(S); return g && g.ok && !Sim.journeyOf(S).trip ? { act: 'tb', arg: 'migrate' } : false; } },
-  { id: 'trip', ic: '🚩', n: '车队上路了', d: '「北迁」面板里能看车队走到哪儿、还要多久，点「跟着车队」镜头就跟过去。到了以后挑一块平地放下新熔炉，那里就是新的主营地。',
+  { id: 'trip', ic: '🚩', n: '车队上路了', d: '「北行 → 北迁」里能看车队走到哪儿、还要多久，点「跟着车队」镜头就跟过去。到了以后挑一块平地放下新熔炉，那里就是新的主营地。',
     when: S => { const T = Sim.journeyOf(S).trip; return T && T.phase !== 'arrive' && !Sim.roadView(S) ? { act: 'tb', arg: 'migrate' } : false; } },
-  { id: 'photo', ic: '📷', n: '拍照模式', d: '按 H（或菜单里）进拍照模式：藏起界面，换时辰、滤镜和镜头角度，给营地拍一张。',
+  { id: 'photo', ic: '📷', n: '拍照模式', d: '按 H（或「菜单 → 收藏」）进拍照模式：藏起界面，换时辰、滤镜和镜头角度，给营地拍一张。',
     when: S => S.camps.length >= 2 || S.buildings.length >= 40 ? { act: 'photo' } : false },
 ];
 
@@ -100,7 +100,7 @@ export function whatsNewHtml(S, from = 13) {
   }
   if (atSpine) notes.push('车队停在世界之脊，往北的路已经通了：北迁面板里的下一站就是「北境第 1 站」。');
   else if (north) notes.push(`你已经在北境第 ${north} 站了，接着往北走就行。`);
-  if (got && from < 13) notes.push(`你以前做到的事已经算数：补发了 ${got} 个新成就，奖励在「菜单 → 装扮」里换上。`);
+  if (got && from < 13) notes.push(`你以前做到的事已经算数：补发了 ${got} 个新成就，奖励在「菜单 → 收藏 → 装扮」里换上。`);
   notes.push('存档里的东西都没丢。');
   const v1 = `<div class="wn"><b>🎉 正式版</b><span>${CHANGELOG[0].items.map(t => '· ' + t).join('<br>')}<small class="wnmore">菜单 → 更新日志 里能看到每一版加了什么。</small></span></div>`;
   if (from >= 13) return `<h2>${VERSION_NAME}</h2>${v1}<div class="wn"><b>📜 你的存档</b><span>${notes.join('')}</span></div>`;

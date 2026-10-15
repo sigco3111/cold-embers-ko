@@ -162,7 +162,7 @@ export class ChainMap {
   plan(r) { this.tab = 'plan'; if (r) this.planR = r; this.adding = false; if (this.open) { this.sig = ''; this.render(); } else this.show(); }
   show() {
     const g = this.g;
-    g.cancelModes(); g.ui.close(); g.ui.resDrawer(false);
+    g.cancelModes(); g.ui.close();
     if (g.bigmap && g.bigmap.open) g.bigmap.hide();
     this.open = true; this.sig = '';
     this.el.classList.add('show');

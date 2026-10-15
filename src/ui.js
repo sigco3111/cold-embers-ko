@@ -26,9 +26,9 @@ const TUT = [
   { b: 'tent', why: '帐篷提供床位和保温，有空床才会有人来投奔。' },
   { b: 'hunter', why: '猎人小屋放在有驯鹿的猎场旁边，打回生肉。' },
   { b: 'kitchen', why: '厨房把生肉做成熟食，大家靠它活着。' },
-  { k: 'stock', why: '顶部物资栏能打开总览：每种物资进出多少、卡在哪一环都写着。' },
+  { k: 'stock', why: '底部的「生产」里是物资总览：每种物资有多少、进出多少、卡在哪一环都写着。' },
   { k: 'furnace', why: '点任何建筑都能看到它的状态、派人和升级。熔炉是营地的心脏，升级后供热圈会变大。' },
-  { k: 'goal', why: '左上角是这一章的目标，三个任务做完能领奖励。「木板产量 6/分钟」这种任务，点旁边的「规划」，会算出还差几座建筑、几个人。' },
+  { k: 'goal', why: '顶上是这一章的目标，三个任务做完能领奖励。「木板产量 6/分钟」这种任务，点旁边的「规划」，会算出还差几座建筑、几个人。左下角的便签是老向导，一次说一句下一步做什么。' },
 ];
 // 建筑状态 → 头顶小图标；严重的状态用红色
 const RES_BY_NAME = Object.fromEntries(Object.entries(RES).map(([k, r]) => [r.n, k]));
@@ -77,8 +77,25 @@ function techLayout(list) {
   const vals = Object.values(at);
   return { at, cols: Math.max(...vals.map(v => v.col)) + 1, lanes: Math.max(...vals.map(v => v.lane)) + 1 };
 }
-// 有页签的面板
-const PANEL_TABS = { camp: [['sum', '概况'], ['infra', '基建'], ['road', '旅程']], migrate: [['go', '北迁'], ['ember', '余烬强化']] };
+// 底部五个分区（加上菜单、提醒）：每个分区几张页签，一张页签就是一种面板；def 是第一次打开时停在哪张
+const HUBS = {
+  camp: { n: '营地', tabs: [['camp', '概况'], ['folk', '人手'], ['mood', '人心'], ['law', '律令']] },
+  prod: { n: '生产', tabs: [['stock', '物资'], ['plines', '产线'], ['lines', '物流']] },
+  build: { n: '建造', tabs: [['build', '建筑'], ['bqueue', '队列'], ['plan', '规划']] },
+  research: { n: '研究', tabs: [['research', '研究']] },
+  north: { n: '北行', def: 'migrate', tabs: [['scout', '地图与侦察'], ['migrate', '北迁'], ['towers', '烽火塔'], ['specs', '专家与余烬']] },
+  menu: { n: '菜单', tabs: [['menu', '设置'], ['msave', '存档'], ['mcoll', '收藏'], ['mhelp', '帮助']] },
+  bell: { n: '提醒', tabs: [['alerts', '提醒'], ['log', '消息']] },
+};
+const KIND_HUB = {}; for (const h in HUBS) for (const [k] of HUBS[h].tabs) KIND_HUB[k] = h;
+// 顶栏四格的线条图标
+const VT_IC = {
+  tmp: '<path d="M10 14.5V5a2 2 0 014 0v9.5a4 4 0 11-4 0z"/><path d="M12 9v7"/>',
+  ppl: '<circle cx="12" cy="8" r="3.5"/><path d="M5 20c.6-4 3.4-6.5 7-6.5s6.4 2.5 7 6.5"/>',
+  fuel: '<path d="M12 3c.8 4 6 5.5 6 11.5a6 6 0 01-12 0c0-3 1.8-4.3 2.3-6.5 1.4 1.2 2 2.6 2 4.2C11.6 10 12.6 7 12 3z"/>',
+  food: '<path d="M4 11h16a8 8 0 01-16 0z"/><path d="M9.5 7.5c0-1.5 1-2 1-3.5M14 7.5c0-1.5 1-2 1-3.5"/>',
+};
+const VT_N = { tmp: '温度', ppl: '人口', fuel: '燃料', food: '熟食' };
 
 export class UI {
   constructor(game) {
@@ -101,21 +118,24 @@ export class UI {
     document.body.addEventListener('click', e => this.onClick(e));
     document.body.addEventListener('change', e => this.onChange(e));
     this.labels = this.$('labels');
-    // 点头顶的小图标直接打开那栋建筑；点营地牌子上的「仓库满」打开仓储面板
-    this.$('stats').addEventListener('pointerdown', e => { if (e.target.closest('.pill.more')) { e.preventDefault(); this.resDrawer(); return; }
-      if (e.target.closest('.pill.raid')) { e.preventDefault(); if (this.panel && this.panel.kind === 'raid') this.close(); else { this.g.cancelModes(); this.open('raid'); } return; }
-      { const gp = e.target.closest('.pill.gang'); if (gp) { e.preventDefault(); const id = +gp.dataset.gang; if (this.panel && this.panel.kind === 'gang' && this.panel.arg === id) this.close(); else { this.g.cancelModes(); this.open('gang', id); } return; } }
-      if (e.target.closest('.pill.car')) { e.preventDefault(); if (this.panel && this.panel.kind === 'caravan') this.close(); else { this.g.cancelModes(); this.open('caravan'); } return; }
-      if (e.target.closest('.pill.aurgo')) { e.preventDefault(); this.surAurora(); return; }
-      if (e.target.closest('.pill.rulep')) { e.preventDefault(); const r = NORTH_RULES[Sim.ruleNow(this.S)]; if (r) this.toast(`${r.ic} ${r.n}：好处是${r.good}；坏处是${r.bad}。只管这一站的主营地。`, 'info'); return; }
-      if (e.target.closest('.pill.wx')) { e.preventDefault(); if (this.panel && this.panel.kind === 'weather') this.close(); else { this.g.cancelModes(); this.open('weather'); } return; } if (!e.target.closest('.pill.mood')) return; e.preventDefault(); if (this.panel && this.panel.kind === 'mood') this.close(); else { this.g.cancelModes(); this.open('mood'); } });
-    // 物资抽屉每 0.3 秒重画，用 pointerdown 接点击
-    this.$('resdrawer').addEventListener('pointerdown', e => {
-      const d = e.target.closest('[data-d]'); if (!d) return;
+    // 顶栏四格：搭一次，之后只改里面的字
+    this.$('vitals').innerHTML = ['tmp', 'ppl', 'fuel', 'food'].map(k => `<button class="vt hpl ${k}" data-act="vt" data-arg="${k}" aria-label="${VT_N[k]}"><span class="vv"><svg class="svg" viewBox="0 0 24 24" aria-hidden="true">${VT_IC[k]}</svg><b></b></span><span class="vl"></span>${k === 'fuel' ? '<span class="vf"><i></i></span>' : ''}</button>`).join('');
+    this.vt = Object.fromEntries(['tmp', 'ppl', 'fuel', 'food'].map(k => { const e = this.$('vitals').querySelector('.vt.' + k); return [k, { e, b: e.querySelector('b'), l: e.querySelector('.vl'), f: e.querySelector('.vf i') }]; }));
+    // 便签每 1.5 秒可能重画，用 pointerdown 接点击
+    this.$('note').addEventListener('pointerdown', e => {
+      const b = e.target.closest('[data-n]'); if (!b) return;
       e.preventDefault();
-      if (d.dataset.d === 'x') this.resDrawer(false);
-      else { this.resDrawer(false); this.g.cancelModes(); this.open('stock'); }
+      if (b.dataset.n === 'later') this.noteLater(); else this.noteGo();
     });
+    // 速度键：点一下换倍速，按住半秒暂停
+    { const sb = this.$('speedBtn'); let t = null;
+      const clear = () => { clearTimeout(t); t = null; sb.classList.remove('hold'); };
+      sb.addEventListener('pointerdown', () => { this.speedLong = false; sb.classList.add('hold'); t = setTimeout(() => { t = null; sb.classList.remove('hold'); this.speedLong = true; this.g.togglePause(true); this.toast('已暂停。点速度键或画面中间的条继续。', 'info'); }, 550); });
+      for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) sb.addEventListener(ev, clear);
+      sb.addEventListener('contextmenu', e => e.preventDefault()); }
+    // 顶栏多高：提示、侧边键、暂停条都贴着它下沿
+    if (window.ResizeObserver) new ResizeObserver(() => this.topSync()).observe(this.$('top'));
+    else setTimeout(() => this.topSync(), 300);
     this.labels.addEventListener('pointerdown', e => {
       const bd = e.target.closest('.badge'), cf = e.target.closest('.ctfull'), st = e.target.closest('.sitetag'), qt = e.target.closest('.qtag'), ct = e.target.closest('.cartag');
       const rq = e.target.closest('.reqtag'), su = e.target.closest('.surtag');
@@ -180,17 +200,20 @@ export class UI {
     this.logBadge();
   }
   dropToast(d) { clearTimeout(d._t); d.classList.add('out'); setTimeout(() => d.remove(), 400); }
-  // 侧边「消息」按钮上的未读数
+  // 提醒铃：数字是眼下要处理的事；没有要处理的、但有没看过的消息时亮一个小点
   logBadge() {
-    const S = this.S, b = this.$('logBtn'); if (!S || !b) return;
+    const S = this.S, b = this.$('bellBtn'); if (!S || !b) return;
     const last = S.log[S.log.length - 1] || null;
     if (this.logSeen === undefined || (this.panel && this.panel.kind === 'log')) this.logSeen = last;
     const i = this.logSeen ? S.log.lastIndexOf(this.logSeen) : -1;
-    const un = S.log.slice(i + 1), n = un.length, hot = un.some(l => l.kind === 'bad');
-    const t = n > 9 ? '9+' : String(n);
-    b.classList.toggle('unread', n > 0); b.classList.toggle('hot', hot);
-    const el = b.querySelector('.lbn'); if (el.textContent !== t) el.textContent = t;
+    const un = S.log.length - 1 - i;
+    const A = (this.alertsNow || []).filter(a => a.lvl !== 'info'), n = A.length, t = n > 9 ? '9+' : String(n);
+    b.classList.toggle('n', n > 0); b.classList.toggle('hot', A.some(a => a.lvl === 'bad')); b.classList.toggle('dot', un > 0);
+    const el = b.querySelector('.bn'); if (el.textContent !== t) el.textContent = t;
+    const lab = n ? `提醒，${n} 件事` : un ? `提醒，${un} 条新消息` : '提醒'; if (b.getAttribute('aria-label') !== lab) b.setAttribute('aria-label', lab);
   }
+  // 顶栏下沿：写进 --topB，提示、侧边键、暂停条和左边那列都按它摆
+  topSync() { const r = this.$('top').getBoundingClientRect(); const v = Math.round(r.bottom) + 'px'; if (this.topB !== v) { this.topB = v; document.documentElement.style.setProperty('--topB', v); } }
   modal(html, buttons = [{ t: '好', a: 'close-modal' }]) {
     const m = this.$('modal'); this.bkOpen = false;
     m.innerHTML = iconize(`<div class="mbox">${html}<div class="mbtns">${buttons.map(b => `<button class="btn ${b.cls || ''}" data-act="${b.a}" ${b.arg != null ? `data-arg="${b.arg}"` : ''}>${b.t}</button>`).join('')}</div></div>`);
@@ -206,7 +229,7 @@ export class UI {
       ['🐺', '守住的袭营', `${s.raidsWon} 次`], ['🌨', '熬过的暴风雪', `${s.blizzards} 场`], ['⏳', '这一程走了', `${fmtTime(s.t)}（第 ${s.runs} 次北行）`]];
     this.modal(`<div class="evtag">终章 · 天火</div><h2>🔥 天火点亮了</h2><p class="story">${esc(STORY.skyEnd)}</p>
       <div class="sec">这一路</div><div class="skysum">${rows.map(([i, a, b]) => `<div><span>${i} ${a}</span><b>${b}</b></div>`).join('')}</div>
-      <div class="crw">🎁 解锁：称号「点燃天火的人」、金色炉火、天火纪念碑（菜单 → 装扮）</div>
+      <div class="crw">🎁 解锁：称号「点燃天火的人」、金色炉火、天火纪念碑（菜单 → 收藏 → 装扮）</div>
       <p class="hint">往北的路还没完：后面的站不再有塔，目标照样一站比一站高。最远纪录接着往上记。</p>`, [{ t: '继续往北', a: 'skyend', cls: 'go' }]);
     this.$('modal').querySelector('.mbox').classList.add('skyend');
     return true;
@@ -235,7 +258,7 @@ export class UI {
     this.nr = { slot, diff: diff || (this.nr && this.nr.diff) || 'std' };
     const infos = Array.from({ length: SLOTS }, (_, i) => g.slotInfo(i + 1)), s = infos[slot - 1];
     const seg = `<div class="seg nrslots">${infos.map(x => `<button class="btn ${x.n === slot ? 'on' : ''}" data-act="nrslot" data-arg="${x.n}">存档 ${x.n}<small>${x.empty ? '空位' : esc(x.name)}</small></button>`).join('')}</div>`;
-    const warn = s.empty ? '' : `<p class="nrwarn">会<b>覆盖</b>存档 ${slot} 里的「${esc(s.name)}」（👥 ${s.people} 人）：余烬、专家和收集册都会清空。覆盖之前会自动存一份备份，点错了可以到「菜单 → 自动备份」里找回来。</p>`;
+    const warn = s.empty ? '' : `<p class="nrwarn">会<b>覆盖</b>存档 ${slot} 里的「${esc(s.name)}」（👥 ${s.people} 人）：余烬、专家和收集册都会清空。覆盖之前会自动存一份备份，点错了可以到「菜单 → 存档 → 自动备份」里找回来。</p>`;
     const cards = DIFF_KEYS.map(k => { const D = DIFF[k]; return `<button class="diffc ${k === this.nr.diff ? 'on' : ''}" data-act="nrdiff" data-arg="${k}"><b>${D.ic} ${D.n}</b><small>${D.d}</small></button>`; }).join('');
     this.modal(`<h3>新的北行</h3><div class="mlab">存在哪个存档位</div>${seg}${warn}<div class="mlab">难度<small>以后也能在菜单里改</small></div><div class="diffs">${cards}</div>`,
       [{ t: s.empty ? '开始北行' : '覆盖并开始', a: 'newrun-go', cls: s.empty ? 'go' : 'bad' }, { t: '算了', a: 'close-modal' }]);
@@ -288,10 +311,10 @@ export class UI {
       ups.sort((x, y) => y[1] - x[1]).slice(0, 4).forEach(([k, d], j) => setTimeout(() => this.flyRes(from[0], from[1], k, Math.max(1, Math.min(6, Math.round(Math.log2(d / 8))))), j * 140));
     }
   }
-  // 资源图标落到顶栏的哪里：电脑上是对应的物资格，不在格子里就落到「全部」；手机落到展开按钮（熟食落到熟食那格）
+  // 资源图标落到哪里：熟食落到顶栏的熟食格，别的落到底部的「生产」（物资都在那里）
   resTarget(k) {
     const vis = e => { if (!e) return null; const r = e.getBoundingClientRect(); return r.width && r.height ? e : null; };
-    return vis(this.$('reschips').querySelector(`.res[data-k="${k}"]`)) || (k === 'food' && vis(this.$('stats').querySelector('[data-rk=food]')?.closest('.pill'))) || vis(this.$('resAll')) || vis(this.$('stats').querySelector('.pill.more'));
+    return (k === 'food' && vis(this.vt.food.e)) || vis(this.$('tbProd'));
   }
   fxLayer() { let l = this.$('fxl'); if (!l) { l = document.createElement('div'); l.id = 'fxl'; document.body.appendChild(l); } return l; }
   flyRes(x, y, k, n, small) {
@@ -388,7 +411,7 @@ export class UI {
         if (!ks.length || F.live.length >= MAX) continue;
         const txt = ks.map(k => { const n = Math.floor(a.v[k]); a.v[k] -= n; return `<b>+${fmt(n)}</b>${k === 'rp' ? '🔬' : RICON[k]}`; }).join(' ');
         const el = document.createElement('div'); el.className = 'pfl'; el.innerHTML = iconize(`<span>${txt}</span>`); layer.appendChild(el);
-        if (ks[0] !== 'rp' && now - (F.flyT || 0) > 1800) { const p = v.project(bx, by, 1.1 + s * 0.45), tg = this.$('reschips').querySelector(`.res[data-k="${ks[0]}"]`); if (p.on && tg && tg.offsetWidth) { F.flyT = now; setTimeout(() => this.flyRes(p.x, p.y - 30, ks[0], 1, true), 900); } }
+        if (ks[0] !== 'rp' && now - (F.flyT || 0) > 1800) { const p = v.project(bx, by, 1.1 + s * 0.45), tg = ks[0] === 'food' ? this.vt.food.e : null; if (p.on && tg && tg.offsetWidth) { F.flyT = now; setTimeout(() => this.flyRes(p.x, p.y - 30, ks[0], 1, true), 900); } }
         F.live.push({ el, x: bx, y: by, h: 1.1 + s * 0.45, t0: now });
       }
       if ((F.sweep += dt) > 20) { F.sweep = 0; for (const id of F.acc.keys()) if (!Sim.getB(S, id)) F.acc.delete(id); }
@@ -470,137 +493,131 @@ export class UI {
       return { k, have, f, net, short, full, fr: cap ? Math.min(1, have / cap) : 0, act: f.p > 0.01 || f.c > 0.01 };
     });
   }
-  // 顶栏常驻哪几种：缺的 > 满的 > 眼下最高两层在用的 > 木石板 > 其他在流动的；每 4 秒才重排一次，免得跳来跳去
-  resPick(ri, cid) {
-    const bar = this.$('resbar');
-    if (!this.resbarRO && window.ResizeObserver) { this.resbarRO = new ResizeObserver(es => { this.resbarW = es[0].contentRect.width; }); this.resbarRO.observe(bar); this.resbarW = bar.clientWidth; }
-    const w = (this.resbarRO ? this.resbarW : bar.clientWidth) || innerWidth;
-    const K = Math.max(3, Math.min(8, Math.floor((w - 74) / 76)));
-    const list = ri.filter(r => r.k !== 'food');
-    const topT = Math.max(1, ...list.filter(r => r.f.p > 0.01).map(r => RES[r.k].t));
-    const score = r => { const t = RES[r.k].t; return r.short ? 1000 + t : r.full ? 500 + t : r.act && t >= topT - 1 ? 100 + t * 10 : ['wood', 'stone', 'plank'].includes(r.k) ? 50 : r.act ? 20 + t : t; };
-    const now = performance.now(), P = this.resSel;
-    const must = list.filter(r => r.short || r.full).map(r => r.k);
-    const stale = !P || P.cid !== cid || P.K !== K || now - P.at > 4000 || must.some(k => !P.keys.includes(k)) || P.keys.some(k => !list.find(r => r.k === k));
-    if (stale) {
-      const keys = list.slice().sort((a, b) => score(b) - score(a)).slice(0, K).map(r => r.k);
-      this.resSel = { cid, K, at: now, keys };
+  // 眼下要留意的事：天气、袭营、掠夺者、商队、极光、人心、仓库……一条一条排好（提醒面板、铃上的数字、便签都从这里拿）
+  // lvl：bad 要紧 / warn 留意 / good 好事 / info 只是说一声（不算进铃上的数字）；urgent 的可以占便签
+  alertList(c, cr) {
+    const S = this.S, A = [], fc = Sim.forecastOf(S);
+    const w = Sim.weatherAt(S, S.t), od = cr.stall ? '熔炉停炉了' : cr.od ? '熔炉超载中' : '';
+    if (w.blizzard) A.push({ k: 'bliz', ic: '❄', lvl: 'bad', urgent: true, t: '暴风雪中', cnt: fmtTime(w.until - S.t), d: `还要 ${fmtTime(w.until - S.t)} 才停。${od ? od + '，' : ''}盯着燃料和炉温。`, act: 'wx', btn: '看备战' });
+    else if (w.warn) A.push({ k: 'bliz', ic: '❄', lvl: 'warn', urgent: true, t: '暴风雪要来了', cnt: fmtTime(w.inSec), d: `${fmtTime(w.inSec)} 后到。多备燃料，必要时让熔炉超载。${od ? od + '。' : ''}`, act: 'wx', btn: '看备战' });
+    else if (w.next <= fc) A.push({ k: 'blizfc', ic: '❄', lvl: 'info', t: '气象预报：暴风雪', cnt: fmtTime(w.next), d: `${fmtTime(w.next)} 后有暴风雪。${od ? od + '。' : ''}`, act: 'wx', btn: '看看' });
+    else if (od) A.push({ k: 'od', ic: '🔥', lvl: cr.stall ? 'bad' : 'warn', t: od, d: '点开看炉温，别烧过头。', act: 'wx', btn: '看炉温' });
+    { const e = Sim.wxeAt(S, S.t);
+      if (e.ev && (e.on || e.inSec <= fc)) {
+        const E = Sim.WXE[e.ev.kind], prep = Sim.wxePrepped(S, c, e.ev), need = Sim.wxeMatters(S, c, e.ev) && !prep;
+        if (e.on) A.push({ k: 'wxe', ic: E.ic, lvl: 'bad', urgent: true, t: E.n, cnt: fmtTime(e.left), d: `${E.d}还有 ${fmtTime(e.left)}。`, act: 'wx', btn: '看看' });
+        else A.push({ k: 'wxe', ic: E.ic, lvl: need && e.inSec <= Sim.WXE_WARN ? 'warn' : 'info', urgent: need && e.inSec <= Sim.WXE_WARN, t: `${E.n}要来了`, cnt: fmtTime(e.inSec), d: `${E.d}${need ? `还没「${E.prep}」，花点材料提前准备。` : prep ? '已经准备好了。' : ''}`, act: 'wx', btn: need ? '去准备' : '看看' });
+      } }
+    const nr = Sim.nextRaid(S);
+    if (nr && nr.in <= Sim.RAID_PREP) {
+      const rc = Sim.getCamp(S, nr.camp), p = Sim.raidPrep(S, nr), str = Sim.raidStrength(S, rc, nr), def = Sim.raidDefense(S, rc, nr);
+      const tags = p ? [p.fire && '火墙', p.mil && '民兵', p.hide && '收拢物资'].filter(Boolean).join('、') : '';
+      A.push({ k: 'raid', ic: '🐺', lvl: def >= str ? 'warn' : 'bad', urgent: true, t: `袭击${S.camps.length > 1 ? '「' + rc.name + '」' : '营地'}`, cnt: fmtTime(nr.in), d: `${fmtTime(nr.in)} 后到。防御 ${def}，对方强度 ${str}${tags ? `，已经备了${tags}` : '，还没备战'}。`, act: 'raidp', btn: '去备战' });
     }
-    const keep = new Set(this.resSel.keys);
-    return list.filter(r => keep.has(r.k));
-  }
-  resDrawer(open) {
-    open = open ?? !this.resOpen;
-    if (!!this.resOpen === open) return;
-    this.resOpen = open;
-    this.$('top').classList.toggle('open', open);
-    this.hud();
-  }
-  renderDrawer(c, cr, ri) {
-    const el = this.$('resdrawer'), S = this.S, cap = cr.cap || 0;
-    el.classList.toggle('show', !!this.resOpen);
-    if (!this.resOpen) { el.dataset.h = ''; return; }
-    const bar = this.$('resbar'), r1 = this.$('top').querySelector('.r1'), anchor = bar.offsetHeight ? bar : r1;
-    el.style.top = (anchor.offsetTop + anchor.offsetHeight + 5) + 'px';
-    const nS = ri.filter(r => r.short && r.k !== 'food').length, nF = ri.filter(r => r.full).length;
-    let h = `<div class="rdh"><b>物资</b><small>${esc(c.name)} · 每种上限 ${fmt(cap)}${nS ? ` · <span style="color:#ffb7a3">${nS} 种在缺</span>` : ''}${nF ? ` · <span style="color:var(--warn)">${nF} 种满了</span>` : ''}</small><span class="rdo" data-d="stock">总览 ›</span><span class="rdx" data-d="x">✕</span></div>`;
-    let t = 0;
-    for (const r of ri) {
-      const tt = RES[r.k].t;
-      if (tt !== t) { h += (t ? '</div>' : '') + `<div class="rdt">${TIER_NAMES[tt]}</div><div class="rdg">`; t = tt; }
-      const nc = r.net < -0.05 ? 'neg' : r.net > 0.05 ? 'pos' : '';
-      h += `<div class="rdc ${r.short ? 'short' : r.full ? 'full' : ''}" data-d="stock" style="--f:${(r.fr * 100).toFixed(1)}%" title="${RES[r.k].n}：产 ${fmt(r.f.p)} · 用 ${fmt(r.f.c)} / 分钟"><span class="rdi">${RICON[r.k]}</span><span class="rdn"><span>${RES[r.k].n}</span>${r.short ? '<em class="rdtag">缺</em>' : r.full ? '<em class="rdtag">满</em>' : ''}</span><span class="rdv"><b>${fmt(r.have)}</b><small class="${nc}">${r.act ? (r.net >= 0 ? '+' : '') + fmt(r.net) : '—'}</small></span><i></i></div>`;
+    for (const d of Sim.gangDemands(S)) A.push({ k: 'gang' + d.g.id, ic: '🏴', lvl: d.st.dem.fight ? 'bad' : 'warn', urgent: true, t: `「${Sim.gangName(d.g)}」${d.st.dem.fight ? '要打过来了' : '来索贡'}`, cnt: fmtTime(d.left), d: d.st.dem.fight ? '靠箭塔和民兵顶回去，或者趁早交贡。' : '交贡、做买卖，或者靠箭塔顶回去。到时候没人答复，守得住就打，守不住就交贡。', act: 'gang', arg: d.g.id, btn: '去答复' });
+    if (S.car) { const left = S.car.orders.filter(o => !o.done).length; if (left) A.push({ k: 'car', ic: '🛷', lvl: 'good', t: '雪橇商队扎营了', cnt: fmtTime(S.car.until - S.t), d: `在「${Sim.getCamp(S, S.car.camp)?.name || ''}」外面，还有 ${left} 张订单。`, act: 'car', btn: '看订单' }); }
+    if (S.aurOpen != null) A.push({ k: 'aur', ic: '🌌', lvl: 'good', t: '极光夜', d: '大家一起看一会儿：所有营地希望 +4、余烬 +1。', act: 'aurora', btn: '一起看' });
+    { const chs = Sim.chapters(S); if (chs.some(x => x.done && !x.got)) A.push({ k: 'gift', ic: '🎁', lvl: 'good', t: '章节奖励可以领了', d: '这一章的任务做完了。', act: 'chapter', btn: '领奖励' }); }
+    { const hp = Math.round(c.hope ?? 50), ds = Math.round(c.disc ?? 10);
+      if (ds >= 70 || hp <= 25 || ds >= 55) A.push({ k: 'mood', ic: '🕯️', lvl: ds >= 70 ? 'bad' : 'warn', t: ds >= 55 ? `「${c.name}」不满 ${ds}` : `「${c.name}」希望只剩 ${hp}`, d: ds >= Sim.LEAVE_AT ? '有人在趁夜离开。看看是什么在拖累大家。' : '干活会变慢。看看是什么在拖累大家，改一改律令。', act: 'tb', arg: 'mood', btn: '看人心' }); }
+    if (!c.trade) {
+      const ri = this.resInfo(c, cr, RES_KEYS.filter(k => RES[k].t <= S.known && (c.stock[k] || 0) >= 1));
+      const sh = ri.filter(r => r.short && r.k !== 'food'), fu = ri.filter(r => r.full);
+      if (sh.length || fu.length) A.push({ k: 'store', ic: '📦', lvl: 'warn', t: [sh.length && `${sh.slice(0, 2).map(r => RES[r.k].n).join('、')}${sh.length > 2 ? '等' : ''}在缺`, fu.length && `${fu.slice(0, 2).map(r => RES[r.k].n).join('、')}${fu.length > 2 ? '等' : ''}满了`].filter(Boolean).join('，'), d: fu.length ? '满了相关建筑会停工：升级仓库，或开「满仓自动兑换」。' : '看看卡在哪一环。', act: 'tb', arg: 'stock', btn: '看物资' });
     }
-    if (t) h += '</div>';
-    h += `<div class="rdf">数字右边是每分钟的净变化。红框是缺料，黄框是满仓。点任意一格打开物资总览，看卡在哪一环。</div>`;
-    if (el.dataset.h !== h) { el.dataset.h = h; el.innerHTML = iconize(h); }
+    for (const b of Sim.activeBuffs(S, c)) A.push({ k: 'buff' + b.n, ic: '✨', lvl: 'info', t: b.n || '加成', cnt: fmtTime(b.until - S.t), d: `${BUFF_TXT(b)}，还剩 ${fmtTime(b.until - S.t)}。` });
+    { const rl = NORTH_RULES[Sim.campRule(S, c)]; if (rl) A.push({ k: 'rule', ic: rl.ic, lvl: 'info', t: `这一站的地貌：${rl.n}`, d: `好处是${rl.good}；坏处是${rl.bad}。只管这一站的主营地。` }); }
+    { const sky = Sim.skyAt(S, S.t); if (sky.icefog > 0.3) A.push({ k: 'fog', ic: '🌫️', lvl: 'info', t: '冰雾', d: '远处看不太清，不影响干活。' }); else if (sky.aurora > 0.3 && S.aurOpen == null) A.push({ k: 'aurs', ic: '🌌', lvl: 'info', t: '极光', d: '只是好看，不影响产出。' }); }
+    { const dc = dayCycle(S.t), nx = { 白天: '黄昏', 黄昏: '入夜', 夜晚: '黎明', 黎明: '天亮' }[dc.name]; A.push({ k: 'tod', ic: dc.icon, lvl: 'info', t: dc.name, cnt: fmtTime(dc.left), d: `${fmtTime(dc.left)} 后${nx}。昼夜只改变光线，不影响产出。` }); }
+    return A;
   }
+  // 顶栏四格：温度（有暴风雪时写在下面）、人口（下面是希望或不满）、燃料够烧多久、熟食
+  vitals(c, cr, fuelMin, fuelEta) {
+    const S = this.S, V = this.vt, set = (k, b, l, cls) => { const v = V[k]; if (v.bh !== b) { v.bh = b; v.b.innerHTML = b; } if (v.lh !== l) { v.lh = l; v.l.innerHTML = l; } const cn = `vt hpl ${k} ${cls}`; if (v.e.className !== cn) v.e.className = cn; };
+    const temp = Math.round(cr.tH ?? c.temp), w = Sim.weatherAt(S, S.t);
+    const wl = w.blizzard ? `风雪 ${fmtTime(w.until - S.t)}` : w.warn ? `${fmtTime(w.inSec)}来雪` : '体感';
+    set('tmp', `${temp}°`, wl, (temp < 0 || w.blizzard ? 'bad' : w.warn ? 'warn' : '') + (temp < 10 ? ' cold' : ' warm'));
+    const hp = Math.round(c.hope ?? 50), ds = Math.round(c.disc ?? 10), mt = cr.mood || { hT: hp, dT: ds }, arr = (v, t) => t > v + 1 ? '▲' : t < v - 1 ? '▼' : '';
+    const pl = c.wait > 0 && ds < 55 ? `<span class="neg">${c.wait} 人等床位</span>` : ds >= 55 ? `不满 ${ds}${arr(ds, mt.dT)}` : `希望 ${hp}${arr(hp, mt.hT)}`;
+    set('ppl', `${c.people}${c.bots ? `<small>+${c.bots}🤖</small>` : ''}<small>/${cr.housing || 0}</small>`, pl, ds >= 70 ? 'bad' : ds >= 55 || hp <= 25 ? 'warn' : '');
+    const ok = fuelEta === Infinity && fuelMin < 6000, show = Math.min(6001, fuelEta === Infinity ? fuelMin : fuelEta);
+    const fv = fuelMin > 6000 ? '充足' : ok ? '够烧' : show >= 60 ? `${Math.floor(show / 60)}时${show < 600 && Math.floor(show % 60) ? Math.floor(show % 60) + '分' : ''}` : `${Math.max(0, Math.floor(show))}分`;
+    set('fuel', fv, fuelMin > 6000 || ok ? '燃料够烧' : '燃料还能烧', fuelEta < 30 ? 'bad' : fuelEta < 90 ? 'warn' : '');
+    V.fuel.f.style.setProperty('--f', Math.min(1, fuelMin / 240).toFixed(2));
+    const fn = cr.foodNet || 0, fm = fn < 0 ? (c.stock.food || 0) / -fn : Infinity;
+    set('food', fmt(this.rolled('food', c.stock.food)), `<span class="${fn < -0.05 ? 'neg' : fn > 0.05 ? 'pos' : ''}">${fn >= 0 ? '+' : ''}${fmt(fn)}/分</span>`, fm < 10 ? 'bad' : fm < 30 ? 'warn' : '');
+    V.tmp.e.title = `住在屋里的体感温度${w.blizzard ? ' · 暴风雪还有 ' + fmtTime(w.until - S.t) : w.warn ? ' · 暴风雪 ' + fmtTime(w.inSec) + ' 后到' : ''}（点开熔炉）`;
+    V.ppl.e.title = `人口 / 床位 · 希望 ${hp} · 不满 ${ds}${c.wait > 0 ? ` · ${c.wait} 人在等床位` : ''}`;
+    V.fuel.e.title = ok ? `燃料进得比烧得快（库存够烧 ${fmtTime(fuelMin * 60)}）` : `燃料还能烧 ${fmtTime(show * 60)}`;
+    V.food.e.title = '熟食库存 · 每分钟净变化';
+  }
+  // 顶部目标：章节牌子 + 这一步做什么 + 进度条；旁边的小按钮是规划 / 跟着看 / 拿主意
+  goalSync() {
+    const S = this.S, goal = nextGoal(S), chs = Sim.chapters(S), cur = chs[chs.length - 1], gift = chs.some(x => x.done && !x.got);
+    const tr = Sim.journeyOf(S).trip, ge = this.$('goal');
+    const rg = !tr && (Sim.rateGoals(S).find(x => !x.eternal) || Sim.rateGoals(S)[0]);
+    let p = cur ? cur.tasks.filter(t => t.ok).length / Math.max(1, cur.tasks.length) : 0, right = cur ? `${cur.tasks.filter(t => t.ok).length}/${cur.tasks.length}` : '';
+    if (tr && tr.phase === 'go') { p = tr.d / tr.len; right = `${Math.round(p * 100)}%`; }
+    else if (rg && goal.startsWith(RES[rg.r].n)) { const r = Sim.prodRate(S, rg.r); p = Math.min(1, r / rg.n); }
+    const chip = tr && tr.road ? '<i class="gplan" data-act="roadopen">拿主意</i>' : tr && tr.phase === 'go' ? `<i class="gplan" data-act="followtrip">${this.g.view.followTrip ? '不跟了' : '跟着看'}</i>` : '<i class="gplan" data-act="plan">规划</i>';
+    const tag = cur ? cur.ch.n.split(' · ')[0] : '目标', title = goal || (cur ? cur.ch.n.split(' · ')[1] : '');
+    const key = [tag, title, right, gift, chip, (p * 50 | 0)].join('|');
+    if (ge.dataset.t === key) return;
+    ge.dataset.t = key; ge.dataset.act = 'chapter';
+    ge.innerHTML = iconize(title ? `<div class="gh"><span class="gtag">${esc(tag)}</span><span class="gt">${esc(title)}</span>${gift ? '<i class="gift">🎁 领奖励</i>' : right ? `<span class="gr">${right}</span>` : ''}${chip}</div><div class="gbar"><i style="--p:${p.toFixed(3)}"></i></div>` : '');
+    ge.classList.toggle('gift', gift);
+    ge.style.visibility = title ? '' : 'hidden';
+    ge.title = '点开看这一章的任务';
+  }
+  // 便签：先说要紧的（老向导最急的一句、暴风雪、掠夺者、袭营），没有就说老向导的下一句；「稍后」收成左下角一个小角
+  noteSync(A) {
+    if (this.noteT && performance.now() - this.noteT < 1200) return;
+    this.noteT = performance.now();
+    const S = this.S, el = this.$('note'), mini = this.$('noteMini');
+    const a = S.meta.tut ? Sim.advisor(S) : null;
+    const u = (a && a.pri === 0) ? null : (A || []).find(x => x.urgent);
+    let n = null;
+    if (u) n = { key: 'a:' + u.k, urgent: u.lvl === 'bad', head: `${u.ic} ${u.t}`, cnt: u.cnt, text: u.d, btn: u.btn || '去看看', go: () => this.actDo(u.act, u.arg) };
+    else if (a) {
+      const btn = { plan: '去规划', raid: '去备战', scout: '去侦察', arrive: '去放熔炉', migrate: '去北迁', place: '去建', spot: '去看看', roadopen: '拿主意', campgo: '去看看' }[a.act] || (a.kind === 'trip' ? '跟着看' : a.kind === 'fuel' || a.kind === 'cold' ? '去熔炉' : a.kind === 'food' ? '看物资' : '去看看');
+      n = { key: `v:${a.kind || ''}|${a.act || ''}|${a.arg ?? ''}`, urgent: a.pri === 0, head: '老向导', text: a.text, btn, go: () => this.advisorGo() };
+    }
+    this.adv = a; this.noteCur = n;
+    const z = this.noteZz, snoozed = n && z && z.key === n.key && performance.now() < z.until;
+    const show = !!n && !snoozed;
+    el.classList.toggle('show', show); mini.classList.toggle('show', !!(n && snoozed));
+    if (!show) { el.dataset.h = ''; return; }
+    const h = `<div class="nk">${esc(n.head)}${n.cnt ? `<small>${n.cnt}</small>` : ''}</div><p>${esc(n.text)}</p><div class="nb"><button data-n="go">${esc(n.btn)}</button><button class="l" data-n="later">稍后</button></div>`;
+    if (el.dataset.h !== h) {
+      const fresh = el.dataset.k !== n.key; el.dataset.h = h; el.dataset.k = n.key;
+      el.innerHTML = iconize(h); el.classList.toggle('urgent', !!n.urgent);
+      if (fresh) { el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); }
+    }
+  }
+  noteGo() { const n = this.noteCur; if (n) n.go(); this.noteT = 0; this.hud(); }
+  // 稍后：同一件事 3 分钟内不再贴出来（换了一件事就马上贴）
+  noteLater() { const n = this.noteCur; if (!n) return; this.noteZz = { key: n.key, until: performance.now() + 180000 }; this.noteT = 0; this.noteSync(this.alertsNow); }
   hud() {
     const S = this.S, c = this.camp(), cr = Sim.rt(S).c[c.id] || {};
     this.watchStock(c, cr);
     this.watchLevels();
     const fuelMin = cr.burnPerMin ? cr.fuelUnits / cr.burnPerMin : 0, fuelEta = Sim.fuelLeft(cr); // 库存够烧多久；算上进账还能撑多久（跟得上就是 Infinity）
-    const w = Sim.weatherAt(S, S.t);
-    let weather = '';
-    const odTag = cr.stall ? '<em class="odt cool">停炉</em>' : cr.od ? '<em class="odt">超载</em>' : '';
-    if (w.blizzard) weather = `<span class="pill wx bad" title="点开看备战情况和超载熔炉">❄<span class="lg"> 暴风雪中</span> ${fmtTime(w.until - S.t)}${odTag}</span>`;
-    else if (w.warn) weather = `<span class="pill wx warn" title="点开看备战情况和超载熔炉">❄<span class="lg"> 暴风雪</span> ${fmtTime(w.inSec)}<span class="lg"> 后</span>${odTag}</span>`;
-    else if (w.next <= Sim.forecastOf(S)) weather = `<span class="pill wx fc" title="气象预报：${fmtTime(w.next)} 后有暴风雪（点开看备战情况）">❄<small>${fmtTime(w.next)}</small>${odTag}</span>`;
-    else if (odTag) weather = `<span class="pill wx" title="熔炉超载中（点开看炉温）">🔥${odTag}</span>`;
-    // 冰风暴、极寒夜、冰湖开裂：进行中，或者比暴风雪先到的预报
-    { const e = Sim.wxeAt(S, S.t);
-      if (e.ev && (e.on || (e.inSec <= Sim.forecastOf(S) && !w.blizzard && !w.warn && !(w.next <= Sim.forecastOf(S) && w.next < e.inSec)))) {
-        const E = Sim.WXE[e.ev.kind], prep = Sim.wxePrepped(S, c, e.ev), need = Sim.wxeMatters(S, c, e.ev) && !prep;
-        const tip = `${E.n}：${E.d}${need ? `（还没「${E.prep}」，点开准备）` : prep ? '（已经准备好了）' : ''}`;
-        weather += e.on ? `<span class="pill wx ev bad" title="${esc(tip)}">${E.ic}<span class="lg"> ${E.n}</span> ${fmtTime(e.left)}</span>`
-          : `<span class="pill wx ev ${e.inSec <= Sim.WXE_WARN ? 'warn' : 'fc'} ${need ? 'need' : ''}" title="${esc(`气象预报：${fmtTime(e.inSec)} 后有${tip}`)}">${E.ic}<small>${fmtTime(e.inSec)}</small></span>`;
-      } }
-    for (const d of Sim.gangDemands(S)) weather += `<span class="pill gang ${d.st.dem.fight ? 'bad' : 'warn'}" data-gang="${d.g.id}" title="${esc(`「${Sim.gangName(d.g)}」${d.st.dem.fight ? '要打过来了' : '在索贡，点开答复'}`)}">🏴<span class="lg">${d.st.dem.fight ? ' 要打来了' : ' 索贡'}</span><small>${fmtTime(d.left)}</small></span>`;
-    if (S.car) { const left = S.car.orders.filter(o => !o.done).length; if (left) weather += `<span class="pill car" title="雪橇商队在「${esc(Sim.getCamp(S, S.car.camp)?.name || '')}」外扎营，还有 ${left} 张订单（点开看）">🛷${left}<small>${fmtTime(S.car.until - S.t)}</small></span>`; }
-    else {
-      // 极光夜、冰雾：只是好看，开始时提一句
-      const sky = Sim.skyAt(S, S.t), was = this.skyWas || (this.skyWas = { a: sky.aurora > 0.2, i: sky.icefog > 0.2 });
-      if (sky.aurora > 0.3 && S.aurOpen == null) weather += `<span class="pill sky aur" title="极光夜：只是好看，不影响产出">🌌<small>极光</small></span>`;
-      else if (sky.icefog > 0.3) weather += `<span class="pill sky ice" title="冰雾：远处看不太清，不影响产出">🌫️<small>冰雾</small></span>`;
+    // 冰雾：只是好看，开始时提一句
+    { const sky = Sim.skyAt(S, S.t), was = this.skyWas || (this.skyWas = { i: sky.icefog > 0.2 });
       if (sky.icefog > 0.2 && !was.i) Sim.logMsg(S, '🌫️ 起冰雾了，空气里闪着细小的冰晶。远处看不太清，不影响干活。');
-      was.a = sky.aurora > 0.2; was.i = sky.icefog > 0.2;
-    }
-    this.$('aurBtn').classList.toggle('on', S.aurOpen != null);
+      was.i = sky.icefog > 0.2; }
+    const cn = this.$('campName'), ct = c.name; if (cn.firstChild.textContent !== ct) cn.firstChild.textContent = ct;
+    cn.classList.toggle('one', S.camps.length < 2); cn.title = S.camps.length > 1 ? '点一下换到下一座营地' : '营地概况';
+    this.vitals(c, cr, fuelMin, fuelEta);
     this.$('menuBtn').classList.toggle('dot', !!(S.meta.book && S.meta.book.fresh && S.meta.book.fresh.length));
-    if (S.aurOpen != null) weather += `<span class="pill core aurgo" title="极光夜：大家一起看一会儿，所有营地希望 +4、余烬 +1">🌌<small>一起看</small></span>`;
-    const nr = Sim.nextRaid(S);
-    let raid = '';
-    if (nr && nr.in <= Sim.RAID_PREP) {
-      const rc = Sim.getCamp(S, nr.camp), p = Sim.raidPrep(S, nr);
-      const str = Sim.raidStrength(S, rc, nr), def = Sim.raidDefense(S, rc, nr);
-      const tags = p ? [p.fire && '🔥', p.mil && '⚔', p.hide && '📦'].filter(Boolean).join('') : '';
-      raid = `<span class="pill raid ${def >= str ? 'warn' : 'bad'}" title="点开备战：火墙、民兵、收拢物资">🐺 ${fmtTime(nr.in)}<span class="lg"> 后袭击${S.camps.length > 1 ? '「' + esc(rc.name) + '」' : ''} 防御${def}/强度${str}</span>${tags ? `<em class="odt">${tags}</em>` : ''}</span>`;
-    }
-    const bl = Sim.activeBuffs(S, c);
-    const buffs = bl.length ? `<span class="pill buff ${bl.some(b => b.v < 0 && b.k !== 'fuel' || b.k === 'fuel' && b.v > 0) ? 'warn' : ''}" title="${bl.map(b => `${esc(b.n || '')}：${BUFF_TXT(b)}，还剩 ${fmtTime(b.until - S.t)}`).join('\n')}">✨${bl.length > 1 ? bl.length : ''}<small>${fmtTime(Math.min(...bl.map(b => b.until)) - S.t)}</small></span>` : '';
-    const rl = NORTH_RULES[Sim.campRule(S, c)];
-    const rulePill = rl ? `<span class="pill rulep" title="${esc(`这一站的地貌「${rl.n}」：好处是${rl.good}；坏处是${rl.bad}`)}">${rl.ic}<span class="lg"> ${rl.n}</span></span>` : '';
-    const dc = dayCycle(S.t), nextName = { 白天: '黄昏', 黄昏: '入夜', 夜晚: '黎明', 黎明: '天亮' }[dc.name];
-    const tod = `<span class="pill tod" title="${dc.name}：${fmtTime(dc.left)} 后${nextName}（昼夜只改变光线，不影响产出）">${dc.icon}<small>${fmtTime(dc.left)}</small></span>`;
-    const hp = Math.round(c.hope ?? 50), dc2 = Math.round(c.disc ?? 10), mt = cr.mood || { hT: hp, dT: dc2 };
-    const arr = (v, t) => t > v + 1 ? '▲' : t < v - 1 ? '▼' : '';
-    const moodPill = `<span class="pill mood ${dc2 >= 70 ? 'bad' : hp <= 25 || dc2 >= 55 ? 'warn' : ''}" title="希望 ${hp}${arr(hp, mt.hT)} · 不满 ${dc2}${arr(dc2, mt.dT)}（点开看人心和律令）"><span class="mh"><em>望</em><i><i style="width:${hp}%"></i></i><b>${hp}<small>${arr(hp, mt.hT)}</small></b></span><span class="md"><em>怨</em><i><i style="width:${dc2}%"></i></i><b>${dc2}<small>${arr(dc2, mt.dT)}</small></b></span></span>`;
-    const temp = Math.round(cr.tH ?? c.temp);
-    const foodNet = cr.foodNet || 0;
-
-    this.$('campName').textContent = c.name + (S.camps.length > 1 ? ' ▾' : '');
-    // 手机上只留一行：温度、人口、熟食、燃料 + 要紧的警告；其余点 ▾ 展开
-    const fuelOk = fuelEta === Infinity && fuelMin < 6000; // 库存不多，但砍得比烧得快
-    const fuelShow = Math.min(6001, fuelEta === Infinity ? fuelMin : fuelEta); // 进账不够时，按净消耗算还能撑多久
-    const fuelShort = fuelMin > 6000 ? '充足' : fuelOk ? '够烧' : fuelShow >= 60 ? `${Math.floor(fuelShow / 60)}时` : `${Math.floor(fuelShow)}分`;
-    const urgent = h => h.replace(/class="pill ([^"]*)"/g, (m, cl) => /\b(bad|warn)\b/.test(cl) ? `class="pill core ${cl}"` : m);
-    this.$('stats').innerHTML = iconize(`
-      <span class="pill core gauge ${temp < 0 ? 'bad' : temp < 10 ? 'cold' : 'warm'}" style="--g:${Math.max(0.04, Math.min(1, (temp + 30) / 90)).toFixed(2)}" title="住在屋里的体感温度"><i></i><b>${temp}°</b></span>
-      <span class="pill core${c.wait > 0 ? ' wait' : ''}" title="人口 / 床位${c.wait > 0 ? ` · ${c.wait} 人在等床位` : ''}">👥${c.people}${c.bots ? '+' + c.bots + '🤖' : ''}<small class="lg">/${cr.housing || 0}</small>${c.wait > 0 ? `<small class="wt">+${c.wait}</small>` : ''}</span>
-      <span class="pill core ${foodNet < 0 ? 'bad' : ''}" title="熟食库存 · 每分钟净变化">🍖<span data-rk="food">${fmt(this.rolled('food', c.stock.food))}</span> <small>${foodNet >= 0 ? '+' : ''}${fmt(foodNet)}</small></span>
-      <span class="pill core ${fuelEta < 30 ? 'bad' : ''}" title="${fuelOk ? `燃料进得比烧得快（库存够烧 ${fmtTime(fuelMin * 60)}）` : '燃料还能烧多久'}">🔥<span class="lg">${fuelMin > 6000 ? '充足' : fuelOk ? '够烧' : fmtTime(fuelShow * 60)}</span><span class="sh">${fuelShort}</span><span class="fb"><i style="--f:${Math.min(1, fuelMin / 240).toFixed(2)}"></i></span></span>
-      ${urgent(moodPill)}${rulePill}${tod}${buffs}${urgent(weather)}${urgent(raid)}<span class="pill core more" title="展开更多">${this.resOpen ? '▴' : '▾'}</span>`);
-    // 资源条：只常驻几种（缺的、满的、眼下这一层在用的），其余收进「全部」抽屉
-    const keys = RES_KEYS.filter(k => (c.stock[k] || 0) >= 1 || (RES[k].t <= S.known && RES[k].t <= 1 && k !== 'food'));
-    const cap = cr.cap || 0;
-    const fl = cr.flow || {}, rkeys = RES_KEYS.filter(k => RES[k].t <= S.known && ((c.stock[k] || 0) >= 1 || RES[k].t <= 1 || (fl[k] && (fl[k].p > 0.01 || fl[k].want > 0.01))));
-    const ri = this.resInfo(c, cr, rkeys), alerts = ri.filter(r => r.k !== 'food' && (r.short || r.full));
-    const sel = this.resPick(ri, c.id);
-    const chips = sel.map(r => `<span data-k="${r.k}" class="res ${r.short ? 'short' : r.full ? 'full' : ''}" style="--f:${r.fr.toFixed(2)}" title="${RES[r.k].n} ${fmt(r.have)}/${fmt(cap)} · 每分钟 ${r.net >= 0 ? '+' : ''}${fmt(r.net)}${r.short ? '（缺）' : r.full ? '（满了）' : ''}">${RICON[r.k]}<b data-rk="${r.k}">${fmt(this.rolled(r.k, r.have))}</b></span>`).join('');
-    const rc = this.$('reschips'); if (rc.dataset.h !== chips) { rc.dataset.h = chips; rc.innerHTML = iconize(chips); }
-    const ab = this.$('resAll'), aCls = alerts.some(r => r.short) ? 'ra rab' : alerts.length ? 'ra' : '';
-    const aHtml = `全部<b>${ri.length}</b><i>▾</i>`;
-    if (ab.dataset.h !== aHtml) { ab.dataset.h = aHtml; ab.innerHTML = aHtml; }
-    ab.className = (this.resOpen ? 'open ' : '') + aCls;
-    ab.title = alerts.length ? `${alerts.filter(r => r.short).map(r => RES[r.k].n + '缺').concat(alerts.filter(r => r.full).map(r => RES[r.k].n + '满了')).join('，')}（点开看全部物资）` : '展开全部物资';
-    const mo = this.$('stats').querySelector('.pill.more'); if (mo && aCls) mo.className += ' ' + aCls;
-    this.renderDrawer(c, cr, ri);
+    const A = this.alertsNow = this.alertList(c, cr);
     this.logBadge();
     this.syncInset();
     // 有建筑在产的物资快满了：提醒一次（同一种物资 30 分钟内不重复，两条之间至少隔 3 分钟）
+    const cap = cr.cap || 0;
     if (!c.trade && cap && performance.now() - (this.fullWarnAt || -1e9) > 180000) {
       const now = performance.now(), fw = this.fullWarn || (this.fullWarn = {});
-      for (const k of keys) {
+      for (const k of RES_KEYS) {
         const f = (cr.flow || {})[k];
         if (!f || f.p - f.c <= 0.05 || (c.stock[k] || 0) < cap * 0.9 || !S.buildings.some(b => b.camp === c.id && BLD[b.type].out && BLD[b.type].out[k])) continue;
         const key = c.id + k;
@@ -610,38 +627,26 @@ export class UI {
         break;
       }
     }
-    const goal = nextGoal(S), chs = Sim.chapters(S), cur = chs[chs.length - 1], gift = chs.some(c => c.done && !c.got);
-    const ge = this.$('goal'), gk = goal + '|' + (cur ? cur.i + ':' + cur.tasks.filter(t => t.ok).length : '') + '|' + gift + '|' + !!this.g.view.followTrip;
-    if (ge.dataset.t !== gk) {
-      ge.dataset.t = gk; ge.dataset.act = 'chapter';
-      const tr = Sim.journeyOf(S).trip, tripGo = tr && tr.phase === 'go', chip = tr && tr.road ? '<i class="gplan" data-act="roadopen">拿主意</i>' : tripGo ? `<i class="gplan" data-act="followtrip">${this.g.view.followTrip ? '不跟了' : '跟着看'}</i>` : '<i class="gplan" data-act="plan">规划</i>';
-      ge.innerHTML = iconize(cur ? `<b>${cur.ch.n.split(' · ')[0]}</b>${goal ? esc(goal) : esc(cur.ch.n.split(' · ')[1])}${gift ? '<i class="gift">🎁 领奖励</i>' : `<i class="gprog">${cur.tasks.filter(t => t.ok).length}/${cur.tasks.length}</i>`}${chip}` : goal ? `<b>目标</b>${esc(goal)}${chip}` : '');
-      ge.classList.toggle('gift', gift);
-      ge.style.display = ge.innerHTML ? '' : 'none';
-    }
-    // 老向导：一次只说一句；新手引导还没走完时先不出来
-    if (!this.advT || performance.now() - this.advT > 1500) {
-      this.advT = performance.now();
-      const ae = this.$('advisor'), a = S.meta.tut ? Sim.advisor(S) : null, ak = a ? a.text : '';
-      if (ae.dataset.t !== ak) {
-        ae.dataset.t = ak; this.adv = a;
-        ae.innerHTML = a ? `<span class="advf">老</span><span class="advt">${esc(a.text)}</span>` : '';
-        ae.className = a ? `pri${a.pri}` : '';
-        ae.style.display = a ? '' : 'none';
-        if (a) { ae.classList.remove('pop'); void ae.offsetWidth; ae.classList.add('pop'); }
-      }
-    }
-    // 提示条贴在顶栏下面：顶栏尺寸变了才量（每次重画顶栏后马上量，会逼浏览器重新排版）
-    if (!this.topRO && window.ResizeObserver) { const top = this.$('top'); this.topRO = new ResizeObserver(() => { this.$('toasts').style.top = (top.getBoundingClientRect().bottom + 6) + 'px'; }); this.topRO.observe(top); }
-    else if (!this.topRO) this.$('toasts').style.top = (this.$('top').getBoundingClientRect().bottom + 6) + 'px';
-    // 北迁按钮提示
+    this.goalSync();
+    this.noteSync(A);
+    document.body.classList.toggle('hint-on', !!(this.g.hints && this.g.hints.cur));
+    // 底部分区上的小点
     { const T = S.tech, ct = T && T.cur && TECHS.find(t => t.id === T.cur), tb = this.$('tbResearch');
       tb.style.setProperty('--p', ct ? Math.min(1, T.prog / ct.pts).toFixed(3) : 0); tb.classList.toggle('busy', !!ct);
       tb.classList.toggle('dot', !ct && S.buildings.some(b => b.type === 'workshop') && TECHS.some(t => Sim.techCheck(S, t.id).ok)); }
-    this.$('tbMigrate').classList.toggle('dot', S.meta.embers > 0 && Object.keys(EMBER_UPS).some(k => S.meta.embers >= emberCost(k, Sim.up(S, k))));
     this.$('tbBuild').classList.toggle('dot', this.newBld().length > 0);
-    this.$('tbSpecs').classList.toggle('dot', Object.keys(S.meta.specs).some(id => !S.specAt[id]));
-    this.$('tbScout').classList.toggle('dot', Object.keys(S.poiFound).length > 0 || !!Sim.expPending(S));
+    this.$('tbNorth').classList.toggle('dot', ['migrate', 'specs', 'scout'].some(k => this.tabDot(k)));
+    this.$('tbCamp').classList.toggle('dot', this.tabDot('camp'));
+  }
+  // 页签上的小点：这一页有事等你
+  tabDot(k) {
+    const S = this.S;
+    if (k === 'migrate') { const g = Sim.departGate(S); return !!(g && g.ok && !Sim.journeyOf(S).trip); }
+    if (k === 'specs') return Object.keys(S.meta.specs).some(id => !S.specAt[id]) || (S.meta.embers > 0 && Object.keys(EMBER_UPS).some(k => S.meta.embers >= emberCost(k, Sim.up(S, k)) && Sim.up(S, k) < EMBER_UPS[k].max));
+    if (k === 'scout') return Object.keys(S.poiFound).length > 0 || !!Sim.expPending(S);
+    if (k === 'camp') { const c = this.camp(); return !c.depot && !c.focus && (Sim.getB(S, c.furnace) || {}).lvl >= FOCUS_LVL; }
+    if (k === 'build') return this.newBld().length > 0;
+    return false;
   }
 
   // 建筑头顶的状态图标
@@ -844,10 +849,11 @@ export class UI {
     if (this.tutS !== S) { this.tutS = S; this.tutSeen = {}; if (!S.meta.tut && (S.meta.runs > 1 || S.buildings.length > 12)) S.meta.tut = true; }
     const box = this.coach || (this.coach = this.mkCoach());
     const hide = () => { box.wrap.style.display = 'none'; box.ring.style.display = 'none'; };
+    document.body.classList.toggle('coach-on', !S.meta.tut);
     if (S.meta.tut || this.g.titleOn || this.$('modal').classList.contains('show')) return hide();
     const c = this.camp();
     const steps = TUT.filter(t => !(t.b ? Sim.countType(S, c.id, t.b) > 0 : this.tutSeen[t.k]));
-    if (!steps.length) { S.meta.tut = true; hide(); this.toast('新手引导完成。目标栏下面的老向导会一句一句提醒下一步；「菜单 → 怎么玩」里有完整的说明。', 'good'); return; }
+    if (!steps.length) { S.meta.tut = true; hide(); this.toast('新手引导完成。左下角的便签是老向导，会一句一句提醒下一步；「菜单 → 帮助」里有完整的说明。', 'good'); return; }
     const st = steps[0], i = TUT.indexOf(st) + 1, touch = matchMedia('(pointer:coarse)').matches;
     let el = null, pt = null, msg = '';
     if (st.b) {
@@ -861,13 +867,8 @@ export class UI {
         else { el = this.sheet.querySelector(`.card[data-arg="${st.b}"]`); msg = `选「${BLD[st.b].n}」。`; if (el && this.tutScroll !== st.b) { this.tutScroll = st.b; el.scrollIntoView({ block: 'nearest' }); } }
       } else { el = document.querySelector('#toolbar button[data-arg=build]'); msg = '点「建造」。'; }
       msg = `<b>建${BLD[st.b].n}</b>${st.why}<br>👉 ${msg}`;
-    } else if (st.k === 'stock') {
-      const phone = !this.$('resbar').offsetHeight;
-      if (this.resOpen) { el = this.$('resdrawer').querySelector('.rdo'); msg = `<b>看物资</b>${st.why}<br>👉 点「总览」。`; }
-      else if (phone) { el = this.$('stats').querySelector('.pill.more'); msg = `<b>看物资</b>${st.why}<br>👉 点右上角的 ▾ 展开物资。`; }
-      else { el = this.$('reschips'); msg = `<b>看物资</b>${st.why}<br>👉 点顶部的物资栏。`; }
-    }
-    else if (st.k === 'goal') { el = this.$('goal'); msg = `<b>看目标</b>${st.why}<br>👉 点左上角的目标栏。`; }
+    } else if (st.k === 'stock') { el = this.$('tbProd'); msg = `<b>看物资</b>${st.why}<br>👉 点底部的「生产」。`; }
+    else if (st.k === 'goal') { el = this.$('goal'); msg = `<b>看目标</b>${st.why}<br>👉 点顶上的目标栏。`; }
     else {
       const f = Sim.getB(S, c.furnace);
       if (this.panel && this.panel.kind === 'bld') { el = this.sheet.querySelector('[data-act=upgrade]'); msg = '👉 材料够了就点「升级」。'; }
@@ -892,7 +893,21 @@ export class UI {
   }
 
   // ---------- 面板 ----------
-  open(kind, arg) { if (this.resOpen) this.resDrawer(false); if (this.panel && this.panel.kind === 'build') this.markBuildSeen(); if (kind === 'build' && (!this.panel || this.panel.kind !== 'build')) { const nw = this.newBld(); if (nw.length) this.buildTier = Math.max(...nw.map(k => BLD[k].t)); } if (kind === 'log') { this.logOpenSeen = this.logSeen; this.logSeen = this.S.log[this.S.log.length - 1] || null; } if (this.tutSeen) { if (kind === 'stock') this.tutSeen.stock = true; if (kind === 'bld' && Sim.getB(this.S, arg)?.type === 'furnace') this.tutSeen.furnace = true; if (kind === 'chapter') this.tutSeen.goal = true; } this.panel = { kind, arg }; this.lastHtml = ''; this.renderPanel(true); clearTimeout(this.outT); if (this.sheet.classList.contains('out')) this.sheet.classList.remove('out', 'show'); void this.sheet.offsetWidth; this.sheet.classList.add('show'); document.body.classList.add('sheet-open'); this.sheet.scrollTop = 0;
+  // 打开一个面板。属于某个分区的面板（物资、产线……）顶上带分区的页签；从别的面板里点进来的带一个「‹ 返回」
+  open(kind, arg) {
+    const prev = this.panel, sameHub = prev && KIND_HUB[kind] && KIND_HUB[prev.kind] === KIND_HUB[kind];
+    if (prev && prev.kind === 'build') this.markBuildSeen();
+    if (kind === 'build' && (!prev || prev.kind !== 'build')) { const nw = this.newBld(); if (nw.length) this.buildTier = Math.max(...nw.map(k => BLD[k].t)); }
+    if (kind === 'log') { this.logOpenSeen = this.logSeen; this.logSeen = this.S.log[this.S.log.length - 1] || null; }
+    if (this.tutSeen) { if (kind === 'stock') this.tutSeen.stock = true; if (kind === 'bld' && Sim.getB(this.S, arg)?.type === 'furnace') this.tutSeen.furnace = true; if (kind === 'chapter') this.tutSeen.goal = true; }
+    if (KIND_HUB[kind]) (this.hubLast || (this.hubLast = {}))[KIND_HUB[kind]] = kind;
+    // 返回：从一个面板里点开另一个不同分区的面板时记下来；换页签、从地图上点开都不记
+    this.back = this.fromSheet && prev && !sameHub && prev.kind !== kind ? { kind: prev.kind, arg: prev.arg } : sameHub ? this.back : null;
+    this.fromSheet = false;
+    this.panel = { kind, arg }; this.lastHtml = ''; this.renderPanel(true);
+    clearTimeout(this.outT); if (this.sheet.classList.contains('out')) this.sheet.classList.remove('out', 'show');
+    void this.sheet.offsetWidth; this.sheet.classList.add('show'); document.body.classList.add('sheet-open'); this.sheet.scrollTop = 0;
+    this.hubBar();
     if (kind === 'build') { const on = this.sheet.querySelector('.tabs .tab.on'), tb = on && on.parentElement; if (tb) tb.scrollLeft = Math.max(0, on.offsetLeft - tb.offsetLeft - (tb.clientWidth - on.offsetWidth) / 2); }
     this.syncInset();
     const b = kind === 'bld' ? Sim.getB(this.S, arg) : null;
@@ -906,7 +921,19 @@ export class UI {
     // 收起时滑出去再藏（期间又打开别的面板就作罢）
     if (was && this.sheet.classList.contains('show')) { this.sheet.classList.add('out'); clearTimeout(this.outT); this.outT = setTimeout(() => { if (!this.panel) this.sheet.classList.remove('show'); this.sheet.classList.remove('out'); }, 160); }
     else this.sheet.classList.remove('show');
+    this.back = null; this.hubBar();
     this.syncInset();
+  }
+  // 底部分区：现在开着的那个亮起来
+  hubBar() { const h = this.panel && KIND_HUB[this.panel.kind]; for (const b of this.$('toolbar').children) b.classList.toggle('on', !!h && b.dataset.arg === h); }
+  hubTabs(h) { return HUBS[h].tabs.filter(([k]) => this['p_' + k]); }
+  // 点底部的分区：开着的就收起；没开就打开上次看的那一页
+  openHub(h) {
+    if (this.panel && KIND_HUB[this.panel.kind] === h) { this.close(); return; }
+    this.g.cancelModes();
+    const tabs = this.hubTabs(h), last = (this.hubLast || {})[h];
+    this.back = null; this.fromSheet = false;
+    this.open(tabs.some(t => t[0] === last) ? last : HUBS[h].def || tabs[0][0]);
   }
   // 面板挡住的那块不算画面：PC 右侧面板把画面中心往左挪，手机底部面板把它往上挪
   pcSheet() { return matchMedia('(orientation:landscape) and (min-width:761px)').matches; }
@@ -924,16 +951,17 @@ export class UI {
     if (this.pcSheet()) { if (nx > innerWidth - this.sheet.offsetWidth - 70 || nx < 40) v.focus(wx, wy); }
     else if (ny > innerHeight - this.sheet.offsetHeight - 50 || ny < 150) v.focus(wx, wy);
   }
-  tabOf(kind, tabs) { const t = (this.tabs || (this.tabs = {}))[kind]; return tabs && !tabs.some(x => x[0] === t) ? tabs[0][0] : t; }
   renderPanel(force) {
     if (!this.panel) return;
     if (this.sheetDown && !force) return;
     if (!force && performance.now() - (this.sheetScrollT || 0) < 450) return;
     const f = this['p_' + this.panel.kind];
     if (!f) return;
-    const tk = this.panel.kind, tabs = PANEL_TABS[tk];
-    const tb = tabs ? `<div class="ptabs">${tabs.map(([k, n]) => `<button class="${this.tabOf(tk, tabs) === k ? 'on' : ''}" data-act="ptab" data-arg="${k}">${n}</button>`).join('')}</div>` : '';
-    const html = `<div class="phead ${tb ? 'tabbed' : ''}"><b>${f.call(this, 'title')}</b><button class="x" data-act="close">✕</button>${tb}</div><div class="pbody">${f.call(this, 'body')}</div>`;
+    const tk = this.panel.kind, hub = KIND_HUB[tk], tabs = hub && this.hubTabs(hub);
+    const tb = tabs && tabs.length > 1 ? `<div class="ptabs">${tabs.map(([k, n]) => `<button class="${k === tk ? 'on' : ''}" data-act="htab" data-arg="${k}">${n}${k !== tk && this.tabDot(k) ? '<i class="tdot"></i>' : ''}</button>`).join('')}</div>` : '';
+    const bk = this.back ? '<button class="bk" data-act="back" title="返回" aria-label="返回">‹</button>' : '';
+    const ff = this['pf_' + tk], ft = ff ? ff.call(this) : ''; // 面板底部固定的主按钮（有就放）
+    const html = `<div class="phead ${tb ? 'tabbed' : ''}">${bk}<b>${f.call(this, 'title')}</b><button class="x" data-act="close">✕</button>${tb}</div><div class="pbody">${f.call(this, 'body')}</div>${ft ? `<div class="pfbar">${ft}</div>` : ''}`;
     if (html === this.lastHtml) return;
     this.lastHtml = html;
     const st = this.sheet.scrollTop, sx = {};
@@ -1438,19 +1466,20 @@ export class UI {
     if (depl.length) { const wood = depl.some(b => b.type === 'lumber'); issues.push({ sev: 1, html: `<div class="issue"><span class="ii">⛏</span><span class="it"><b>${depl.length} 栋采集建筑附近采空了</b><small>${wood ? '附近没树了可以建育林场，自己种树；' : ''}矿场、采石场可以挖深井一直挖下去，侦察营也能派勘探队找新矿脉</small></span>${wood ? `<span class="ia">${btn('nursery')}</span>` : ''}</div>` }); }
     if ((c.disc ?? 0) >= 60) issues.push({ sev: 1.3, html: `<div class="issue ${(c.disc ?? 0) >= Sim.LEAVE_AT ? 'bad' : 'warn'}"><span class="ii">💢</span><span class="it"><b>不满 ${Math.round(c.disc)}</b>：干活变慢${(c.disc ?? 0) >= Sim.LEAVE_AT ? '，有人在离开' : ''}<small>看看是什么让大家不满，也可以签署安抚人心的律令</small></span><span class="ia"><button class="small go" data-act="tb" data-arg="mood">人心</button></span></div>` });
     issues.sort((a, b) => b.sev - a.sev);
-    let h = `<div class="chrow"><button class="btn chbtn" data-act="chainmap">🔗 生产链总览 <small>上下游一张图</small></button><button class="btn chbtn" data-act="curve">📈 数据曲线 <small>储量和产量</small></button></div><div class="sec">卡在哪</div>`;
-    h += issues.length ? issues.slice(0, 6).map(i => i.html).join('') : `<div class="issue ok"><span class="ii">✓</span><span class="it"><b>生产很顺畅</b><small>没有缺料、停工或缺人</small></span></div>`;
-    // 物资表
-    h += `<div class="sec">库存与流量 <small>每分钟</small></div><div class="stab">`;
-    let tier = 0;
-    for (const k of RES_KEYS) {
-      const f = flow[k] || { p: 0, c: 0 }, have = c.stock[k] || 0;
-      if (RES[k].t > S.known || (have < 1 && !f.p && !f.c)) continue;
-      if (RES[k].t !== tier) { tier = RES[k].t; h += `<div class="stier">${TIER_NAMES[tier]}</div>`; }
-      const net = f.p - f.c, fr = cap ? Math.min(1, have / cap) : 0;
-      h += `<div class="srow" data-act="curve" data-arg="${k}" title="产出 ${fmt(f.p)} / 消耗 ${fmt(f.c)} · 点一下看曲线"><span class="si">${RICON[k]}</span><span class="sn">${RES[k].n}</span><span class="sb ${fr > 0.97 ? 'full' : fr > 0.85 ? 'hi' : ''}"><i style="width:${(fr * 100).toFixed(1)}%"></i><b>${fmt(have)}</b></span><span class="sf ${net < -0.05 ? 'neg' : net > 0.05 ? 'pos' : ''}"><b>${net >= 0 ? '+' : ''}${fmt(net)}</b><small>产${fmt(f.p)} 用${fmt(f.c)}</small></span></div>`;
+    // 库存：一格一种，按层分组；红框缺、黄框满，点一格看曲线
+    const ri = this.resInfo(c, cr, RES_KEYS.filter(k => RES[k].t <= S.known && ((c.stock[k] || 0) >= 1 || (flow[k] && (flow[k].p > 0.01 || flow[k].c > 0.01 || flow[k].want > 0.01)) || RES[k].t <= 1)));
+    // 卡住的排最上面；顺畅就只在库存下面写一行
+    const real = issues.filter(i => i.sev < 9);
+    let h = real.length ? `<div class="sec">卡住了 · ${real.length}</div>` + issues.slice(0, 6).map(i => i.html).join('') : issues.map(i => i.html).join('');
+    h += `<div class="sec">库存 <small>数字下面是每分钟净变化</small></div>`; let tier = 0;
+    for (const r of ri) {
+      const tt = RES[r.k].t;
+      if (tt !== tier) { h += (tier ? '</div>' : '') + `<div class="stier">${TIER_NAMES[tt]}</div><div class="rgrid">`; tier = tt; }
+      const nc = r.net < -0.05 ? 'neg' : r.net > 0.05 ? 'pos' : '';
+      h += `<button class="rgc ${r.short ? 'short' : r.full ? 'full' : ''}" data-act="curve" data-arg="${r.k}" style="--f:${(r.fr * 100).toFixed(1)}%" title="${RES[r.k].n}：产 ${fmt(r.f.p)} · 用 ${fmt(r.f.c)} / 分钟（点一下看曲线）"><span class="ri">${RICON[r.k]}</span><span class="rn">${RES[r.k].n}${r.short ? '<em>缺</em>' : r.full ? '<em>满</em>' : ''}</span><b>${fmt(r.have)}</b><small class="${nc}">${r.act ? (r.net >= 0 ? '+' : '') + fmt(r.net) : '—'}</small><i></i></button>`;
     }
-    h += `</div>`;
+    if (tier) h += '</div>';
+    if (!real.length) h += `<div class="issue ok"><span class="ii">✓</span><span class="it"><b>生产很顺畅</b><small>没有缺料、停工或缺人</small></span></div>`;
     // 加工留料
     const kp = c.keep !== false;
     h += `<div class="sec">加工留料</div>`;
@@ -1462,6 +1491,8 @@ export class UI {
     if (tl.length) h += `<div class="row sub"><span>正在兑换</span><span>${tl.slice(0, 4).map(([q, v]) => { const [a, b] = q.split('>'); return `${RICON[a]}→${RICON[b]} ${fmt(v)}/分`; }).join(' · ')}</span></div>`;
     return h;
   }
+
+  pf_stock() { return '<button class="btn" data-act="curve">📈 数据曲线</button><button class="btn go" data-act="chainmap">🔗 生产链总览</button>'; }
 
   // ---------- 一个人 ----------
   p_person(part) {
@@ -1511,29 +1542,11 @@ export class UI {
     return h + '</div>';
   }
 
+  // 营地 › 概况：各营地一张卡、补给站、专精、基建
   p_camp(part) {
     const S = this.S;
     if (part === 'title') return `营地 <small>${esc(this.camp().name)}</small>`;
-    const tab = this.tabOf('camp', PANEL_TABS.camp);
     let h = '';
-    if (tab === 'infra') {
-      const c0 = this.camp();
-      h += this.infraHtml(c0);
-      h += `<button class="mlink" data-act="tb" data-arg="stock"><span>📦</span><span>物资总览<small>每种物资进出多少、卡在哪一环</small></span><i>›</i></button>`;
-      h += `<button class="mlink" data-act="tb" data-arg="lines"><span>🛷</span><span>运输线<small>营地之间用雪橇或铁路互通物资</small></span><i>›</i></button>`;
-      return h;
-    }
-    if (tab === 'road') {
-      h += `<div class="sec">旅程</div><div class="journey">`;
-      LANDMARKS.forEach((l, i) => {
-        const st = S.founded.includes(i) ? 'done' : S.discovered.includes(i) ? 'seen' : '';
-        h += `<div class="jstep ${st}" data-act="${S.discovered.includes(i) ? 'lmgo' : ''}" data-arg="${i}"><span>${st === 'done' ? '🏁' : st === 'seen' ? '📍' : '❔'}</span>${i <= Math.max(S.known, ...S.discovered) || st ? l.n : '？？？'}</div>`;
-      });
-      h += `</div>`;
-      h += `<button class="mlink" data-act="chapter"><span>📖</span><span>北行纪事<small>每到一个地标开启新的一章</small></span><i>›</i></button>`;
-      h += `<button class="mlink" data-act="tb" data-arg="log"><span>📜</span><span>消息记录<small>最近发生的事都在这里</small></span><i>›</i></button>`;
-      return h;
-    }
     if (this.camp().depot) h += this.depotHtml(this.camp()); // 补给站：先说它自己的事，手机上不用往下翻
     for (const c of S.camps) {
       const cr = Sim.rt(S).c[c.id] || {};
@@ -1542,14 +1555,36 @@ export class UI {
         <div class="cn">${esc(c.name)} <small>熔炉 ${f.lvl} 级 · 纬度 ${Math.round(c.y)}</small></div>
         <div class="cd">👥${c.people}/${cr.housing || 0} · 🌡${Math.round(cr.tH ?? 0)}° · 🍖${fmt(c.stock.food)}（${(cr.foodNet || 0) >= 0 ? '+' : ''}${fmt(cr.foodNet)}/分）· 🔥${cr.burnPerMin ? fmtTime(cr.fuelUnits / cr.burnPerMin * 60) : '—'} · 搬运 ${fmt(cr.haulers)}/${fmt(cr.demand)} · 防御 ${Sim.campDefense(S, c)}</div></div></div>`;
     }
-    const c0 = this.camp(), cr0 = Sim.rt(S).c[c0.id] || {};
+    const c0 = this.camp();
     if (!c0.depot) h += this.focusHtml(c0);
-    h += `<div class="sec">居民 <small>${esc(c0.name)}</small></div>`;
-    h += `<div class="folk"><span><b>${c0.people}</b>人</span><span><b>${Math.min(c0.people, cr0.housing || 0)}</b>住帐篷</span><span class="${c0.people > (cr0.housing || 0) ? 'bad' : ''}"><b>${Math.max(0, c0.people - (cr0.housing || 0))}</b>露宿</span>${c0.wait > 0 ? `<span class="bad"><b>${c0.wait}</b>等床位</span>` : ''}<span class="${cr0.sick ? 'bad' : ''}"><b>${cr0.sick || 0}</b>生病</span><span class="${(cr0.hunger || 0) > 0.05 ? 'bad' : ''}"><b>${(cr0.hunger || 0) > 0.05 ? Math.round(cr0.hunger * 100) + '%' : '0'}</b>挨饿</span></div>`;
-    h += `<div class="voices">${campVoices(S, c0, Sim.rt(S)).map(q => `<div>「${esc(q)}」</div>`).join('')}</div>`;
-    { const nl = LAWS.filter(l => Sim.lawOn(S, l.id)).length; h += `<button class="mlink" data-act="tb" data-arg="mood"><span>🕯️</span><span>人心：希望 ${Math.round(c0.hope ?? 50)} · 不满 ${Math.round(c0.disc ?? 10)}<small>${nl ? `生效中的律令 ${nl} 条` : '还没有签署律令'}，点开看为什么、改律令</small></span><i>›</i></button>`; }
-    h += `<div class="hint">在地图上点一个小人，可以看看这个人是谁、在干什么、过得怎么样。</div>`;
+    h += this.infraHtml(c0);
+    return h;
+  }
+  // 营地 › 人手：住的、病的、饿的；哪类建筑缺几个人，一键派满
+  p_folk(part) {
+    const S = this.S, c0 = this.camp(), cr0 = Sim.rt(S).c[c0.id] || {}, R = Sim.rt(S);
+    if (part === 'title') return `人手 <small>${esc(c0.name)}</small>`;
+    let h = `<div class="folk"><span><b>${c0.people}</b>人</span><span><b>${Math.max(0, Sim.idleLabor(S, c0))}</b>空闲</span><span><b>${Math.min(c0.people, cr0.housing || 0)}</b>住帐篷</span><span class="${c0.people > (cr0.housing || 0) ? 'bad' : ''}"><b>${Math.max(0, c0.people - (cr0.housing || 0))}</b>露宿</span>${c0.wait > 0 ? `<span class="bad"><b>${c0.wait}</b>等床位</span>` : ''}${cr0.sick ? `<span class="bad"><b>${cr0.sick}</b>生病</span>` : ''}${(cr0.hunger || 0) > 0.05 ? `<span class="bad"><b>${Math.round(cr0.hunger * 100)}%</b>挨饿</span>` : ''}</div>`;
     h += `<div class="row"><span>自动派人<br><small>新来的人自动去缺人的建筑（吃饭、取暖优先）。手动减过人的建筑不会被塞人。</small></span><span style="flex:none"><button style="white-space:nowrap" class="small ${c0.auto === false ? '' : 'go'}" data-act="auto" data-arg="${c0.id}">${c0.auto === false ? '已关闭' : '已开启'}</button></span></div>`;
+    // 按建筑种类：几座、几个人 / 最多几个人、有几座停着
+    const by = new Map();
+    for (const b of S.buildings) {
+      if (b.camp !== c0.id || !Sim.bMax(S, b)) continue;
+      const g = by.get(b.type) || { b, n: 0, w: 0, mx: 0, bad: 0 }; g.n++; g.w += b.workers; g.mx += Sim.bMax(S, b);
+      const st = (R.b[b.id] || {}).status || ''; if (STATUS_BAD(st)) g.bad++;
+      by.set(b.type, g);
+    }
+    const rows = [...by.values()].sort((a, b) => (b.mx - b.w) - (a.mx - a.w) || BLD[a.b.type].t - BLD[b.b.type].t);
+    if (rows.length) {
+      h += `<div class="sec">各类建筑的人手 <small>缺人的排前面</small></div><div class="wtab">`;
+      for (const g of rows) {
+        const d = BLD[g.b.type], miss = g.mx - g.w;
+        h += `<div class="wrow ${miss > 0 ? 'short' : ''}"><span class="wn">${this.ico(g.b.type, g.b.lvl)}<span><b>${d.n}</b><small>${g.n} 座${g.bad ? ` · <em>${g.bad} 座停着</em>` : ''}</small></span></span><span class="ww"><b>${g.w}</b>/${g.mx}</span><span class="wb">${miss > 0 ? `<button class="small go" data-act="bulkw" data-arg="${g.b.id}">派满</button>` : '<small>满员</small>'}</span></div>`;
+      }
+      h += `</div>`;
+    }
+    h += `<div class="sec">大家在说</div><div class="voices">${campVoices(S, c0, Sim.rt(S)).map(q => `<div>「${esc(q)}」</div>`).join('')}</div>`;
+    h += `<div class="hint">在地图上点一个小人，可以看看这个人是谁、在干什么、过得怎么样。</div>`;
     return h;
   }
 
@@ -1616,8 +1651,14 @@ export class UI {
     for (const [n, r] of rows) h += `<div><span>${esc(n)}</span><span>${sg(r.h, r.h < 0)}</span><span>${sg(r.d, r.d > 0)}</span></div>`;
     h += `</div>`;
     h += this.festCard(c);
-    // 律令
-    h += `<div class="sec">营地律令 <small>对所有营地生效</small></div><div class="laws">`;
+    { const nl = LAWS.filter(l => Sim.lawOn(S, l.id)).length; h += `<button class="mlink" data-act="htab" data-arg="law"><span>📜</span><span>律令${nl ? `：生效中 ${nl} 条` : '：还没有签署'}<small>律令能改变希望和不满，代价写在每一条下面</small></span><i>›</i></button>`; }
+    return h;
+  }
+  // 营地 › 律令：对所有营地生效
+  p_law(part) {
+    const S = this.S;
+    if (part === 'title') return '律令 <small>对所有营地生效</small>';
+    let h = `<div class="laws">`;
     for (const l of LAWS) {
       const on = Sim.lawOn(S, l.id), wait = Sim.lawWait(S, l.id);
       h += `<div class="law ${on ? 'on' : ''}"><div class="lh"><span class="li">${l.ic}</span><b>${l.n}</b>${on ? '<span class="lon">生效中</span>' : ''}
@@ -1678,11 +1719,12 @@ export class UI {
     return h;
   }
 
+  // 北行 › 地图与侦察
   p_scout(part) {
     const S = this.S, c = this.camp();
-    if (part === 'title') return '侦察与救援';
+    if (part === 'title') return '地图与侦察';
     const sl = Sim.scoutSlots(S, c.id);
-    let h = '';
+    let h = `<button class="mlink" data-act="bigmap"><span>🗺️</span><span>北行地图<small>${esc(northRec(S) || '一路的地标、营地和还没探的地方')}（M）</small></span><i>›</i></button>`;
     if (!sl.n) h += `<div class="hint">「${esc(c.name)}」还没有侦察营。在「建造 → 篝火」里建一座。</div>`;
     else {
       h += `<div class="row"><span>侦察队</span><span>${sl.used}/${sl.n} 在外 · 最远 ${Sim.scoutRange(S, c.id)} 格 · 每队 3 人</span></div>`;
@@ -1756,11 +1798,12 @@ export class UI {
     return h;
   }
 
+  // 北行 › 专家与余烬：专家跟着你一路走；余烬强化是永久的
   p_specs(part) {
     const S = this.S, c = this.camp();
-    if (part === 'title') return '专家';
+    if (part === 'title') return `专家与余烬 <small>🔥 ${Math.floor(S.meta.embers)}</small>`;
     const have = SPECS.filter(s => S.meta.specs[s.id]);
-    let h = '';
+    let h = `<div class="sec">专家 <small>${have.length}/${SPECS.length}</small></div>`;
     if (!have.length) h += `<div class="hint">还没有专家。专家散落在北方，派侦察队去找吧。他们会一直跟着你，北迁时也会一起走。</div>`;
     for (const sp of have) {
       const m = S.meta.specs[sp.id];
@@ -1774,6 +1817,7 @@ export class UI {
     const missing = SPECS.filter(s => s.row != null && !S.meta.specs[s.id]).length;
     if (missing) h += `<div class="hint">还有 ${missing} 位专家在北方等着被发现。</div>`;
     if (!S.meta.specs.he) h += `<div class="hint">听说有位老大夫在找落脚的地方：盖一座医务所、派人守着，过一阵 TA 也许会来。</div>`;
+    h += `<div class="sec">余烬强化 <small>永久的，一路叠上去</small></div>` + this.emberHtml();
     return h;
   }
 
@@ -1942,10 +1986,10 @@ export class UI {
     if (this.bksLoading) return; this.bksLoading = true;
     try { this.bks = await this.g.bk.list(this.g.slot); } catch (e) { this.bks = []; }
     this.bksLoading = false;
-    if (this.panel && this.panel.kind === 'menu') { this.lastHtml = ''; this.renderPanel(true); }
+    if (this.panel && this.panel.kind === 'msave') { this.lastHtml = ''; this.renderPanel(true); }
     if (this.bkOpen) this.backupsModal();
   }
-  bkDirty() { this.bks = null; if ((this.panel && this.panel.kind === 'menu') || this.bkOpen) this.loadBackups(); }
+  bkDirty() { this.bks = null; if ((this.panel && this.panel.kind === 'msave') || this.bkOpen) this.loadBackups(); }
   backupsModal() {
     if (!this.bks) { this.modal('<h2>自动备份</h2><div class="hint">正在清点…</div>', [{ t: '关闭', a: 'close-modal' }]); this.bkOpen = true; this.loadBackups(); return; }
     const L = this.bks;
@@ -2020,9 +2064,7 @@ export class UI {
   p_migrate(part) {
     const S = this.S, J = Sim.journeyOf(S);
     if (part === 'title') return J.trip ? '车队在路上' : '北迁';
-    const tab = this.tabOf('migrate', PANEL_TABS.migrate);
     let h = '';
-    if (tab === 'ember') return this.emberHtml();
     if (J.trip) return h + this.tripHtml(J.trip);
     const g = Sim.departGate(S);
     if (!g) return h + `<div class="story">${esc(STORY.trueEnd || '')}</div><div class="hint">一路走到了世界之脊。再往北是无尽的冰原，想走多远都行。</div>`;
@@ -2104,11 +2146,59 @@ export class UI {
     return h;
   }
 
+  // 菜单 › 设置：声音、画面、提示、难度
   p_menu(part) {
     const S = this.S;
-    if (part === 'title') return '菜单';
-    const g = this.g, st = S.stats;
-    // 旅程卡：第几次北行、这一程走到哪了、一路上的数字
+    if (part === 'title') return '设置';
+    const g = this.g;
+    const tg = (k, on, ic, n, d) => `<button class="tgl ${on ? 'on' : ''}" data-act="snd" data-arg="${k}"><span class="ti">${ic}</span><span class="tt">${n}<small>${d}</small></span><i class="sw"></i></button>`;
+    let h = `<div class="sec">声音与画面</div><div class="tgls">${tg('sfx', g.audio.sfxOn, '🔊', '音效', '风声、炉火、敲打')}${tg('music', g.audio.musicOn, '🎵', '音乐', '低沉的旋律和铃声')}<button class="tgl ${this.floatOn !== false ? 'on' : ''}" data-act="floats"><span class="ti">✨</span><span class="tt">产出飘字<small>建筑上方冒出「+5 🪵」</small></span><i class="sw"></i></button><button class="tgl ${S.meta.hintOff ? '' : 'on'}" data-act="hintsw"><span class="ti">📜</span><span class="tt">新玩法提示<small>某样玩法第一次用得上时说一句</small></span><i class="sw"></i></button><button class="tgl ${g.sugOn ? 'on' : ''}" data-act="sugsw"><span class="ti">⭐</span><span class="tt">推荐位置<small>摆放建筑时地上标出 3 处好位置</small></span><i class="sw"></i></button></div>`;
+    h += `<div class="mlab">画质<small>卡顿时会自动降一档</small></div>`;
+    h += `<div class="seg">${[['low', '流畅', '无阴影'], ['high', '标准', '推荐'], ['ultra', '极致', '细节更多']].map(([k, n, d]) => `<button class="btn ${g.quality === k ? 'on' : ''}" data-act="quality" data-arg="${k}">${n}<small>${d}</small></button>`).join('')}</div>`;
+    h += `<div class="sec">玩法</div><div class="row"><span>难度 <b>${Sim.diffOf(S).ic}${Sim.diffOf(S).n}</b><br><small>随时可以改</small></span><span style="flex:none"><button class="small" data-act="diff">改难度</button></span></div>`;
+    h += `<div class="mfoot">寒烬北行 · ${VERSION_NAME}</div>`;
+    return h;
+  }
+  // 菜单 › 存档：自动保存、存档码、备份、存档位
+  p_msave(part) {
+    const S = this.S, g = this.g;
+    if (part === 'title') return `存档 <small>存档位 ${g.slot} / ${SLOTS}</small>`;
+    const ago = S.savedAt ? Math.max(0, (Date.now() - S.savedAt) / 1000) : null;
+    return `<div class="msave"><span class="msi">💾</span><span>自动保存在这台设备上${ago != null ? `<em>${ago < 60 ? '刚刚' : ago < 3600 ? Math.floor(ago / 60) + ' 分钟前' : ago < 86400 ? Math.floor(ago / 3600) + ' 小时前' : Math.floor(ago / 86400) + ' 天前'}存过</em>` : ''}<small>关掉页面后营地照常运转，暴风雪和袭营也照常结算；但离线时物资按离开多久打折入库：前 1 小时 40%，1 到 4 小时 20%，4 到 12 小时 10%，超过 12 小时不再算；三星产线多拿一半，离线入库最多填到仓库的八成。</small></span></div>
+      <div class="row2"><button class="btn" data-act="export">📤 导出存档码</button><button class="btn" data-act="import">📥 导入存档码</button></div>
+      <div class="hint">换设备时，在旧设备导出存档码，到新设备上导入。</div>
+      ${this.bkRow()}
+      <div class="row"><span>存档位 <b>${g.slot}</b> / ${SLOTS}<br><small>三个存档位，各是一局</small></span><span style="flex:none"><button class="small" data-act="slots">换存档位</button></span></div>
+      <div class="mdanger"><button class="btn ghost" data-act="wipe">删除这个存档，从头开始</button></div>`;
+  }
+  // 菜单 › 收藏：收集册、成就、装扮、相册、拍照、曲线
+  p_mcoll(part) {
+    const S = this.S;
+    if (part === 'title') return '收藏';
+    let h = '';
+    { const N = Sim.bookCount(S), nf = Sim.bookOf(S).fresh.length;
+      h += `<button class="mlink book" data-act="book"><span>🏆</span><span>收集册${nf ? `<b class="mnew">${nf} 新</b>` : ''}<small>收集 ${N.got}/${N.all} · 成就 ${N.cats.a[0]}/${N.cats.a[1]}（北迁后也保留）</small></span><i>›</i></button>`; }
+    if (Sim.skyEnded(S)) h += `<button class="mlink" data-act="skyreplay"><span>🔥</span><span>再看一遍天火<small>十道光柱一路往南连回永恒之炉，再看看「这一路」</small></span><i>›</i></button>`;
+    { const B = Sim.bookOf(S), got = Sim.ACH.filter(x => B.a[x.id]).length, nf = B.fresh.filter(f => f.startsWith('a:')).length;
+      h += `<div class="mrow2"><button class="mlink" data-act="ach"><span>🏆</span><span>成就${nf ? `<b class="mnew">${nf} 新</b>` : ''}<small>${got}/${Sim.ACH.length} · 按类别看进度和奖励</small></span><i>›</i></button><button class="mlink" data-act="dress"><span>🎨</span><span>装扮<small>称号、炉火、旗子、相框</small></span><i>›</i></button></div>`; }
+    if (!this.album) this.loadAlbum();
+    h += `<div class="mrow2"><button class="mlink" data-act="photo"><span>📷</span><span>拍照模式<small>藏起界面，换时辰、滤镜、相框，拍一张（H）</small></span><i>›</i></button><button class="mlink" data-act="album"><span>📔</span><span>相册<small>${this.album ? `${this.album.length} 张 · ` : ''}一路上自动拍的和你收进来的</small></span><i>›</i></button></div>`;
+    h += `<button class="mlink" data-act="curve"><span>📈</span><span>数据曲线<small>人口、心情、温度，物资的储量和产量怎么变的（G）</small></span><i>›</i></button>`;
+    return h;
+  }
+  // 菜单 › 帮助：玩法说明、更新日志、按键
+  p_mhelp(part) {
+    if (part === 'title') return `帮助 <small>${VERSION_NAME}</small>`;
+    const keys = [['空格', '回到炉火'], ['B', '建造'], ['M', '北行地图'], ['C', '生产链'], ['G', '数据曲线'], ['K', '收集册'], ['H', '拍照'], ['P', '暂停'], ['F', '换倍速'], ['+ / −', '拉近 / 拉远'], ['Q / E', '转镜头'], ['WASD', '移动镜头']];
+    return `<button class="mlink" data-act="changelog"><span>📜</span><span>更新日志<small>${VERSION_NAME} · 每一版加了什么</small></span><i>›</i></button>
+      <div class="helpin">${HELP}</div>
+      <div class="sec">电脑上的按键</div><div class="keys">${keys.map(([k, n]) => `<span><kbd>${k}</kbd>${n}</span>`).join('')}</div>
+      <div class="hint">手机上：双指捏合拉近拉远、转动镜头；按住速度键暂停。</div>`;
+  }
+  // 北行 › 烽火塔：这一路走到哪了、北境的塔、地标和北行纪事
+  p_towers(part) {
+    const S = this.S, st = S.stats;
+    if (part === 'title') return `烽火塔 <small>已点亮 ${Sim.towersLit(S)} / ${Sim.TOWER_N}</small>`;
     const top = LANDMARKS[LANDMARKS.length - 1].row, far = Math.round(Math.max(...S.camps.map(c => c.y)));
     const known = Math.max(S.known, ...S.discovered);
     const next = LANDMARKS.findIndex((l, i) => !S.founded.includes(i) && l.row > far);
@@ -2124,32 +2214,96 @@ export class UI {
         <span><b>${st.arrivals}</b>人投奔</span><span class="${st.deaths ? 'neg' : ''}"><b>${st.deaths}</b>人遇难</span><span><b>${st.raidsWon}/${st.raids}</b>守住袭营</span>
       </div>
     </div>`;
-    { const N = Sim.bookCount(S), nf = Sim.bookOf(S).fresh.length;
-      h += `<button class="mlink book" data-act="book"><span>🏆</span><span>收集册${nf ? `<b class="mnew">${nf} 新</b>` : ''}<small>收集 ${N.got}/${N.all} · 成就 ${N.cats.a[0]}/${N.cats.a[1]}（北迁后也保留）</small></span><i>›</i></button>`; }
-    if (Sim.skyEnded(S)) h += `<button class="mlink" data-act="skyreplay"><span>🔥</span><span>再看一遍天火<small>十道光柱一路往南连回永恒之炉，再看看「这一路」</small></span><i>›</i></button>`;
-    { const B = Sim.bookOf(S), got = Sim.ACH.filter(x => B.a[x.id]).length, nf = B.fresh.filter(f => f.startsWith('a:')).length;
-      h += `<div class="mrow2"><button class="mlink" data-act="ach"><span>🏆</span><span>成就${nf ? `<b class="mnew">${nf} 新</b>` : ''}<small>${got}/${Sim.ACH.length} · 按类别看进度和奖励</small></span><i>›</i></button><button class="mlink" data-act="dress"><span>🎨</span><span>装扮<small>称号、炉火、旗子、相框</small></span><i>›</i></button></div>`; }
-    h += `<button class="mlink" data-act="curve"><span>📈</span><span>数据曲线<small>人口、心情、温度，物资的储量和产量怎么变的</small></span><i>›</i></button>`;
-    if (!this.album) this.loadAlbum();
-    h += `<div class="mrow2"><button class="mlink" data-act="photo"><span>📷</span><span>拍照模式<small>藏起界面，换时辰、滤镜、相框，拍一张（H）</small></span><i>›</i></button><button class="mlink" data-act="album"><span>📔</span><span>相册<small>${this.album ? `${this.album.length} 张 · ` : ''}一路上自动拍的和你收进来的</small></span><i>›</i></button></div>`;
-    h += `<div class="mrow2"><button class="mlink" data-act="help"><span>📖</span><span>怎么玩<small>建筑、生产线、寒冷和北行的规则</small></span><i>›</i></button><button class="mlink" data-act="changelog"><span>📜</span><span>更新日志<small>${VERSION_NAME} · 每一版加了什么</small></span><i>›</i></button></div>`;
-    // 声音与画面
-    const tg = (k, on, ic, n, d) => `<button class="tgl ${on ? 'on' : ''}" data-act="snd" data-arg="${k}"><span class="ti">${ic}</span><span class="tt">${n}<small>${d}</small></span><i class="sw"></i></button>`;
-    h += `<div class="sec">声音与画面</div><div class="tgls">${tg('sfx', g.audio.sfxOn, '🔊', '音效', '风声、炉火、敲打')}${tg('music', g.audio.musicOn, '🎵', '音乐', '低沉的旋律和铃声')}<button class="tgl ${this.floatOn !== false ? 'on' : ''}" data-act="floats"><span class="ti">✨</span><span class="tt">产出飘字<small>建筑上方冒出「+5 🪵」</small></span><i class="sw"></i></button><button class="tgl ${S.meta.hintOff ? '' : 'on'}" data-act="hintsw"><span class="ti">📜</span><span class="tt">新玩法提示<small>某样玩法第一次用得上时说一句</small></span><i class="sw"></i></button><button class="tgl ${g.sugOn ? 'on' : ''}" data-act="sugsw"><span class="ti">⭐</span><span class="tt">推荐位置<small>摆放建筑时地上标出 3 处好位置</small></span><i class="sw"></i></button></div>`;
-    h += `<div class="mlab">画质<small>卡顿时会自动降一档</small></div>`;
-    h += `<div class="seg">${[['low', '流畅', '无阴影'], ['high', '标准', '推荐'], ['ultra', '极致', '细节更多']].map(([k, n, d]) => `<button class="btn ${g.quality === k ? 'on' : ''}" data-act="quality" data-arg="${k}">${n}<small>${d}</small></button>`).join('')}</div>`;
-    // 存档
-    const ago = S.savedAt ? Math.max(0, (Date.now() - S.savedAt) / 1000) : null;
-    h += `<div class="sec">存档</div>
-      <div class="msave"><span class="msi">💾</span><span>自动保存在这台设备上${ago != null ? `<em>${ago < 60 ? '刚刚' : ago < 3600 ? Math.floor(ago / 60) + ' 分钟前' : ago < 86400 ? Math.floor(ago / 3600) + ' 小时前' : Math.floor(ago / 86400) + ' 天前'}存过</em>` : ''}<small>关掉页面后营地照常运转，暴风雪和袭营也照常结算；但离线时物资按离开多久打折入库：前 1 小时 40%，1 到 4 小时 20%，4 到 12 小时 10%，超过 12 小时不再算；三星产线多拿一半，离线入库最多填到仓库的八成。</small></span></div>
-      <div class="row2"><button class="btn" data-act="export">📤 导出存档码</button><button class="btn" data-act="import">📥 导入存档码</button></div>
-      <div class="hint">换设备时，在旧设备导出存档码，到新设备上导入。</div>
-      ${this.bkRow()}
-      <div class="row"><span>存档位 <b>${g.slot}</b> / ${SLOTS}<br><small>三个存档位，各是一局</small></span><span style="flex:none"><button class="small" data-act="slots">换存档位</button></span></div>
-      <div class="row"><span>难度 <b>${Sim.diffOf(S).ic}${Sim.diffOf(S).n}</b><br><small>随时可以改</small></span><span style="flex:none"><button class="small" data-act="diff">改难度</button></span></div>
-      <div class="mdanger"><button class="btn ghost" data-act="wipe">删除这个存档，从头开始</button></div>
-      <div class="mfoot">寒烬北行 · ${VERSION_NAME}</div>`;
+    // 十座塔
+    const N = Sim.northN(Sim.journeyOf(S).stage), lit = Sim.towerList(S);
+    h += `<div class="sec">北境的塔 <small>前十站每站一座，第十站是天火塔</small></div><div class="twlist">`;
+    for (let n = 1; n <= Sim.TOWER_N; n++) {
+      const L = lit.find(t => t.n === n), b = !L && S.buildings.find(x => x.tn === n && BLD[x.type].tower);
+      let stx = '', cls = '';
+      if (L) { stx = '已点亮'; cls = 'lit'; }
+      else if (b) { const sp = Sim.towerSpec(S, n); stx = b.tw.p >= sp.dur ? '塔身砌好了，等点火' : `塔身 ${Math.floor(b.tw.p / sp.dur * 100)}%`; cls = 'on'; }
+      else if (N === n) { stx = '这一站：立地基'; cls = 'here'; }
+      else stx = n < N ? '没有立' : `北境第 ${n} 站`;
+      h += `<div class="twr ${cls}" ${b ? `data-act="spot" data-arg="${b.id}"` : ''}><i>${n === Sim.TOWER_N ? '☀' : n}</i><span><b>${Sim.towerName(n)}</b><small>${stx}</small></span>${b ? '<em>›</em>' : ''}</div>`;
+    }
+    h += `</div><div class="hint">每座点亮的塔让那座营地希望 +${TOWER_FX.hope}、暖圈 +${TOWER_FX.warm} 格；点着第十站的天火塔就是最终结局。</div>`;
+    h += `<div class="sec">一路的地标</div><div class="journey">`;
+    LANDMARKS.forEach((l, i) => {
+      const st2 = S.founded.includes(i) ? 'done' : S.discovered.includes(i) ? 'seen' : '';
+      h += `<div class="jstep ${st2}" data-act="${S.discovered.includes(i) ? 'lmgo' : ''}" data-arg="${i}"><span>${st2 === 'done' ? '🏁' : st2 === 'seen' ? '📍' : '❔'}</span>${i <= known || st2 ? l.n : '？？？'}</div>`;
+    });
+    h += `</div><button class="mlink" data-act="chapter"><span>📖</span><span>北行纪事<small>每到一站开启新的一章</small></span><i>›</i></button>`;
     return h;
+  }
+  // 生产 › 产线：主线和支线，各自的速度、星级和下一颗星
+  pf_plines() { return '<button class="btn" data-act="chainmap">🔗 生产链图</button><button class="btn go" data-act="pladd">＋ 立支线</button>'; }
+  p_plines(part) {
+    const S = this.S, L = Sim.plinesOf(S);
+    if (part === 'title') return `产线 <small>主线 + 支线 ${Sim.sideCount(S)}/${Sim.sideMax(S)}</small>`;
+    const fr = v => v >= 10 ? Math.round(v) : Math.round(v * 10) / 10, mm = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+    let h = '';
+    if (!L.length) return h + `<div class="hint">还没有产线。每一章的产能目标会自动立成主线；也可以自己挑一种材料立支线，稳住目标速度就升星。</div>`;
+    for (const l of L) {
+      const r = Sim.prodRate(S, l.r), pct = Math.min(1, r / Math.max(0.01, l.n)), nx = l.star < 3 ? Sim.STAR_T[l.star] - l.st : 0;
+      h += `<div class="plrow ${l.on ? 'up' : ''}" data-act="plan" data-arg="${l.r}"><span class="pli">${RICON[l.r]}</span><span class="plt"><b>${RES[l.r].n}${l.main ? '<em>主线</em>' : ''}<i class="stars">${'★'.repeat(l.star)}${'☆'.repeat(3 - l.star)}</i></b>
+        <span class="plbar"><i style="width:${(pct * 100).toFixed(1)}%"></i></span>
+        <small>${fr(r)} / ${fr(l.n)} 每分钟 · ${l.star >= 3 ? '已经三星' : `再稳住 ${mm(nx)} 升${l.star + 1}星${l.on ? '' : '（掉下来了，暂停）'}`}</small></span><em>›</em></div>`;
+    }
+    h += `<div class="hint">速度在目标以上稳住 10 分钟升一星（产量 +15%），30 分钟二星（每座少要 1 个工人），90 分钟三星（产量再 +30%）。点一条线打开规划器，看整条链每一环差多少。</div>`;
+    return h;
+  }
+  // 建造 › 规划：每条线最卡的那一环还差几座，直接建
+  p_plan(part) {
+    const S = this.S, L = Sim.plinesOf(S);
+    if (part === 'title') return '规划 <small>只指方向，建在哪你来定</small>';
+    const fr = v => v >= 10 ? Math.round(v) : Math.round(v * 10) / 10;
+    let h = '';
+    if (!L.length) return `<div class="hint">这一章还没有产能目标。先按顶上的目标走；有了「每分钟产多少」的目标，这里会算出每一环还差几座。</div><button class="btn wide" data-act="plan">打开规划器</button>`;
+    for (const l of L) {
+      const P = Sim.planLine(S, l.r, l.n), x = P.worst;
+      h += `<div class="pcard"><div class="pch">${RICON[l.r]}<b>${RES[l.r].n}${l.main ? '主线' : '支线'}</b><small>${fr(P.rate)} / ${fr(l.n)} 每分钟</small><button class="small" data-act="plan" data-arg="${l.r}">规划器 ›</button></div>`;
+      if (!x) { h += `<div class="pcok">✓ 每一环都跟得上</div></div>`; continue; }
+      const t = x.type, per = x.count && x.prod > 0 ? x.prod / x.count : x.one, nb = t ? Math.max(1, Math.ceil(x.gap / Math.max(0.1, per))) : 0;
+      const short = Object.keys(x.stat).filter(k => k.startsWith('缺')).map(k => k.slice(1));
+      h += `<div class="pcw"><span>${RICON[x.k]}</span><span><b>最卡：${RES[x.k].n}</b><small>现在 ${fr(x.prod)} / 要 ${fr(x.need)} 每分钟${t ? ` · ${BLD[t].n} ×${x.count}` : ''}</small>${x.count && short.length ? `<small class="warn">是上游的${short.join('、')}不够：先补上游</small>` : t && x.gap >= 0.05 ? `<small>还差约 <b>${nb}</b> 座${BLD[t].n}</small>` : ''}</span>${t && Sim.unlocked(S, t) && x.gap >= 0.05 ? `<button class="small go" data-act="place" data-arg="${t}">建一座</button>` : t && !Sim.unlocked(S, t) ? `<small class="bad">${BLD[t].n}还没解锁</small>` : ''}</div></div>`;
+    }
+    { const main = Sim.mainCamp(S); h += `<div class="hint">主营地人口 ${main.people}/${Sim.popCap(S, main)}，空闲 ${Math.max(0, Sim.idleLabor(S, main))} 人；供热圈空地约 ${Sim.freeLand(S, main)} 块。</div>`; }
+    return h;
+  }
+  // 建造 › 队列：等材料的建筑和升级，材料到齐按顺序自动开工
+  p_bqueue(part) {
+    const S = this.S, c = this.camp();
+    const Q = (S.queue || []).filter(q => q.camp === c.id), U = S.buildings.filter(b => b.camp === c.id && b.qup);
+    if (part === 'title') return `队列 <small>${esc(c.name)} · ${Q.length + U.length} 项</small>`;
+    if (!Q.length && !U.length) return `<div class="hint">没有在等材料的建筑。摆建筑时材料不够也能先摆下（蓝图），材料一到自动开工；建筑面板里的「材料到齐自动升」也排在这里。</div>`;
+    let h = '';
+    if (Q.length) h += `<div class="sec">等材料的新建筑 <small>${Q.length}/${Sim.QUEUE_MAX}</small></div>`;
+    Q.forEach((q, i) => {
+      const cost = Sim.queueCost(S, q), miss = Object.keys(cost).filter(k => (c.stock[k] || 0) < cost[k]);
+      h += `<div class="qrow"><span class="qn">${i + 1}</span>${this.ico(q.type, 1)}<span class="qt"><b>${BLD[q.type].n}</b><small>${miss.length ? '还缺 ' + miss.map(k => `${RICON[k]}${fmt(cost[k] - (c.stock[k] || 0))}`).join(' ') : '齐了，马上开工'}</small></span><button class="small" data-act="lookat" data-arg="${q.x + BLD[q.type].size / 2},${q.y + BLD[q.type].size / 2}">看看</button><button class="small ghost" data-act="unqueue" data-arg="${q.id}">取消</button></div>`;
+    });
+    if (U.length) h += `<div class="sec">等材料的升级</div>`;
+    for (const b of U) {
+      const cost = Sim.upgradeCost(S, b), miss = Object.keys(cost).filter(k => (c.stock[k] || 0) < cost[k]);
+      h += `<div class="qrow"><span class="qn">↑</span>${this.ico(b.type, b.lvl)}<span class="qt"><b>${BLD[b.type].n} ${b.lvl}→${b.lvl + 1} 级</b><small>${miss.length ? '还缺 ' + miss.map(k => `${RICON[k]}${fmt(cost[k] - (c.stock[k] || 0))}`).join(' ') : '齐了，马上升'}</small></span><button class="small" data-act="openbld" data-arg="${b.id}">看看</button><button class="small ghost" data-act="qup" data-arg="${b.id}">取消</button></div>`;
+    }
+    return h;
+  }
+  // 提醒：眼下要留意的事一条一张卡；消息在旁边的页签
+  p_alerts(part) {
+    const S = this.S, A = this.alertsNow || [];
+    if (part === 'title') return `提醒 <small>${esc(this.camp().name)}</small>`;
+    const act = A.filter(a => a.lvl !== 'info'), info = A.filter(a => a.lvl === 'info');
+    let h = '';
+    if (!act.length) h += `<div class="hint">眼下没有要处理的事。</div>`;
+    for (const a of act) h += this.alertCard(a);
+    if (this.adv) h += this.alertCard({ ic: '老', lvl: 'tip', t: '老向导', d: this.adv.text, act: 'advisor', btn: '去看看' });
+    if (info.length) h += `<div class="sec">这会儿</div>` + info.map(a => this.alertCard(a)).join('');
+    const nl = S.log.length; h += `<button class="mlink" data-act="htab" data-arg="log"><span>📜</span><span>消息记录<small>最近 ${nl} 条：发生过的事都在这里</small></span><i>›</i></button>`;
+    return h;
+  }
+  alertCard(a) {
+    return `<div class="alc ${a.lvl}"><span class="ali">${a.ic}</span><span class="alt"><b>${esc(a.t)}${a.cnt ? `<small>${a.cnt}</small>` : ''}</b><small>${esc(a.d)}</small></span>${a.act ? `<button class="small ${a.lvl === 'bad' ? 'go' : ''}" data-act="${a.act}" data-arg="${a.arg ?? ''}">${esc(a.btn || '去看看')}</button>` : ''}</div>`;
   }
 
   p_spot(part) {
@@ -2267,11 +2421,11 @@ export class UI {
     if (!el) return;
     const act = el.dataset.act, arg = el.dataset.arg;
     if (!act) return;
+    this.fromSheet = !!(el.closest && el.closest('#sheet')); // 从面板里点开别的面板：带「返回」
     const S = this.S, g = this.g;
     const res = r => { if (r && r.ok === false && r.reason) this.toast(r.reason, 'warn'); return r; };
     switch (act) {
       case 'close': this.close(); break;
-      case 'resall': this.resDrawer(); break;
       case 'bigmap': g.bigmap.toggle(); break;
       case 'chainmap': g.chainmap.toggle(); break;
       case 'plan': g.cancelModes(); this.close(); if (this.tutSeen) this.tutSeen.goal = true; g.chainmap.plan(arg || null); break;
@@ -2290,9 +2444,19 @@ export class UI {
       case 'farmap': { const p = (getWorld(S.runSeed).far || [])[+arg]; if (p) { this.close(); g.view.focus(p.x + 0.5, p.y + 0.5); } break; }
       case 'prep': { const r = Sim.doPrep(S, arg); if (r.ok) { g.sfx(arg === 'fire' ? 'build' : 'tap'); this.toast({ fire: '火墙点起来了，营地外围一圈火光。', mil: '民兵拿起家伙上了墙头。', hide: '大家把物资往地窖里搬。' }[arg], 'good'); } else this.toast(r.reason, 'warn'); this.renderPanel(true); break; }
       case 'rauto': Sim.setRaidAuto(S, S.rAuto === false); this.renderPanel(true); break;
-      case 'speed': g.setSpeed(g.nextSpeed()); break;
-      case 'ptab': (this.tabs || (this.tabs = {}))[this.panel.kind] = arg; this.renderPanel(true); this.sheet.scrollTop = 0; break;
-      case 'camptab': (this.tabs || (this.tabs = {})).camp = arg; g.cancelModes(); this.open('camp'); break;
+      case 'speed': if (this.speedLong) { this.speedLong = false; break; } if (g.paused) g.togglePause(false); else g.setSpeed(g.nextSpeed()); break;
+      case 'hub': this.openHub(arg); break;
+      case 'htab': this.fromSheet = false; this.open(arg); break;
+      case 'back': { const b = this.back; this.back = null; this.fromSheet = false; if (b) this.open(b.kind, b.arg); break; }
+      case 'bell': if (this.panel && KIND_HUB[this.panel.kind] === 'bell') this.close(); else { g.cancelModes(); this.open((this.alertsNow || []).some(a => a.lvl !== 'info') || this.adv ? 'alerts' : 'log'); } break;
+      case 'notemini': this.noteZz = null; this.noteT = 0; this.noteSync(this.alertsNow); break;
+      case 'vt': { const c = this.camp(); g.cancelModes();
+        if (arg === 'tmp' || arg === 'fuel') { if (this.panel && this.panel.kind === 'bld' && this.panel.arg === c.furnace) this.close(); else this.actDo('reqgo', c.furnace); }
+        else if (arg === 'ppl') { const k = (c.disc ?? 10) >= 55 || (c.hope ?? 50) <= 25 ? 'mood' : 'folk'; if (this.panel && KIND_HUB[this.panel.kind] === 'camp') this.close(); else this.open(k); }
+        else if (this.panel && this.panel.kind === 'stock') this.close(); else this.open('stock');
+        break; }
+      case 'pladd': g.cancelModes(); this.close(); g.chainmap.plan(); g.chainmap.adding = true; g.chainmap.render(); break;
+      case 'camptab': g.cancelModes(); this.open(arg === 'road' ? 'towers' : 'camp'); break;
       case 'logf': this.logF = arg; this.renderPanel(true); this.sheet.scrollTop = 0; break;
       case 'close-modal': this.closeModal(); break;
       case 'wn-north': this.closeModal(); this.open('migrate'); break;
@@ -2361,7 +2525,7 @@ export class UI {
         this.modal(`<h3>让「${esc(c.name)}」熄火？</h3><p>${c.people} 个人会往北去「${esc(Sim.mainCamp(S).name)}」，拆下三成的物资一起带走，换来 ${emb} 点余烬。营地会变成一片积雪的废墟，不能再点着。</p>`, [{ t: '熄火', a: 'ddouse-go', arg: c.id, cls: 'bad' }, { t: '算了', a: 'close-modal' }]); break; }
       case 'ddouse-go': { const r = Sim.douseDepot(S, +arg); this.closeModal(); if (!r.ok) this.toast(r.reason, 'warn'); else { g.sfx('lose'); this.toast(`熄火了，换来 ${r.embers} 点余烬`, 'story'); this.close(); } this.hud(); break; }
       case 'openbld': { const id = +arg; g.view.select(id); this.open('bld', id); break; }
-      case 'tutskip': S.meta.tut = true; this.tutorial(); this.toast('已跳过新手引导。「菜单 → 怎么玩」里能看到玩法说明。', 'info'); break;
+      case 'tutskip': S.meta.tut = true; this.tutorial(); this.toast('已跳过新手引导。「菜单 → 帮助」里能看到玩法说明。', 'info'); break;
       case 'survey': { const r = Sim.startSurvey(S, +arg); if (!r.ok) this.toast(r.reason, 'bad'); else { this.toast(`勘探队出发了，去找${SPOTS[r.kind].n}。`, 'good'); g.sfx && g.sfx('tap'); } break; }
       case 'req': this.open('req', +arg); break;
       case 'reqok': { const r = Sim.claimReq(S, +arg); if (!r.ok) this.toast(r.reason, 'warn'); else this.toast('谢谢你！' + (r.rw.embers ? ` 余烬 +${r.rw.embers}` : ''), 'good'); break; }
@@ -2400,7 +2564,7 @@ export class UI {
       case 'slotdel': {
         const s = g.slotInfo(+arg), nx = s.cur && g.nextSlot(+arg);
         const then = s.cur ? `<p class="hint">删掉以后${nx ? `会读取存档 ${nx}「${esc(g.slotInfo(nx).name || '')}」` : '会从头开始一局新的北行'}。</p>` : '';
-        this.modal(`<p>删除存档 ${arg}${s.broken ? '（已经坏了）' : `里的「${esc(s.name || '')}」${s.cur ? '（正在玩的这一局）' : ''}`}？这一局的所有进度（包括余烬、专家和收集册）都会删掉。删之前会自动存一份备份，删错了可以到这个存档位的「菜单 → 自动备份」里找回来。</p>${then}`, [{ t: '删除', a: 'slotdel-yes', arg, cls: 'bad' }, { t: '算了', a: 'slots' }]);
+        this.modal(`<p>删除存档 ${arg}${s.broken ? '（已经坏了）' : `里的「${esc(s.name || '')}」${s.cur ? '（正在玩的这一局）' : ''}`}？这一局的所有进度（包括余烬、专家和收集册）都会删掉。删之前会自动存一份备份，删错了可以到这个存档位的「菜单 → 存档 → 自动备份」里找回来。</p>${then}`, [{ t: '删除', a: 'slotdel-yes', arg, cls: 'bad' }, { t: '算了', a: 'slots' }]);
         break;
       }
       case 'slotdel-yes': if (+arg === g.slot) { g.deleteSlot(+arg); break; } g.deleteSlot(+arg).then(() => { this.slotsModal(); this.toast(`存档 ${arg} 已删除，删之前存了一份备份。`, 'info'); }); break;
@@ -2563,26 +2727,26 @@ export function nextGoal(S) {
 export const HELP = `<h3>怎么玩</h3>
 <p><b>目标：</b>带着营地一站一站往北走，重新点燃传说中的永恒之炉；过了永恒之炉还有六站，翻过世界之脊以后是没有尽头的北境。</p>
 <p><b>熔炉</b>是营地的心脏。只有熔炉周围橙色圈里（供热区）能盖房子。升级熔炉让圈变大、营地更暖。熔炉要一直烧燃料：木材，之后是煤、焦煤块、晶体电池。</p>
-<p><b>采集与加工：</b>采集建筑要建在资源点旁边（白圈范围内），矿藏会被采光；树林和猎场砍光了会长回来，伐木场、猎人小屋附近的长得快好几倍；附近没树了就建「育林场」自己种。加工建筑把原料做成更高级的材料；锯木厂、炼钢厂默认会给建造留一些木材和铁锭（「物资」面板里可以关）。相邻的上下游建筑会互相加成。</p>
+<p><b>采集与加工：</b>采集建筑要建在资源点旁边（白圈范围内），矿藏会被采光；树林和猎场砍光了会长回来，伐木场、猎人小屋附近的长得快好几倍；附近没树了就建「育林场」自己种。加工建筑把原料做成更高级的材料；锯木厂、炼钢厂默认会给建造留一些木材和铁锭（「生产 → 物资」里可以关）。相邻的上下游建筑会互相加成。</p>
 <p><b>小人：</b>每座建筑要派工人；仓库里的人是搬运工，他们在仓库/熔炉和建筑之间来回搬货。离仓库越远，越费搬运工——把仓库建在生产区中间。</p>
 <p><b>升级门槛：</b>建筑每升 5 级，就要用下一层的材料。下一层的原料只在更北的地方有，所以要不断往北走。</p>
 <p><b>往北：</b>建侦察营，派侦察队揭开迷雾，找资源、幸存者、专家和地标，也把去下一站的路探出来。主营地和下一站之间可以建「前哨熔炉」开新营地，用运输线连起来。</p>
-<p><b>人心：</b>每个营地有「希望」和「不满」。吃不饱、太冷、有人死去会让人失望；住得好、有进展会让人振奋。希望高干活更快、来投奔的人更多；不满太高会有人离开。在「人心」面板里签署营地律令，每条都有好处也有代价。</p>
+<p><b>人心：</b>每个营地有「希望」和「不满」。吃不饱、太冷、有人死去会让人失望；住得好、有进展会让人振奋。希望高干活更快、来投奔的人更多；不满太高会有人离开。在「营地 → 律令」里签署营地律令，每条都有好处也有代价。</p>
 <p><b>研究：</b>建工程站，派工程师攒研究点数，解锁三条分支的 17 项改良。探险带回的图纸可以直接抵研究点数。</p>
 <p><b>探索：</b>迷雾里藏着废弃仓库、冻住的列车、观测站这样的地点。侦察队揭开后，从侦察营派 4 人的探险队去；带足补给更安全，到了还能做更多选择。</p>
-<p><b>章节：</b>每到一个新地标就开始新的一章，有自己的故事和三个任务，做完可以领奖励。点左上角的目标栏查看。</p>
-<p><b>产能主线：</b>每章的头一个任务是某样材料每分钟产多少。点目标栏的「规划」看这条线：每一环要几座建筑、几个人，现在卡在哪一环。产量稳住一阵，产线就升星，升星加产量；累计产量到了里程碑也有奖励。自己还能立几条支线。一条线搭好了，可以「复制这条线」整组搬到别处。老向导（左上角「老」）会一直指着下一步。</p>
-<p><b>营地基建：</b>在「营地」面板修路（搬运更快）和蒸汽管道（供热圈更大、更暖）。</p>
-<p><b>危险：</b>暴风雪提前一小时就有预报（点顶上的 ❄ 看撑不撑得住），记得囤燃料和熟食，熔炉还能超载顶一阵；雪狼和掠夺者会来袭，多建箭塔；侦察兵会提前 15 分钟发现它们，可以点火墙、召集民兵。人可能会冻死饿死，但营地永远不会全灭。</p>
+<p><b>章节：</b>每到一个新地标就开始新的一章，有自己的故事和三个任务，做完可以领奖励。点顶上的目标栏查看。</p>
+<p><b>产能主线：</b>每章的头一个任务是某样材料每分钟产多少。点目标栏的「规划」看这条线：每一环要几座建筑、几个人，现在卡在哪一环。产量稳住一阵，产线就升星，升星加产量；累计产量到了里程碑也有奖励。自己还能立几条支线。一条线搭好了，可以「复制这条线」整组搬到别处。老向导（左下角的便签）会一直指着下一步。</p>
+<p><b>营地基建：</b>在「营地 → 概况」修路（搬运更快）和蒸汽管道（供热圈更大、更暖）。</p>
+<p><b>危险：</b>暴风雪提前一小时就有预报（点右上角的提醒铃看撑不撑得住），记得囤燃料和熟食，熔炉还能超载顶一阵；雪狼和掠夺者会来袭，多建箭塔；侦察兵会提前 15 分钟发现它们，可以点火墙、召集民兵。人可能会冻死饿死，但营地永远不会全灭。</p>
 <p><b>生产链：</b>按 C 看整条生产链哪里卡住，按 G 看数据曲线。加工建筑挨着上下游时可以接传送带（之后升级成蒸汽轨道），直接供料、少用搬运工。矿快挖空时可以打深井，侦察营也能勘探新矿脉。</p>
 <p><b>营地生活：</b>人多了以后可以在熔炉面板办篝火庆典；路灯、旗杆、雕像、花窖这些装饰能加希望；有人生病就建医务所。营地里的人偶尔会托你办点事（委托），做完有谢礼。熔炉到 5 级可以给营地选专精。犬舍养的雪橇犬让侦察队和运输线跑得更快。</p>
-<p><b>天气与掠夺者：</b>除了暴风雪，还有冰风暴（暖炉和管道会冻住）、极寒夜（多烧燃料）、冰湖开裂（绕路），都会提前预报，点顶上的天气图标花点材料准备。北边有掠夺者营地，侦察到以后它们会来索贡：交贡、做买卖，或者靠箭塔顶回去，打退两次他们就走了。</p>
+<p><b>天气与掠夺者：</b>除了暴风雪，还有冰风暴（暖炉和管道会冻住）、极寒夜（多烧燃料）、冰湖开裂（绕路），都会提前预报，在右上角的提醒铃里花点材料准备。北边有掠夺者营地，侦察到以后它们会来索贡：交贡、做买卖，或者靠箭塔顶回去，打退两次他们就走了。</p>
 <p><b>收集册：</b>建过的建筑、见过的物资和风物、达成的成就都记在收集册里（K）。</p>
-<p><b>成就与装扮：</b>菜单里的「成就」按北境、烽火塔、产线、生存、营地分类，带进度条，还有几个隐藏的。「旅程」类的老成就给余烬；新成就给称号、炉火颜色、营旗图案、相框和八种北境装饰，在「装扮」里换上，北迁以后也留着。相册会在抵达新一站、点亮烽火塔、产线第一次三星和点燃天火时自动拍一张。</p>
-<p><b>北迁：</b>出发前要做到四件事：路探到了、这一章做完、主营地熔炉够级、车队备好了（在雪橇棚造雪橇和蒸汽拖车，之后还有破冰车）。在「北迁」面板挑带多少人和货，后面的营地选留守（变成补给站，自己运转、往北送货）还是熄火（换余烬，人跟上来）。路上会碰到事，车上带的货能多给一条路。到了以后挑一块平地放下新熔炉，那里就是新的主营地。余烬在「北迁 → 余烬强化」里换永久强化。</p>
+<p><b>成就与装扮：</b>「菜单 → 收藏」里的「成就」按北境、烽火塔、产线、生存、营地分类，带进度条，还有几个隐藏的。「旅程」类的老成就给余烬；新成就给称号、炉火颜色、营旗图案、相框和八种北境装饰，在「装扮」里换上，北迁以后也留着。相册会在抵达新一站、点亮烽火塔、产线第一次三星和点燃天火时自动拍一张。</p>
+<p><b>北迁：</b>出发前要做到四件事：路探到了、这一章做完、主营地熔炉够级、车队备好了（在雪橇棚造雪橇和蒸汽拖车，之后还有破冰车）。在「北行 → 北迁」挑带多少人和货，后面的营地选留守（变成补给站，自己运转、往北送货）还是熄火（换余烬，人跟上来）。路上会碰到事，车上带的货能多给一条路。到了以后挑一块平地放下新熔炉，那里就是新的主营地。余烬在「北行 → 专家与余烬」里换永久强化。</p>
 <p><b>北境：</b>翻过世界之脊还能一直往北走，地图往北一段段长出来。北境每一站有一种地貌，只在车队停着的那一站生效：平坦雪原、地热谷（暖、省燃料，能建地热井）、富矿带（矿多但冷）、永夜（极光多、希望好涨，干活慢一点）、狼群领地（袭营多、战利品也多）、冰湖群（能建冰钓屋）、古城遗址（拆遗迹换古代构件）、风暴走廊（暴风雪多，预报更早）、陨石雨（陨坑出星核，偶尔砸停建筑）、冻土无林（没有活树，只有枯木堆）。每站两个产能目标和一项地貌任务，目标一站比一站高；熔炉门槛停在世界之脊那一级。第一次走到某个站号给一点余烬，菜单和地图上记着最远纪录。</p>
 <p><b>烽火塔：</b>北境前十站各有一座塔要点：先打地基（要在主营地暖圈里），再给塔身一起喂几种高级材料，缺一种就停，但进度不会倒退；喂满以后用晶体电池（后面是星核）点火。点亮的塔立起光柱，那座营地暖 +1、希望 +5。第十站是 4×4 的天火塔，点着它就是最终结局，之后照样可以往北走。</p>
 <p><b>矿点与挪位置：</b>矿点快挖空时会提前提醒，侦察营的勘探在那时很便宜。摆建筑时如果会挡住旁边矿点，预览框变黄；地上的金色星星是推荐位置（菜单里能关）。建筑面板里点「↔ 挪位置」能免费搬家，等级和工人都留着，搬完停工一小会儿；烽火塔开始喂料以后就不能挪了。</p>
-<p><b>倍速与离线：</b>右边的按钮能切暂停、1×、2×、4×。关掉页面时营地也会慢慢攒资源，但比在线时慢，回来会看到一份报告。</p>
-<p><b>存档与备份：</b>进度自动存在这台设备上，三个存档位各是一局。玩着每 10 分钟自动备份一份，北迁出发、导入存档码、重开、删除之前也会先备份；「菜单 → 自动备份」里点一下就能退回去。换设备用「导出存档码」。</p>
-<p><b>操作：</b>拖动地图平移，双指缩放/旋转（电脑：滚轮缩放，右键或 Q/E 旋转）。建造时拖动预览，到合适位置再点 ✓；电脑上按住左键拖一下能一次摆一排，手机上先点「一排」。同类建筑的面板里能一键全升级、全派满。H 是拍照模式，M 是北行地图。菜单里有三个存档位，难度随时可以改。</p>`;
+<p><b>倍速与离线：</b>右边的速度键点一下换 1×、2×、4×，按住暂停。关掉页面时营地也会慢慢攒资源，但比在线时慢，回来会看到一份报告。</p>
+<p><b>存档与备份：</b>进度自动存在这台设备上，三个存档位各是一局。玩着每 10 分钟自动备份一份，北迁出发、导入存档码、重开、删除之前也会先备份；「菜单 → 存档 → 自动备份」里点一下就能退回去。换设备用「导出存档码」。</p>
+<p><b>操作：</b>拖动地图平移，双指缩放/旋转（电脑：滚轮缩放，右键或 Q/E 旋转）。建造时拖动预览，到合适位置再点 ✓；电脑上按住左键拖一下能一次摆一排，手机上先点「一排」。同类建筑的面板里能一键全升级、全派满。H 是拍照模式，M 是北行地图，+ / − 拉近拉远。菜单里有三个存档位，难度随时可以改。</p>`;
