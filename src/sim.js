@@ -292,6 +292,14 @@ export function firstLeg(S) { return journeyOf(S).stage === 0; }
 // 人口上限：每座营地 12 + 6 × 熔炉等级。帐篷再多，超过上限也没人来；已经超过的不会走
 // 补给站自己运转时只按留守的人烧火：熔炉按「够这么多人住」的那一级烧，不会几小时烧光一座大熔炉的燃料、再一批批冻死人
 // 「临时接手」以后照常按熔炉等级烧
+// 燃料还能撑几分钟：算上伐木、挖煤的进账（cr.flow 里的产出减消耗，消耗已经含熔炉）。进账跟得上就是 Infinity；眼下就断着燃料是 0
+export function fuelLeft(cr) {
+  if (!cr || !cr.burnPerMin) return Infinity;
+  if ((cr.fueled ?? 1) < 0.999) return 0;
+  const fl = cr.flow || {}; let net = 0;
+  for (const f in FUEL) { const x = fl[f]; if (x) net += (x.p - x.c) * FUEL[f]; }
+  return net >= -0.05 ? Infinity : (cr.fuelUnits || 0) / -net;
+}
 export function depotFireLvl(S, camp, fb = getB(S, camp.furnace)) {
   if (!depotAuto(camp)) return fb.lvl;
   return Math.max(1, Math.min(fb.lvl, Math.ceil((camp.people - 12) / 6) + 1));

@@ -1,10 +1,10 @@
 // 寒烬北行 · 产线：主线和支线、升星、累计产量里程碑、规划器的配比、老向导
 // 一条产线 = 一种材料 + 一路给它供料的上游建筑。主线由这一程给，支线自己立
-import { BLD, RES, RES_KEYS, SPOTS, SPOT_KEYS } from './data.js';
+import { BLD, RES, RES_KEYS, SPOTS, SPOT_KEYS, FUEL } from './data.js';
 import {
   rt, dirty, getCamp, logMsg, prodRate, rateGoals, holdOf, popCap, maxWorkers, heatRadius, levelMul,
   nextRaid, raidPrep, idleLabor, unlocked, checkPlace, HOLD, buildCost, canAfford, pay, queueBuild, QUEUE_MAX, ORE_URGENT, gatherTypeFor,
-  servedSpots, spotLeft, moveBlock, prodBonus, getB, blocksOre, chapIdx, chapterDef, countType,
+  servedSpots, spotLeft, moveBlock, prodBonus, getB, blocksOre, chapIdx, chapterDef, countType, fuelLeft, KEEP_WHY, FUEL_KEEP_WHY, FUEL_KEEP_MIN, isBuildMat, keepOf, storeCap,
 } from './sim.js';
 import { getWorld, idx, W } from './worldgen.js';
 import { journeyOf, mainCamp, stopOf, departGate, gateFlvl, depotAuto } from './journey.js';
@@ -280,6 +280,11 @@ function blockerOf(S, camp, type) {
 }
 
 // ---------- 老向导：一次只说一句，按急事 → 主线卡在哪 → 人手和地盘 → 下一程的方向 ----------
+// 谁产这样东西：能建的采集建筑优先（伐木场、矿场），再是加工建筑
+function producerOf(S, k) {
+  const ts = Object.keys(BLD).filter(t => BLD[t].out && BLD[t].out[k] && BLD[t].cat !== 'deco');
+  return ts.find(t => BLD[t].gather && unlocked(S, t)) || ts.find(t => unlocked(S, t)) || ts[0] || null;
+}
 export function advisor(S) {
   const R = rt(S), J = journeyOf(S), main = mainCamp(S);
   if (!main) return null;
@@ -292,7 +297,12 @@ export function advisor(S) {
       const m = (c.stock.food || 0) / -cr.foodNet;
       if (m < 10) return { pri: 0, kind: 'food', camp: c.id, text: `「${c.name}」的熟食只够 ${Math.max(1, Math.floor(m))} 分钟了：多派人去打猎和做饭，或者从别的营地运吃的过来。` };
     }
-    if (cr.burnPerMin > 0 && cr.fuelUnits != null && cr.fuelUnits / cr.burnPerMin < 10) return { pri: 0, kind: 'fuel', camp: c.id, text: `「${c.name}」的燃料只够 ${Math.max(1, Math.floor(cr.fuelUnits / cr.burnPerMin))} 分钟了：先保住熔炉，${countType(S, c.id, 'batteryworks') ? '晶体电池厂多派人、多建几座' : countType(S, c.id, 'coker') ? '煤矿和焦煤炉多派人' : '伐木场和煤矿多派人'}。要用燃料的工厂会先停下，把燃料留给熔炉。` };
+    { const fm = cr.burnPerMin > 0 ? fuelLeft(cr) : Infinity; // 算上进账：伐木跟得上熔炉就不报
+      if (fm < 10) {
+        const how = countType(S, c.id, 'batteryworks') ? '晶体电池厂多派人、多建几座' : countType(S, c.id, 'coker') ? '煤矿和焦煤炉多派人' : countType(S, c.id, 'coalmine') ? '伐木场和煤矿多派人' : '伐木场多派人，或者再建一座';
+        const early = !countType(S, c.id, 'coalmine') && !countType(S, c.id, 'coker') && !countType(S, c.id, 'batteryworks');
+        return { pri: 0, kind: 'fuel', camp: c.id, ...(early && c === main ? { act: 'place', arg: 'lumber' } : {}), text: fm < 0.5 ? `「${c.name}」的熔炉断燃料了：${how}。要用燃料的工厂会先停下，把燃料留给熔炉。` : `「${c.name}」的燃料只够 ${Math.max(1, Math.floor(fm))} 分钟了，烧得比进得快：${how}。要用燃料的工厂会先停下，把燃料留给熔炉。` };
+      } }
     if (cr.tH != null && cr.tH < -8 && c.people > 3) return { pri: 0, kind: 'cold', camp: c.id, text: `「${c.name}」太冷了，有人会冻伤：多烧燃料、开超载，或者给帐篷升级保暖。` };
   }
   const nr = nextRaid(S);
@@ -339,8 +349,26 @@ export function advisor(S) {
         const top = Object.keys(eat).sort((a, b) => eat[b] - eat[a])[0];
         return { pri: 1, kind: 'line', text: `${RES[g.r].n}线卡在${RES[w.k].n}：${RES[w.k].n}一分钟产 ${fmtR(w.prod)}，这条线只要 ${fmtR(w.need)}，可${BLD[by.type].n}分不到${top ? `，大半被${BLD[top].n}吃掉了（${fmtR(eat[top])}/分）。少派几个人去${BLD[top].n}` : '。多产一些'}，${BLD[by.type].n}就能开工。`, act: 'plan', arg: g.r };
       }
+      // 这一环自己在等料（缺料、留料给建造、留燃料给熔炉）：再多建它也没用，该补的是上游
+      { const cnt = Object.values(w.stat || {}).reduce((a, n) => a + n, 0) || 1;
+        const st = Object.keys(w.stat || {}).find(x => (x.startsWith('缺') || x === KEEP_WHY || x === FUEL_KEEP_WHY) && w.stat[x] * 2 >= cnt);
+        const ins = w.type && BLD[w.type].in ? Object.keys(BLD[w.type].in) : [];
+        const k = st && (st.startsWith('缺') ? ins.find(x => RES[x].n === st.slice(1)) : ins.find(x => st === FUEL_KEEP_WHY ? FUEL[x] : isBuildMat(x)));
+        const pt = k && producerOf(S, k);
+        if (k && pt) {
+          const n = BLD[w.type].n, kn = RES[k].n, idle = P.idle >= 1, can = unlocked(S, pt);
+          const more = `多建几座${BLD[pt].n}（还有 ${P.idle} 个闲人）`;
+          let text;
+          if (st === KEEP_WHY || st === FUEL_KEEP_WHY) {
+            // 留料：木材这种东西先留给盖房、留给熔炉，攒过这条线，多出来的才拿去加工
+            const cr = R.c[main.id] || {}, kb = isBuildMat(k) ? keepOf(main, k, storeCap(S, main)) : 0, kf = FUEL[k] ? (cr.burnPerMin || 0) * FUEL_KEEP_MIN / FUEL[k] : 0;
+            const forW = [kb > 0 && '盖房', kf > 0 && '熔炉'].filter(Boolean).join('和');
+            text = `${RES[g.r].n}线卡在${kn}：${kn}要先攒过 ${Math.ceil(Math.max(kb, kf))} 份（留给${forW}），多出来的才给${n}。${idle ? `${more}，或者先少盖点房子，让${kn}攒起来` : `先少盖点房子，让${kn}攒起来；人多了再多建几座${BLD[pt].n}`}。`;
+          } else text = `${RES[g.r].n}线卡在${kn}：${n}在等${kn}，${BLD[pt].n}供不上。${idle ? more : `没有闲人了：盖帐篷让更多人来投奔，再${BLD[pt].n}多派人`}。`;
+          return { pri: 1, kind: 'line', text, act: can && idle ? 'place' : 'plan', arg: can && idle ? pt : g.r };
+        } }
       const why = by ? `${BLD[by.type].n}要 ${fmtR(w.need)}/分，${BLD[w.type].n}只供 ${fmtR(w.prod)}/分` : `目标 ${fmtR(w.need)}/分，现在 ${fmtR(w.prod)}/分`;
-      let fix = w.workers < w.count * maxWorkers(w.type, w.lvl) ? '先把人派满' : `再建 ${Math.max(1, Math.ceil((w.need - w.prod) / Math.max(0.1, w.one)))} 座，或者升级`;
+      let fix = w.workers < w.count * maxWorkers(w.type, w.lvl) ? `先把${BLD[w.type].n}的人派满` : `再建 ${Math.max(1, Math.ceil((w.need - w.prod) / Math.max(0.1, w.one)))} 座${BLD[w.type].n}，或者升级`;
       // 采集建筑没地方放了：矿点旁边都被占了
       let blk = null;
       if (fix.startsWith('再建') && BLD[w.type].gather && !gatherRoom(S, main, w.type)) {

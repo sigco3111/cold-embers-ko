@@ -28,6 +28,7 @@ const TUT = [
   { b: 'kitchen', why: '厨房把生肉做成熟食，大家靠它活着。' },
   { k: 'stock', why: '顶部物资栏能打开总览：每种物资进出多少、卡在哪一环都写着。' },
   { k: 'furnace', why: '点任何建筑都能看到它的状态、派人和升级。熔炉是营地的心脏，升级后供热圈会变大。' },
+  { k: 'goal', why: '左上角是这一章的目标，三个任务做完能领奖励。「木板产量 6/分钟」这种任务，点旁边的「规划」，会算出还差几座建筑、几个人。' },
 ];
 // 建筑状态 → 头顶小图标；严重的状态用红色
 const RES_BY_NAME = Object.fromEntries(Object.entries(RES).map(([k, r]) => [r.n, k]));
@@ -518,7 +519,7 @@ export class UI {
     const S = this.S, c = this.camp(), cr = Sim.rt(S).c[c.id] || {};
     this.watchStock(c, cr);
     this.watchLevels();
-    const fuelMin = cr.burnPerMin ? cr.fuelUnits / cr.burnPerMin : 0;
+    const fuelMin = cr.burnPerMin ? cr.fuelUnits / cr.burnPerMin : 0, fuelEta = Sim.fuelLeft(cr); // 库存够烧多久；算上进账还能撑多久（跟得上就是 Infinity）
     const w = Sim.weatherAt(S, S.t);
     let weather = '';
     const odTag = cr.stall ? '<em class="odt cool">停炉</em>' : cr.od ? '<em class="odt">超载</em>' : '';
@@ -569,13 +570,15 @@ export class UI {
 
     this.$('campName').textContent = c.name + (S.camps.length > 1 ? ' ▾' : '');
     // 手机上只留一行：温度、人口、熟食、燃料 + 要紧的警告；其余点 ▾ 展开
-    const fuelShort = fuelMin > 6000 ? '充足' : fuelMin >= 60 ? `${Math.floor(fuelMin / 60)}时` : `${Math.floor(fuelMin)}分`;
+    const fuelOk = fuelEta === Infinity && fuelMin < 6000; // 库存不多，但砍得比烧得快
+    const fuelShow = Math.min(6001, fuelEta === Infinity ? fuelMin : fuelEta); // 进账不够时，按净消耗算还能撑多久
+    const fuelShort = fuelMin > 6000 ? '充足' : fuelOk ? '够烧' : fuelShow >= 60 ? `${Math.floor(fuelShow / 60)}时` : `${Math.floor(fuelShow)}分`;
     const urgent = h => h.replace(/class="pill ([^"]*)"/g, (m, cl) => /\b(bad|warn)\b/.test(cl) ? `class="pill core ${cl}"` : m);
     this.$('stats').innerHTML = iconize(`
       <span class="pill core gauge ${temp < 0 ? 'bad' : temp < 10 ? 'cold' : 'warm'}" style="--g:${Math.max(0.04, Math.min(1, (temp + 30) / 90)).toFixed(2)}" title="住在屋里的体感温度"><i></i><b>${temp}°</b></span>
       <span class="pill core${c.wait > 0 ? ' wait' : ''}" title="人口 / 床位${c.wait > 0 ? ` · ${c.wait} 人在等床位` : ''}">👥${c.people}${c.bots ? '+' + c.bots + '🤖' : ''}<small class="lg">/${cr.housing || 0}</small>${c.wait > 0 ? `<small class="wt">+${c.wait}</small>` : ''}</span>
       <span class="pill core ${foodNet < 0 ? 'bad' : ''}" title="熟食库存 · 每分钟净变化">🍖<span data-rk="food">${fmt(this.rolled('food', c.stock.food))}</span> <small>${foodNet >= 0 ? '+' : ''}${fmt(foodNet)}</small></span>
-      <span class="pill core ${fuelMin < 30 ? 'bad' : ''}" title="燃料还能烧多久">🔥<span class="lg">${fuelMin > 6000 ? '充足' : fmtTime(fuelMin * 60)}</span><span class="sh">${fuelShort}</span><span class="fb"><i style="--f:${Math.min(1, fuelMin / 240).toFixed(2)}"></i></span></span>
+      <span class="pill core ${fuelEta < 30 ? 'bad' : ''}" title="${fuelOk ? `燃料进得比烧得快（库存够烧 ${fmtTime(fuelMin * 60)}）` : '燃料还能烧多久'}">🔥<span class="lg">${fuelMin > 6000 ? '充足' : fuelOk ? '够烧' : fmtTime(fuelShow * 60)}</span><span class="sh">${fuelShort}</span><span class="fb"><i style="--f:${Math.min(1, fuelMin / 240).toFixed(2)}"></i></span></span>
       ${urgent(moodPill)}${rulePill}${tod}${buffs}${urgent(weather)}${urgent(raid)}<span class="pill core more" title="展开更多">${this.resOpen ? '▴' : '▾'}</span>`);
     // 资源条：只常驻几种（缺的、满的、眼下这一层在用的），其余收进「全部」抽屉
     const keys = RES_KEYS.filter(k => (c.stock[k] || 0) >= 1 || (RES[k].t <= S.known && RES[k].t <= 1 && k !== 'food'));
@@ -844,7 +847,7 @@ export class UI {
     if (S.meta.tut || this.g.titleOn || this.$('modal').classList.contains('show')) return hide();
     const c = this.camp();
     const steps = TUT.filter(t => !(t.b ? Sim.countType(S, c.id, t.b) > 0 : this.tutSeen[t.k]));
-    if (!steps.length) { S.meta.tut = true; hide(); this.toast('新手引导完成。接下来跟着左上角的目标走，北方还有很长的路。', 'good'); return; }
+    if (!steps.length) { S.meta.tut = true; hide(); this.toast('新手引导完成。目标栏下面的老向导会一句一句提醒下一步；「菜单 → 怎么玩」里有完整的说明。', 'good'); return; }
     const st = steps[0], i = TUT.indexOf(st) + 1, touch = matchMedia('(pointer:coarse)').matches;
     let el = null, pt = null, msg = '';
     if (st.b) {
@@ -864,6 +867,7 @@ export class UI {
       else if (phone) { el = this.$('stats').querySelector('.pill.more'); msg = `<b>看物资</b>${st.why}<br>👉 点右上角的 ▾ 展开物资。`; }
       else { el = this.$('reschips'); msg = `<b>看物资</b>${st.why}<br>👉 点顶部的物资栏。`; }
     }
+    else if (st.k === 'goal') { el = this.$('goal'); msg = `<b>看目标</b>${st.why}<br>👉 点左上角的目标栏。`; }
     else {
       const f = Sim.getB(S, c.furnace);
       if (this.panel && this.panel.kind === 'bld') { el = this.sheet.querySelector('[data-act=upgrade]'); msg = '👉 材料够了就点「升级」。'; }
@@ -888,7 +892,7 @@ export class UI {
   }
 
   // ---------- 面板 ----------
-  open(kind, arg) { if (this.resOpen) this.resDrawer(false); if (this.panel && this.panel.kind === 'build') this.markBuildSeen(); if (kind === 'build' && (!this.panel || this.panel.kind !== 'build')) { const nw = this.newBld(); if (nw.length) this.buildTier = Math.max(...nw.map(k => BLD[k].t)); } if (kind === 'log') { this.logOpenSeen = this.logSeen; this.logSeen = this.S.log[this.S.log.length - 1] || null; } if (this.tutSeen) { if (kind === 'stock') this.tutSeen.stock = true; if (kind === 'bld' && Sim.getB(this.S, arg)?.type === 'furnace') this.tutSeen.furnace = true; } this.panel = { kind, arg }; this.lastHtml = ''; this.renderPanel(true); clearTimeout(this.outT); if (this.sheet.classList.contains('out')) this.sheet.classList.remove('out', 'show'); void this.sheet.offsetWidth; this.sheet.classList.add('show'); document.body.classList.add('sheet-open'); this.sheet.scrollTop = 0;
+  open(kind, arg) { if (this.resOpen) this.resDrawer(false); if (this.panel && this.panel.kind === 'build') this.markBuildSeen(); if (kind === 'build' && (!this.panel || this.panel.kind !== 'build')) { const nw = this.newBld(); if (nw.length) this.buildTier = Math.max(...nw.map(k => BLD[k].t)); } if (kind === 'log') { this.logOpenSeen = this.logSeen; this.logSeen = this.S.log[this.S.log.length - 1] || null; } if (this.tutSeen) { if (kind === 'stock') this.tutSeen.stock = true; if (kind === 'bld' && Sim.getB(this.S, arg)?.type === 'furnace') this.tutSeen.furnace = true; if (kind === 'chapter') this.tutSeen.goal = true; } this.panel = { kind, arg }; this.lastHtml = ''; this.renderPanel(true); clearTimeout(this.outT); if (this.sheet.classList.contains('out')) this.sheet.classList.remove('out', 'show'); void this.sheet.offsetWidth; this.sheet.classList.add('show'); document.body.classList.add('sheet-open'); this.sheet.scrollTop = 0;
     if (kind === 'build') { const on = this.sheet.querySelector('.tabs .tab.on'), tb = on && on.parentElement; if (tb) tb.scrollLeft = Math.max(0, on.offsetLeft - tb.offsetLeft - (tb.clientWidth - on.offsetWidth) / 2); }
     this.syncInset();
     const b = kind === 'bld' ? Sim.getB(this.S, arg) : null;
@@ -2270,7 +2274,7 @@ export class UI {
       case 'resall': this.resDrawer(); break;
       case 'bigmap': g.bigmap.toggle(); break;
       case 'chainmap': g.chainmap.toggle(); break;
-      case 'plan': g.cancelModes(); this.close(); g.chainmap.plan(arg || null); break;
+      case 'plan': g.cancelModes(); this.close(); if (this.tutSeen) this.tutSeen.goal = true; g.chainmap.plan(arg || null); break;
       case 'advisor': this.advisorGo(); break;
       case 'pause': g.togglePause(); break;
       case 'qup': Sim.toggleQueueUp(S, +arg); this.renderPanel(true); break;

@@ -442,6 +442,10 @@ while (S.t < T_END && G.journeyOf(S).stage < MAXSTAGE) {
     for (const k in c.stock) if (!Number.isFinite(c.stock[k]) || c.stock[k] < -0.01) { if (invN++ < 12) console.log('INV', day(), c.name, k, c.stock[k]); }
     if (!Number.isFinite(c.people) || c.people < 0) { if (invN++ < 12) console.log('INV', day(), c.name, 'people', c.people); }
   }
+  if (process.env.EARLY && Math.floor(S.t / +process.env.EARLY) !== Math.floor((S.t - THINK) / +process.env.EARLY)) { // 开局每隔 EARLY 秒打一行：新手前 30 分钟看节奏
+    const m = G.mainCamp(S), ch = G.chapters(S).find(c => c.i === G.journeyOf(S).stage), adv = G.advisor ? G.advisor(S) : null, nr = G.nextRaid(S), wx = G.weatherAt(S, S.t);
+    console.log(`EARLY ${Math.round(S.t / 60)}m ppl=${m.people}/${G.popCap ? G.popCap(S, m) : '?'} wait=${(m.wait || 0)} bld=${S.buildings.length} f=${G.getB(S, m.furnace).lvl} food=${Math.round(m.stock.food || 0)} meat=${Math.round(m.stock.game || 0)} wood=${Math.round(m.stock.wood || 0)} plank=${Math.round(m.stock.plank || 0)} stone=${Math.round(m.stock.stone || 0)} hope=${Math.round(m.hope ?? 0)} deaths=${S.stats.deaths} | ${ch ? ch.tasks.map(t => (t.ok ? '✓' : '✗') + t.t + ' ' + (typeof t.cur === 'number' ? t.cur.toFixed(1) : t.cur)).join(' / ') : ''} | raid in ${nr ? Math.round(nr.in / 60) + 'm' : '-'} wx ${wx.blizzard ? 'BLIZZ' : wx.warn ? 'warn' : Math.round((wx.next || 0) / 60) + 'm'}${adv ? ' | adv ' + adv.text.slice(0, 60) : ''}`);
+  }
   if (d !== lastDay) {
     lastDay = d;
     const J = G.journeyOf(S), main = G.mainCamp(S), gt = G.departGate(S);
