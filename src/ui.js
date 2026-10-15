@@ -1802,7 +1802,7 @@ export class UI {
       h += `<div class="ncard ${x.id === on ? 'on' : ''}"><div class="nh"><b>${esc(x.name)}</b><small>${this.netRole(x)}</small>${x.id !== S.active ? `<button class="small ghost" data-act="campgo" data-arg="${x.id}">去这里</button>` : ''}</div>`;
       if (inc.length) h += `<div class="nl"><span>运来</span><span>${inc.map(([k, i]) => `${this.netGood(k, i.n)} <small>约 ${fmtTime(Math.max(1, i.eta))} · 从${this.netNames(i.from)}</small>`).join('<br>')}</span></div>`;
       if (out.length) h += `<div class="nl"><span>送出</span><span>${out.map(([k, o]) => `${this.netGood(k, o.n)} <small>到${this.netNames(o.to)}</small>`).join('<br>')}</span></div>`;
-      if (sh.length) h += `<div class="nl"><span>还缺</span><span>${sh.map(([k, q]) => `<i class="${q.none ? 'bad' : q.jam ? 'warn' : ''}">${this.netGood(k, q.n)} <small>${esc(q.why)} · ${q.none ? '整张网都没有多余的' : q.jam ? '路满了，在排队' : '等下一车'}</small></i>`).join('<br>')}</span></div>`;
+      if (sh.length) h += `<div class="nl"><span>还缺</span><span>${sh.map(([k, q]) => `<i class="${q.tier > 5 ? '' : q.none ? 'bad' : q.jam ? 'warn' : ''}">${this.netGood(k, q.n)} <small>${esc(q.why)} · ${q.none ? (q.tier > 5 ? '别的营地也没有多的，有了再送' : '整张网都没有多余的') : q.jam ? '路满了，在排队' : '等下一车'}</small></i>`).join('<br>')}</span></div>`;
       if (!inc.length && !out.length && !sh.length) h += `<div class="nl"><span></span><span><small>不缺什么，也没有要往外送的</small></span></div>`;
       h += '</div>';
     }
@@ -1876,7 +1876,7 @@ export class UI {
     const v = Sim.netView(S, c.id), inc = Object.entries(v.inc), sh = Object.entries(v.short).sort((a, b) => a[1].tier - b[1].tier);
     let h = `<div class="sec">物流 <small>${Sim.roadsAt(S, c.id).length} 条路连着这里</small></div>`;
     h += `<div class="row"><span>运来</span><span>${inc.length ? inc.slice(0, 3).map(([k, i]) => `${this.netGood(k, i.n)} <small>约 ${fmtTime(Math.max(1, i.eta))}</small>`).join(' · ') + (inc.length > 3 ? ` 等 ${inc.length} 样` : '') : '<small>没有在路上的货</small>'}</span></div>`;
-    if (sh.length) h += `<div class="row sub"><span>还缺</span><span>${sh.slice(0, 3).map(([k, q]) => `<i class="${q.none ? 'bad' : q.jam ? 'warn' : ''}">${this.netGood(k, q.n)}</i>`).join(' · ')}</span></div>`;
+    if (sh.length) h += `<div class="row sub"><span>还缺</span><span>${sh.slice(0, 3).map(([k, q]) => `<i class="${q.tier > 5 ? '' : q.none ? 'bad' : q.jam ? 'warn' : ''}">${this.netGood(k, q.n)}</i>`).join(' · ')}</span></div>`;
     h += `<div class="drow"><button class="btn" data-act="netview" data-arg="${c.id}">看物流</button><button class="btn" data-act="netsend">送货</button></div>`;
     return h;
   }

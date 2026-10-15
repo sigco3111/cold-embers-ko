@@ -395,6 +395,10 @@ function dispatch(S, win) {
   // 实际运量取一分钟左右的平均；没用完的运力留到下一轮
   const F = R.netFlow || (R.netFlow = {});
   for (const rid in N.road) { const nr = N.road[rid], f = nr.used / win * 60; F[rid] = (F[rid] ?? f) + (f - (F[rid] ?? f)) * Math.min(1, win / 60); nr.flow = F[rid]; B1[rid] = bud[rid]; }
+  // 「路满了」只算真满的：一分钟平均跑到运力的八成五以上；只是这一轮刚好用完的不算，那些货下一车就走
+  for (const rid in N.jam) { const nr = N.road[rid]; if (!nr || nr.flow < nr.cap * 0.85) delete N.jam[rid]; }
+  const jk = new Set(); for (const rid in N.jam) for (const j of N.jam[rid]) jk.add(j.c + ':' + j.k);
+  for (const cid in N.short) for (const k in N.short[cid]) { const q = N.short[cid][k]; if (q.jam && !jk.has(cid + ':' + k)) q.jam = false; }
 }
 export function netStep(S, dt) {
   if (!S.roads) migrateNet(S);
