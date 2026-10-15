@@ -51,7 +51,7 @@ function rich(seed, stage) {
   for (const k of ['wood', 'stone', 'plank', 'food', 'coal', 'iron', 'steel', 'gear', 'seal', 'alloy', 'part', 'battery', 'core', 'engine', 'heart', 'starcore']) m.stock[k] = 50000;
   G.getB(S, m.furnace).lvl = 37;
   J.fleet.icebreaker = 10; J.fleet.tractor = 10; J.fleet.sled = 20;
-  for (let s = 0; s <= stage; s++) for (let k = 0; k < 3; k++) G.chapState(S).ok[s + ':' + k] = 1;
+  for (let s = 0; s <= stage; s++) for (let k = 0; k < 4; k++) G.chapState(S).ok[s + ':' + k] = 1;
   return S;
 }
 function travel(S) {
@@ -84,7 +84,7 @@ function travel(S) {
   ok(S2.rows === S.rows && WG.H === S.rows && S2.reveal.length === W * S.rows && S2.reveal[W * 1205] === 1 && S2.reveal[W * 1195] === 0, 'save keeps the rows and the fog up north');
   // 再走五站：到第 6 站以后地图接到 1800
   S.reveal.fill(1);
-  for (let i = 0; i < 5; i++) { for (let k = 0; k < 3; k++) G.chapState(S).ok[J.stage + ':' + k] = 1; const q = travel(S); if (!q.ok) { ok(false, 'trip failed ' + (q.reason || '')); break; } }
+  for (let i = 0; i < 5; i++) { for (let k = 0; k < 4; k++) G.chapState(S).ok[J.stage + ':' + k] = 1; const q = travel(S); if (!q.ok) { ok(false, 'trip failed ' + (q.reason || '')); break; } }
   ok(J.stage === G.SPINE + 6 && S.rows === BASE_H + 800, `at ${G.stopOf(S, J.stage).n}, map ${S.rows} rows`);
   const nx2 = G.stopOf(S, J.stage + 1);
   ok(nx2.y + 50 < S.rows, `next stop ${nx2.n} at row ${Math.round(nx2.y)} is inside the map`);

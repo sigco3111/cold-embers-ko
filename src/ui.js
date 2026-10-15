@@ -42,6 +42,8 @@ export function fmt(n) {
 }
 // 游戏分钟：90 → 1 小时 30 分
 export const fmtMin = m => { m = Math.max(1, Math.round(m)); return m >= 60 ? `${Math.floor(m / 60)} 小时${m % 60 ? ` ${m % 60} 分钟` : ''}` : `${m} 分钟`; };
+// 北境的位置和最远纪录：「北境第 N 站 · 最远 M 站」（还没进北境时只说最远）
+export function northRec(S) { const N = Sim.northN(Sim.journeyOf(S).stage), M = Math.max(N, S.meta.northMax || 0); return N ? `北境第 ${N} 站 · 最远 ${M} 站` : M ? `北境最远走到第 ${M} 站` : ''; }
 export function fmtTime(s) {
   s = Math.max(0, Math.round(s));
   if (s >= 86400) return `${Math.floor(s / 86400)}天${Math.floor(s % 86400 / 3600)}小时`;
@@ -428,9 +430,10 @@ export class UI {
   }
   // 新的一章：开场故事 + 三个任务
   chapterModal(i) {
-    const ch = CHAPTERS[i]; if (!ch) return false;
-    const m = this.$('modal');
-    m.innerHTML = iconize(`<div class="mbox chap"><div class="evtag">📖 新的一章 · ${esc(LANDMARKS[i].n)}</div><h2>${esc(ch.n)}</h2><p class="story">${esc(ch.story)}</p>${BRIEF[i] ? `<div class="brief"><span class="advf">老</span><div><b>老向导</b>${BRIEF[i].map(x => `<p>${esc(x)}</p>`).join('')}</div></div>` : ''}<div class="sec">这一章要做的事</div><ul class="ctl">${ch.tasks.map(t => `<li>${esc(t.t)}</li>`).join('')}</ul><div class="crw">🎁 奖励：${esc(Sim.chapterReward(this.S, i).join('，'))}</div><div class="mbtns"><button class="btn go" data-act="close-modal">出发</button></div></div>`);
+    const ch = Sim.chapterDef(this.S, i); if (!ch) return false;
+    const m = this.$('modal'), rl = ch.rule && NORTH_RULES[ch.rule];
+    const brief = rl ? [`${rl.ic} ${rl.tip}`] : BRIEF[i];
+    m.innerHTML = iconize(`<div class="mbox chap"><div class="evtag">📖 新的一章 · ${esc(Sim.stopOf(this.S, i).n)}</div><h2>${esc(ch.n)}</h2><p class="story">${esc(ch.story)}</p>${brief ? `<div class="brief"><span class="advf">老</span><div><b>老向导</b>${brief.map(x => `<p>${esc(x)}</p>`).join('')}</div></div>` : ''}<div class="sec">这一章要做的事</div><ul class="ctl">${ch.tasks.map(t => `<li>${esc(t.t)}</li>`).join('')}</ul><div class="crw">🎁 奖励：${esc(Sim.chapterReward(this.S, i).join('，'))}</div><div class="mbtns"><button class="btn go" data-act="close-modal">出发</button></div></div>`);
     m.classList.add('show');
     return true;
   }
@@ -591,7 +594,7 @@ export class UI {
     if (ge.dataset.t !== gk) {
       ge.dataset.t = gk; ge.dataset.act = 'chapter';
       const tr = Sim.journeyOf(S).trip, tripGo = tr && tr.phase === 'go', chip = tr && tr.road ? '<i class="gplan" data-act="roadopen">拿主意</i>' : tripGo ? `<i class="gplan" data-act="followtrip">${this.g.view.followTrip ? '不跟了' : '跟着看'}</i>` : '<i class="gplan" data-act="plan">规划</i>';
-      ge.innerHTML = iconize(cur ? `<b>${cur.ch.n.split(' · ')[0]}</b>${goal ? esc(goal) : esc(cur.ch.n.split(' · ')[1])}${gift ? '<i class="gift">🎁 领奖励</i>' : `<i class="gprog">${cur.tasks.filter(t => t.ok).length}/3</i>`}${chip}` : goal ? `<b>目标</b>${esc(goal)}${chip}` : '');
+      ge.innerHTML = iconize(cur ? `<b>${cur.ch.n.split(' · ')[0]}</b>${goal ? esc(goal) : esc(cur.ch.n.split(' · ')[1])}${gift ? '<i class="gift">🎁 领奖励</i>' : `<i class="gprog">${cur.tasks.filter(t => t.ok).length}/${cur.tasks.length}</i>`}${chip}` : goal ? `<b>目标</b>${esc(goal)}${chip}` : '');
       ge.classList.toggle('gift', gift);
       ge.style.display = ge.innerHTML ? '' : 'none';
     }
@@ -1945,7 +1948,7 @@ export class UI {
         <div class="mje" title="余烬：北迁时带到下一程的永久加成"><b>🔥${fmt(S.meta.embers)}</b><small>余烬</small></div></div>
       <div class="route"><i class="rl"><i style="width:${Math.min(100, far / top * 100).toFixed(1)}%"></i></i>
         ${LANDMARKS.map((l, i) => { const cls = S.founded.includes(i) ? 'on' : S.discovered.includes(i) ? 'seen' : ''; return `<span class="rn ${cls} ${i === next ? 'next' : ''} ${i % 2 ? 'up' : ''}" style="left:${(l.row / top * 100).toFixed(1)}%"><em></em><small>${i <= known || cls ? l.n : '？'}</small></span>`; }).join('')}</div>
-      <div class="mnext">${next >= 0 ? `下一站：<b>${LANDMARKS[next].n}</b>（纬度 ${LANDMARKS[next].row}，现在最北到 ${far}）` : '所有地标都走到了。'}</div>
+      <div class="mnext">${Sim.northN(Sim.journeyOf(S).stage) ? `🧭 <b>${esc(northRec(S))}</b> · 下一站：${esc(Sim.stopOf(S, Sim.journeyOf(S).stage + 1).n)}` : next >= 0 ? `下一站：<b>${LANDMARKS[next].n}</b>（纬度 ${LANDMARKS[next].row}，现在最北到 ${far}）${S.meta.northMax ? `<br><small>🧭 ${esc(northRec(S))}</small>` : ''}` : `所有地标都走到了。${S.meta.northMax ? ` 🧭 ${esc(northRec(S))}` : ' 翻过世界之脊就是北境。'}`}</div>
       <div class="mstats">
         <span><b>${people}</b>人口</span><span><b>${S.camps.length}</b>座营地</span><span><b>${S.buildings.length}</b>栋建筑</span>
         <span><b>${st.arrivals}</b>人投奔</span><span class="${st.deaths ? 'neg' : ''}"><b>${st.deaths}</b>人遇难</span><span><b>${st.raidsWon}/${st.raids}</b>守住袭营</span>
@@ -2010,13 +2013,14 @@ export class UI {
 
   p_chapter(part) {
     const S = this.S, chs = Sim.chapters(S);
-    if (part === 'title') return `北行纪事 <small>第 ${Math.min(CHAPTERS.length, Sim.journeyOf(S).stage + 1)}/${CHAPTERS.length} 章</small>`;
+    if (part === 'title') { const N = Sim.northN(Sim.journeyOf(S).stage); return N ? `北行纪事 <small>${esc(northRec(S))}</small>` : `北行纪事 <small>第 ${Math.min(CHAPTERS.length, Sim.journeyOf(S).stage + 1)}/${CHAPTERS.length} 章</small>`; }
     let h = '';
     chs.slice().reverse().forEach((c, n) => {
       const open = n === 0 || (c.done && !c.got) || this.panel.arg === c.i;
       const nOk = c.tasks.filter(t => t.ok).length;
-      if (!open) { h += `<div class="chrow" data-act="chapter" data-arg="${c.i}"><b>${esc(c.ch.n)}</b><span>${c.got ? '✓ 已完成' : `${nOk}/3`}</span></div>`; return; }
-      h += `<div class="chcard ${c.got ? 'got' : c.done ? 'ready' : ''}"><div class="chh"><small>📍 ${esc(LANDMARKS[c.i].n)}</small><b>${esc(c.ch.n)}</b></div><p class="story">${esc(c.got ? c.ch.end : c.ch.story)}</p><div class="ctasks">`;
+      if (!open) { h += `<div class="chrow" data-act="chapter" data-arg="${c.i}"><b>${esc(c.ch.n)}</b><span>${c.got ? '✓ 已完成' : `${nOk}/${c.tasks.length}`}</span></div>`; return; }
+      const rl = c.ch.rule && NORTH_RULES[c.ch.rule];
+      h += `<div class="chcard ${c.got ? 'got' : c.done ? 'ready' : ''}"><div class="chh"><small>📍 ${esc(Sim.stopOf(S, c.i).n)}${rl ? ` · ${rl.ic} ${esc(rl.n)}` : ''}</small><b>${esc(c.ch.n)}</b></div><p class="story">${esc(c.got ? c.ch.end : c.ch.story)}</p><div class="ctasks">`;
       for (const t of c.tasks) {
         const pr = t.low ? (t.ok ? 1 : Math.max(0, Math.min(1, (100 - t.cur) / (100 - t.n)))) : Math.min(1, t.cur / t.n);
         h += `<div class="ctask ${t.ok ? 'ok' : ''}"><span class="ck">${t.ok ? '✓' : ''}</span><div><span>${esc(t.t)}</span>${t.ok ? '' : `<div class="mbar"><i style="width:${(pr * 100).toFixed(1)}%"></i></div><small>${t.low ? `现在最高 ${fmt(t.cur)}` : `${fmt(t.cur)} / ${fmt(t.n)}`}</small>`}</div></div>`;
@@ -2026,9 +2030,10 @@ export class UI {
       else if (c.done) h += `<button class="btn wide go" data-act="chapclaim" data-arg="${c.i}">领取奖励（发到「${esc(this.camp().name)}」）</button>`;
       h += `</div>`;
     });
-    const nx = LANDMARKS.findIndex((l, i) => i > Math.max(...S.founded));
-    if (nx > 0) h += `<div class="chrow next"><b>${esc(CHAPTERS[nx].n)}</b><span>在「${esc(LANDMARKS[nx].n)}」建起熔炉后开始</span></div>`;
-    h += `<div class="hint">每到一个新地标就开始新的一章。任务一旦做到就算完成；北迁到下一程时章节会重新开始。</div>`;
+    const nx = LANDMARKS.findIndex((l, i) => i > Math.max(...S.founded)), J = Sim.journeyOf(S);
+    if (nx > 0 && !Sim.northN(J.stage)) h += `<div class="chrow next"><b>${esc(CHAPTERS[nx].n)}</b><span>在「${esc(LANDMARKS[nx].n)}」建起熔炉后开始</span></div>`;
+    if (J.stage >= Sim.SPINE) { const st = Sim.stopOf(S, J.stage + 1), rl = st && NORTH_RULES[st.rule]; if (st) h += `<div class="chrow next"><b>${esc(st.n)}</b><span>${rl ? `${rl.ic} ${esc(rl.n)} · ` : ''}车队到了就开始</span></div>`; }
+    h += `<div class="hint">${Sim.northN(J.stage) ? '北境每一站是一章：两条产能目标、一件这站地貌的事，前十站还有一座烽火塔。' : '每到一个新地标就开始新的一章。'}任务一旦做到就算完成；北迁到下一程时章节会重新开始。</div>`;
     return h;
   }
 

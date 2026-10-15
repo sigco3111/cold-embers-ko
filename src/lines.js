@@ -1,10 +1,10 @@
 // 寒烬北行 · 产线：主线和支线、升星、累计产量里程碑、规划器的配比、老向导
 // 一条产线 = 一种材料 + 一路给它供料的上游建筑。主线由这一程给，支线自己立
-import { BLD, RES, RES_KEYS, CHAPTERS, SPOTS, SPOT_KEYS } from './data.js';
+import { BLD, RES, RES_KEYS, SPOTS, SPOT_KEYS } from './data.js';
 import {
   rt, dirty, getCamp, logMsg, prodRate, rateGoals, holdOf, popCap, maxWorkers, heatRadius, levelMul,
   nextRaid, raidPrep, idleLabor, unlocked, checkPlace, HOLD, buildCost, canAfford, pay, queueBuild, QUEUE_MAX, ORE_URGENT, gatherTypeFor,
-  servedSpots, spotLeft, moveBlock, prodBonus, getB, blocksOre,
+  servedSpots, spotLeft, moveBlock, prodBonus, getB, blocksOre, chapIdx, chapterDef,
 } from './sim.js';
 import { getWorld, idx, W } from './worldgen.js';
 import { journeyOf, mainCamp, stopOf, departGate, gateFlvl, depotAuto } from './journey.js';
@@ -65,8 +65,8 @@ export function dropPLine(S, id) {
 }
 // 章节里的产能目标就是主线：开始一章时自动立起来（同种材料的支线直接升成主线，星留着）
 function syncMain(S) {
-  for (const i of S.founded) {
-    const ch = CHAPTERS[i]; if (!ch) continue;
+  for (const i of chapIdx(S)) {
+    const ch = chapterDef(S, i); if (!ch) continue;
     ch.tasks.forEach((q, k) => {
       if (q.k !== 'rate') return;
       const key = `c${i}:${k}`;
@@ -362,7 +362,7 @@ export function advisor(S) {
       if (!P.roomOk) return { pri: 3, kind: 'car', text: `车队还没备好：${miss.sub}。去${shed.camp === main.id ? '' : `「${getCamp(S, shed.camp).name}」的`}雪橇棚多造几架。`, act: 'spot', arg: shed.id };
       return { pri: 3, kind: 'car', text: `车队还没备好：${miss.sub}。`, act: 'migrate' };
     }
-    const nxt = CHAPTERS[J.stage + 1], q = nxt && nxt.tasks.find(t => t.k === 'rate');
+    const nxt = chapterDef(S, J.stage + 1), q = nxt && nxt.tasks.find(t => t.k === 'rate');
     if (q) return { pri: 3, kind: 'next', text: `下一程要${RES[q.r].n}：${nextNeeds(S, q.r)}`, act: 'plan', arg: q.r };
   }
   return null;

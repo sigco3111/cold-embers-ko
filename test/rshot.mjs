@@ -18,6 +18,8 @@ export default async function (page) {
       if (best && m === 'dead') v.focus(best.x + 0.5, best.y + 0.5, true);
     }
     if (m === 'near') v.focus(c.x, c.y + 3, true);
+    if (m.startsWith('open:')) { v.focus(c.x, c.y + 3, true); g.ui.open(m.slice(5)); }
+    if (m === 'chapm') { v.focus(c.x, c.y + 3, true); out.modal = g.ui.chapterModal(Sim.journeyOf(S).stage); }
     if (m === 'at') v.focus(+fx[0], +fx[1], true);
     if (m === 'hit') { const B = window.__BLD; let b = S.buildings.find(b => b.camp === c.id && B[b.type].out); if (!b) { const p = near('lumber', c.x + 4, c.y + 2, 9); const q = p && Sim.place(S, 'lumber', p.x, p.y); b = q && q.ok && Sim.getB(S, q.id); v.syncBuildings(true); } if (b) { b.hitT = S.t + 600; v.focus(b.x + 1, b.y + 1, true); g.ui.open('bld', b.id); out.b = b.type; } }
     if (m === 'pill') { v.focus(c.x, c.y + 3, true); const p = document.querySelector('.pill.rulep'); out.pill = !!p; if (p) p.click(); }

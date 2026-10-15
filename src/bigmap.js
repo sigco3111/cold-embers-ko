@@ -3,6 +3,7 @@ import { LANDMARKS, FAR_MARKS, BAND_START, TIER_NAMES, SITES, SPOT_KEYS, BLD, ba
 import * as Sim from './sim.js';
 import { getWorld, idx, W, H, T_ROCK, T_ICE } from './worldgen.js';
 import { iconize } from './icons.js';
+import { northRec } from './ui.js';
 
 const SPOT_COL = { dead: '#9a9088', fish: '#2a5a8a', ruin: '#b0a890', tree: '#3d6b4c', rock: '#8b8780', herd: '#8a5a3a', coal: '#2e2d31', ore: '#8c4f34', lime: '#e8e0c8', shale: '#5b4a66', crystal: '#7fd0f5', star: '#7a62b8', shard: '#ff8a2b', starfall: '#e070ff' };
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -38,7 +39,7 @@ export class BigMap {
     g.cancelModes(); g.ui.close(); g.ui.resDrawer(false);
     this.open = true;
     this.el.classList.add('show');
-    this.el.innerHTML = iconize(`<div class="bmbox"><div class="phead"><b>北行地图 <small>点一处，镜头就飞过去</small></b><button class="x" data-act="mapclose">✕</button></div>
+    this.el.innerHTML = iconize(`<div class="bmbox"><div class="phead"><b>北行地图 <small>${northRec(S) ? `🧭 ${northRec(S)} · ` : ''}点一处，镜头就飞过去</small></b><button class="x" data-act="mapclose">✕</button></div>
       <div class="bmscroll"><div class="bmin"><canvas></canvas><div class="bmmk"></div></div></div>
       <div class="bmleg"><span>🔥 营地</span>${S.camps.some(c => c.depot) ? "<span>📦 补给站</span>" : ""}${(Sim.journeyOf(S).ruins || []).length ? "<span>🏚 熄火的老营地</span>" : ""}<span><i class="rt"></i>探好的路</span><span>📍 发现的地标</span><span>❔ 未知</span><span>🧭 雾里的地点</span><span>🆘 幸存者</span>${S.gangs && Object.keys(S.gangs).length ? "<span>🏴 掠夺者</span>" : ""}<span><i class="vw"></i>镜头</span></div></div>`);
     this.render(true);

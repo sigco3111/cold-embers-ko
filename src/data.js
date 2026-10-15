@@ -118,6 +118,34 @@ export const RICH_KINDS = ['coal', 'ore', 'lime', 'shale', 'crystal', 'star', 's
 // 地貌规则的数值
 export const RULE_FX = { geoWarm: 3, geoFuel: 0.7, richWarm: -2, nightFuel: 1.2, nightOut: 0.9, nightHope: 4, wolfRaid: 1.5, wolfLoot: 2, metHit: 120 };
 export const NORTH_RULE_KEYS = Object.keys(NORTH_RULES);
+// 北境每站一章：两条产能目标从六种高级材料里轮着抽，加一条地貌任务，前十站各一座烽火塔
+export const NORTH_HI = ['part', 'battery', 'alloy', 'core', 'starcore', 'heart'];
+export const NORTH_TASK = {
+  geo:    { t: '建 2 座地热井', k: 'bldm', b: 'geowell', n: 2 },
+  lakes:  { t: '建 2 座冰钓屋', k: 'bldm', b: 'icefish', n: 2 },
+  wolf:   { t: '击退 3 次袭营', k: 'ns', f: 'raidW', n: 3 },
+  ruins:  { t: '拆掉 4 处古城废墟', k: 'ns', f: 'ruin', n: 4 },
+  storm:  { t: '挺过 2 场暴风雪，而且没人冻伤', k: 'ns', f: 'blizOk', n: 2 },
+  meteor: { t: '挖开 3 个流星坑', k: 'ns', f: 'crater', n: 3 },
+  tundra: { t: '把 300 块木板运到这一站', k: 'ns', f: 'plank', n: 300 },
+  night:  { t: '主营地希望在 70 以上，稳住 10 分钟', k: 'hhold', n: 10 },
+};
+export const NORTH_STORY = [
+  '北境没有路，只有前人插下的冰标。车队在「{n}」停下，新熔炉的火苗映红了一圈雪。',
+  '风小了一点。有人在「{n}」的雪下挖出一截旧铁轨，没人知道它通向哪里。',
+  '离世界之脊越来越远，夜里能听见冰层深处的回响。「{n}」的火要先稳住。',
+  '老向导在地图边上添了一个名字：「{n}」。他说，往北的每一站都该留下点什么。',
+  '「{n}」比上一站更冷，可大家的脚步没有慢下来。身后的营火一盏接一盏。',
+  '雪原上立着一块没有字的石碑。我们把「{n}」刻了上去，又点起了火。',
+  '孩子们问北边还有什么。没有人答得上来，于是大家决定去看看。这一站叫「{n}」。',
+  '风里有股铁锈味，像是很久以前有人在这里炼过钢。「{n}」，又一个新家。',
+];
+export const NORTH_END = [
+  '「{n}」的火稳住了。往北看，风雪后面还有路。',
+  '有人在「{n}」的熔炉边刻下了日期。明天，车队接着往北。',
+  '「{n}」亮起来了，像一颗钉在北境上的钉子。',
+  '最后一批货装上了雪橇。「{n}」会一直烧着，等后来的人。',
+];
 // 北境每站的地标，四种轮着用（r：模型半径，不能在上面建造）
 export const NORTH_MARKS = [
   { n: '冰封石碑', r: 2.2, desc: '一块比人高得多的石碑立在雪原上，刻着没人认得的字，冰从碑顶一直挂到地面。' },

@@ -5,7 +5,7 @@ import { W, H, T_ROCK, getWorld, idx, inMap, mulberry32, northStop } from './wor
 import {
   rt, dirty, getB, getCamp, logMsg, revealCircle, canAfford, missing, pay, chapters, makeCamp, markFounded, trimWorkers,
   autoAssign, clearFootprint, landmarkBlock, siteAt, occAt, housingOf, bumpMood, diffOf, relicSum, upgradeCost, maxWorkers, levelMul,
-  storeCap, addPeople, up, techSum, weatherAt, growFor,
+  storeCap, addPeople, up, techSum, weatherAt, growFor, northEmbers,
   EAT, FOUND_DIST, CAMP_GAP,
 } from './sim.js';
 
@@ -19,7 +19,7 @@ export function stopOf(S, k) {
   if (k < LANDMARKS.length) { const l = LANDMARKS[k]; return { k, n: l.n, x: l.x, y: l.row, far: false }; }
   if (k > SPINE) {
     const p = northStop(S.runSeed, k - SPINE);
-    return { k, n: `北境第 ${p.k} 站·${p.name}`, short: p.name, x: p.x + 0.5, y: p.y + 0.5, far: true, north: p.k, r: p.r, rule: p.rule, mark: p.mark };
+    return { k, n: `北境第 ${p.k} 站·${p.name}`, short: p.name, x: p.x + 0.5, y: p.y + 0.5, far: true, north: p.k, r: p.r, rule: p.rule, mark: p.mark, rich: p.rich };
   }
   const i = k - LANDMARKS.length, p = (getWorld(S.runSeed).far || [])[i];
   return p ? { k, n: FAR_MARKS[i].n, x: p.x + 0.5, y: p.y + 0.5, far: true, fi: i, r: FAR_MARKS[i].r } : null;
@@ -580,6 +580,15 @@ export function arrive(S, x, y) {
   logMsg(S, `🔥 车队到了「${st.n}」，新熔炉点着了（${T.fl} 级）。${tents ? `先搭好了 ${tents} 顶帐篷。` : ''}${embers ? `熄火的营地换来 ${embers} 点余烬。` : ''}`, 'story');
   rt(S).fx.push({ kind: 'arrive-stop', k: J.stage });
   if (st.rule) logMsg(S, `${NORTH_RULES[st.rule].ic} 老向导：「${NORTH_RULES[st.rule].tip}」`, 'story');
+  // 北境：新的一章；第一次走到这个站号给一点余烬，记下最远纪录（新的北行也留着）
+  if (st.north) {
+    rt(S).fx.push({ kind: 'chapter', i: J.stage });
+    if (st.north > (S.meta.northMax || 0)) {
+      S.meta.northMax = st.north;
+      const e = northEmbers(S); S.meta.embers += e; S.meta.emberTotal = (S.meta.emberTotal || 0) + e;
+      logMsg(S, `第一次走到北境第 ${st.north} 站！带来 ${e} 点余烬。`, 'story');
+    }
+  }
   growNext(S);
   // 走到世界之脊：真结局
   if (J.stage === SPINE) {

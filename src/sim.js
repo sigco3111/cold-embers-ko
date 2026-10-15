@@ -2,10 +2,10 @@
 import {
   RES, RES_KEYS, FUEL, FUEL_ORDER, GATE, GATE_EVERY, SPOTS, SPOT_KEYS, LANDMARKS, BAND_START,
   tierOfRow, baseTempOfRow, ETERNAL_STAGES, BLD, furnaceHeat, furnaceRadius, furnaceBurn,
-  SPECS, SPEC_MAX, specBonus, specTrainCost, EMBER_UPS, emberCost, RAIDERS, STORY, DAY_LEN, LAWS, LAW_CD, TECHS, SITES, CHAPTERS, INFRA, LM_R, FAR_MARKS, DIFF, DIFF_KEYS, FOCUS, FOCUS_KEYS, FOCUS_LVL, FOCUS_CD, NORTH_RULES, RULE_FX,
+  SPECS, SPEC_MAX, specBonus, specTrainCost, EMBER_UPS, emberCost, RAIDERS, STORY, DAY_LEN, LAWS, LAW_CD, TECHS, SITES, CHAPTERS, INFRA, LM_R, FAR_MARKS, DIFF, DIFF_KEYS, FOCUS, FOCUS_KEYS, FOCUS_LVL, FOCUS_CD, NORTH_RULES, RULE_FX, NORTH_HI, NORTH_TASK, NORTH_STORY, NORTH_END,
 } from './data.js';
 import { W, H, BASE_H, setRows, rowsFor, northStop, T_SNOW, T_ICE, getWorld, idx, inMap, hash3, mulberry32 } from './worldgen.js';
-import { journeyOf, journeyStep, mainCamp, outpostBlock, outpostKit, moveFuel, fuelUnits, stopOf, depotAuto, growNext, ruleNow, campRule, ruleSpan, ruleSpans, nsOf } from './journey.js';
+import { journeyOf, journeyStep, mainCamp, outpostBlock, outpostKit, moveFuel, fuelUnits, stopOf, depotAuto, growNext, ruleNow, campRule, ruleSpan, ruleSpans, nsOf, SPINE } from './journey.js';
 export * from './journey.js';
 import { linesTick, bMax, bStar, lineProd, plinesOf, STAR_PROD } from './lines.js';
 export * from './lines.js';
@@ -1276,6 +1276,7 @@ function ruleStep(S, dt, w) {
     if (!ns.bz || ns.bz.k !== w.slot.k) ns.bz = { k: w.slot.k, s0: sk, bad: 0 };
     if (sk > ns.bz.s0) ns.bz.bad = 1;
   } else if (ns.bz) { ns.bliz = (ns.bliz || 0) + 1; if (!ns.bz.bad) ns.blizOk = (ns.blizOk || 0) + 1; ns.bz = null; }
+  if (r === 'night') { const hp = main.hope ?? 50; ns.hh = hp >= 70 ? Math.min(600, (ns.hh || 0) + dt) : Math.max(0, (ns.hh || 0) - dt / 2); }
   if (r === 'rich' && !ns.shrunk && !richGrace(S)) { ns.shrunk = 1; dirty(S); logMsg(S, `💎 富矿带的头两天过去了，熔炉压不住这里的寒气：「${main.name}」的暖圈缩了 ${-RULE_FX.richWarm} 格。`, 'warn'); }
   if (r === 'meteor') {
     const h = ruleSpans(S, 'meteor').find(q => q.t1 == null);
@@ -2726,6 +2727,42 @@ export function resolveSite(S, sid, i) {
 }
 
 // ---------- 章节 ----------
+// ---------- 北境的章节：每站一章，由种子和这一站的地貌决定 ----------
+const SPINE_RATE = {}; CHAPTERS.forEach(c => c.tasks.forEach(q => { if (q.k === 'rate') SPINE_RATE[q.r] = q.n; }));
+export const TOWER_N = 10;
+// 目标以世界之脊那一站为底：每站 +8%（加法），第 10 站 ×1.8，之后每站 +3%，最高 ×2.5
+export function northMult(N) { return N <= 10 ? 1 + 0.08 * N : Math.min(2.5, 1.8 + 0.03 * (N - 10)); }
+const rnd5 = v => v >= 10 ? Math.round(v) : Math.round(v * 2) / 2;
+export function northPair(S, N) { const o = Math.floor(hash3(S.runSeed, 71, 5) * 6), a = (o + N) % 6, b = (a + 2 + (N % 3 === 0 ? 1 : 0)) % 6; return [NORTH_HI[a], NORTH_HI[b]]; }
+export const northEmbers = S => Math.round(40 * (1 + relicSum(S, 'ember')) * diffOf(S).ember);
+function northChapter(S, i) {
+  const st = stopOf(S, i); if (!st || !st.north) return null;
+  const N = st.north, m = northMult(N), pair = northPair(S, N), name = st.short;
+  let rich = null;
+  if (st.rule === 'rich' && st.rich) {
+    const k = st.rich, r = SPOTS[k].res, g = Object.keys(BLD).find(t => (BLD[t].gather || []).includes(k));
+    rich = { t: `${RES[r].n}产量稳住 ${Math.round(4 * BLD[g].out[r])}/分钟（富矿带）`, k: 'rate', r, n: Math.round(4 * BLD[g].out[r]) };
+    const j = pair.indexOf(r); if (j >= 0) pair[j] = NORTH_HI.find(x => !pair.includes(x));
+  }
+  const tasks = pair.map(r => { const n = rnd5((SPINE_RATE[r] || 6) * m); return { t: `${RES[r].n}产量稳住 ${n}/分钟`, k: 'rate', r, n }; });
+  if (rich) tasks.push(rich); else if (NORTH_TASK[st.rule]) tasks.push({ ...NORTH_TASK[st.rule] });
+  if (N <= TOWER_N) tasks.push({ t: N === TOWER_N ? '点亮天火塔' : `点亮第 ${N} 座烽火塔`, k: 'tower', n: N });
+  const pick = (L, salt) => L[Math.floor(hash3(S.runSeed, N, salt) * L.length) % L.length].replace('{n}', name);
+  return { n: `北境第 ${N} 站 · ${name}`, story: pick(NORTH_STORY, 77), end: pick(NORTH_END, 78), tasks, north: N, rule: st.rule,
+    reward: { res: { [pair[0]]: 30, [pair[1]]: 30 }, hope: 8, people: 10 } };
+}
+export function chapterDef(S, i) {
+  if (i <= SPINE) return CHAPTERS[i];
+  const R = rt(S), c = R.nch || (R.nch = {});
+  return c[i] !== undefined ? c[i] : (c[i] = northChapter(S, i));
+}
+// 已经开始的章节：到过的地标，加上北境里走过、奖励还没领的站和现在这一站
+export function chapIdx(S) {
+  const J = journeyOf(S), C = chapState(S), out = [...S.founded];
+  for (let i = SPINE + 1; i <= J.stage; i++) if (i === J.stage || !C.got[i]) out.push(i);
+  return out;
+}
+export function towersLit(S) { return (S.tower && S.tower.lit) || 0; }
 export function chapState(S) { return S.chap || (S.chap = { ok: {}, got: {} }); }
 function chapVal(S, q) {
   switch (q.k) {
@@ -2743,6 +2780,10 @@ function chapVal(S, q) {
     case 'eternal': return S.eternal ? S.eternal.stage : 0;
     case 'rate': return Math.round(prodRate(S, q.r) * 10) / 10;
     case 'veh': { const J = journeyOf(S); return (J.fleet[q.v] || 0) + ((J.trip && J.trip.veh[q.v]) || 0); }
+    case 'bldm': { const J = journeyOf(S); return S.buildings.filter(b => b.type === q.b && b.camp === J.main).length; }
+    case 'ns': return Math.floor(nsOf(S)[q.f] || 0);
+    case 'hhold': return Math.floor((nsOf(S).hh || 0) / 6) / 10;
+    case 'tower': return towersLit(S);
   }
   return 0;
 }
@@ -2775,8 +2816,8 @@ export function rateGoals(S) {
   const C = chapState(S);
   // 这一站的章节排在最前面（老存档里可能还留着前面没做完的章节）
   const cur = journeyOf(S).stage;
-  for (const i of [...S.founded].sort((a, b) => (b === cur) - (a === cur) || b - a)) {
-    const ch = CHAPTERS[i]; if (!ch) continue;
+  for (const i of chapIdx(S).sort((a, b) => (b === cur) - (a === cur) || b - a)) {
+    const ch = chapterDef(S, i); if (!ch) continue;
     ch.tasks.forEach((q, k) => { if (q.k === 'rate' && !C.ok[i + ':' + k]) out.push({ id: `c${i}:${k}`, r: q.r, n: q.n, t: q.t, ch: i }); });
   }
   if (eternalCamp(S) && S.eternal.stage < ETERNAL_STAGES.length) out.push({ id: `e${S.eternal.stage}`, r: 'heart', n: ETERNAL_STAGES[S.eternal.stage], t: `永恒炉件稳住 ${ETERNAL_STAGES[S.eternal.stage]}/分钟`, eternal: true });
@@ -2791,8 +2832,8 @@ function holdStep(S, dt) {
 // 已开始的章节（= 这一程到过的地标），最新的在最后
 export function chapters(S) {
   const C = chapState(S);
-  return S.founded.slice().sort((a, b) => a - b).map(i => {
-    const ch = CHAPTERS[i];
+  return chapIdx(S).sort((a, b) => a - b).map(i => {
+    const ch = chapterDef(S, i);
     const tasks = ch.tasks.map((q, k) => {
       const cur = chapVal(S, q), rate = q.k === 'rate';
       const ok = !!C.ok[i + ':' + k] || (rate ? holdOf(S, `c${i}:${k}`).done : q.k === 'calm' ? cur <= q.n : cur >= q.n);
@@ -2810,7 +2851,7 @@ function chapterStep(S) {
 }
 export const chapterEmbers = (S, i) => Math.round((10 + 5 * i) * (1 + relicSum(S, 'ember')) * diffOf(S).ember);
 export function chapterReward(S, i) {
-  const r = CHAPTERS[i].reward, out = [`🔥 余烬 ${chapterEmbers(S, i)}`];
+  const r = chapterDef(S, i).reward, out = i > SPINE ? [] : [`🔥 余烬 ${chapterEmbers(S, i)}`];
   if (r.res) for (const k in r.res) if (RES[k].t <= Math.max(S.known, 1)) out.push(`${RES[k].n} ${r.res[k]}`);
   if (r.people) out.push(`${r.people} 名新成员`);
   if (r.hope) out.push(`所有营地希望 +${r.hope}`);
@@ -2822,7 +2863,7 @@ export function claimChapter(S, i) {
   if (!c || !c.done || c.got) return null;
   const C = chapState(S), r = c.ch.reward, camp = getCamp(S, S.active) || S.camps[0];
   C.got[i] = 1;
-  { const e = chapterEmbers(S, i); S.meta.embers += e; S.meta.emberTotal = (S.meta.emberTotal || 0) + e; }
+  if (i <= SPINE) { const e = chapterEmbers(S, i); S.meta.embers += e; S.meta.emberTotal = (S.meta.emberTotal || 0) + e; } // 北境的章节不给余烬，只有第一次走到新的站号给
   if (r.res) for (const k in r.res) if (RES[k].t <= Math.max(S.known, 1)) camp.stock[k] = (camp.stock[k] || 0) + r.res[k];
   if (r.people) addPeople(S, camp, r.people);
   if (r.hope) for (const cc of S.camps) bumpMood(cc, r.hope, 0);

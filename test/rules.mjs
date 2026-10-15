@@ -35,7 +35,7 @@ const fill = () => { const m = G.mainCamp(S); m.people = Math.max(m.people, 90);
 J.fleet.icebreaker = 10; J.fleet.tractor = 10; J.fleet.sled = 20;
 function travel() {
   fill();
-  for (let s = 0; s <= J.stage; s++) for (let k = 0; k < 3; k++) G.chapState(S).ok[s + ':' + k] = 1;
+  for (let s = 0; s <= J.stage; s++) for (let k = 0; k < 4; k++) G.chapState(S).ok[s + ':' + k] = 1;
   S.reveal.fill(1); G.rt(S).revealN = (G.rt(S).revealN || 0) + 1; G.dirty(S);
   const P = J.plan || (J.plan = {}); P.mode = {}; for (const c of S.camps) P.mode[c.id] = 'douse';
   const d = G.depart(S); if (!d.ok) return d;
