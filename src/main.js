@@ -12,6 +12,7 @@ import { Photo, compose, captionOf } from './photo.js';
 import { albumAdd, toJpeg } from './album.js';
 import { downloadsApi, saveFile, pickTextFile, stamp } from './files.js';
 import { Hints, WHATS_NEW, whatsNewHtml } from './hints.js';
+import { Backups, BK_EVERY, bkInfo } from './backup.js';
 
 const KEY = 'hanjin-beixing-v1';
 // 三个存档位：1 号沿用原来的存档键，老存档直接就在 1 号位
@@ -43,7 +44,12 @@ class Game {
     this.titleOn = true; try { if (localStorage.getItem(KEY + '-notitle')) this.titleOn = false; } catch (e) {}
     this.place = null; this.mode = null; this.scoutTarget = null;
     this.acc = 0; this.saveT = 0; this.uiT = 0; this.badgeT = 0; this.bootT = performance.now();
+    this.bk = new Backups(KEY);
     this.load();
+    if (this.brokenSave) this.bk.list(this.slot).then(L => { // 存档坏了但备份还在：问要不要退回去
+      if (!L.length) return;
+      this.modalOrLater(`<h2>存档读不出来了</h2><p>存档位 ${this.slot} 里的存档坏了，读不出来，可能是浏览器存储出了问题。</p><p>自动备份还在：最近一份是 <b>${this.ui.agoText(L[0].at)}</b> 存的（${this.ui.bkLine(L[0])}）。退回去就能接着玩。</p>`, [{ t: '查看备份', a: 'backups', cls: 'go' }, { t: '从头开始', a: 'close-modal' }]);
+    });
     this.setQuality(this.quality);
     if (this.titleOn) this.ui.showTitle(this.hadSave);
     this.bindInput();
@@ -56,9 +62,10 @@ class Game {
 
   // ---------- 存档 ----------
   load() {
-    let S = null;
-    try { const raw = localStorage.getItem(slotKey(this.slot)); if (raw) S = Sim.deserialize(raw); } catch (e) { console.warn(e); }
+    let S = null, raw = null;
+    try { raw = localStorage.getItem(slotKey(this.slot)); if (raw) S = Sim.deserialize(raw); } catch (e) { console.warn(e); }
     this.hadSave = !!S;
+    if (raw && !S) this.brokenSave = true; // 存档读不出来：照样开一局新的，但先问要不要从自动备份恢复
     if (S) {
       if ((S.meta.ver || 0) < WHATS_NEW) { this.whatsNew = true; this.whatsFrom = S.meta.ver || 0; } // 老存档：找个空当说一下这版加了什么（弹出来才记下看过）
       // 第十二版改了暖圈的算法，老营地探开的范围可能比暖圈还小：每个营地周围至少探开到暖圈外 2 格
@@ -66,7 +73,7 @@ class Game {
       this.S = S;
       this.view.bind(S);
       const away = (Date.now() - S.savedAt) / 1000;
-      if (away > 20) this.offline(away);
+      if (away > 20) { this.backup('open', this.slot, raw); this.offline(away); } // 离线结算前先备份一份：离开时出了事还能退回去
     } else {
       const meta = Sim.defaultMeta();
       try { const d = localStorage.getItem(KEY + '-newdiff'); if (d) { meta.diff = d; localStorage.removeItem(KEY + '-newdiff'); } } catch (e) {}
@@ -95,6 +102,31 @@ class Game {
     if (this.noSave) return; // 正在换存档位 / 删存档并刷新：别把当前的局又写回去
     try { this.S.savedAt = Date.now(); localStorage.setItem(slotKey(this.slot), Sim.serialize(this.S)); } catch (e) { console.warn('save failed', e); }
   }
+  // ---------- 自动备份（src/backup.js）----------
+  // 存一份备份：raw 不给就用这个存档位现在的进度（正在玩的就是内存里的这一局）。存档正文当场拿好，之后再变也不影响
+  backup(why, n = this.slot, raw = null) {
+    try {
+      const cur = raw == null && n === this.slot && this.S;
+      if (cur) raw = Sim.serialize(this.S);
+      else if (raw == null) raw = localStorage.getItem(slotKey(n));
+      if (!raw) return Promise.resolve(null);
+      const info = bkInfo(cur ? this.S : JSON.parse(raw));
+      return this.bk.add(n, raw, why, info).then(id => { this.ui.bkDirty(); return id; }, e => { console.warn('backup failed', e); return null; });
+    } catch (e) { console.warn('backup failed', e); return Promise.resolve(null); }
+  }
+  // 退回到一份备份：先把现在的进度也备份一份（反悔了还能换回来），再写回存档位重新载入；不补算离线
+  async restoreBackup(id) {
+    let raw = null;
+    try { raw = await this.bk.raw(this.slot, id); } catch (e) { console.warn(e); }
+    let o = null;
+    try { if (raw) { Sim.deserialize(raw); o = JSON.parse(raw); } } catch (e) { o = null; }
+    if (!o) { this.ui.toast('这份备份读不出来了，换一份试试。', 'bad'); return; }
+    if (!this.brokenSave) await this.backup('restore');
+    o.savedAt = Date.now();
+    try { localStorage.setItem(slotKey(this.slot), JSON.stringify(o)); } catch (e) { this.ui.toast('恢复失败：' + e.message, 'bad'); return; }
+    this.noSave = true;
+    location.reload();
+  }
   // 存档位一览：读出每个位置的营地名、人口、天数、难度、上次保存时间
   slotInfo(n) {
     if (n === this.slot) { const S = this.S, c = Sim.getCamp(S, S.active) || S.camps[0]; return { n, cur: true, name: c.name, people: S.camps.reduce((a, x) => a + x.people, 0), t: S.t, runs: S.meta.runs || 1, diff: Sim.diffOf(S), savedAt: Date.now(), embers: S.meta.embers }; }
@@ -104,8 +136,9 @@ class Game {
     catch (e) { return { n, broken: true }; }
   }
   // 换到另一个存档位（diff 给了就是在那里开新的一局，原来的会被覆盖）
-  useSlot(n, diff) {
+  async useSlot(n, diff) {
     this.save();
+    if (diff) await this.backup('wipe', n); // 在那个位置开新局：原来那一局先备份
     try {
       if (diff) { localStorage.removeItem(slotKey(n)); localStorage.setItem(KEY + '-newdiff', diff); }
       localStorage.setItem(KEY + '-slot', String(n));
@@ -115,7 +148,8 @@ class Game {
   }
   // 删存档：别的存档位直接删；删正在玩的这一局就换到下一个有存档的位置（都没有就在这个位置从头开始）
   nextSlot(n) { for (let k = 1; k <= SLOTS; k++) { const i = ((n - 1 + k) % SLOTS) + 1; if (i !== n && !this.slotInfo(i).empty && !this.slotInfo(i).broken) return i; } return 0; }
-  deleteSlot(n) {
+  async deleteSlot(n) {
+    await this.backup('del', n); // 删之前留一份：删错了能从备份里找回来
     if (n !== this.slot) { try { localStorage.removeItem(slotKey(n)); } catch (e) {} return; }
     const nx = this.nextSlot(n);
     try { localStorage.removeItem(slotKey(n)); localStorage.setItem(KEY + '-slot', String(nx || n)); } catch (e) { this.ui.toast('删除失败：' + e.message, 'bad'); return; }
@@ -185,6 +219,7 @@ class Game {
       } else if (code.startsWith('HJB1:')) raw = decodeURIComponent(escape(atob(code.slice(5))));
       else throw new Error('不是存档码');
       const S = Sim.deserialize(raw);
+      await this.backup('import'); // 导入会盖掉现在这一局：先备份
       this.S = S; this.view.bind(S); this.cancelModes();
       this.ui.closeModal(); this.ui.close();
       const away = (Date.now() - S.savedAt) / 1000;
@@ -193,7 +228,11 @@ class Game {
       this.ui.toast('存档已导入', 'good');
     } catch (e) { this.ui.toast('导入失败：' + e.message, 'bad'); }
   }
-  wipe(diff) { try { localStorage.removeItem(slotKey(this.slot)); if (diff) localStorage.setItem(KEY + '-newdiff', diff); } catch (e) {} this.noSave = true; location.reload(); }
+  async wipe(diff) {
+    await this.backup('wipe'); // 重开之前留一份：点错了能从备份里找回来
+    try { localStorage.removeItem(slotKey(this.slot)); if (diff) localStorage.setItem(KEY + '-newdiff', diff); } catch (e) {}
+    this.noSave = true; location.reload();
+  }
   setQuality(q, auto) {
     this.quality = q;
     try { localStorage.setItem(KEY + '-q', q); } catch (e) {}
@@ -218,6 +257,7 @@ class Game {
   }
   // 通关以后：新的北行，从灰烬营地重新出发
   migrate() {
+    this.backup('journey');
     const N = Sim.migrate(this.S); if (N === this.S) return;
     this.S = N; this.cancelModes();
     this.view.bind(this.S);
@@ -272,6 +312,7 @@ class Game {
     if (this.sndT > 0.25 || !this.sndInfo) { this.sndT = 0; this.sndInfo = this.view.audioInfo(); }
     this.audio.update(dt, this.sndInfo);
     this.uiT += dt; this.badgeT += dt; this.saveT += dt;
+    if (!this.paused && !this.cine && !this.titleOn) { this.bkT = (this.bkT || 0) + dt; if (this.bkT >= BK_EVERY) { this.bkT = 0; this.backup('auto'); } } // 玩着每 10 分钟备份一份
     if (this.uiT > 0.3) { this.uiT = 0; this.ui.hud(); this.ui.renderPanel(); if (this.place) this.updateGhost(); this.raidSlow(); }
     if (this.badgeT > 0.05) { this.badgeT = 0; this.ui.badges(); }
     // 随机事件：玩家在线、没在摆放、没有弹窗、过了新手期才出

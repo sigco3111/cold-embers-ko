@@ -8,6 +8,7 @@ import { chartHtml, chartHover, chartLeave, CV_COL, fmtV, dayLabel } from './cur
 import { drawFlag, drawFrame } from './cosmetic.js';
 import { albumList, AlbumView, ALBUM_MAX } from './album.js';
 import { VERSION_NAME, changelogHtml } from './changelog.js';
+import { BK_WHY } from './backup.js';
 
 export const ICON = {
   furnace: '🔥', tent: '⛺', lumber: '🪓', nursery: '🌲', quarry: '⛏️', hunter: '🏹', sawmill: '🪚', kitchen: '🍲', warehouse: '📦', tower: '🗼', scout: '🚩', sledshed: '🛷', kennel: '🐕', workshop: '🔬', lamp: '🏮', flagpole: '🚩', infirmary: '🩺', statue: '🗽', flowerhouse: '🌷',
@@ -190,11 +191,11 @@ export class UI {
     const el = b.querySelector('.lbn'); if (el.textContent !== t) el.textContent = t;
   }
   modal(html, buttons = [{ t: '好', a: 'close-modal' }]) {
-    const m = this.$('modal');
+    const m = this.$('modal'); this.bkOpen = false;
     m.innerHTML = iconize(`<div class="mbox">${html}<div class="mbtns">${buttons.map(b => `<button class="btn ${b.cls || ''}" data-act="${b.a}" ${b.arg != null ? `data-arg="${b.arg}"` : ''}>${b.t}</button>`).join('')}</div></div>`);
     m.classList.add('show');
   }
-  closeModal() { this.$('modal').classList.remove('show'); }
+  closeModal() { this.$('modal').classList.remove('show'); this.bkOpen = false; }
   // 终章：天火塔点亮以后的故事和「这一路」（点亮那一刻记下的数）
   skyEndModal() {
     const S = this.S, E = S.tower && S.tower.end; if (!E) return false;
@@ -233,7 +234,7 @@ export class UI {
     this.nr = { slot, diff: diff || (this.nr && this.nr.diff) || 'std' };
     const infos = Array.from({ length: SLOTS }, (_, i) => g.slotInfo(i + 1)), s = infos[slot - 1];
     const seg = `<div class="seg nrslots">${infos.map(x => `<button class="btn ${x.n === slot ? 'on' : ''}" data-act="nrslot" data-arg="${x.n}">存档 ${x.n}<small>${x.empty ? '空位' : esc(x.name)}</small></button>`).join('')}</div>`;
-    const warn = s.empty ? '' : `<p class="nrwarn">会<b>覆盖</b>存档 ${slot} 里的「${esc(s.name)}」（👥 ${s.people} 人）：余烬、专家和收集册都会清空。</p>`;
+    const warn = s.empty ? '' : `<p class="nrwarn">会<b>覆盖</b>存档 ${slot} 里的「${esc(s.name)}」（👥 ${s.people} 人）：余烬、专家和收集册都会清空。覆盖之前会自动存一份备份，点错了可以到「菜单 → 自动备份」里找回来。</p>`;
     const cards = DIFF_KEYS.map(k => { const D = DIFF[k]; return `<button class="diffc ${k === this.nr.diff ? 'on' : ''}" data-act="nrdiff" data-arg="${k}"><b>${D.ic} ${D.n}</b><small>${D.d}</small></button>`; }).join('');
     this.modal(`<h3>新的北行</h3><div class="mlab">存在哪个存档位</div>${seg}${warn}<div class="mlab">难度<small>以后也能在菜单里改</small></div><div class="diffs">${cards}</div>`,
       [{ t: s.empty ? '开始北行' : '覆盖并开始', a: 'newrun-go', cls: s.empty ? 'go' : 'bad' }, { t: '算了', a: 'close-modal' }]);
@@ -1925,6 +1926,32 @@ export class UI {
     this.albumLoading = false;
     if (this.panel && (this.panel.kind === 'album' || this.panel.kind === 'menu')) { this.lastHtml = ''; this.renderPanel(true); }
   }
+  // ---------- 自动备份 ----------
+  agoText(at) { const s = Math.max(0, (Date.now() - at) / 1000); return s < 60 ? '刚刚' : s < 3600 ? Math.floor(s / 60) + ' 分钟前' : s < 86400 ? Math.floor(s / 3600) + ' 小时前' : Math.floor(s / 86400) + ' 天前'; }
+  bkLine(r) { const i = r.info || {}; return `${esc(i.name || '？')} · 👥 ${fmt(i.people || 0)} 人 · 第 ${Math.floor((i.t || 0) / DAY_LEN) + 1} 天${(i.runs || 1) > 1 ? ` · 第 ${i.runs} 次北行` : ''}`; }
+  bkRow() {
+    if (!this.bks) { this.loadBackups(); return '<div class="row"><span>自动备份<br><small>正在清点…</small></span></div>'; }
+    const L = this.bks;
+    return `<div class="row"><span>自动备份 <b>${L.length}</b> 份<br><small>${L.length ? `最近一份 ${this.agoText(L[0].at)} · ` : ''}玩着每 10 分钟一份；北迁、导入、重开之前也先备份</small></span><span style="flex:none"><button class="small" data-act="backups" ${L.length ? '' : 'disabled'}>查看备份</button></span></div>`;
+  }
+  async loadBackups() {
+    if (this.bksLoading) return; this.bksLoading = true;
+    try { this.bks = await this.g.bk.list(this.g.slot); } catch (e) { this.bks = []; }
+    this.bksLoading = false;
+    if (this.panel && this.panel.kind === 'menu') { this.lastHtml = ''; this.renderPanel(true); }
+    if (this.bkOpen) this.backupsModal();
+  }
+  bkDirty() { this.bks = null; if ((this.panel && this.panel.kind === 'menu') || this.bkOpen) this.loadBackups(); }
+  backupsModal() {
+    if (!this.bks) { this.modal('<h2>自动备份</h2><div class="hint">正在清点…</div>', [{ t: '关闭', a: 'close-modal' }]); this.bkOpen = true; this.loadBackups(); return; }
+    const L = this.bks;
+    const rows = L.map(r => { const [ic, n] = BK_WHY[r.why] || BK_WHY.auto, d = new Date(r.at);
+      return `<div class="bkrow"><span class="bki">${ic}</span><span class="bkt"><b>${this.agoText(r.at)}</b><em>${n} · ${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}</em><small>${this.bkLine(r)}</small></span><button class="small" data-act="bkload" data-arg="${r.id}">恢复</button></div>`; }).join('');
+    this.modal(`<h2>自动备份</h2><p class="hint">存档位 ${this.g.slot} 的旧进度，存在这台设备上。恢复以后从那一刻接着玩，现在的进度会先另存一份，反悔了还能换回来。</p>
+      <div class="bklist">${rows || '<div class="hint">还没有备份。玩上 10 分钟就有第一份。</div>'}</div>
+      <p class="hint">定时备份会留下几分钟前、半小时前、几小时前和一天前的进度；北迁出发前、导入存档码前、重开前、删除前这些时刻的备份留最近 4 份。</p>`, [{ t: '关闭', a: 'close-modal' }]);
+    this.$('modal').querySelector('.mbox').classList.add('bkbox'); this.bkOpen = true;
+  }
   albumDirty() { this.album = null; if (this.panel && (this.panel.kind === 'album' || this.panel.kind === 'menu')) this.loadAlbum(); }
   // 装扮页的小样：旗面、相框各画一张小图，画一次就记住
   cosPrev(kind, id) {
@@ -2113,6 +2140,7 @@ export class UI {
       <div class="msave"><span class="msi">💾</span><span>自动保存在这台设备上${ago != null ? `<em>${ago < 60 ? '刚刚' : ago < 3600 ? Math.floor(ago / 60) + ' 分钟前' : ago < 86400 ? Math.floor(ago / 3600) + ' 小时前' : Math.floor(ago / 86400) + ' 天前'}存过</em>` : ''}<small>关掉页面后营地照常运转，暴风雪和袭营也照常结算；但离线时物资按离开多久打折入库：前 1 小时 40%，1 到 4 小时 20%，4 到 12 小时 10%，超过 12 小时不再算；三星产线多拿一半，离线入库最多填到仓库的八成。</small></span></div>
       <div class="row2"><button class="btn" data-act="export">📤 导出存档码</button><button class="btn" data-act="import">📥 导入存档码</button></div>
       <div class="hint">换设备时，在旧设备导出存档码，到新设备上导入。</div>
+      ${this.bkRow()}
       <div class="row"><span>存档位 <b>${g.slot}</b> / ${SLOTS}<br><small>三个存档位，各是一局</small></span><span style="flex:none"><button class="small" data-act="slots">换存档位</button></span></div>
       <div class="row"><span>难度 <b>${Sim.diffOf(S).ic}${Sim.diffOf(S).n}</b><br><small>随时可以改</small></span><span style="flex:none"><button class="small" data-act="diff">改难度</button></span></div>
       <div class="mdanger"><button class="btn ghost" data-act="wipe">删除这个存档，从头开始</button></div>
@@ -2368,10 +2396,10 @@ export class UI {
       case 'slotdel': {
         const s = g.slotInfo(+arg), nx = s.cur && g.nextSlot(+arg);
         const then = s.cur ? `<p class="hint">删掉以后${nx ? `会读取存档 ${nx}「${esc(g.slotInfo(nx).name || '')}」` : '会从头开始一局新的北行'}。</p>` : '';
-        this.modal(`<p>删除存档 ${arg}${s.broken ? '（已经坏了）' : `里的「${esc(s.name || '')}」${s.cur ? '（正在玩的这一局）' : ''}`}？这一局的所有进度（包括余烬、专家和收集册）都会消失，不能恢复。</p>${then}`, [{ t: '删除', a: 'slotdel-yes', arg, cls: 'bad' }, { t: '算了', a: 'slots' }]);
+        this.modal(`<p>删除存档 ${arg}${s.broken ? '（已经坏了）' : `里的「${esc(s.name || '')}」${s.cur ? '（正在玩的这一局）' : ''}`}？这一局的所有进度（包括余烬、专家和收集册）都会删掉。删之前会自动存一份备份，删错了可以到这个存档位的「菜单 → 自动备份」里找回来。</p>${then}`, [{ t: '删除', a: 'slotdel-yes', arg, cls: 'bad' }, { t: '算了', a: 'slots' }]);
         break;
       }
-      case 'slotdel-yes': if (+arg === g.slot) { g.deleteSlot(+arg); break; } g.deleteSlot(+arg); this.slotsModal(); this.toast(`存档 ${arg} 已删除。`, 'info'); break;
+      case 'slotdel-yes': if (+arg === g.slot) { g.deleteSlot(+arg); break; } g.deleteSlot(+arg).then(() => { this.slotsModal(); this.toast(`存档 ${arg} 已删除，删之前存了一份备份。`, 'info'); }); break;
       case 'newrun': this.newRunModal(+arg); break;
       case 'nrslot': this.newRunModal(+arg); break;
       case 'nrdiff': this.newRunModal(this.nr.slot, arg); break;
@@ -2424,7 +2452,7 @@ export class UI {
           [{ t: '出发', a: 'depart-yes', cls: 'go' }, { t: '再等等', a: 'close-modal' }]);
         break;
       }
-      case 'depart-yes': { this.closeModal(); const r = res(Sim.depart(S)); if (r && r.ok) { this.close(); g.view.followTrip = true; g.sfx('horn'); } break; }
+      case 'depart-yes': { this.closeModal(); g.backup('depart'); const r = res(Sim.depart(S)); if (r && r.ok) { this.close(); g.view.followTrip = true; g.sfx('horn'); } break; }
       case 'arrive': g.startArrive(); break;
       case 'newjourney': this.modal(`<h2>开始新的北行</h2><p>从灰烬营地重新出发。这一局的营地和物资留在这里；余烬强化、专家、收集册和遗物都带着走。</p>`, [{ t: '出发', a: 'newjourney-yes', cls: 'go' }, { t: '再想想', a: 'close-modal' }]); break;
       case 'newjourney-yes': this.closeModal(); this.close(); g.migrate(); break;
@@ -2433,6 +2461,14 @@ export class UI {
       case 'help': this.modal(HELP); break;
       case 'changelog': this.modal(changelogHtml()); this.$('modal').querySelector('.mbox').classList.add('clbox'); break;
       case 'export': g.exportCode(); break;
+      case 'backups': this.backupsModal(); break;
+      case 'bkload': {
+        const r = (this.bks || []).find(x => String(x.id) === arg); if (!r) break;
+        this.modal(`<h2>退回到这份备份？</h2><p><b>${this.agoText(r.at)}</b>（${(BK_WHY[r.why] || BK_WHY.auto)[1]}）<br>${this.bkLine(r)}</p><p class="hint">从那一刻接着玩，离线时间不补算。现在的进度会先另存一份备份，反悔了还能换回来。</p>`,
+          [{ t: '恢复', a: 'bkload-yes', arg: arg, cls: 'go' }, { t: '返回', a: 'backups' }]);
+        break;
+      }
+      case 'bkload-yes': this.closeModal(); g.restoreBackup(/^\d+$/.test(arg) ? +arg : arg); break;
       case 'import': this.modal(`<p>粘贴存档码，或者选一个存成文件的存档码：</p><textarea id="importBox" rows="5"></textarea>`, [{ t: '导入', a: 'import-yes', cls: 'go' }, { t: '📂 从文件读取', a: 'importfile' }, { t: '取消', a: 'close-modal' }]); break;
       case 'importfile': g.pickCodeFile(); break;
       case 'savecode': g.saveCodeFile(); break;

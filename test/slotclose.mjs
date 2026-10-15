@@ -18,7 +18,7 @@ export default async function (page) {
   console.log('del slot 2', await clickReal('#modal [data-act="slotdel"][data-arg="2"]'), await page.evaluate(() => document.querySelector('#modal .mbox p').textContent));
   console.log('cancel', await clickReal('#modal [data-act="slots"]'), JSON.stringify(await st()));
   await clickReal('#modal [data-act="slotdel"][data-arg="2"]');
-  console.log('confirm', await clickReal('#modal [data-act="slotdel-yes"]'), 'slot2 gone:', await page.evaluate(k => localStorage.getItem(k + '-s2') === null, KEY));
+  console.log('confirm', await clickReal('#modal [data-act="slotdel-yes"]'), 'slot2 gone:', await page.waitForFunction(k => localStorage.getItem(k + '-s2') === null, KEY, { timeout: 15000 }).then(() => true, () => false)); // 删之前先存备份，异步
   console.log('row 2 now', await page.evaluate(() => document.querySelectorAll('#modal .slotrow')[1].textContent));
   // 再放回去，删正在玩的 1 号：应该换到 2 号
   await page.evaluate(k => { localStorage.setItem(k + '-s2', localStorage.getItem(k)); }, KEY);
