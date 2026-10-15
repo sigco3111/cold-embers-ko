@@ -11,6 +11,8 @@ const make = S => c => S.buildings.filter(b => b.camp === c.id && BLD[b.type].ca
 export const HINTS = [
   { id: 'gang', ic: '🏴', n: '掠夺者来索贡了', d: '点左下角的便签或右上角的提醒铃答复：交贡、做买卖，或者靠箭塔顶回去。到时候没人答复，守得住就打，守不住就交贡。',
     when: S => { const d = Sim.gangDemands(S)[0]; return d ? { act: 'gang', arg: d.g.id } : false; } },
+  { id: 'net', ic: '🛷', n: '路已经修好了', d: '新营地一点火就有一条雪橇道连到最近的营地。在这里摆建筑就行，缺的木材、木板、石料，物流网会自己从有余的营地运过来。「生产 → 物流」里能看路上在运什么。',
+    when: (S, c) => { const m = Sim.mainCamp(S); return c && m && c.id !== m.id && !c.depot && Sim.roadsAt(S, c.id).length ? { act: 'netview', arg: c.id } : false; } },
   { id: 'wxe', ic: '❄', n: '怪天气要来了', d: '冰风暴、极寒夜、冰湖开裂都会提前预报。打开右上角的提醒铃，花点材料提前准备，能少受很多罪。',
     when: (S, c) => { const e = Sim.wxeAt(S, S.t); return e.ev && !e.on && e.inSec <= Sim.forecastOf(S) && Sim.wxeMatters(S, c, e.ev) && !Sim.wxePrepped(S, c, e.ev) ? { act: 'wx' } : false; } },
   { id: 'ward', ic: '🩺', n: '有人病了', d: '建一座医务所，派两个人照看：住进去的病人在冷天里也能慢慢好起来，营地里染病的人也会少。',
@@ -29,7 +31,7 @@ export const HINTS = [
   { id: 'belt', ic: '⛓', n: '传送带', d: '加工建筑的面板里能接传送带：上下游挨得近，就能直接供料，少用搬运工，下游还快一点。',
     slow: true,
     when: (S, c) => { if (S.known < Sim.BELT[1].tier || (S.belts || []).length) return false; for (const b of make(S)(c)) if (Sim.beltOptions(S, b.id).some(o => o.ck.ok)) return { act: 'reqgo', arg: b.id }; return false; } },
-  { id: 'kennel', ic: '🐕', n: '雪橇犬舍', d: '建一座犬舍养雪橇犬：侦察队和连着这座营地的运输线都会跑得更快。狗要吃生肉。',
+  { id: 'kennel', ic: '🐕', n: '雪橇犬舍', d: '建一座犬舍养雪橇犬：侦察队跑得更快，连着这座营地的路也运得更多。狗要吃生肉。',
     when: (S, c) => Sim.countType(S, c.id, 'scout') && !S.buildings.some(b => b.type === 'kennel') && S.buildings.filter(b => b.camp === c.id).length >= 14 ? { act: 'tb', arg: 'build' } : false },
   { id: 'deco', ic: '🏮', n: '装饰建筑', d: '路灯、旗杆、雕像、花窖不产东西，但能让人心里亮一点（加希望）。放在大家常走的路边、熔炉旁边。',
     when: (S, c) => (c.hope ?? 50) < 50 && S.buildings.filter(b => b.camp === c.id).length >= 16 && !S.buildings.some(b => BLD[b.type].cat === 'deco') ? { act: 'tb', arg: 'build' } : false },

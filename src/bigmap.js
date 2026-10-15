@@ -116,12 +116,15 @@ export class BigMap {
     if (J.trip) { path(J.trip.path, Math.max(2, k * 0.5), 'rgba(255,186,90,.95)', [k * 0.9, k * 0.7]); }
     else { const ri = Sim.routeInfo(S); if (ri.ok) path(ri.path, Math.max(2, k * 0.45), 'rgba(255,196,96,.9)', [1, k * 1.1]); }
     ctx.setLineDash([]);
-    // 运输线
-    ctx.lineWidth = 2; ctx.setLineDash([5, 4]);
-    for (const l of S.lines || []) {
-      const a = Sim.getCamp(S, l.a), b = Sim.getCamp(S, l.b); if (!a || !b) continue;
-      ctx.strokeStyle = l.rail ? '#c8964e' : 'rgba(110,80,50,.85)';
-      ctx.beginPath(); ctx.moveTo(a.x * k, Y(a.y)); ctx.lineTo(b.x * k, Y(b.y)); ctx.stroke();
+    // 物流网：每条路按种类画，满了的标黄；路中间写「在运/运力」
+    const lab = [];
+    for (const r of Sim.roads(S)) {
+      const P = Sim.roadPath(S, r); if (P.length < 2) continue;
+      const v = Sim.netRoadView(S, r), pend = r.pend && r.pend.what === 'build', jam = !!v.jam;
+      const col = jam ? 'rgba(255,203,92,.95)' : r.kind === 'rail' ? 'rgba(214,170,110,.95)' : r.kind === 'trunk' ? 'rgba(255,170,90,.85)' : 'rgba(225,235,245,.9)';
+      path(P, Math.max(3, k * (r.kind === 'sled' ? 0.55 : 0.8)) + 2, 'rgba(20,26,34,.55)', pend ? [k, k * 0.8] : null);
+      path(P, Math.max(1.5, k * (r.kind === 'sled' ? 0.3 : 0.5)), col, pend ? [k, k * 0.8] : r.kind === 'rail' ? [k * 0.5, k * 0.25] : null);
+      if (!pend && v.flow >= 0.5) { let L = 0; const seg = []; for (let i = 1; i < P.length; i++) { const d = Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]); seg.push(d); L += d; } let h = L / 2, i = 0; while (i < seg.length - 1 && h > seg[i]) { h -= seg[i]; i++; } const t = seg[i] ? h / seg[i] : 0; lab.push({ x: P[i][0] + (P[i + 1][0] - P[i][0]) * t, y: P[i][1] + (P[i + 1][1] - P[i][1]) * t, s: `${Math.round(v.flow)}/${Math.round(v.cap)}`, jam }); }
     }
     ctx.setLineDash([]);
     // 迷雾：低分辨率画一层再放大，边缘是软的
@@ -144,6 +147,10 @@ export class BigMap {
         for (const t of L) { const r = k * (t.type === 'eternal' ? 6 : t.type === 'skyfire' ? 4.5 : 3), g = ctx.createRadialGradient(t.x * k, Y(t.y), 0, t.x * k, Y(t.y), r); g.addColorStop(0, 'rgba(255,240,190,1)'); g.addColorStop(0.35, 'rgba(255,190,90,.8)'); g.addColorStop(1, 'rgba(255,150,50,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(t.x * k, Y(t.y), r, 0, 7); ctx.fill(); }
         ctx.restore();
       } }
+    // 路上的运量：雾上面写，满了的黄底
+    ctx.font = `600 ${Math.max(10, k * 1.1)}px system-ui,sans-serif`; ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
+    for (const l of lab) { const tw = ctx.measureText(l.s).width + 8, x = l.x * k, y = Y(l.y); ctx.fillStyle = l.jam ? 'rgba(255,203,92,.95)' : 'rgba(20,27,36,.85)'; ctx.fillRect(x - tw / 2, y - k * 0.8, tw, k * 1.6); ctx.fillStyle = l.jam ? '#1a1206' : '#e6edf3'; ctx.fillText(l.s, x, y); }
+    ctx.textAlign = 'left';
     // 纬度带
     ctx.font = `600 ${Math.max(10, k * 1.25)}px "Noto Serif SC",serif`; ctx.textBaseline = 'bottom';
     const bands = BAND_START.map((row, t) => [row, t]).slice(2);

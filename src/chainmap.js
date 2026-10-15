@@ -280,8 +280,17 @@ export class ChainMap {
     return `<div class="pln ${x.worst ? 'worst' : ''} ${pct >= 0.999 ? 'ok' : ''}" style="--d:${x.depth}">
       <span class="plni">${RICON[x.k]}</span>
       <span class="plnt"><span><b>${RES[x.k].n}</b>${x.worst ? `<em>${x.comp ? '被分走了' : '最卡'}</em>` : ''}</span><small>${t ? `${BLD[t].n} ×${x.count}${x.count ? ` · ${x.lvl} 级 · ${x.workers} 人` : ''}` : ''}${stat ? ` · ${stat}` : ''}</small>
-        ${x.hint ? `<small class="plh">${x.hint}</small>` : ''}${low}${this.planMiss(x, P)}</span>
+        ${x.hint ? `<small class="plh">${x.hint}</small>` : ''}${low}${x.depth ? this.planNet(x.k) : ''}${this.planMiss(x, P)}</span>
       <span class="plnr"><span class="plbar"><i style="width:${(pct * 100).toFixed(1)}%"></i></span><small>现在 <b>${fr(x.prod)}</b> / 要 ${fr(need)} 每分钟</small></span>${go}</div>`;
+  }
+  // 物流网：别的营地有多余的这一样，也算一条来路（说最近的那个，和正在路上的）
+  planNet(k) {
+    const S = this.g.S, m = Sim.mainCamp(S); if (!m || S.camps.length < 2) return '';
+    const inc = (Sim.netView(S, m.id).inc[k] || {}).n || 0;
+    let best = null, bt = Infinity;
+    for (const c of S.camps) { if (c.id === m.id) continue; const sp = Sim.campSpare(S, c, {})[k] || 0; if (sp < 10) continue; const t = Math.hypot(c.x - m.x, c.y - m.y); if (t < bt) { bt = t; best = { c, sp }; } }
+    if (!best && !inc) return '';
+    return `<small class="plh">🛷 物流网：${best ? `「${esc(best.c.name)}」多 ${fr(best.sp)}，缺了会自己运过来` : ''}${best && inc ? '；' : ''}${inc ? `路上正运来 ${fr(inc)}` : ''}</small>`;
   }
   // 还差几座：按这一环每座的实际产量算；被上游卡住时先说上游；人手、空地不够时说卡在哪
   planMiss(x, P) {

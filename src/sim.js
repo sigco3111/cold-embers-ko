@@ -9,6 +9,8 @@ import { journeyOf, journeyStep, mainCamp, outpostBlock, outpostKit, moveFuel, f
 export * from './journey.js';
 import { linesTick, bMax, bStar, lineProd, plinesOf, STAR_PROD } from './lines.js';
 export * from './lines.js';
+import { netStep, autoRoad, roads, roadOn, ships, migrateNet } from './net.js';
+export * from './net.js';
 
 export const VERSION = 1;
 export const MIN_PEOPLE = 3;          // 营地永远不会全灭
@@ -46,7 +48,7 @@ export function newRun(meta, site = 0, seed) {
   setRows(BASE_H);
   const S = {
     v: VERSION, runSeed, t: 0, savedAt: Date.now(), site, nextId: 1,
-    camps: [], buildings: [], belts: [], reqs: [], spots: {}, sap: {}, poiDone: {}, poiFound: {}, scouts: [], lines: [],
+    camps: [], buildings: [], belts: [], reqs: [], spots: {}, sap: {}, poiDone: {}, poiFound: {}, scouts: [], lines: [], roads: [], ships: [], sends: [], feeds: [],
     reveal: new Uint8Array(W * H), rows: BASE_H, discovered: [], founded: [], known: 1,
     eternal: { stage: 0, have: 0 }, specAt: {}, raidDone: -1,
     stats: { prod: {}, deaths: 0, arrivals: 0, raids: 0, raidsWon: 0, blizzards: 0 },
@@ -557,7 +559,7 @@ export function place(S, type, x, y) {
     { const take = Math.min(payer.stock.plank || 0, 60); payer.stock.plank = (payer.stock.plank || 0) - take; camp.stock.plank = (camp.stock.plank || 0) + take; }
     revealCircle(S, camp.x, camp.y, 8);
     markFounded(S, camp);
-    logMsg(S, `前哨营地点燃：「${camp.name}」。${move} 人从「${payer.name}」出发前往，带了 ${c.kit.food} 份口粮和 ${c.kit.fuel} 份燃料。记得用运输线把两座营地连起来。`, 'good');
+    logMsg(S, `前哨营地点燃：「${camp.name}」。${move} 人从「${payer.name}」出发前往，带了 ${c.kit.food} 份口粮和 ${c.kit.fuel} 份燃料。${autoRoad(S, camp.id) ? '一条雪橇道已经修好，连到最近的营地：缺什么料，物流网会自己运来。' : ''}`, 'good');
     S.active = camp.id;
     dirty(S);
     return { ok: true, id: camp.furnace, camp: camp.id };
@@ -903,7 +905,7 @@ export function skyAt(S, t) {
 export const WXE = {
   ice: { n: '冰风暴', ic: '🧊', d: '冻雨把一切裹上一层冰壳：暖炉和暖气管冻住不供热，户外采集慢三成。', prep: '给管道裹保温毡', prepD: '暖炉和暖气管照常供热', cost: { wood: 40, plank: 30 } },
   cold: { n: '极寒夜', ic: '🌡', d: '一夜之间气温再降一截：熔炉要多烧六成燃料，烧够了屋里也会冷几度；燃料不够会冷得更厉害。', prep: '封好门窗缝', prepD: '降温减半', cost: { wood: 50, plank: 10 } },
-  crack: { n: '冰湖开裂', ic: '💧', d: '冰湖上裂开一道道水沟，只能绕路：营地附近有冰湖的，搬运慢 35%；侦察队和运输线也慢三成。', prep: '铺木板便道', prepD: '营地里搬运照常', cost: { plank: 60 } },
+  crack: { n: '冰湖开裂', ic: '💧', d: '冰湖上裂开一道道水沟，只能绕路：营地附近有冰湖的，搬运慢 35%；侦察队和物流网的路也慢三成。', prep: '铺木板便道', prepD: '营地里搬运照常', cost: { plank: 60 } },
 };
 export const WXE_KEYS = Object.keys(WXE);
 const WXE_P = 9000, WXE_FIRST = 6000;
@@ -1274,7 +1276,7 @@ export function step(S, dt) {
   rateStep(S, dt);
   holdStep(S, dt);
   researchStep(S, dt);
-  linesStep(S, dt);
+  netStep(S, dt);
   scoutsStep(S, dt);
   raidsStep(S, dt);
   journeyStep(S, dt);
@@ -2074,78 +2076,11 @@ function regrow(S, dt) {
   if (touched) R.spotTouched = true;
 }
 
-// ---------- 运输线 ----------
-export function lineCost(S, a, b) {
-  const ca = getCamp(S, a), cb = getCamp(S, b);
-  const d = Math.hypot(ca.x - cb.x, ca.y - cb.y);
-  return { wood: Math.round(150 + d * 4), plank: Math.round(60 + d * 1.5) };
-}
-export function lineCap(S, l) {
-  const ca = getCamp(S, l.a), cb = getCamp(S, l.b);
-  const d = Math.hypot(ca.x - cb.x, ca.y - cb.y);
-  const base = (l.rail ? 50 : 12) * (1 + 0.5 * (l.lvl - 1)); // 每级 +50%（按 1 级算）
-  const ev = wxeAt(S, S.t);
-  return base * Math.min(1, 40 / Math.max(20, d)) * (1 + 0.12 * up(S, 'haul') + techSum(S, 'line')) * (1 + dogLine(S, l)) * (ev.on && ev.ev.kind === 'crack' ? WXE_SLOW : 1);
-}
-// 雪橇犬：每只狗让本营地的侦察队快 5%（最多 +60%），让连着的运输线多运 3%（最多 +45%，蒸汽轨道减半）
+// ---------- 雪橇犬 ----------
+// 雪橇犬：每只狗让本营地的侦察队快 5%（最多 +60%），让连着的路多运 3%（最多 +45%，铁路减半；见 net.js roadDogs）
 export function kennelDogs(lvl) { return BLD.kennel.dogs + 2 * (lvl - 1); }
 export function dogsOf(S, cid) { return (rt(S).c[cid] || {}).dogs || 0; }
 export function dogScout(S, cid) { return Math.min(0.6, 0.05 * dogsOf(S, cid)); }
-export function dogLine(S, l) { return Math.min(0.45, 0.03 * (dogsOf(S, l.a) + dogsOf(S, l.b))) * (l.rail ? 0.5 : 1); }
-export function lineUpCost(S, l) {
-  if (!l.rail && S.known >= 4 && l.lvl >= 3) return { steel: 150, seal: 40, engine: 10, rail: true };
-  const m = Math.pow(1.5, l.lvl);
-  if (l.rail) return { steel: Math.round(60 * m), seal: Math.round(15 * m) };
-  return { wood: Math.round(100 * m), plank: Math.round(60 * m), ...(l.lvl >= 2 ? { iron: Math.round(10 * m) } : {}) };
-}
-export function addLine(S, a, b) {
-  if (a === b) return { ok: false, reason: '同一个营地' };
-  if (S.lines.some(l => (l.a === a && l.b === b) || (l.a === b && l.b === a))) return { ok: false, reason: '已经连通' };
-  const cost = lineCost(S, a, b);
-  const ca = getCamp(S, a);
-  if (!canAfford(ca.stock, cost)) return { ok: false, reason: '缺：' + missing(ca.stock, cost).join('，') };
-  pay(ca.stock, cost);
-  S.lines.push({ id: S.nextId++, a, b, lvl: 1, rail: false, routes: [] });
-  logMsg(S, `雪橇队开通：「${ca.name}」⇄「${getCamp(S, b).name}」。`, 'good');
-  return { ok: true };
-}
-export function upgradeLine(S, lid) {
-  const l = S.lines.find(x => x.id === lid); if (!l) return { ok: false };
-  const c = { ...lineUpCost(S, l) }; const toRail = !!c.rail; delete c.rail;
-  const ca = getCamp(S, l.a);
-  if (!canAfford(ca.stock, c)) return { ok: false, reason: '缺：' + missing(ca.stock, c).join('，') };
-  pay(ca.stock, c);
-  if (toRail) { l.rail = true; l.lvl = 1; logMsg(S, '雪橇线改建成铁路，运量大增！', 'good'); } else l.lvl++;
-  return { ok: true };
-}
-export function setRoutes(S, lid, routes) { const l = S.lines.find(x => x.id === lid); if (l) l.routes = routes.slice(0, 4); }
-function linesStep(S, dt) {
-  const R = rt(S);
-  for (const l of S.lines) {
-    const active = l.routes.filter(r => r.res);
-    const lr = R.b['L' + l.id] || (R.b['L' + l.id] = {});
-    lr.flow = 0;
-    if (!active.length) continue;
-    const per = lineCap(S, l) / 60 * dt / active.length;
-    for (const r of active) {
-      const from = getCamp(S, r.from === 'b' ? l.b : l.a), to = getCamp(S, r.from === 'b' ? l.a : l.b);
-      if (!from || !to) continue;
-      if (r.res === 'people') {
-        r.acc = (r.acc || 0) + dt / 90 * Math.min(1, lineCap(S, l) / 12);
-        let free = Math.floor(Math.min(freeBeds(S, to), popRoom(S, to)));
-        while (r.acc >= 1) { r.acc -= 1; if (free >= 1 && from.people > MIN_PEOPLE + 3) { from.people--; to.people++; free--; trimWorkers(S, from); } }
-        continue;
-      }
-      const keep = r.keep != null ? r.keep : 50;
-      const avail = Math.max(0, (from.stock[r.res] || 0) - keep);
-      const room = Math.max(0, storeCap(S, to) - (to.stock[r.res] || 0));
-      const mv = Math.min(per, avail, room);
-      from.stock[r.res] -= mv; to.stock[r.res] = (to.stock[r.res] || 0) + mv;
-      lr.flow += mv / dt * 60;
-      if (r.res === 'plank' && mv > 0 && to.id === journeyOf(S).main && ruleNow(S)) { const ns = nsOf(S); ns.plank = (ns.plank || 0) + mv; } // 冻土无林：运到这一站的木板
-    }
-  }
-}
 
 // ---------- 侦察与救援 ----------
 export function scoutSlots(S, cid) {
@@ -2915,7 +2850,7 @@ function chapVal(S, q) {
     case 'site': return S.siteDone ? Object.keys(S.siteDone).length : 0;
     case 'raid': return S.stats.raidsWon || 0;
     case 'hope': return Math.round(Math.max(...S.camps.map(c => c.hope ?? 50)));
-    case 'line': return S.lines.length;
+    case 'line': return roads(S).filter(roadOn).length;
     case 'calm': return Math.round(Math.max(...S.camps.map(c => c.disc ?? 10)));
     case 'eternal': return S.eternal ? S.eternal.stage : 0;
     case 'rate': return Math.round(prodRate(S, q.r) * 10) / 10;
@@ -3190,7 +3125,7 @@ export function catchUp(S, secs, flat) {
   const before = snapshot(S);
   const lines0 = plinesOf(S).map(l => ({ r: l.r, main: l.main, star: l.star, made: S.stats.prod[l.r] || 0 }));
   const stage0 = journeyOf(S).stage;
-  const camp0 = new Map(S.camps.map(c => [c.id, { ...c.stock }]));
+  const camp0 = new Map(S.camps.map(c => [c.id, { ...c.stock }])), ship0 = shipSum(S); // 路上的货不算增长
   const sim = Math.min(secs, OFF_CAP), rate = flat != null ? flat : offlineRate(secs);
   const dt = sim > 3 * 3600 ? 30 : sim > 600 ? 10 : 2;
   let left = sim;
@@ -3199,7 +3134,7 @@ export function catchUp(S, secs, flat) {
   R.offline = true;
   while (left > 0) { const d = Math.min(dt, left); step(S, d); left -= d; }
   R.histOff = null; R.offline = false;
-  if (rate < 1) offlineTrim(S, camp0, k => offlineRateOf(S, k, rate));
+  if (rate < 1) offlineTrim(S, camp0, k => offlineRateOf(S, k, rate), ship0);
   // 曲线上标出离线的那一段
   if (sim >= 60) for (const c of S.camps) { const H = c.hist || (c.hist = {}); (H.off || (H.off = [])).push([Math.round(t0), Math.round(S.t)]); if (H.off.length > 16) H.off.shift(); }
   const out = diffSnap(before, snapshot(S), secs);
@@ -3212,11 +3147,13 @@ export function catchUp(S, secs, flat) {
   out.stage0 = stage0; out.stage = journeyOf(S).stage;
   return out;
 }
-// 按物资种类算全部营地的净增长，只留 rate 那一份；多出来的从涨了的营地里按涨幅扣掉（运输线来回搬的不算增长）
-function offlineTrim(S, camp0, rateOf) {
+// 按物资种类算全部营地（加上路上的货）的净增长，只留 rate 那一份；多出来的从涨了的营地里按涨幅扣掉（物流网来回搬的不算增长）
+function shipSum(S) { const m = {}; for (const s of ships(S)) m[s.k] = (m[s.k] || 0) + s.n; return m; }
+function offlineTrim(S, camp0, rateOf, ship0 = {}) {
+  const ship1 = shipSum(S);
   for (const k of RES_KEYS) {
     const rate = rateOf(k);
-    let net = 0, pos = 0;
+    let net = (ship1[k] || 0) - (ship0[k] || 0), pos = 0;
     const gains = [];
     for (const c of S.camps) {
       const d = (c.stock[k] || 0) - ((camp0.get(c.id) || {})[k] || 0);
@@ -3236,6 +3173,7 @@ function offlineTrim(S, camp0, rateOf) {
 function snapshot(S) {
   const stock = {};
   for (const c of S.camps) for (const k in c.stock) stock[k] = (stock[k] || 0) + c.stock[k];
+  for (const s of ships(S)) stock[s.k] = (stock[s.k] || 0) + s.n;
   return { stock, people: S.camps.reduce((a, c) => a + c.people, 0), deaths: S.stats.deaths, arrivals: S.stats.arrivals, raids: S.stats.raids, won: S.stats.raidsWon, bliz: S.stats.blizzards };
 }
 function diffSnap(a, b, secs) {
@@ -3260,6 +3198,7 @@ export function deserialize(str) {
   fixMeta(o.meta);
   rt(o);
   growNext(o); // 已经在世界之脊或北境：下一站要用的地图先接上
+  if (!o.roads) migrateNet(o); // 1.1 以前的存档：运输线和补给站的路换成物流网
   return o;
 }
 function rle(arr) { const out = []; let cur = arr[0], n = 0; for (let i = 0; i < arr.length; i++) { if (arr[i] === cur) n++; else { out.push(n); cur = arr[i]; n = 1; } } out.push(n); return (arr[0] ? '1:' : '0:') + out.join(','); }

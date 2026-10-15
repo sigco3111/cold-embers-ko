@@ -1515,28 +1515,43 @@ void main() {
     for (const b of S.buildings) if (b.type === 'heater' || b.type === 'geowell') add(b.x + BLD[b.type].size / 2, b.y + BLD[b.type].size / 2, BLD[b.type].hreach);
   }
 
+  // 物流网的路：雪橇道是压实的雪带加路标，主干道沿着车队踩出的路插一排路标，铁路铺枕木和两道钢轨；在修的路先打一串木桩
   syncLines() {
-    const S = this.S;
-    const sig = S.lines.map(l => `${l.id}:${l.rail}`).join(',') + '|' + S.camps.length;
+    const S = this.S, RS = Sim.roads(S);
+    const sig = RS.map(r => `${r.id}:${r.kind}:${r.via ? 1 : 0}:${r.pend && r.pend.what === 'build' ? 'p' : ''}`).join(',') + '|' + S.camps.map(c => c.id).join(',') + '|' + (Sim.journeyOf(S).legs || []).length;
     if (sig === this.lineSig) return;
     this.lineSig = sig;
-    for (const o of [...this.lineGroup.children]) { this.lineGroup.remove(o); o.geometry && o.geometry.dispose(); }
-    for (const l of S.lines) {
-      const a = Sim.getCamp(S, l.a), b = Sim.getCamp(S, l.b);
-      const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy);
-      const ang = Math.atan2(-dy, dx);
-      const parts = [];
-      const step = l.rail ? 0.6 : 1.4;
-      for (let t = 2; t < d - 2; t += step) {
-        const x = a.x + dx * t / d, y = a.y + dy * t / d;
-        if (l.rail) parts.push(M.P(new THREE.BoxGeometry(0.2, 0.06, 0.9), '#5a4030', { x, y: 0.05, z: -y, ry: ang + Math.PI / 2 }));
-        else parts.push(M.P(new THREE.CylinderGeometry(0.04, 0.05, 0.6, 5), '#6b4526', { x: x + Math.sin(ang) * 0.6, y: 0.3, z: -y + Math.cos(ang) * 0.6 }));
+    for (const o of [...this.lineGroup.children]) { this.lineGroup.remove(o); o.geometry && o.geometry.dispose(); if (o.material && o.material !== this.matStd) o.material.dispose(); }
+    const snow = [], parts = [];
+    for (const r of RS) {
+      const P0 = Sim.roadPath(S, r); if (P0.length < 2) continue;
+      // 两头各让出 2.5 格（熔炉那块）
+      let tot = 0; for (let i = 1; i < P0.length; i++) tot += Math.hypot(P0[i][0] - P0[i - 1][0], P0[i][1] - P0[i - 1][1]);
+      if (tot < 6) continue;
+      const at = d => Sim.tripPos({ path: P0, d });
+      const pend = r.pend && r.pend.what === 'build';
+      const sub = []; for (let d = 2.5; d <= tot - 2.5; d += 0.5) { const p = at(d); sub.push([p.x, p.y]); }
+      if (r.kind === 'sled' && !pend) snow.push(sub);
+      const step = r.kind === 'rail' ? 0.6 : pend ? 2.2 : 3.2;
+      for (let d = 3; d < tot - 3; d += step) {
+        const p = at(d), ang = Math.atan2(-Math.sin(p.dir), Math.cos(p.dir)), nx = -Math.sin(p.dir), ny = Math.cos(p.dir);
+        if (r.kind === 'rail') parts.push(M.P(new THREE.BoxGeometry(0.2, 0.06, 0.9), '#5a4030', { x: p.x, y: 0.05, z: -p.y, ry: ang + Math.PI / 2 }));
+        else if (pend) parts.push(M.P(new THREE.CylinderGeometry(0.035, 0.045, 0.45, 5), '#8a6a48', { x: p.x, y: 0.22, z: -p.y }));
+        else {
+          // 路标：一根木杆，顶上一截橙色布条，路两边交替
+          const sd = (Math.round(d / step) % 2 ? 1 : -1) * (r.kind === 'trunk' ? 0.75 : 0.55);
+          parts.push(M.P(new THREE.CylinderGeometry(0.035, 0.045, 0.62, 5), '#6b4526', { x: p.x + nx * sd, y: 0.31, z: -(p.y + ny * sd) }));
+          parts.push(M.P(new THREE.BoxGeometry(0.04, 0.1, 0.16), '#e0732c', { x: p.x + nx * sd, y: 0.56, z: -(p.y + ny * sd), ry: ang }));
+        }
       }
-      if (l.rail) for (const off of [-0.25, 0.25]) parts.push(M.P(new THREE.BoxGeometry(d - 4, 0.05, 0.06), '#8a96a3', { x: (a.x + b.x) / 2 + Math.sin(ang) * off, y: 0.1, z: -(a.y + b.y) / 2 + Math.cos(ang) * off, ry: ang }));
-      else parts.push(M.P(new THREE.BoxGeometry(d - 4, 0.02, 0.5), '#d6dfe8', { x: (a.x + b.x) / 2, y: 0.03, z: -(a.y + b.y) / 2, ry: ang }));
-      const m = new THREE.Mesh(M.merge(parts), this.matStd); m.receiveShadow = true;
-      this.lineGroup.add(m);
+      if (r.kind === 'rail') for (const off of [-0.25, 0.25]) for (let i = 1; i < sub.length; i++) {
+        const [ax, ay] = sub[i - 1], [bx, by] = sub[i], L = Math.hypot(bx - ax, by - ay); if (L < 1e-3) continue;
+        const nx = -(by - ay) / L, ny = (bx - ax) / L;
+        parts.push(M.P(new THREE.BoxGeometry(L + 0.02, 0.05, 0.06), '#8a96a3', { x: (ax + bx) / 2 + nx * off, y: 0.1, z: -((ay + by) / 2 + ny * off), ry: Math.atan2(-(by - ay), bx - ax) }));
+      }
     }
+    if (snow.length) { this.lineGroup.add(View.ribbon(snow, 0.8, 0, '#c9d3de', 0.022)); for (const off of [-0.2, 0.2]) this.lineGroup.add(View.ribbon(snow, 0.08, off, '#9aa6b4', 0.028)); } // 压实的雪道和两道滑橇印
+    if (parts.length) { const m = new THREE.Mesh(M.merge(parts), this.matStd); m.receiveShadow = true; m.castShadow = true; this.lineGroup.add(m); }
   }
 
   // ---------- 粒子 ----------
@@ -2402,25 +2417,9 @@ void main() {
     const mg = new THREE.CylinderGeometry(0.12, 0.12, 0.03, 6);
     this.cvMarks = new THREE.InstancedMesh(mg, new THREE.MeshBasicMaterial({ color: '#ffcf6a', transparent: true, opacity: 0.75, depthWrite: false }), 420);
     this.cvMarks.count = 0; this.cvMarks.frustumCulled = false; this.scene.add(this.cvMarks);
-    // 雪橇道：走过的每一程踩出来的路，补给站的小雪橇沿着它往北送货
+    // 车队走过的每一程踩出来的路；物流网上装着货的雪橇（铁路上是小火车，见 animPeople）
     this.supSled = new THREE.InstancedMesh(M.caravanSledGeo(true).geo, this.matStd, 48); this.supSled.count = 0; this.supSled.frustumCulled = false; this.supSled.castShadow = true; this.scene.add(this.supSled);
     this.trail = new THREE.Group(); this.scene.add(this.trail);
-  }
-  // 补给站的小雪橇：送得越多车越多，一直沿路往北走
-  animSupply() {
-    const R = Sim.rt(this.S), t = this.time || 0, im = this.supSled;
-    const m = this._sm || (this._sm = new THREE.Matrix4()), q = this._sq || (this._sq = new THREE.Quaternion()), e = this._se || (this._se = new THREE.Euler()), v = this._sv || (this._sv = new THREE.Vector3()), sc = this._ss || (this._ss = new THREE.Vector3(0.7, 0.7, 0.7));
-    let n = 0;
-    for (const r of this.supRoutes || []) {
-      const sent = (R.c[r.id] || {}).sent || {}; let tot = 0; for (const k in sent) tot += sent[k];
-      if (tot <= 0 || r.len < 4) continue;
-      const k = Math.min(8, Math.max(1, Math.round(tot / 8)));
-      for (let i = 0; i < k && n < 48; i++) {
-        const d = (t * 1.1 + i * r.len / k + r.id * 7.3) % r.len, p = Sim.tripPos({ path: r.path, d }), yaw = Math.atan2(-Math.cos(p.dir), Math.sin(p.dir));
-        e.set(0, yaw, Math.sin(t * 3 + i) * 0.02); q.setFromEuler(e); m.compose(v.set(p.x, 0.01, -p.y), q, sc); im.setMatrixAt(n++, m);
-      }
-    }
-    im.count = n; im.instanceMatrix.needsUpdate = true;
   }
   // 一条折线铺成贴地的带子（w 宽，往左偏 off）
   static ribbon(paths, w, off, col, y0 = 0.018) {
@@ -2443,23 +2442,11 @@ void main() {
     for (const o of this.trail.children.slice()) { this.trail.remove(o); o.geometry.dispose(); o.material.dispose(); }
     const paths = (J.legs || []).map(l => l.path).filter(p => p && p.length > 1);
     if (paths.length) { this.trail.add(View.ribbon(paths, 0.9, 0, '#d4dbe3')); this.trail.add(View.ribbon(paths, 0.1, 0.22, '#a3aebb', 0.026)); this.trail.add(View.ribbon(paths, 0.1, -0.22, '#a3aebb', 0.026)); }
-    // 每座补给站往主营地的路：先直走到车队踩出的路上，再沿着它往北
-    const all = paths.flat();
-    this.supRoutes = [];
-    for (const c of S.camps) {
-      if (!c.depot || !m || c.id === m.id) continue;
-      const P = [[c.x, c.y]];
-      for (const p of all) if (p[1] > c.y + 3 && p[1] < m.y - 3 && p[1] > P[P.length - 1][1]) P.push(p);
-      P.push([m.x, m.y]);
-      let len = 0; for (let i = 1; i < P.length; i++) len += Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]);
-      this.supRoutes.push({ id: c.id, path: P, len });
-    }
   }
   animCaravan(dt, rdt = dt) {
     const J = Sim.journeyOf(this.S), T = J.trip, cv = this.cv;
     const tsig = (J.legs || []).length + ':' + this.S.camps.map(c => c.id + (c.depot ? 'd' : '')).join(',');
     if (tsig !== this.trailSig) { this.trailSig = tsig; this.syncTrail(); }
-    this.animSupply();
     const m = this._cm || (this._cm = new THREE.Matrix4()), q = this._cq || (this._cq = new THREE.Quaternion()), e = this._ce || (this._ce = new THREE.Euler()), v = this._cv || (this._cv = new THREE.Vector3()), one = this._c1 || (this._c1 = new THREE.Vector3(1, 1, 1));
     const n = { sled: 0, tractor: 0, icebreaker: 0 }; let nm = 0, lead = null;
     this.cvEmit = null;
@@ -2815,31 +2802,25 @@ void main() {
     }
     this.torches.count = nt; this.torches.instanceMatrix.needsUpdate = true;
     this.lamps.geometry.setDrawRange(0, nl); if (nl) this.lamps.geometry.attributes.position.needsUpdate = true;
-    // 运输线上的雪橇/火车
-    let ns = 0, ntr = 0;
-    for (const l of S.lines) {
-      const a = Sim.getCamp(S, l.a), b = Sim.getCamp(S, l.b);
-      const flow = (R.b['L' + l.id] || {}).flow || 0;
-      if (!flow && !l.routes.length) continue;
-      const d = Math.hypot(b.x - a.x, b.y - a.y);
-      const nv = l.rail ? 1 : Math.min(3, 1 + l.lvl), dl = Sim.dogLine(S, l);
-      for (let i = 0; i < nv; i++) {
-        const ph = ((t * (l.rail ? 3 : 1.4) * (1 + dl) / d) * 0.5 + i / nv) % 1;
-        const k = ph < 0.5 ? ph * 2 : 2 - ph * 2;
-        const x = a.x + (b.x - a.x) * (0.08 + k * 0.84), y = a.y + (b.y - a.y) * (0.08 + k * 0.84);
-        const ang = Math.atan2(b.x - a.x, -(b.y - a.y)) + (ph < 0.5 ? Math.PI : 0);
-        e.set(0, ang, 0); q.setFromEuler(e);
-        m.compose(v.set(x, 0, -y), q, sc.set(1, 1, 1));
-        if (l.rail) { if (ntr < 40) this.trains.setMatrixAt(ntr++, m); }
-        else if (ns < 40) {
-          this.sleds.setMatrixAt(ns++, m);
-          if (dl > 0) { // 狗拉雪橇：两对狗跑在雪橇前面
-            const dir = ph < 0.5 ? 1 : -1, ux = (b.x - a.x) / d * dir, uy = (b.y - a.y) / d * dir;
-            for (let j = 0; j < 4; j++) { const f = 0.6 + Math.floor(j / 2) * 0.3, sd = (j % 2 ? 1 : -1) * 0.1; putDog(x + ux * f + uy * sd, y + uy * f - ux * sd, ang, t * 16 + j, j + i); }
-          }
-        }
-      }
+    // 物流网：路上每一车货画一架装着箱子的雪橇（铁路上是小火车），每条路最多画 6 车；有雪橇犬的营地，狗在前面拉
+    let ns = 0, ntr = 0, nsup = 0;
+    const perRoad = {}, sup = this.supSled, ss = this._ss2 || (this._ss2 = new THREE.Vector3(0.7, 0.7, 0.7));
+    for (const sh of Sim.ships(S)) {
+      const ps = Sim.shipPos(S, sh); if (!ps) continue;
+      const r = ps.r; if ((perRoad[r.id] = (perRoad[r.id] || 0) + 1) > Sim.SHOW_SLEDS) continue;
+      const P0 = Sim.roadPath(S, r); if (P0.length < 2) continue;
+      let tot = 0; for (let i = 1; i < P0.length; i++) tot += Math.hypot(P0[i][0] - P0[i - 1][0], P0[i][1] - P0[i - 1][1]);
+      const fwd = ps.from === r.a, f = 0.06 + ps.f * 0.88, p = Sim.tripPos({ path: P0, d: (fwd ? f : 1 - f) * tot });
+      const dir = fwd ? p.dir : p.dir + Math.PI, ang = Math.atan2(-Math.cos(dir), Math.sin(dir));
+      const side = 0.28; // 靠右走，两个方向的车错得开
+      const x = p.x + Math.sin(dir) * side, y = p.y - Math.cos(dir) * side;
+      if (r.kind === 'rail') { e.set(0, ang, 0); q.setFromEuler(e); m.compose(v.set(x, 0, -y), q, sc.set(1, 1, 1)); if (ntr < 40) this.trains.setMatrixAt(ntr++, m); continue; }
+      if (nsup >= 48) continue;
+      e.set(0, ang, Math.sin(t * 3 + sh.id) * 0.02); q.setFromEuler(e); m.compose(v.set(x, 0.01, -y), q, ss); sup.setMatrixAt(nsup++, m);
+      const dl = Sim.roadDogs(S, r);
+      if (dl > 0) { const ux = Math.cos(dir), uy = Math.sin(dir); for (let j = 0; j < 4; j++) { const fd = 0.75 + Math.floor(j / 2) * 0.3, sd = (j % 2 ? 1 : -1) * 0.1; putDog(x + ux * fd + uy * sd, y + uy * fd - ux * sd, ang, t * 16 + j, j + sh.id); } }
     }
+    sup.count = nsup; sup.instanceMatrix.needsUpdate = true;
     this.sleds.count = ns; this.sleds.instanceMatrix.needsUpdate = true;
     this.dogs.count = nd; this.dogs.instanceMatrix.needsUpdate = true; if (nd) this.dogs.instanceColor.needsUpdate = true;
     this.trains.count = ntr; this.trains.instanceMatrix.needsUpdate = true;

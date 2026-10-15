@@ -79,10 +79,10 @@ const setup = (kind) => {
 { const { X, c, z } = setup('crack');
   const ice = G.campIce(X, c);
   console.log('     营地附近冰湖格子', ice);
-  const l = { id: 1, a: c.id, b: c.id, lvl: 1, routes: [] };
-  X.t = z.start - 30; const cap0 = G.lineCap(X, l);
-  X.t = z.start + 30; const cap1 = G.lineCap(X, l);
-  ok(Math.abs(cap1 / cap0 - G.WXE_SLOW) < 1e-6, `运输线 ${cap0.toFixed(1)} → ${cap1.toFixed(1)}`);
+  const l = { id: 1, a: c.id, b: c.id, kind: 'sled', lvl: 1 };
+  X.t = z.start - 30; const cap0 = G.roadCap(X, l);
+  X.t = z.start + 30; const cap1 = G.roadCap(X, l);
+  ok(Math.abs(cap1 / cap0 - G.WXE_SLOW) < 1e-6, `物流网的路 ${cap0.toFixed(1)} → ${cap1.toFixed(1)}`);
   ok(G.wxeMatters(X, c, z) === ice > 0, '附近有冰湖才需要准备');
   if (!ice) { const r = G.wxePrep(X, c.id); ok(!r.ok && r.reason === '这座营地不用准备', '没冰湖不用准备'); } }
 // 存读档：准备过的还算数

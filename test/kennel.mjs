@@ -36,10 +36,10 @@ const A = sp(true), B = sp(false);
 for (const X of [A, B]) { X.scouts.push({ camp: X.camps[0].id, kind: 'scout', phase: 'out', x: X.camps[0].x, y: X.camps[0].y, tx: Math.floor(X.camps[0].x), ty: Math.floor(X.camps[0].y) + 40, n: 2, id: 999 }); G.step(X, 10); }
 const dA = A.scouts.find(s => s.id === 999).y - A.camps[0].y, dB = B.scouts.find(s => s.id === 999).y - B.camps[0].y;
 ok(dA > dB * 1.4, `带狗的侦察队 10 秒走 ${dA.toFixed(2)} 格，不带 ${dB.toFixed(2)} 格`);
-// 运输线
-const l = { id: 1, a: c.id, b: c.id, lvl: 1, routes: [] };
-const cap0 = G.lineCap({ ...S, camps: S.camps }, l);
-ok(G.dogLine(S, l) > 0 && G.dogLine(S, l) <= 0.45, `运输线 +${G.dogLine(S, l).toFixed(2)}`);
+// 物流网的路
+const l = { id: 1, a: c.id, b: c.id, kind: 'sled', lvl: 1 };
+ok(G.roadDogs(S, l) > 0 && G.roadDogs(S, l) <= 0.45 && G.roadCap(S, l) > G.ROAD.sled.cap, `路运力 +${G.roadDogs(S, l).toFixed(2)}`);
+ok(G.roadDogs(S, { ...l, kind: 'rail' }) === G.roadDogs(S, l) / 2, '铁路上狗减半');
 run(S, 10);
 ok(G.bookOf(S).b.kennel, '进了收集册');
 console.log(fails ? `${fails} FAILED` : 'all ok');

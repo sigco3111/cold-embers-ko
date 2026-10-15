@@ -1,4 +1,4 @@
-// 老营地：补给站自己运转、不盖不升、雪橇道往北送货、临时接手、熄火换余烬
+// 老营地：补给站自己运转、不盖不升、物流网往北送货、临时接手、熄火换余烬
 import * as G from '../src/sim.js';
 
 let fail = 0;
@@ -30,33 +30,26 @@ ok(G.depotAuto(d) && d.auto === true, 'hand back → runs itself');
 d.auto = false; for (const b of S.buildings) if (b.camp === d.id) b.workers = 0;
 for (let i = 0; i < 6; i++) G.step(S, 1);
 ok(S.buildings.some(b => b.camp === d.id && b.workers > 0), 'depot staffs its own buildings');
-// 雪橇道：默认送主营地缺的
+// 物流网：补给站多出来的往缺的主营地送
+ok(G.roadBetween(S, d.id, m.id) && G.roadBetween(S, d.id, m.id).kind === 'trunk', 'depot and main camp joined by a trunk road');
 m.stock.food = 5; d.stock.food = 4000; d.stock.stone = 4000;
-for (let i = 0; i < 31; i++) G.step(S, 1);
-const picks = G.supplyPicks(S, d), rate = G.supplyRate(S, d);
-ok(picks.includes('food'), `auto picks what the main camp lacks: ${picks.join(',')} · ${rate.toFixed(1)}/min`);
-for (let i = 0; i < 10; i++) G.step(S, 1);
-const recv = G.rt(S).c[m.id].recv.food || 0;
-ok(recv > rate / picks.length * 0.8, `food ships to the main camp: ${recv.toFixed(1)}/min (sent ${JSON.stringify(G.rt(S).c[d.id].sent)})`);
+let f0 = m.stock.food; for (let i = 0; i < 90; i++) G.step(S, 1);
+ok(m.stock.food > f0 + 30, `food ships to the main camp (${Math.round(f0)} → ${Math.round(m.stock.food)})`);
 ok(d.stock.food >= d.people * G.EAT * 30 - 1, 'depot keeps half an hour of food');
-// 自己勾
-d.send = []; G.setSend(S, d.id, 'stone');
-ok(d.send.length === 1 && d.send[0] === 'stone', 'manual pick: ' + d.send.join(','));
-const s0 = m.stock.stone || 0; for (let i = 0; i < 60; i++) G.step(S, 1);
-ok((m.stock.stone || 0) > s0, 'picked stone ships north');
-G.setSend(S, d.id, 'auto'); ok(!d.send, 'back to auto');
-// 越远越慢
-const r1 = G.supplyRate(S, d), y0 = d.y; d.y += 150; const r2 = G.supplyRate(S, d); d.y = y0;
-ok(r2 < r1 && r2 >= r1 * 0.3, `farther depots ship slower (${r1.toFixed(1)} → ${r2.toFixed(1)}/min)`);
+// 长期供货代替原来的「送哪几样」
+const s0 = m.stock.stone || 0; G.addFeed(S, d.id, m.id, 'stone', 20);
+for (let i = 0; i < 60; i++) G.step(S, 1);
+ok((m.stock.stone || 0) > s0, 'a stone feed ships north');
+G.delFeed(S, G.feeds(S)[0].id);
 // 撑不住提醒
 for (const k of ['wood', 'coal', 'coke']) d.stock[k] = 0;
 for (let i = 0; i < 31; i++) G.step(S, 1);
 ok(S.log.some(l => /补给站「/.test(l.msg) && /燃料|挨饿|只剩/.test(l.msg)), 'warns when a depot is in trouble: ' + (S.log.filter(l => /补给站「/.test(l.msg)).pop() || {}).msg);
 // 存档
-d.send = ['stone']; d.manual = true;
+d.manual = true; G.toggleHold(S, d.id, 'stone');
 const S2 = G.deserialize(G.serialize(S)), d2 = S2.camps.find(c => c.id === d.id);
-ok(d2.depot && d2.manual && d2.send[0] === 'stone', 'depot settings survive save/load');
-d.manual = false; delete d.send;
+ok(d2.depot && d2.manual && d2.hold.stone, 'depot settings survive save/load');
+d.manual = false; G.toggleHold(S, d.id, 'stone');
 // 熄火
 const e0 = S.meta.embers, p0 = m.people + (m.wait || 0), dp = d.people, nr = J.ruins.length;
 const r = G.douseDepot(S, d.id);

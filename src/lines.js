@@ -4,10 +4,11 @@ import { BLD, RES, RES_KEYS, SPOTS, SPOT_KEYS, FUEL } from './data.js';
 import {
   rt, dirty, getCamp, logMsg, prodRate, rateGoals, holdOf, popCap, maxWorkers, heatRadius, levelMul,
   nextRaid, raidPrep, idleLabor, unlocked, checkPlace, HOLD, buildCost, canAfford, pay, queueBuild, QUEUE_MAX, ORE_URGENT, gatherTypeFor,
-  servedSpots, spotLeft, moveBlock, prodBonus, getB, blocksOre, chapIdx, chapterDef, countType, fuelLeft, KEEP_WHY, FUEL_KEEP_WHY, FUEL_KEEP_MIN, isBuildMat, keepOf, storeCap,
+  servedSpots, spotLeft, moveBlock, prodBonus, getB, blocksOre, chapIdx, chapterDef, countType, fuelLeft, KEEP_WHY, FUEL_KEEP_WHY, FUEL_KEEP_MIN, isBuildMat, keepOf, storeCap, queueCost,
 } from './sim.js';
 import { getWorld, idx, W } from './worldgen.js';
 import { journeyOf, mainCamp, stopOf, departGate, gateFlvl, depotAuto } from './journey.js';
+import { roadOf, netRoadView, netRoadName, roadKindName, railOk, campSpare, netView } from './net.js';
 
 export const STAR_T = [600, 1800, 5400];        // 稳住 10、30、90 分钟（游戏时间）升一颗星
 export const STAR_PROD = [0, 0.15, 0.15, 0.45]; // 一星 +15%，二星省人，三星再 +30%
@@ -285,6 +286,51 @@ function producerOf(S, k) {
   const ts = Object.keys(BLD).filter(t => BLD[t].out && BLD[t].out[k] && BLD[t].cat !== 'deco');
   return ts.find(t => BLD[t].gather && unlocked(S, t)) || ts.find(t => unlocked(S, t)) || ts[0] || null;
 }
+// 物流网的三句话：路堵了（升级它）、整张网都没有（去有原料的营地多建一座）、在等运货（正从哪运来，多久到）
+const gName = k => k === '@fuel' ? '燃料' : RES[k].n;
+function netTip(S, R, main, wait) {
+  const N = R.net; if (!N || S.camps.length < 2) return null;
+  const camps = [main, ...S.camps.filter(c => c !== main && !c.depot)];
+  if (!wait) {
+    // 路堵了：堵住的是排队的建筑、产线要的料（补底和主营地攒着升炉子的不算）
+    for (const rid in N.jam) {
+      const r = roadOf(S, +rid); if (!r) continue;
+      const J = N.jam[rid].filter(j => { const q = ((N.short || {})[j.c] || {})[j.k]; return q && q.tier <= 5; });
+      if (!J.length) continue;
+      const v = netRoadView(S, r), ks = [...new Set(J.map(j => gName(j.k)))].slice(0, 2).join('、');
+      return { pri: 1, kind: 'netjam', text: `${netRoadName(S, r)}的${roadKindName(r)}满了（${Math.round(v.flow)}/${Math.round(v.cap)} 件/分），${ks}在排队：升级它能多运一半${railOk(S, r) ? '，改成铁路能多运三倍' : ''}。`, act: 'netroad', arg: r.id };
+    }
+    return null;
+  }
+  // 整张网都没有：营地要的高级货哪儿都没有多余的（主营地的主线有上面更细的话，这里只在别的营地有原料时说）
+  for (const c of camps) {
+    const sh = (N.short || {})[c.id] || {};
+      for (const k in sh) {
+        const q = sh[k]; if (!q.none || q.tier > 5 || k === '@fuel' || RES[k].t < 2) continue;
+        const pt = producerOf(S, k); if (!pt || !unlocked(S, pt)) continue;
+        const ins = Object.keys(BLD[pt].in || {});
+        let best = null, bs = 0;
+        for (const o of S.camps) { if (o.id === c.id || depotAuto(o)) continue; const sp = campSpare(S, o, {}); const sc = ins.length ? Math.min(...ins.map(x => sp[x] || 0)) : 0; if (sc > bs) { bs = sc; best = o; } }
+        if (!best && c === main) continue;
+        const where = best ? `在「${best.name}」多建一座${BLD[pt].n}，那边${ins.map(x => RES[x].n).join('和')}有余` : `多建一座${BLD[pt].n}`;
+        return { pri: 2, kind: 'netnone', camp: c.id, text: `「${c.name}」缺${RES[k].n}（${q.why}），哪个营地都没有多余的：${where}。`, act: 'campgo', arg: (best || c).id };
+      }
+  }
+  // 在等运货：新营地（不是主营地）的建筑在等料，料已经在路上
+  for (const c of camps) {
+    if (c === main) continue;
+    const sh = (N.short || {})[c.id] || {}, inc = netView(S, c.id).inc, cr = R.c[c.id] || {}, fl = cr.flow || {};
+    for (const k in inc) {
+      const f = fl[k], i = inc[k], want = f && f.want - f.c > Math.max(0.05, f.want * 0.08);
+      const q = (S.queue || []).find(x => x.camp === c.id && (queueCost(S, x)[k] || 0) > (c.stock[k] || 0));
+      if (!want && !q) continue;
+      const user = q ? `排队的${BLD[q.type].n}` : (() => { const b = S.buildings.find(b => b.camp === c.id && BLD[b.type].in && BLD[b.type].in[k]); return b ? `的${BLD[b.type].n}` : ''; })();
+      const from = [...i.from].map(id => `「${(getCamp(S, id) || {}).name}」`).join('');
+      return { pri: 2, kind: 'netwait', camp: c.id, text: `「${c.name}」${user}在等${RES[k].n}：正从${from}运来，约 ${fmtS(i.eta)}。`, act: 'netview', arg: c.id };
+    }
+  }
+  return null;
+}
 export function advisor(S) {
   const R = rt(S), J = journeyOf(S), main = mainCamp(S);
   if (!main) return null;
@@ -330,6 +376,8 @@ export function advisor(S) {
       return { pri: 1, kind: 'haul', camp: main.id, text: `「${main.name}」搬运工不够（要 ${Math.ceil(cr.demand)} 人，只有 ${Math.floor(cr.haulers)} 人），每座建筑都在等人送料：搬运工住在仓库里，${tip}；修路也能让搬运快一些。`, act: wh.length ? 'spot' : 'place', arg: wh.length ? wh[0].id : 'warehouse' };
     }
   }
+  // 物流网：要紧的货（排队的建筑、产线缺料）路满了运不过来，或者整张网都没有
+  { const n = netTip(S, R, main, false); if (n) return n; }
   // 主线卡在哪
   const g = rateGoals(S).find(x => !x.eternal) || rateGoals(S)[0];
   if (g) {
@@ -383,6 +431,8 @@ export function advisor(S) {
       return { pri: 1, kind: 'line', text: `${RES[g.r].n}线卡在${RES[w.k].n}：${why}。${fix}。`, act: blk ? 'spot' : 'plan', arg: blk ? blk.id : g.r };
     }
   }
+  // 物流网：新营地在等运货（告诉一声正从哪运来、多久到）
+  { const n = netTip(S, R, main, true); if (n) return n; }
   // 人手和地盘
   if (main.people >= popCap(S, main) && !main.depot) return { pri: 2, kind: 'pop', text: `人口满了（${main.people}/${popCap(S, main)}）：升熔炉能多住人，或者让产线升到二星，省出人手。`, act: 'furnace' };
   if (freeLand(S, main) < 2) return { pri: 2, kind: 'land', text: '供热圈里快没地方了：升熔炉扩大供热圈，或者在这一程里开前哨营地。', act: 'furnace' };

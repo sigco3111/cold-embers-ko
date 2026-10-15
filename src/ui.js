@@ -579,7 +579,7 @@ export class UI {
     let n = null;
     if (u) n = { key: 'a:' + u.k, urgent: u.lvl === 'bad', head: `${u.ic} ${u.t}`, cnt: u.cnt, text: u.d, btn: u.btn || '去看看', go: () => this.actDo(u.act, u.arg) };
     else if (a) {
-      const btn = { plan: '去规划', raid: '去备战', scout: '去侦察', arrive: '去放熔炉', migrate: '去北迁', place: '去建', spot: '去看看', roadopen: '拿主意', campgo: '去看看' }[a.act] || (a.kind === 'trip' ? '跟着看' : a.kind === 'fuel' || a.kind === 'cold' ? '去熔炉' : a.kind === 'food' ? '看物资' : '去看看');
+      const btn = { plan: '去规划', raid: '去备战', scout: '去侦察', arrive: '去放熔炉', migrate: '去北迁', place: '去建', spot: '去看看', roadopen: '拿主意', campgo: '去看看', netview: '看物流', netroad: '去升级' }[a.act] || (a.kind === 'trip' ? '跟着看' : a.kind === 'fuel' || a.kind === 'cold' ? '去熔炉' : a.kind === 'food' ? '看物资' : '去看看');
       n = { key: `v:${a.kind || ''}|${a.act || ''}|${a.arg ?? ''}`, urgent: a.pri === 0, head: '老向导', text: a.text, btn, go: () => this.advisorGo() };
     }
     this.adv = a; this.noteCur = n;
@@ -836,6 +836,8 @@ export class UI {
     else if (a.act === 'migrate') this.open('migrate');
     else if (a.act === 'place' || a.act === 'spot') this.actDo(a.act, a.arg);
     else if (a.act === 'roadopen') this.roadModal();
+    else if (a.act === 'netview') { this.netPg = 'all'; this.netFocus = a.arg; this.open('lines'); }
+    else if (a.act === 'netroad') { this.netPg = 'road'; this.open('lines'); }
     else if (a.act === 'campgo') { S.active = a.arg; const c = this.camp(); g.view.focus(c.x, c.y); this.open('camp'); }
     else if (a.kind === 'trip') { this.close(); g.view.followTrip = true; }
     else if (a.act === 'furnace' || a.kind === 'fuel' || a.kind === 'cold') furnace(a.camp);
@@ -1057,7 +1059,7 @@ export class UI {
       fx.push(['熔炉', `多烧 ${Math.round((Sim.WXE_FUEL - 1) * 100)}% 燃料，眼下每分钟约 ${fmt((cr.baseBurn || cr.burnPerMin || 0) * (e.on ? 1 : Sim.WXE_FUEL))}`]);
       fx.push(['屋里', `${prep ? '✔ 门窗缝封好了，降温减半 · ' : ''}燃料够也会冷几度，烧不够冷得更多`]);
     } else {
-      fx.push(['运输线 / 侦察队', `慢 ${Math.round((1 - Sim.WXE_SLOW) * 100)}%`]);
+      fx.push(['物流网的路 / 侦察队', `慢 ${Math.round((1 - Sim.WXE_SLOW) * 100)}%`]);
       fx.push(['营地搬运', !matters ? '附近没有冰湖，不受影响' : prep ? '✔ 铺好了木板便道，照常' : `<b class="bad">慢 ${Math.round((1 - Sim.WXE_CRACK) * 100)}%</b>（附近有冰湖，要绕路）`]);
     }
     for (const [a, b] of fx) h += `<div class="row"><span>${a}</span><span>${b}</span></div>`;
@@ -1193,6 +1195,7 @@ export class UI {
     let h = `<div class="bhero"><div class="hpic">${tc ? `<i class="th ${tc}"></i>` : ICON[q.type]}</div><div><div class="status warn">等材料</div><div class="desc">${esc(d.desc)}</div></div></div>`;
     h += `<div class="row"><span>需要</span><span>${costHtml(c.stock, cost, S.known)}</span></div>`;
     h += `<div class="row"><span>还缺</span><span>${miss.length ? miss.map(k => `${RICON[k]}${fmt(cost[k] - (c.stock[k] || 0))}`).join(' ') : '齐了，马上开工'}</span></div>`;
+    for (const k of miss) { const w = this.netWait(c, k); if (w) h += `<div class="row sub"><span>${RICON[k]}${RES[k].n}</span><span>${w}</span></div>`; }
     h += `<div class="row sub"><span>队列</span><span>「${esc(c.name)}」第 ${n} / ${mine.length} 个 · 材料到齐按顺序自动开工</span></div>`;
     h += `<button class="btn wide ghost" data-act="unqueue" data-arg="${q.id}">取消排队</button>`;
     return h;
@@ -1315,8 +1318,8 @@ export class UI {
     if (b.type === 'kennel') {
       const n = Sim.kennelDogs(b.lvl), br = Sim.rt(S).b[b.id] || {}, all = Sim.dogsOf(S, c.id);
       h += `<div class="row"><span>雪橇犬</span><span>${Math.round(br.dogs || 0)}/${n} 只能拉雪橇 · ${b.workers ? `吃生肉 ${fmt(n * BLD.kennel.feed)}/分${(br.fed ?? 1) < 0.95 ? ' <b class="warn">没喂饱</b>' : ''}` : '没人看：狗放出去自己找吃的了'}</span></div>`;
-      h += `<div class="row sub"><span>全营地</span><span>${Math.round(all)} 只 → 侦察队 +${Math.round(Sim.dogScout(S, c.id) * 100)}%${S.lines.some(l => l.a === c.id || l.b === c.id) ? ` · 运输线运量 +${Math.round(Math.max(...S.lines.filter(l => l.a === c.id || l.b === c.id).map(l => Sim.dogLine(S, l))) * 100)}%` : ' · 有了运输线也会更快'}</span></div>`;
-      h += `<div class="hint">每只喂饱的狗让侦察队快 5%（最多 +60%），让连着这座营地的运输线多运 3%（最多 +45%）。</div>`;
+      h += `<div class="row sub"><span>全营地</span><span>${Math.round(all)} 只 → 侦察队 +${Math.round(Sim.dogScout(S, c.id) * 100)}%${Sim.roadsAt(S, c.id).length ? ` · 连着的路运力 +${Math.round(Math.max(...Sim.roadsAt(S, c.id).map(r => Sim.roadDogs(S, r))) * 100)}%` : ' · 修了路也会运得更多'}</span></div>`;
+      h += `<div class="hint">每只喂饱的狗让侦察队快 5%（最多 +60%），让连着这座营地的路多运 3%（最多 +45%，铁路减半）。</div>`;
     }
     if (b.type === 'infirmary') {
       const ward = Sim.wardOf(S, c), br = Sim.rt(S).b[b.id] || {}, nb = Sim.wardBeds(b.lvl), sickN = cr.sick || 0;
@@ -1548,6 +1551,7 @@ export class UI {
     if (part === 'title') return `营地 <small>${esc(this.camp().name)}</small>`;
     let h = '';
     if (this.camp().depot) h += this.depotHtml(this.camp()); // 补给站：先说它自己的事，手机上不用往下翻
+    h += this.netRow(this.camp());
     for (const c of S.camps) {
       const cr = Sim.rt(S).c[c.id] || {};
       const f = Sim.getB(S, c.furnace);
@@ -1590,15 +1594,12 @@ export class UI {
 
   // 补给站：留守的人、撑不撑得住、往北送什么、临时接手、熄火
   depotHtml(c) {
-    const S = this.S, cr = Sim.rt(S).c[c.id] || {}, picks = Sim.supplyPicks(S, c), sent = cr.sent || {}, m = Sim.mainCamp(S);
+    const S = this.S, cr = Sim.rt(S).c[c.id] || {};
     let h = `<div class="sec">补给站 <small>${esc(c.name)}</small></div>`;
-    h += `<div class="hint">${c.manual ? '你正在临时接手：可以盖房、升级了。管完交回去，它会自己转。' : '这座营地自己派人、自己生产，不盖新房、不升级；熔炉只按留守的人数烧火，省燃料。你只管往北送什么。'}</div>`;
+    h += `<div class="hint">${c.manual ? '你正在临时接手：可以盖房、升级了。管完交回去，它会自己转。' : '这座营地自己派人、自己生产，不盖新房、不升级；熔炉只按留守的人数烧火，省燃料。多出来的货交给物流网，哪个营地缺就送哪。'}</div>`;
     const fm = cr.burnPerMin ? cr.fuelUnits / cr.burnPerMin : 0, why = Sim.depotTrouble(S, c);
     h += `<div class="row"><span>留守</span><span>${c.people} 人${c.people < Sim.DEPOT_MIN ? `（不到 ${Sim.DEPOT_MIN} 人）` : ''}</span></div>`;
     h += `<div class="row sub"><span>撑不撑得住</span><span class="${why ? 'bad' : ''}">${why ? '⚠ ' + why : `燃料够 ${fm ? fmtTime(fm * 60) : '—'} · 熟食 ${fmt(c.stock.food)}`}</span></div>`;
-    h += `<div class="row"><span>往北送<small>雪橇道每分钟运 ${fmt(Sim.supplyRate(S, c))} 件到「${esc(m.name)}」，最多挑 ${Sim.SEND_MAX} 样</small></span><span><button class="small ${c.send ? '' : 'go'}" data-act="dsend" data-arg="${c.id}:auto">${c.send ? '改回自动挑' : '自动挑缺的'}</button></span></div>`;
-    const ks = RES_KEYS.filter(k => RES[k].t <= S.known && ((c.stock[k] || 0) >= 1 || picks.includes(k))).sort((a, b) => (picks.includes(b) - picks.includes(a)) || (c.stock[b] || 0) - (c.stock[a] || 0)).slice(0, 12);
-    h += `<div class="dchips">${ks.map(k => { const on = picks.includes(k); return `<button class="dchip ${on ? 'on' : ''}" data-act="dsend" data-arg="${c.id}:${k}">${RICON[k]}${RES[k].n}<small>${on ? (sent[k] ? `${fmt(sent[k])}/分` : (cr.sendWhy || {})[k] === 'full' ? '那边满了' : '没有多余的') : fmt(c.stock[k])}</small></button>`; }).join('') || '<div class="hint">仓库里什么都没有。</div>'}</div>`;
     const emb = Sim.douseEmbers(S, Sim.getB(S, c.furnace).lvl);
     h += `<div class="drow"><button class="btn ${c.manual ? 'go' : ''}" data-act="dtake" data-arg="${c.id}:${c.manual ? 0 : 1}">${c.manual ? '交回去自己转' : '临时接手'}</button><button class="btn bad" data-act="ddouse" data-arg="${c.id}">熄火换 ${emb} 余烬</button></div>`;
     return h;
@@ -1770,31 +1771,113 @@ export class UI {
     return h;
   }
 
+  // 物流：所有营地连成一张路网，缺什么自动从有余的营地运过来。三页：总览（每个营地运来、送出、还缺）、道路、送货
+  netGood(k, n) { return k === '@fuel' ? `🔥燃料${n != null ? ' ' + fmt(n) + ' 份' : ''}` : `${RICON[k]}${RES[k].n}${n != null ? ' ' + fmt(n) : ''}`; }
+  netNames(ids) { return [...ids].map(id => `「${esc((Sim.getCamp(this.S, id) || {}).name || '?')}」`).join(''); }
+  // 一样货现在怎么样了：正从哪运来、多久到；整张网都没有；路满了在排队
+  netWait(c, k) {
+    const S = this.S, v = Sim.netView(S, c.id), i = v.inc[k], sh = v.short[k];
+    if (i) return `正从${this.netNames(i.from)}运来，约 ${fmtTime(Math.max(1, i.eta))}`;
+    if (S.camps.length < 2) return '';
+    if (sh && sh.none) return '整张网都没有多余的';
+    if (sh && sh.jam) return '路满了，在排队';
+    return '等物流网调货';
+  }
+  netRole(c) { const m = Sim.mainCamp(this.S); return m && m.id === c.id ? '主营地' : c.depot ? '补给站' : '前哨'; }
   p_lines(part) {
     const S = this.S, c = this.camp();
-    if (part === 'title') return '运输线';
+    if (part === 'title') return `物流 <small>${S.camps.length} 座营地 · ${Sim.roads(S).filter(Sim.roadOn).length} 条路</small>`;
+    if (S.camps.length < 2) return `<div class="hint">现在只有一座营地。用「前哨熔炉」在别处点起第二座营地，会自动修一条雪橇道连过来；以后哪个营地缺什么，物流网会从有余的营地运过去。</div>`;
+    const pg = this.netPg || 'all';
+    let h = `<div class="tabs" data-sx="ntabs">${[['all', '总览'], ['road', '道路'], ['send', '送货']].map(([k, n]) => `<button class="tab ${k === pg ? 'on' : ''}" data-act="netpg" data-arg="${k}">${n}</button>`).join('')}</div>`;
+    if (pg === 'road') return h + this.netRoads(c);
+    if (pg === 'send') return h + this.netSend(c);
+    // 总览：每座营地一张卡，正在看的、出问题的放前面
+    const m = Sim.mainCamp(S), on = this.netFocus || c.id;
+    const L = S.camps.slice().sort((a, b) => (b.id === on) - (a.id === on) || (b.id === (m && m.id)) - (a.id === (m && m.id)) || b.y - a.y);
+    const nShips = Sim.ships(S).length;
+    h += `<div class="hint">每 10 秒，每座营地算一次缺什么、多什么；多的装上雪橇，顺着路送到缺的营地，路上能经过别的营地转运。路上现在有 ${nShips} 车货。</div>`;
+    for (const x of L) {
+      const v = Sim.netView(S, x.id), inc = Object.entries(v.inc), out = Object.entries(v.out), sh = Object.entries(v.short).sort((a, b) => a[1].tier - b[1].tier);
+      h += `<div class="ncard ${x.id === on ? 'on' : ''}"><div class="nh"><b>${esc(x.name)}</b><small>${this.netRole(x)}</small>${x.id !== S.active ? `<button class="small ghost" data-act="campgo" data-arg="${x.id}">去这里</button>` : ''}</div>`;
+      if (inc.length) h += `<div class="nl"><span>运来</span><span>${inc.map(([k, i]) => `${this.netGood(k, i.n)} <small>约 ${fmtTime(Math.max(1, i.eta))} · 从${this.netNames(i.from)}</small>`).join('<br>')}</span></div>`;
+      if (out.length) h += `<div class="nl"><span>送出</span><span>${out.map(([k, o]) => `${this.netGood(k, o.n)} <small>到${this.netNames(o.to)}</small>`).join('<br>')}</span></div>`;
+      if (sh.length) h += `<div class="nl"><span>还缺</span><span>${sh.map(([k, q]) => `<i class="${q.none ? 'bad' : q.jam ? 'warn' : ''}">${this.netGood(k, q.n)} <small>${esc(q.why)} · ${q.none ? '整张网都没有多余的' : q.jam ? '路满了，在排队' : '等下一车'}</small></i>`).join('<br>')}</span></div>`;
+      if (!inc.length && !out.length && !sh.length) h += `<div class="nl"><span></span><span><small>不缺什么，也没有要往外送的</small></span></div>`;
+      h += '</div>';
+    }
+    return h;
+  }
+  // 道路：每条路的运力、实际在运多少、路上几车；升级、改铁路；再修一条
+  netRoads(c) {
+    const S = this.S, R = Sim.roads(S).slice().sort((a, b) => ((b.a === c.id || b.b === c.id) - (a.a === c.id || a.b === c.id)) || a.id - b.id);
     let h = '';
-    if (S.camps.length < 2) return `<div class="hint">先用「前哨熔炉」在别处建第二个营地，然后在这里用雪橇队把两个营地的库存连起来。</div>`;
-    const others = S.camps.filter(o => o.id !== c.id && !S.lines.some(l => (l.a === c.id && l.b === o.id) || (l.b === c.id && l.a === o.id)));
-    for (const o of others) {
-      const cost = Sim.lineCost(S, c.id, o.id);
-      h += `<div class="row"><span>开通 ${esc(c.name)} ⇄ ${esc(o.name)}</span><span>${costHtml(c.stock, cost)} <button class="small" data-act="addline" data-arg="${o.id}">开通雪橇线</button></span></div>`;
-    }
-    const resOpts = sel => `<option value="">（空）</option><option value="people" ${sel === 'people' ? 'selected' : ''}>👥 移民</option>` + RES_KEYS.filter(k => RES[k].t <= S.known).map(k => `<option value="${k}" ${sel === k ? 'selected' : ''}>${RICON[k]} ${RES[k].n}</option>`).join('');
-    for (const l of S.lines) {
-      const a = Sim.getCamp(S, l.a), b = Sim.getCamp(S, l.b);
-      const up = { ...Sim.lineUpCost(S, l) }; const toRail = up.rail; delete up.rail;
-      const flow = (Sim.rt(S).b['L' + l.id] || {}).flow || 0;
-      h += `<div class="linebox"><div class="row"><b>${l.rail ? '🚂 铁路' : '🛷 雪橇线'} ${l.lvl} 级</b><span>${esc(a.name)} ⇄ ${esc(b.name)} · 运力 ${fmt(Sim.lineCap(S, l))}/分 · 实际 ${fmt(flow)}/分</span></div>`;
-      for (let i = 0; i < 4; i++) {
-        const r = l.routes[i] || {};
-        h += `<div class="route"><select data-act="route-res" data-arg="${l.id}:${i}">${resOpts(r.res)}</select>
-          <button class="small" data-act="route-dir" data-arg="${l.id}:${i}">${r.from === 'b' ? esc(b.name) + ' → ' + esc(a.name) : esc(a.name) + ' → ' + esc(b.name)}</button>
-          ${r.res && r.res !== 'people' ? `<label>留 <input type="number" min="0" step="50" value="${r.keep ?? 50}" data-act="route-keep" data-arg="${l.id}:${i}"></label>` : ''}</div>`;
+    for (const r of R) {
+      const a = Sim.getCamp(S, r.a), b = Sim.getCamp(S, r.b); if (!a || !b) continue;
+      const v = Sim.netRoadView(S, r), building = r.pend && r.pend.what === 'build';
+      h += `<div class="ncard ${v.jam ? 'jam' : ''}"><div class="nh"><b>${building ? '雪橇道（在修）' : `${Sim.roadKindName(r)} ${r.lvl} 级`}</b><small>「${esc(a.name)}」⇄「${esc(b.name)}」</small></div>`;
+      if (!building) {
+        h += `<div class="nl"><span>运力</span><span>在运 ${fmt(v.flow)} / ${fmt(v.cap)} 件/分 · 路上 ${v.ships} 车 · 单程约 ${fmtTime(Sim.roadTime(S, r))}</span></div>`;
+        h += `<div class="bar"><i style="width:${Math.min(100, v.flow / Math.max(1, v.cap) * 100).toFixed(0)}%"></i></div>`;
       }
-      h += `<div class="row"><span>${toRail ? '改建铁路' : '升级'}</span><span>${costHtml(a.stock, up, S.known)} <button class="small" data-act="lineup" data-arg="${l.id}">${toRail ? '改建' : '升级'}</button></span></div></div>`;
+      if (v.jam) { const ks = [...new Set(v.jam.map(j => j.k))]; h += `<div class="nl warn"><span>满了</span><span>${ks.map(k => this.netGood(k)).join('、')}在排队。升一级能多运一半。</span></div>`; }
+      if (r.pend) {
+        const by = Sim.getCamp(S, r.pend.by) || a, miss = Object.keys(r.pend.cost).filter(k => (by.stock[k] || 0) < r.pend.cost[k]);
+        h += `<div class="nl"><span>等料</span><span>${r.pend.what === 'build' ? '修路' : r.pend.what === 'rail' ? '改铁路' : '升级'}排在「${esc(by.name)}」的建造队列里${miss.length ? `：还缺 ${miss.map(k => `${RICON[k]}${fmt(r.pend.cost[k] - (by.stock[k] || 0))}`).join(' ')}，${this.netWait(by, miss[0])}` : '，料齐了马上开工'} <button class="small ghost" data-act="roadx" data-arg="${r.id}">取消</button></span></div>`;
+      } else {
+        const uc = Sim.roadUpCost(S, r), pay = r.a === c.id || r.b === c.id ? c : a;
+        if (uc) h += `<div class="nl"><span>升到 ${r.lvl + 1} 级</span><span>${costHtml(pay.stock, uc, S.known)} <button class="small" data-act="roadup" data-arg="${r.id}">升级</button></span></div>`;
+        if (Sim.railOk(S, r)) h += `<div class="nl"><span>改成铁路</span><span>${costHtml(pay.stock, Sim.RAIL_COST, S.known)} <button class="small go" data-act="roadrail" data-arg="${r.id}">改建</button></span></div>`;
+        else if (r.kind !== 'rail' && S.known >= 4) h += `<div class="nl"><span></span><span><small>升到 3 级以后能改成铁路（每分钟 ${Sim.ROAD.rail.cap} 件，跑得快一倍多）</small></span></div>`;
+      }
+      h += '</div>';
     }
-    h += `<div class="hint">每个营地的库存是分开的。线路按设定把物资从一边运到另一边，“留”表示出发地至少保留多少。升级要花出发营地（左边）的材料；到「油与铁路」层后可以改建铁路。</div>`;
+    const others = S.camps.filter(o => o.id !== c.id && !Sim.roadBetween(S, c.id, o.id));
+    if (others.length) {
+      h += `<div class="sec">再修一条路 <small>从「${esc(c.name)}」出发</small></div>`;
+      for (const o of others) h += `<div class="row"><span>到「${esc(o.name)}」<small>${this.netRole(o)} · 直线 ${Math.round(Math.hypot(o.x - c.x, o.y - c.y))} 格</small></span><span>${costHtml(c.stock, Sim.roadCost(S, c.id, o.id), S.known)} <button class="small" data-act="roadadd" data-arg="${o.id}">修路</button></span></div>`;
+    }
+    h += `<div class="hint">雪橇道每分钟 ${Sim.ROAD.sled.cap} 件，北行主干道 ${Sim.ROAD.trunk.cap} 件，铁路 ${Sim.ROAD.rail.cap} 件，每升一级多 50%；一条路上的货共用运力。路远只是到得慢，不会少运。修路、升级先花你正在看的营地的料，不够用另一头的；两头都不够就排队，物流网把料运过去。</div>`;
+    return h;
+  }
+  // 送货：从正在看的营地送一批、长期供货、不外送
+  netSend(c) {
+    const S = this.S, others = S.camps.filter(o => o.id !== c.id);
+    if (!others.some(o => o.id === this.netTo)) this.netTo = (others.find(o => o.id === (Sim.mainCamp(S) || {}).id) || others[0]).id;
+    const sp = Sim.campSpare(S, c, {}, true), spA = Sim.campSpare(S, c, {}, false);
+    const ks = RES_KEYS.filter(k => RES[k].t <= S.known && (sp[k] || 0) >= 1).sort((a, b) => (sp[b] || 0) - (sp[a] || 0));
+    if (!ks.includes(this.netK)) this.netK = ks[0];
+    let h = `<div class="sec">从「${esc(c.name)}」送到</div><div class="dchips">${others.map(o => `<button class="dchip ${o.id === this.netTo ? 'on' : ''}" data-act="nto" data-arg="${o.id}">${esc(o.name)}<small>${this.netRole(o)}</small></button>`).join('')}</div>`;
+    h += `<div class="sec">送什么 <small>能拿出来的（留够半小时的燃料和口粮）</small></div>`;
+    h += ks.length ? `<div class="dchips">${ks.slice(0, 18).map(k => `<button class="dchip ${k === this.netK ? 'on' : ''}" data-act="nk" data-arg="${k}">${RICON[k]}${RES[k].n}<small>${fmt(sp[k])}</small></button>`).join('')}</div>` : '<div class="hint">这里没有能拿出来的货。</div>';
+    if (this.netK) {
+      const k = this.netK, all = Math.floor(spA[k] || 0);
+      h += `<div class="drow"><button class="btn" data-act="nsend" data-arg="100">送 100</button><button class="btn" data-act="nsend" data-arg="500">送 500</button><button class="btn go" data-act="nsend" data-arg="all" ${all < 1 ? 'disabled' : ''}>多余的全送${all >= 1 ? ` (${fmt(all)})` : ''}</button></div>`;
+      h += `<div class="drow"><span class="dl">长期供货</span><button class="btn" data-act="nfeed" data-arg="10">每分钟 10</button><button class="btn" data-act="nfeed" data-arg="30">每分钟 30</button><button class="btn" data-act="nfeed" data-arg="60">每分钟 60</button></div>`;
+      h += `<div class="hint">送一批排在保命的燃料口粮后面最先走，可以动用「留料给建造」的料。长期供货每分钟送这么多，直到你停掉，一个营地最多 ${Sim.FEED_MAX} 条。</div>`;
+    }
+    const B = Sim.sends(S).filter(b => b.from === c.id || b.to === c.id);
+    if (B.length) {
+      h += `<div class="sec">正在送的</div>`;
+      for (const b of B) h += `<div class="row"><span>${this.netGood(b.k, b.n)} <small>「${esc((Sim.getCamp(S, b.from) || {}).name)}」→「${esc((Sim.getCamp(S, b.to) || {}).name)}」</small></span><span>到了 ${fmt(b.arr || 0)} · 路上 ${fmt(b.n - b.left - (b.arr || 0))}${b.left >= 1 ? ` · 还没装 ${fmt(b.left)}` : ''} <button class="small ghost" data-act="nsendx" data-arg="${b.id}">取消</button></span></div>`;
+    }
+    const F = Sim.feeds(S).filter(f => f.from === c.id || f.to === c.id);
+    if (F.length) {
+      h += `<div class="sec">长期供货 <small>${Sim.feeds(S).filter(f => f.from === c.id).length}/${Sim.FEED_MAX}</small></div>`;
+      for (const f of F) h += `<div class="row"><span>${f.k === 'people' ? '👥移民' : this.netGood(f.k)} <small>「${esc((Sim.getCamp(S, f.from) || {}).name)}」→「${esc((Sim.getCamp(S, f.to) || {}).name)}」</small></span><span>每分钟 ${fmt(f.rate)}${f.k === 'people' ? ' 人' : ''} <button class="small ghost" data-act="nfeedx" data-arg="${f.id}">停</button></span></div>`;
+    }
+    const hk = RES_KEYS.filter(k => RES[k].t <= S.known && ((c.stock[k] || 0) >= 1 || (c.hold && c.hold[k])));
+    h += `<div class="sec">不外送 <small>点亮的货只留给「${esc(c.name)}」自己用</small></div><div class="dchips">${hk.map(k => `<button class="dchip ${c.hold && c.hold[k] ? 'on' : ''}" data-act="nhold" data-arg="${k}">${RICON[k]}${RES[k].n}</button>`).join('')}</div>`;
+    return h;
+  }
+  // 营地面板里的一行：这里正在运来什么、还缺什么
+  netRow(c) {
+    const S = this.S; if (S.camps.length < 2) return '';
+    const v = Sim.netView(S, c.id), inc = Object.entries(v.inc), sh = Object.entries(v.short).sort((a, b) => a[1].tier - b[1].tier);
+    let h = `<div class="sec">物流 <small>${Sim.roadsAt(S, c.id).length} 条路连着这里</small></div>`;
+    h += `<div class="row"><span>运来</span><span>${inc.length ? inc.slice(0, 3).map(([k, i]) => `${this.netGood(k, i.n)} <small>约 ${fmtTime(Math.max(1, i.eta))}</small>`).join(' · ') + (inc.length > 3 ? ` 等 ${inc.length} 样` : '') : '<small>没有在路上的货</small>'}</span></div>`;
+    if (sh.length) h += `<div class="row sub"><span>还缺</span><span>${sh.slice(0, 3).map(([k, q]) => `<i class="${q.none ? 'bad' : q.jam ? 'warn' : ''}">${this.netGood(k, q.n)}</i>`).join(' · ')}</span></div>`;
+    h += `<div class="drow"><button class="btn" data-act="netview" data-arg="${c.id}">看物流</button><button class="btn" data-act="netsend">送货</button></div>`;
     return h;
   }
 
@@ -2103,7 +2186,7 @@ export class UI {
     for (const c of P.camps) {
       const em = Sim.douseEmbers(S, c.lvl);
       h += `<div class="mcamp"><div class="row"><span><b>${esc(c.name)}${c.main ? '<i class="tagm">主营地</i>' : ''}</b><small>👥${c.people} · 熔炉 ${c.lvl} 级</small></span></div>
-        <div class="seg"><button class="btn ${c.mode !== 'douse' ? 'on' : ''}" data-act="mmode" data-arg="${c.id}:keep">留守<small>${c.main ? `留 ${Math.max(Sim.DEPOT_MIN, c.stay)} 人` : '变成补给站'}，往北送货</small></button><button class="btn ${c.mode === 'douse' ? 'on' : ''}" data-act="mmode" data-arg="${c.id}:douse">熄火<small>换 🔥${em}，人跟上来</small></button></div></div>`;
+        <div class="seg"><button class="btn ${c.mode !== 'douse' ? 'on' : ''}" data-act="mmode" data-arg="${c.id}:keep">留守<small>${c.main ? `留 ${Math.max(Sim.DEPOT_MIN, c.stay)} 人` : '变成补给站'}，货交给物流网</small></button><button class="btn ${c.mode === 'douse' ? 'on' : ''}" data-act="mmode" data-arg="${c.id}:douse">熄火<small>换 🔥${em}，人跟上来</small></button></div></div>`;
     }
     // 路上的天气：极光观测站以后看得到
     if (J.stage >= 9 && g.route.ok) {
@@ -2280,12 +2363,12 @@ export class UI {
     if (Q.length) h += `<div class="sec">等材料的新建筑 <small>${Q.length}/${Sim.QUEUE_MAX}</small></div>`;
     Q.forEach((q, i) => {
       const cost = Sim.queueCost(S, q), miss = Object.keys(cost).filter(k => (c.stock[k] || 0) < cost[k]);
-      h += `<div class="qrow"><span class="qn">${i + 1}</span>${this.ico(q.type, 1)}<span class="qt"><b>${BLD[q.type].n}</b><small>${miss.length ? '还缺 ' + miss.map(k => `${RICON[k]}${fmt(cost[k] - (c.stock[k] || 0))}`).join(' ') : '齐了，马上开工'}</small></span><button class="small" data-act="lookat" data-arg="${q.x + BLD[q.type].size / 2},${q.y + BLD[q.type].size / 2}">看看</button><button class="small ghost" data-act="unqueue" data-arg="${q.id}">取消</button></div>`;
+      h += `<div class="qrow"><span class="qn">${i + 1}</span>${this.ico(q.type, 1)}<span class="qt"><b>${BLD[q.type].n}</b><small>${miss.length ? '等材料：' + miss.map(k => `${RICON[k]}${fmt(cost[k] - (c.stock[k] || 0))}`).join(' ') + (this.netWait(c, miss[0]) ? `，${RES[miss[0]].n}${this.netWait(c, miss[0])}` : '') : '齐了，马上开工'}</small></span><button class="small" data-act="lookat" data-arg="${q.x + BLD[q.type].size / 2},${q.y + BLD[q.type].size / 2}">看看</button><button class="small ghost" data-act="unqueue" data-arg="${q.id}">取消</button></div>`;
     });
     if (U.length) h += `<div class="sec">等材料的升级</div>`;
     for (const b of U) {
       const cost = Sim.upgradeCost(S, b), miss = Object.keys(cost).filter(k => (c.stock[k] || 0) < cost[k]);
-      h += `<div class="qrow"><span class="qn">↑</span>${this.ico(b.type, b.lvl)}<span class="qt"><b>${BLD[b.type].n} ${b.lvl}→${b.lvl + 1} 级</b><small>${miss.length ? '还缺 ' + miss.map(k => `${RICON[k]}${fmt(cost[k] - (c.stock[k] || 0))}`).join(' ') : '齐了，马上升'}</small></span><button class="small" data-act="openbld" data-arg="${b.id}">看看</button><button class="small ghost" data-act="qup" data-arg="${b.id}">取消</button></div>`;
+      h += `<div class="qrow"><span class="qn">↑</span>${this.ico(b.type, b.lvl)}<span class="qt"><b>${BLD[b.type].n} ${b.lvl}→${b.lvl + 1} 级</b><small>${miss.length ? '等材料：' + miss.map(k => `${RICON[k]}${fmt(cost[k] - (c.stock[k] || 0))}`).join(' ') + (this.netWait(c, miss[0]) ? `，${RES[miss[0]].n}${this.netWait(c, miss[0])}` : '') : '齐了，马上升'}</small></span><button class="small" data-act="openbld" data-arg="${b.id}">看看</button><button class="small ghost" data-act="qup" data-arg="${b.id}">取消</button></div>`;
     }
     return h;
   }
@@ -2519,7 +2602,6 @@ export class UI {
       case 'ev': { const msg = Sim.resolveEvent(S, +arg); this.closeModal(); if (msg) { this.toast(msg, 'story'); g.sfx('tap'); } break; }
       case 'road': { const msg = Sim.resolveRoad(S, +arg); this.closeModal(); if (msg) { this.toast(msg, 'story'); g.sfx('tap'); } break; }
       case 'roadopen': { this.roadModal(); break; }
-      case 'dsend': { const [cid, k] = String(arg).split(':'); Sim.setSend(S, +cid, k); g.sfx('tap'); this.renderPanel(true); break; }
       case 'dtake': { const [cid, on] = String(arg).split(':'); Sim.takeOver(S, +cid, on === '1'); g.sfx('tap'); this.toast(on === '1' ? '接手了：现在可以在这里盖房、升级' : '交回去了：它会自己运转', 'info'); this.renderPanel(true); this.hud(); break; }
       case 'ddouse': { const c = Sim.getCamp(S, +arg); if (!c) break; const emb = Sim.douseEmbers(S, Sim.getB(S, c.furnace).lvl);
         this.modal(`<h3>让「${esc(c.name)}」熄火？</h3><p>${c.people} 个人会往北去「${esc(Sim.mainCamp(S).name)}」，拆下三成的物资一起带走，换来 ${emb} 点余烬。营地会变成一片积雪的废墟，不能再点着。</p>`, [{ t: '熄火', a: 'ddouse-go', arg: c.id, cls: 'bad' }, { t: '算了', a: 'close-modal' }]); break; }
@@ -2581,12 +2663,20 @@ export class UI {
       case 'exp-go': { const [sid, sup] = String(arg).split(':'); if (res(Sim.sendExpedition(S, S.active, +sid, sup)).ok) { this.toast('探险队出发了。', 'good'); g.sfx('tap'); } break; }
       case 'rescue': { const p = getWorld(S.runSeed).pois.find(p => p.id === +arg); if (res(Sim.sendScout(S, S.active, p.x, p.y, 'rescue', p.id)).ok) this.toast('救援队出发了。', 'good'); break; }
       case 'lookat': { const [x, y] = arg.split(',').map(Number); g.view.focus(x, y); break; }
-      case 'addline': res(Sim.addLine(S, S.active, +arg)); break;
-      case 'lineup': res(Sim.upgradeLine(S, +arg)); break;
-      case 'route-dir': {
-        const [lid, i] = arg.split(':').map(Number); const l = S.lines.find(x => x.id === lid);
-        const r = l.routes[i] || (l.routes[i] = { res: '', from: 'a' }); r.from = r.from === 'b' ? 'a' : 'b'; break;
-      }
+      case 'netpg': this.netPg = arg; this.netFocus = null; g.sfx('tap'); break;
+      case 'netview': this.netPg = 'all'; this.netFocus = arg ? +arg : null; this.open('lines'); break;
+      case 'netsend': this.netPg = 'send'; this.open('lines'); break;
+      case 'nto': this.netTo = +arg; g.sfx('tap'); break;
+      case 'nk': this.netK = arg; g.sfx('tap'); break;
+      case 'nsend': { const r = res(Sim.sendBatch(S, S.active, this.netTo, this.netK, arg === 'all' ? 'all' : +arg)); if (r.ok) { this.toast(`装车了：${RES[this.netK].n} ${fmt(r.n)} 送往「${(Sim.getCamp(S, this.netTo) || {}).name}」`, 'good'); g.sfx('tap'); } break; }
+      case 'nfeed': { const r = res(Sim.addFeed(S, S.active, this.netTo, this.netK, +arg)); if (r.ok) { this.toast(`长期供货：每分钟 ${arg} ${RES[this.netK].n} 送往「${(Sim.getCamp(S, this.netTo) || {}).name}」`, 'good'); g.sfx('tap'); } break; }
+      case 'nsendx': Sim.cancelSend(S, +arg); break;
+      case 'nfeedx': Sim.delFeed(S, +arg); break;
+      case 'nhold': Sim.toggleHold(S, S.active, arg); g.sfx('tap'); break;
+      case 'roadadd': { const r = res(Sim.buildRoad(S, S.active, +arg, S.active)); if (r.ok) { this.toast(r.queued ? r.reason : '路修好了。', r.queued ? 'info' : 'good'); g.sfx('build'); } break; }
+      case 'roadup': { const r = res(Sim.upgradeRoad(S, +arg, S.active)); if (r.ok) { this.toast(r.queued ? r.reason : '路升级了，能多运一半。', r.queued ? 'info' : 'good'); g.sfx('build'); } break; }
+      case 'roadrail': { const r = res(Sim.railRoad(S, +arg, S.active)); if (r.ok) { this.toast(r.queued ? r.reason : '改成铁路了。', r.queued ? 'info' : 'good'); g.sfx('build'); } break; }
+      case 'roadx': Sim.cancelRoad(S, +arg); break;
       case 'gatego': {
         const m = Sim.mainCamp(S);
         if (arg === 'route') this.open('scout');
@@ -2671,12 +2761,6 @@ export class UI {
     if (act === 'fuel') { Sim.getCamp(S, +arg).fuelPref = el.value; }
     if (act === 'mgoodadd' && el.value) { const k = el.value, goods = { ...Sim.tripPlan(S).goods }; goods[k] = Math.min(Math.floor(Sim.mainCamp(S).stock[k] || 0), (goods[k] || 0) + 100); Sim.setPlan(S, { goods }); }
     if (act === 'spec') { if (el.value) Sim.assignSpec(S, el.value, +arg); }
-    if (act === 'route-res' || act === 'route-keep') {
-      const [lid, i] = arg.split(':').map(Number); const l = S.lines.find(x => x.id === lid);
-      const r = l.routes[i] || (l.routes[i] = { res: '', from: 'a' });
-      if (act === 'route-res') r.res = el.value; else r.keep = Math.max(0, +el.value || 0);
-      l.routes = l.routes.map(x => x || { res: '', from: 'a' });
-    }
     this.renderPanel(true);
   }
 }
@@ -2730,7 +2814,8 @@ export const HELP = `<h3>怎么玩</h3>
 <p><b>采集与加工：</b>采集建筑要建在资源点旁边（白圈范围内），矿藏会被采光；树林和猎场砍光了会长回来，伐木场、猎人小屋附近的长得快好几倍；附近没树了就建「育林场」自己种。加工建筑把原料做成更高级的材料；锯木厂、炼钢厂默认会给建造留一些木材和铁锭（「生产 → 物资」里可以关）。相邻的上下游建筑会互相加成。</p>
 <p><b>小人：</b>每座建筑要派工人；仓库里的人是搬运工，他们在仓库/熔炉和建筑之间来回搬货。离仓库越远，越费搬运工——把仓库建在生产区中间。</p>
 <p><b>升级门槛：</b>建筑每升 5 级，就要用下一层的材料。下一层的原料只在更北的地方有，所以要不断往北走。</p>
-<p><b>往北：</b>建侦察营，派侦察队揭开迷雾，找资源、幸存者、专家和地标，也把去下一站的路探出来。主营地和下一站之间可以建「前哨熔炉」开新营地，用运输线连起来。</p>
+<p><b>往北：</b>建侦察营，派侦察队揭开迷雾，找资源、幸存者、专家和地标，也把去下一站的路探出来。主营地和下一站之间可以建「前哨熔炉」开新营地，点火就有一条雪橇道连到最近的营地。</p>
+<p><b>物流：</b>所有营地连成一张路网。每 10 秒每座营地算一次缺什么、多什么，多的装上雪橇顺着路送到缺的营地，路上能经过别的营地转运。先送保命的燃料口粮，再送排队的建筑要的料、产线缺的料、主营地升熔炉和北迁要的，最后给每座营地补到木材木板石料铁锭各 200。「生产 → 物流」里看每座营地运来、送出、还缺什么，升级道路（雪橇道、北行主干道、铁路），也能手动送一批、设长期供货、把某样货标成不外送。</p>
 <p><b>人心：</b>每个营地有「希望」和「不满」。吃不饱、太冷、有人死去会让人失望；住得好、有进展会让人振奋。希望高干活更快、来投奔的人更多；不满太高会有人离开。在「营地 → 律令」里签署营地律令，每条都有好处也有代价。</p>
 <p><b>研究：</b>建工程站，派工程师攒研究点数，解锁三条分支的 17 项改良。探险带回的图纸可以直接抵研究点数。</p>
 <p><b>探索：</b>迷雾里藏着废弃仓库、冻住的列车、观测站这样的地点。侦察队揭开后，从侦察营派 4 人的探险队去；带足补给更安全，到了还能做更多选择。</p>
@@ -2739,11 +2824,11 @@ export const HELP = `<h3>怎么玩</h3>
 <p><b>营地基建：</b>在「营地 → 概况」修路（搬运更快）和蒸汽管道（供热圈更大、更暖）。</p>
 <p><b>危险：</b>暴风雪提前一小时就有预报（点右上角的提醒铃看撑不撑得住），记得囤燃料和熟食，熔炉还能超载顶一阵；雪狼和掠夺者会来袭，多建箭塔；侦察兵会提前 15 分钟发现它们，可以点火墙、召集民兵。人可能会冻死饿死，但营地永远不会全灭。</p>
 <p><b>生产链：</b>按 C 看整条生产链哪里卡住，按 G 看数据曲线。加工建筑挨着上下游时可以接传送带（之后升级成蒸汽轨道），直接供料、少用搬运工。矿快挖空时可以打深井，侦察营也能勘探新矿脉。</p>
-<p><b>营地生活：</b>人多了以后可以在熔炉面板办篝火庆典；路灯、旗杆、雕像、花窖这些装饰能加希望；有人生病就建医务所。营地里的人偶尔会托你办点事（委托），做完有谢礼。熔炉到 5 级可以给营地选专精。犬舍养的雪橇犬让侦察队和运输线跑得更快。</p>
+<p><b>营地生活：</b>人多了以后可以在熔炉面板办篝火庆典；路灯、旗杆、雕像、花窖这些装饰能加希望；有人生病就建医务所。营地里的人偶尔会托你办点事（委托），做完有谢礼。熔炉到 5 级可以给营地选专精。犬舍养的雪橇犬让侦察队跑得更快，连着的路也运得更多。</p>
 <p><b>天气与掠夺者：</b>除了暴风雪，还有冰风暴（暖炉和管道会冻住）、极寒夜（多烧燃料）、冰湖开裂（绕路），都会提前预报，在右上角的提醒铃里花点材料准备。北边有掠夺者营地，侦察到以后它们会来索贡：交贡、做买卖，或者靠箭塔顶回去，打退两次他们就走了。</p>
 <p><b>收集册：</b>建过的建筑、见过的物资和风物、达成的成就都记在收集册里（K）。</p>
 <p><b>成就与装扮：</b>「菜单 → 收藏」里的「成就」按北境、烽火塔、产线、生存、营地分类，带进度条，还有几个隐藏的。「旅程」类的老成就给余烬；新成就给称号、炉火颜色、营旗图案、相框和八种北境装饰，在「装扮」里换上，北迁以后也留着。相册会在抵达新一站、点亮烽火塔、产线第一次三星和点燃天火时自动拍一张。</p>
-<p><b>北迁：</b>出发前要做到四件事：路探到了、这一章做完、主营地熔炉够级、车队备好了（在雪橇棚造雪橇和蒸汽拖车，之后还有破冰车）。在「北行 → 北迁」挑带多少人和货，后面的营地选留守（变成补给站，自己运转、往北送货）还是熄火（换余烬，人跟上来）。路上会碰到事，车上带的货能多给一条路。到了以后挑一块平地放下新熔炉，那里就是新的主营地。余烬在「北行 → 专家与余烬」里换永久强化。</p>
+<p><b>北迁：</b>出发前要做到四件事：路探到了、这一章做完、主营地熔炉够级、车队备好了（在雪橇棚造雪橇和蒸汽拖车，之后还有破冰车）。在「北行 → 北迁」挑带多少人和货，后面的营地选留守（变成补给站，自己运转，多出来的货由物流网运走；车队走过的路变成北行主干道）还是熄火（换余烬，人跟上来）。路上会碰到事，车上带的货能多给一条路。到了以后挑一块平地放下新熔炉，那里就是新的主营地。余烬在「北行 → 专家与余烬」里换永久强化。</p>
 <p><b>北境：</b>翻过世界之脊还能一直往北走，地图往北一段段长出来。北境每一站有一种地貌，只在车队停着的那一站生效：平坦雪原、地热谷（暖、省燃料，能建地热井）、富矿带（矿多但冷）、永夜（极光多、希望好涨，干活慢一点）、狼群领地（袭营多、战利品也多）、冰湖群（能建冰钓屋）、古城遗址（拆遗迹换古代构件）、风暴走廊（暴风雪多，预报更早）、陨石雨（陨坑出星核，偶尔砸停建筑）、冻土无林（没有活树，只有枯木堆）。每站两个产能目标和一项地貌任务，目标一站比一站高；熔炉门槛停在世界之脊那一级。第一次走到某个站号给一点余烬，菜单和地图上记着最远纪录。</p>
 <p><b>烽火塔：</b>北境前十站各有一座塔要点：先打地基（要在主营地暖圈里），再给塔身一起喂几种高级材料，缺一种就停，但进度不会倒退；喂满以后用晶体电池（后面是星核）点火。点亮的塔立起光柱，那座营地暖 +1、希望 +5。第十站是 4×4 的天火塔，点着它就是最终结局，之后照样可以往北走。</p>
 <p><b>矿点与挪位置：</b>矿点快挖空时会提前提醒，侦察营的勘探在那时很便宜。摆建筑时如果会挡住旁边矿点，预览框变黄；地上的金色星星是推荐位置（菜单里能关）。建筑面板里点「↔ 挪位置」能免费搬家，等级和工人都留着，搬完停工一小会儿；烽火塔开始喂料以后就不能挪了。</p>

@@ -325,19 +325,9 @@ function sideThink(main) {
     const dk = ['flowerhouse', 'statue', 'flagpole', 'lamp'].find(t => G.unlocked(S, t));
     if (dk && G.campBuildings(S, main.id).filter(b => BLD[b.type].cat === 'deco').length < 4 + S.known) tryBuild(main, dk);
   }
-  for (const c of S.camps) if (c.id !== main.id && !S.lines.some(l => (l.a === main.id && l.b === c.id) || (l.b === main.id && l.a === c.id))) { S.active = main.id; G.addLine(S, main.id, c.id); }
-  // 运输线：从老营地往主营地运主营地缺的东西（第 9 步做补给站自动送货以前，先手动设）
-  for (const l of S.lines) {
-    const fromA = l.a !== main.id, other = G.getCamp(S, fromA ? l.a : l.b); if (!other || (l.a !== main.id && l.b !== main.id)) continue;
-    const want = Object.keys(other.stock).filter(k => (other.stock[k] || 0) > 600 && (main.stock[k] || 0) < 400 && k !== 'food')
-      .sort((x, y) => RES[y].t - RES[x].t).slice(0, 3);
-    if ((main.stock.food || 0) < main.people * 40 && (other.stock.food || 0) > 2000) want.unshift('food');
-    const routes = want.slice(0, 3).map(k => ({ res: k, from: fromA ? 'a' : 'b', keep: 300 }));
-    // 老营地、前哨缺吃的：主营地往那边送
-    if ((other.stock.food || 0) < other.people * 40 && (main.stock.food || 0) > main.people * 60) routes.unshift({ res: 'food', from: fromA ? 'b' : 'a', keep: main.people * 40 });
-    if (routes.length) G.setRoutes(S, l.id, routes);
-    if (Math.random() < 0.2) G.upgradeLine(S, l.id);
-  }
+  // 物流网自己调货：只把堵住的路升一级，路远的老营地补一条到主营地的路
+  const N = G.rt(S).net || {};
+  for (const rid in N.jam || {}) { const r = G.roadOf(S, +rid); if (r && !r.pend) { if (G.railOk(S, r)) G.railRoad(S, r.id, main.id); else G.upgradeRoad(S, r.id, main.id); } }
 }
 
 const legs = [];

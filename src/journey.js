@@ -8,6 +8,7 @@ import {
   storeCap, addPeople, up, techSum, weatherAt, growFor, northEmbers,
   EAT, FOUND_DIST, CAMP_GAP,
 } from './sim.js';
+import { trunkRoad, healNet } from './net.js';
 
 // ---------- 一程一程的站 ----------
 // 0～6 是七个地标，7～12 是永恒之炉以北的六个远方地标，世界之脊（12）以北是北境，一站接一站没有尽头
@@ -536,6 +537,7 @@ export function arrive(S, x, y) {
   const st = stopOf(S, T.to);
   const camp = makeCamp(S, x, y, st.n);
   clearFootprint(S, 'furnace', x, y, camp.id);
+  trunkRoad(S, J.main, camp.id); // 车队走过的路成了北行主干道（旧主营地要是熄火，两头会自动接上）
   getB(S, camp.furnace).lvl = T.fl;
   camp.people = T.people;
   if (T.sick) camp.sick = Math.min(camp.people * 0.3, (camp.sick || 0) + T.sick);
@@ -629,12 +631,12 @@ function tentFits(S, x, y) {
   }
   return true;
 }
-// 把一座营地从地图上拿掉（熄火）：它的建筑、运输线、排队、侦察队都要收拾干净
+// 把一座营地从地图上拿掉（熄火）：它的建筑、路、排队、侦察队都要收拾干净
 export function removeCamp(S, cid, to) {
   const gone = new Set(S.buildings.filter(b => b.camp === cid).map(b => b.id));
   S.buildings = S.buildings.filter(b => b.camp !== cid);
   S.camps = S.camps.filter(c => c.id !== cid);
-  S.lines = (S.lines || []).filter(l => l.a !== cid && l.b !== cid);
+  healNet(S, cid, to); // 它两头的营地自动连上，路上的货改送 to
   S.queue = (S.queue || []).filter(q => q.camp !== cid);
   S.reqs = (S.reqs || []).filter(r => r.camp !== cid);
   for (const s of S.scouts) if (s.camp === cid) s.camp = to;
@@ -647,53 +649,9 @@ export function removeCamp(S, cid, to) {
   dirty(S);
 }
 
-// ---------- 老营地：补给站自己运转、沿路往北送货；也可以临时接手，或者熄火换余烬 ----------
+// ---------- 老营地：补给站自己运转，多出来的货由物流网调走；也可以临时接手，或者熄火换余烬 ----------
 export const isDepot = c => !!(c && c.depot);
 export const depotAuto = c => !!(c && c.depot && !c.manual); // 补给站自己管自己：不盖新房、不升级
-export const SEND_MAX = 3;
-// 雪橇道的运量（件/分钟）：留守的人越多越快；离主营地越远越慢；狗、研究、遗物照样加
-export function supplyRate(S, c) {
-  const m = mainCamp(S); if (!m || m.id === c.id) return 0;
-  const d = Math.hypot(c.x - m.x, c.y - m.y);
-  return 24 * (1 + c.people / 40) * Math.max(0.35, Math.min(1, 80 / Math.max(1, d))) * (1 + 0.12 * up(S, 'haul') + techSum(S, 'line') + relicSum(S, 'haul'));
-}
-// 补给站自己要留的：半小时的燃料和口粮，自己生产要用的十分钟原料，其余都算多出来的
-function depotKeep(S, c, k) {
-  const cr = rt(S).c[c.id] || {}, f = (cr.flow || {})[k];
-  if (k === 'food') return c.people * EAT * 30;
-  return 50 + (f ? f.c * 10 : 0);
-}
-function depotSpare(S, c, k) {
-  const st = c.stock[k] || 0; if (st <= 0) return 0;
-  if (FUEL[k]) { const cr = rt(S).c[c.id] || {}, units = fuelUnits(c.stock), keepU = (cr.burnPerMin || furnaceBurn(getB(S, c.furnace).lvl)) * 30; return Math.max(0, Math.min(st, (units - keepU) / FUEL[k])); }
-  return Math.max(0, st - depotKeep(S, c, k));
-}
-// 默认送主营地缺的那几样：主营地想用却拿不到的、快烧完的燃料、快吃完的口粮、熔炉下一级要的门槛材料
-export function supplyAuto(S, c) {
-  const m = mainCamp(S), R = rt(S), mr = R.c[m.id] || {}, fl = mr.flow || {}, cap = storeCap(S, m);
-  const upC = upgradeCost(S, getB(S, m.furnace)), fuelMin = mr.burnPerMin ? (mr.fuelUnits || 0) / mr.burnPerMin : 99;
-  const sc = [];
-  for (const k of RES_KEYS) {
-    const sp = depotSpare(S, c, k); if (sp < 5) continue;
-    const have = m.stock[k] || 0; if (have >= cap * 0.8) continue;
-    let v = 0; const f = fl[k];
-    if (f && f.want - f.c > 0.05) v += 100 + (f.want - f.c) * 10;
-    if (FUEL[k] && fuelMin < 60) v += 80 + FUEL[k];
-    if (k === 'food' && have < m.people * EAT * 60) v += 80;
-    if (upC[k] && have < upC[k]) v += 60;
-    if (!v && have < (c.stock[k] || 0)) v = Math.min(20, sp / 100);
-    if (v > 0) sc.push([k, v]);
-  }
-  return sc.sort((a, b) => b[1] - a[1]).slice(0, SEND_MAX).map(x => x[0]);
-}
-export function supplyPicks(S, c) { return c.send ? c.send.filter(k => RES[k]) : (rt(S).c[c.id] || {}).sendAuto || supplyAuto(S, c); }
-export function setSend(S, cid, k) {
-  const c = getCamp(S, cid); if (!c || !c.depot) return;
-  if (k === 'auto') { delete c.send; dirty(S); return; }
-  const cur = c.send ? c.send.slice() : supplyPicks(S, c).slice(), i = cur.indexOf(k);
-  if (i >= 0) cur.splice(i, 1); else { cur.push(k); if (cur.length > SEND_MAX) cur.shift(); }
-  c.send = cur; dirty(S);
-}
 export function takeOver(S, cid, on) {
   const c = getCamp(S, cid); if (!c || !c.depot) return { ok: false };
   c.manual = !!on; if (!on) c.auto = true;
@@ -723,33 +681,18 @@ export function depotTrouble(S, c) {
   if (cr.burnPerMin && (cr.fuelUnits || 0) / cr.burnPerMin < 10) return '燃料撑不到 10 分钟';
   return '';
 }
+// 补给站自己运转：撑不住了提醒一次（货都交给物流网调，见 net.js）
 function supplyStep(S, dt) {
-  const J = journeyOf(S), m = mainCamp(S), R = rt(S);
+  const J = journeyOf(S), m = mainCamp(S);
   if (!m) return;
   J.supT = (J.supT || 0) + dt;
-  const re = J.supT >= 30; if (re) J.supT = 0;
-  const mr = R.c[m.id] || (R.c[m.id] = {}); mr.recv = {};
-  const cap = storeCap(S, m);
+  if (J.supT < 30) return;
+  J.supT = 0;
   for (const c of S.camps) {
-    if (!c.depot || c.id === m.id) continue;
-    const cr = R.c[c.id] || (R.c[c.id] = {});
-    if (re || !cr.sendAuto) cr.sendAuto = supplyAuto(S, c);
-    const picks = supplyPicks(S, c), sent = cr.sent = {}, why = cr.sendWhy = {};
-    if (picks.length) {
-      const per = supplyRate(S, c) / 60 * dt / picks.length;
-      for (const k of picks) {
-        const sp = depotSpare(S, c, k), room = cap - (m.stock[k] || 0);
-        const mv = Math.max(0, Math.min(per, sp, room));
-        if (mv <= 0) { why[k] = room <= 0 ? 'full' : 'none'; continue; }
-        c.stock[k] -= mv; m.stock[k] = (m.stock[k] || 0) + mv;
-        sent[k] = mv / dt * 60; mr.recv[k] = (mr.recv[k] || 0) + mv / dt * 60;
-      }
-    }
-    if (re && !c.manual) {
-      const why = depotTrouble(S, c);
-      if (why && c.dWarn !== why) logMsg(S, `⚠ 补给站「${c.name}」${why}：可以临时接手管一下，或者让它熄火换余烬。`, 'warn', { act: 'campgo', arg: c.id, label: '去看看' });
-      c.dWarn = why;
-    }
+    if (!c.depot || c.id === m.id || c.manual) continue;
+    const why = depotTrouble(S, c);
+    if (why && c.dWarn !== why) logMsg(S, `⚠ 补给站「${c.name}」${why}：可以临时接手管一下，或者让它熄火换余烬。`, 'warn', { act: 'campgo', arg: c.id, label: '去看看' });
+    c.dWarn = why;
   }
 }
 

@@ -236,28 +236,8 @@ function think() {
       for (let r = 4; r < 9 && !ok; r++) for (let a = 0; a < 12 && !ok; a++) { const x = Math.round(best[0] + Math.cos(a * 0.52) * r), y = Math.round(best[1] + Math.sin(a * 0.52) * r); if (G.checkPlace(S, 'furnace', x, y).ok) { G.place(S, 'furnace', x, y); ok = true; if (VERBOSE) console.log(day(), 'outpost for', k); } }
     }
   }
-  // 运输线：每个新营地连上一个
-  for (let i = 1; i < S.camps.length; i++) {
-    const b = S.camps[i];
-    const a = S.camps.slice(0, i).reduce((p, q) => Math.hypot(q.x - b.x, q.y - b.y) < Math.hypot(p.x - b.x, p.y - b.y) ? q : p);
-    let l = S.lines.find(l => (l.a === a.id && l.b === b.id));
-    if (!l) { S.active = a.id; G.addLine(S, a.id, b.id); l = S.lines.find(l => (l.a === a.id && l.b === b.id)); }
-    if (l) {
-      const need = [];
-      for (let t = 1; t <= Math.min(S.known, 6); t++) need.push(GATE[t]);
-      need.push('coal', 'food', 'engine');
-      // 双向：把对方缺、自己多的东西运过去（含原料）
-      const all = ['ore', 'coal', 'lime', 'shale', 'crystal', 'star', 'shard', ...need];
-      const pairs = [];
-      for (const k of all) {
-        const da = (a.stock[k] || 0) - (b.stock[k] || 0);
-        if (Math.abs(da) > 150) pairs.push({ res: k, from: da > 0 ? 'a' : 'b', keep: 80, d: Math.abs(da) });
-      }
-      pairs.sort((x, y) => y.d - x.d);
-      G.setRoutes(S, l.id, [...pairs.slice(0, 3), { res: 'people', from: (a.people > b.people ? 'a' : 'b') }]);
-      G.upgradeLine(S, l.id);
-    }
-  }
+  // 物流网自己调货：只把堵住的路升一级
+  { const N = G.rt(S).net || {}; for (const rid in N.jam || {}) { const r = G.roadOf(S, +rid); if (r && !r.pend) G.upgradeRoad(S, r.id, S.camps[0].id); } }
   // 北迁判断
   const best = S.founded.length ? Math.max(...S.founded) : 0;
   const prog = best * 1000 + S.eternal.stage * 100 + S.eternal.have;
