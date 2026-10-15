@@ -1,4 +1,5 @@
 // 拍照模式：藏起所有界面，换个时辰、滤镜和镜头高度，拍一张营地的照片存下来
+import { saveFile, stamp } from './files.js';
 import { DAY_LEN } from './data.js';
 import * as Sim from './sim.js';
 
@@ -35,9 +36,10 @@ export class Photo {
     this.peek.addEventListener('click', () => document.body.classList.remove('photo-clean'));
     document.body.appendChild(this.peek);
     const view = document.createElement('div'); view.id = 'photoview';
-    view.innerHTML = '<div class="pvin"><img alt="刚拍的照片"><div class="pvbar"><a class="btn go" download>💾 保存图片</a><button class="btn" data-pv="again">再拍一张</button><button class="btn ghost" data-pv="done">退出拍照</button></div><small>保存不了的话：电脑上右键图片「另存为」，手机上长按图片保存。</small></div>';
+    view.innerHTML = '<div class="pvin"><img alt="刚拍的照片"><div class="pvbar"><button class="btn go" data-pv="save">💾 保存图片</button><button class="btn" data-pv="again">再拍一张</button><button class="btn ghost" data-pv="done">退出拍照</button></div><small>保存不了的话：电脑上右键图片「另存为」，手机上长按图片保存。</small></div>';
     view.addEventListener('click', e => {
       const b = e.target.closest('[data-pv]'); if (!b && e.target !== view) return;
+      if (b && b.dataset.pv === 'save') { this.save(); return; }
       this.hidePreview();
       if (b && b.dataset.pv === 'done') this.close();
     });
@@ -114,7 +116,7 @@ export class Photo {
       x.fillStyle = 'rgba(255,240,215,.92)'; x.fillText(txt, w - fs, h - fs * 0.8);
       x.shadowBlur = 0;
       const done = url => { this.showPreview(url, txt); };
-      try { cv.toBlob(b => { if (b) done(URL.createObjectURL(b)); else done(cv.toDataURL('image/png')); }, 'image/png'); }
+      try { cv.toBlob(b => { this.blob = b || null; if (b) done(URL.createObjectURL(b)); else done(cv.toDataURL('image/png')); }, 'image/png'); }
       catch (e) { done(null); }
     };
   }
@@ -125,10 +127,21 @@ export class Photo {
     if (!url) { this.g.ui.toast('这台设备拍不了照片。', 'warn'); return; }
     if (this.url) URL.revokeObjectURL(this.url);
     this.url = url.startsWith('blob:') ? url : null;
-    const d = new Date(), pad = n => String(n).padStart(2, '0');
     this.pv.querySelector('img').src = url;
-    const a = this.pv.querySelector('a'); a.href = url; a.download = `寒烬北行-${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}.png`;
+    this.dataUrl = this.url ? null : url;
+    this.fname = `寒烬北行-${stamp()}.png`;
+    this.pv.querySelector('[data-pv="save"]').textContent = '💾 保存图片';
     this.pv.classList.add('show');
+  }
+  // 保存：claude.ai 里走页面的下载权限（会问一句），单独打开时用普通下载
+  async save() {
+    let data = this.blob;
+    if (!data && this.dataUrl) data = await (await fetch(this.dataUrl)).blob();
+    const btn = this.pv.querySelector('[data-pv="save"]'); // 拍照模式里提示条是藏起来的，结果写在按钮上
+    if (!data) { btn.textContent = '存不了，请右键或长按图片'; return; }
+    const r = await saveFile(this.fname, data, this.fname.replace('寒烬北行', 'hanjin'));
+    if (r === 'saved') btn.textContent = '✓ 存好了';
+    else if (r === 'busy') btn.textContent = '还在问要不要保存…';
   }
   hidePreview() { this.pv.classList.remove('show'); }
 }

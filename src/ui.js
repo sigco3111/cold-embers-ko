@@ -2237,7 +2237,9 @@ export class UI {
       case 'eternal': res(Sim.deliverEternal(S)); break;
       case 'help': this.modal(HELP); break;
       case 'export': g.exportCode(); break;
-      case 'import': this.modal(`<p>粘贴存档码：</p><textarea id="importBox" rows="5"></textarea>`, [{ t: '导入', a: 'import-yes', cls: 'go' }, { t: '取消', a: 'close-modal' }]); break;
+      case 'import': this.modal(`<p>粘贴存档码，或者选一个存成文件的存档码：</p><textarea id="importBox" rows="5"></textarea>`, [{ t: '导入', a: 'import-yes', cls: 'go' }, { t: '📂 从文件读取', a: 'importfile' }, { t: '取消', a: 'close-modal' }]); break;
+      case 'importfile': g.pickCodeFile(); break;
+      case 'savecode': g.saveCodeFile(); break;
       case 'import-yes': g.importCode(document.getElementById('importBox').value); break;
       case 'copy': { const t = document.getElementById('exportBox'); t.select(); const manual = () => { try { document.execCommand('copy'); } catch (e) {} this.toast('已选中，如未复制请长按手动复制', 'warn'); }; try { navigator.clipboard.writeText(t.value).then(() => this.toast('已复制', 'good'), manual); } catch (e) { manual(); } break; }
       case 'snd': g.audio.unlock(); g.audio.toggle(arg); this.renderPanel(true); break;

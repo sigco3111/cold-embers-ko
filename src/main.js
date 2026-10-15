@@ -9,6 +9,7 @@ import { iconize, injectIcons } from './icons.js';
 import { BigMap } from './bigmap.js';
 import { ChainMap } from './chainmap.js';
 import { Photo } from './photo.js';
+import { downloadsApi, saveFile, pickTextFile, stamp } from './files.js';
 import { Hints, WHATS_NEW, whatsNewHtml } from './hints.js';
 
 const KEY = 'hanjin-beixing-v1';
@@ -25,6 +26,7 @@ class Game {
     this.bigmap = new BigMap(this);
     this.chainmap = new ChainMap(this);
     this.photo = new Photo(this);
+    downloadsApi(); // 先问好页面能不能存文件，点保存时不用再等
     this.hints = new Hints(this);
     this.paused = false; this.speed = 1; try { const v = +localStorage.getItem(KEY + '-spd'); if (v === 2 || v === 4) this.speed = v; } catch (e) {}
     this.slot = 1; try { this.slot = Math.max(1, Math.min(SLOTS, +localStorage.getItem(KEY + '-slot') || 1)); } catch (e) {}
@@ -57,6 +59,8 @@ class Game {
     this.hadSave = !!S;
     if (S) {
       if ((S.meta.ver || 0) < WHATS_NEW) this.whatsNew = true; // 老存档：找个空当说一下这版加了什么（弹出来才记下看过）
+      // 第十二版改了暖圈的算法，老营地探开的范围可能比暖圈还小：每个营地周围至少探开到暖圈外 2 格
+      for (const c of S.camps) if (Sim.getB(S, c.furnace)) Sim.revealCircle(S, c.x, c.y, Sim.heatRadius(S, c) + 2);
       this.S = S;
       this.view.bind(S);
       const away = (Date.now() - S.savedAt) / 1000;
@@ -150,7 +154,23 @@ class Game {
       let bin = ''; const u8 = new Uint8Array(buf); for (let i = 0; i < u8.length; i++) bin += String.fromCharCode(u8[i]);
       code = 'HJZ1:' + btoa(bin);
     } catch (e) { code = 'HJB1:' + btoa(unescape(encodeURIComponent(raw))); }
-    this.ui.modal(`<p>存档码（${fmt(code.length)} 字）：在另一台设备上「导入存档码」。</p><textarea id="exportBox" rows="6" readonly>${code}</textarea>`, [{ t: '复制', a: 'copy', cls: 'go' }, { t: '关闭', a: 'close-modal' }]);
+    this.lastCode = code;
+    this.ui.modal(`<p>存档码（${fmt(code.length)} 字）：在另一台设备上「导入存档码」。复制不了的话可以存成文件，到另一台设备上选这个文件导入。</p><textarea id="exportBox" rows="6" readonly>${code}</textarea>`, [{ t: '复制', a: 'copy', cls: 'go' }, { t: '💾 存成文件', a: 'savecode' }, { t: '关闭', a: 'close-modal' }]);
+  }
+  // 存档码存成文件 / 从文件读回来（剪贴板在有些地方用不了）
+  async saveCodeFile() {
+    if (!this.lastCode) return;
+    const t = stamp(), r = await saveFile(`寒烬北行-存档码-${t}.txt`, this.lastCode, `hanjin-save-${t}.txt`);
+    if (r === 'saved') this.ui.toast('存档码文件存好了。', 'good');
+    else if (r === 'busy') this.ui.toast('上一个文件还在问要不要保存。', 'info');
+  }
+  async pickCodeFile() {
+    let txt = null;
+    try { txt = await pickTextFile('.txt,text/plain'); } catch (e) { this.ui.toast('读不了这个文件：' + e.message, 'bad'); return; }
+    if (txt == null) return;
+    const box = document.getElementById('importBox');
+    if (box) box.value = txt.trim();
+    if (!/^HJ[ZB]1:/.test(txt.trim())) this.ui.toast('这个文件里不是存档码。', 'warn');
   }
   async importCode(code) {
     code = (code || '').trim();
