@@ -6,7 +6,7 @@ export default async function (page) {
   await page.waitForTimeout(1500);
   await page.evaluate(() => {
     const g = window.game, S = g.S, Sim = window.__sim; window.__noEvents = true;
-    const bk = Sim.bookOf(S); for (const a of Sim.ACH) if (a.cat) bk.a[a.id] = bk.a[a.id] || S.t;
+    const bk = Sim.bookOf(S); for (const a of Sim.ACH) if (a.cat) bk.a[a.id] = bk.a[a.id] || S.meta.runs || 1;
     Sim.bookSeen && Sim.bookSeen(S, 'a'); bk.fresh = [];
   });
   const shot = async n => { await page.screenshot({ path: `${OUT}/${n}_${TAG}.png`, timeout: 120000 }); console.log('shot', n); };

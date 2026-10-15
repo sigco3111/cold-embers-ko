@@ -29,7 +29,7 @@ export default async function (page) {
     if (!img.complete) await new Promise(r => img.onload = r);
     const c = document.createElement('canvas'); c.width = 64; c.height = 64; const x = c.getContext('2d'); x.drawImage(img, 0, 0, 64, 64);
     const d = x.getImageData(0, 0, 64, 64).data; let s = 0; for (let i = 0; i < d.length; i += 4) s += d[i] + d[i + 1] + d[i + 2];
-    return { w: img.naturalWidth, h: img.naturalHeight, lum: Math.round(s / (64 * 64 * 3)), shown: document.getElementById('photoview').classList.contains('show'), photos: window.game.S.meta.photos, dl: document.querySelector('#photoview a').download };
+    return { w: img.naturalWidth, h: img.naturalHeight, lum: Math.round(s / (64 * 64 * 3)), shown: document.getElementById('photoview').classList.contains('show'), photos: window.game.S.meta.photos, dl: (document.querySelector('#photoview [data-pv="save"]') || {}).textContent };
   });
   console.log('shot', JSON.stringify(r));
   await page.screenshot({ path: `${OUT}/photo_view_${TAG}.png`, timeout: 120000 });
