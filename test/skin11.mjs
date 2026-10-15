@@ -20,4 +20,12 @@ export default async function (page) {
   await page.waitForTimeout(600); await shot(page, 'toast');
   await page.evaluate(() => window.game.ui.diffModal && window.game.ui.diffModal());
   await page.waitForTimeout(600); await shot(page, 'modal');
+  await page.evaluate(() => window.game.ui.closeModal());
+  await page.evaluate(() => window.game.bigmap.toggle()); await page.waitForTimeout(1200); await shot(page, 'bigmap');
+  await page.evaluate(() => window.game.bigmap.toggle()); await page.waitForTimeout(400);
+  await page.evaluate(() => window.game.chainmap.toggle()); await page.waitForTimeout(1200); await shot(page, 'chainmap');
+  await page.evaluate(() => window.game.chainmap.toggle()); await page.waitForTimeout(400);
+  await page.evaluate(() => window.game.startPlace('tent')); await page.waitForTimeout(900); await shot(page, 'place');
+  await page.keyboard.press('Escape'); await page.waitForTimeout(400);
+  await page.evaluate(() => window.game.ui.open('curve', 'wood')); await page.waitForTimeout(900); await shot(page, 'curve');
 }
