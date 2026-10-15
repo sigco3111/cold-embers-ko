@@ -1146,6 +1146,7 @@ export function step(S, dt) {
     if (S.t >= z.end && S.t - z.end < 600) logMsg(S, `${WXE[z.kind].ic} ${WXE[z.kind].n}过去了。`, 'good');
   }
   regrow(S, dt);
+  oreStep(S, dt);
   for (const camp of S.camps) campStep(S, camp, dt, w);
   rateStep(S, dt);
   holdStep(S, dt);
@@ -1674,6 +1675,7 @@ function campStep(S, camp, dt, w) {
     }
     br.act = Math.min(1, br.staff * workEff * hf * lim);
     br.rate = {}; for (const k in d.out) br.rate[k] = d.out[k] * p.mult * hf * lim * (k === 'food' ? kitMul : 1);
+    br.dep = d.gather ? d.out[Object.keys(d.out)[0]] * p.mult * hf * lim * spotShare : 0; // 每分钟从资源点上挖走多少
     br.inRate = {}; if (d.in) for (const k in d.in) br.inRate[k] = d.in[k] * p.mult * hf * lim;
     // 想要的原料：只有卡住它的那一种按全速算，其它按实际
     br.want = {}; if (d.in) for (const k in d.in) br.want[k] = k === whyK && (why.startsWith('缺') || why === KEEP_WHY) ? d.in[k] * p.mult * hf * Math.max(0, Math.min(1, gLim, room)) : br.inRate[k];
@@ -1980,6 +1982,108 @@ export function digDeep(S, id) {
   return { ok: true };
 }
 
+// ---------- 矿点保护（第十三版）：挖完之前提醒、摆放时不把矿挡住、快挖完时勘探保底 ----------
+const isOre = k => !REGROW[k] && !CLEARABLE[k];
+const GT = {};
+export function gatherTypeFor(kind) { return GT[kind] !== undefined ? GT[kind] : (GT[kind] = Object.keys(BLD).find(t => BLD[t].gather && BLD[t].gather.includes(kind)) || null); }
+// 一栋采集建筑（连同和它挖同一片矿的同类建筑）按现在的速度还能挖多久，单位是游戏分钟；挖不动、会长回来的返回 null
+export function gatherEta(S, b) {
+  const d = BLD[b.type]; if (!d.gather || d.gather.some(k => REGROW[k])) return null;
+  const R = rebuild(S), set = new Set((R.gatherSpots.get(b.id) || []).map(s => s.i));
+  let left = 0; for (const i of set) left += harvestLeft(S, i);
+  if (left <= 0) return 0;
+  let dep = 0;
+  for (const o of S.buildings) {
+    if (o.type !== b.type) continue;
+    if (o.id !== b.id && !(R.gatherSpots.get(o.id) || []).some(s => set.has(s.i))) continue;
+    dep += (rt(S).b[o.id] || {}).dep || 0;
+  }
+  return dep > 1e-6 ? left / dep : null;
+}
+// 已经有采集建筑在挖的资源点
+export function servedSpots(S) { const out = new Set(); for (const [, sp] of rebuild(S).gatherSpots) for (const p of sp) out.add(p.i); return out; }
+// 正在挖这处资源点的建筑
+export function minerOf(S, i) { const R = rebuild(S); return S.buildings.find(b => (R.gatherSpots.get(b.id) || []).some(p => p.i === i)) || null; }
+// 一座营地暖圈里（加上已有采集建筑够得着的地方）每种矿还剩多少：{ kind: { left, max, frac, dep, deep, b } }
+export function oreScan(S, camp) {
+  const w = getWorld(S.runSeed), R = rebuild(S), out = {}, kinds = {};
+  for (const b of S.buildings) {
+    if (b.camp !== camp.id || !BLD[b.type].gather) continue;
+    for (const k of BLD[b.type].gather) if (isOre(k)) {
+      const o = kinds[k] || (kinds[k] = { deep: true, dep: 0, b: b.id, set: new Set() });
+      o.deep = o.deep && !!b.deep; o.dep += (rt(S).b[b.id] || {}).dep || 0;
+      for (const sp of R.gatherSpots.get(b.id) || []) o.set.add(sp.i);
+    }
+  }
+  if (!Object.keys(kinds).length) return out;
+  const r = heatRadius(S, camp);
+  for (let y = Math.floor(camp.y - r); y <= camp.y + r; y++) for (let x = Math.floor(camp.x - r); x <= camp.x + r; x++) {
+    if (!inMap(x, y) || (x + 0.5 - camp.x) ** 2 + (y + 0.5 - camp.y) ** 2 > r * r) continue;
+    const i = idx(x, y), sk = w.spot[i];
+    if (sk >= 0 && S.reveal[i] && kinds[SPOT_KEYS[sk]]) kinds[SPOT_KEYS[sk]].set.add(i);
+  }
+  for (const k in kinds) {
+    const o = kinds[k]; let left = 0, max = 0;
+    for (const i of o.set) { if (SPOT_KEYS[w.spot[i]] !== k) continue; left += spotLeft(S, i); max += spotMax(S, i); }
+    out[k] = { left, max, frac: max > 0 ? left / max : 0, dep: o.dep, deep: o.deep, b: o.b, eta: o.dep > 1e-6 ? left / o.dep : null };
+  }
+  return out;
+}
+export const ORE_WARN = 0.2, ORE_URGENT = 0.05;
+// 每 15 秒看一次：剩不到两成在日志里提醒一次（补上矿以后重新算）
+function oreStep(S, dt) {
+  const R = rt(S);
+  R.oreAcc = (R.oreAcc || 0) + dt;
+  if (R.oreAcc < 15) return;
+  R.oreAcc = 0;
+  for (const c of S.camps) {
+    if (depotAuto(c)) continue;
+    const ore = oreScan(S, c), cr = R.c[c.id] || (R.c[c.id] = {});
+    cr.ore = ore;
+    const W0 = c.oreWarn || (c.oreWarn = {});
+    for (const k in ore) {
+      const o = ore[k];
+      if (o.frac > 0.3) { delete W0[k]; continue; }
+      if (o.frac >= ORE_WARN || o.deep || W0[k]) continue;
+      W0[k] = 1;
+      const t = gatherTypeFor(k);
+      logMsg(S, `「${c.name}」暖圈里的${SPOTS[k].n}只剩 ${Math.max(1, Math.round(o.frac * 100))}% 了${o.eta != null ? `，按现在的速度还能挖约 ${Math.max(1, Math.round(o.eta))} 分钟` : ''}。可以给${t ? BLD[t].n : '矿场'}挖深井（挖完还有三成五的产量），或者派勘探队找新矿脉（这种情况按最低价）。`, 'warn');
+    }
+  }
+}
+export function oreInfo(S, camp, k) { return ((((rt(S).c[camp.id] || {}).ore) || {})[k]) || null; }
+// 快挖完、又正在用的矿：勘探时排第一个、按最低价
+export function oreLow(S, camp, k) {
+  const o = (((rt(S).c[camp.id] || {}).ore) || {})[k];
+  return !!o && o.frac < ORE_WARN && !o.deep;
+}
+// 这处矿旁边还放不放得下它的采集建筑（avoid：当作已经被占掉的格子）
+function oreRoom(S, i, cid, avoid) {
+  const k = SPOT_KEYS[getWorld(S.runSeed).spot[i]], type = gatherTypeFor(k); if (!type) return false;
+  return veinRoom(S, type, [{ i, x: i % W, y: Math.floor(i / W) }], cid, avoid);
+}
+// 摆放预演：放在 (x, y) 会不会占掉某处矿旁边最后的采集位。返回被挡住的矿的名字（没有就是空数组）
+export function blocksOre(S, type, x, y, cid) {
+  const R = rt(S), key = `${type}:${x}:${y}:${cid}:${S.buildings.length}:${(S.queue || []).length}:${R.revealN || 0}`;
+  if (R.boKey === key) return R.boVal;
+  const w = getWorld(S.runSeed), s = BLD[type].size, foot = [];
+  for (let yy = y; yy < y + s; yy++) for (let xx = x; xx < x + s; xx++) if (inMap(xx, yy)) foot.push(idx(xx, yy));
+  const own = new Set(BLD[type].gather ? findSpots(S, type, x, y).map(p => p.i) : []);
+  const served = servedSpots(S);
+  const out = new Set(), M = 6;
+  for (let yy = y - M; yy < y + s + M; yy++) for (let xx = x - M; xx < x + s + M; xx++) {
+    if (!inMap(xx, yy)) continue;
+    const i = idx(xx, yy), sk = w.spot[i]; if (sk < 0) continue;
+    const k = SPOT_KEYS[sk];
+    if (!isOre(k) || !S.reveal[i] || spotLeft(S, i) <= 0 || served.has(i) || own.has(i) || out.has(SPOTS[k].n)) continue;
+    const t = gatherTypeFor(k); if (!t || !unlocked(S, t)) continue;
+    if (warmCampAt(S, xx, yy) !== cid) continue;
+    if (oreRoom(S, i, cid, [i]) && !oreRoom(S, i, cid, [i, ...foot])) out.add(SPOTS[k].n);
+  }
+  R.boKey = key; R.boVal = [...out];
+  return R.boVal;
+}
+
 // 勘探：从侦察营派三个人，在供热圈里找出埋得深的新矿脉（每次两处，越勘越贵）
 export const SURVEY_N = 3;
 function surveyKinds(S, camp) {
@@ -1988,10 +2092,14 @@ function surveyKinds(S, camp) {
   const ks = SPOT_KEYS.filter(k => !REGROW[k] && SPOTS[k].from <= camp.y);
   const gap = k => { const f = flow[SPOTS[k].res]; return f ? Math.max(0, f.want - f.p) : 0; };
   const has = k => S.buildings.some(b => b.camp === camp.id && BLD[b.type].gather && BLD[b.type].gather.includes(k));
-  return ks.sort((a, b) => gap(b) - gap(a) || (has(b) ? 1 : 0) - (has(a) ? 1 : 0) || SPOTS[b].from - SPOTS[a].from);
+  const low = k => (has(k) && oreLow(S, camp, k) ? 1 : 0); // 快挖完又正在挖的矿排最前面
+  return ks.sort((a, b) => low(b) - low(a) || gap(b) - gap(a) || (has(b) ? 1 : 0) - (has(a) ? 1 : 0) || SPOTS[b].from - SPOTS[a].from);
 }
+// 勘探的是快挖完的矿：按第一次的价钱（不随次数涨）
+export function surveyNext(S, camp) { return surveyKinds(S, camp)[0] || null; }
+export function surveyCheap(S, camp) { const k = surveyKinds(S, camp)[0]; return !!k && oreLow(S, camp, k) && S.buildings.some(b => b.camp === camp.id && BLD[b.type].gather && BLD[b.type].gather.includes(k)); }
 export function surveyCost(S, camp) {
-  const n = camp.surveys || 0, m = Math.pow(1.5, n) * thrift(S), t = tierOfRow(camp.y);
+  const n = surveyCheap(S, camp) ? 0 : camp.surveys || 0, m = Math.pow(1.5, n) * thrift(S), t = tierOfRow(camp.y);
   const out = { food: Math.round(60 * m), plank: Math.round(40 * m) };
   if (t >= 3) out.steel = Math.round(15 * m);
   return out;
@@ -2026,8 +2134,9 @@ function fitsAt(S, s, x, y, cid, avoid) {
   }
   return true;
 }
-function veinRoom(S, type, tiles, cid) {
-  const d = BLD[type], s = d.size, r = d.reach + s / 2, avoid = tiles.map(t => t.i);
+function veinRoom(S, type, tiles, cid, avoid) {
+  const d = BLD[type], s = d.size, r = d.reach + s / 2;
+  avoid ||= tiles.map(t => t.i);
   for (const t of tiles) for (let y = Math.floor(t.y - r - s); y <= t.y + r; y++) for (let x = Math.floor(t.x - r - s); x <= t.x + r; x++) {
     if (Math.hypot(t.x + 0.5 - x - s / 2, t.y + 0.5 - y - s / 2) > r) continue;
     if (fitsAt(S, s, x, y, cid, avoid)) return true;

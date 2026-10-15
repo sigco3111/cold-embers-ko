@@ -1,5 +1,5 @@
 // 生产链总览：把一个营地里的生产建筑按上下游排成一张图，看清东西从哪来、到哪去、卡在哪一环
-import { BLD, RES, FUEL } from './data.js';
+import { BLD, RES, FUEL, SPOTS } from './data.js';
 import * as Sim from './sim.js';
 import { iconize } from './icons.js';
 import { RICON, fmt } from './ui.js';
@@ -274,10 +274,13 @@ export class ChainMap {
     const S = this.g.S, need = x.need, pct = need > 0 ? Math.min(1, x.prod / need) : 1, t = x.type;
     const go = x.ids.length ? `<button class="small" data-plgo="${x.ids[0]}">去看看</button>` : t && Sim.unlocked(S, t) ? `<button class="small go" data-act="place" data-arg="${t}">建${BLD[t].n}</button>` : t ? `<small class="bad">${BLD[t].n}还没解锁：往北侦察</small>` : '';
     const stat = Object.entries(x.stat).filter(([k]) => k !== '运转中').map(([k, n]) => `${k} ${n}`).join('、');
+    // 原料快挖完：标出来
+    let low = '';
+    if (t && BLD[t].gather) for (const k of BLD[t].gather) { const o = Sim.oreInfo(S, Sim.mainCamp(S), k); if (o && !o.deep && o.frac < Sim.ORE_WARN) low = `<small class="plh plow">⛏ 暖圈里的${SPOTS[k].n}只剩 ${Math.round(o.frac * 100)}%${o.eta ? `，约 ${Math.max(1, Math.round(o.eta))} 分钟` : ''}：挖深井或勘探</small>`; }
     return `<div class="pln ${x.worst ? 'worst' : ''} ${pct >= 0.999 ? 'ok' : ''}" style="--d:${x.depth}">
       <span class="plni">${RICON[x.k]}</span>
       <span class="plnt"><span><b>${RES[x.k].n}</b>${x.worst ? `<em>${x.comp ? '被分走了' : '最卡'}</em>` : ''}</span><small>${t ? `${BLD[t].n} ×${x.count}${x.count ? ` · ${x.lvl} 级 · ${x.workers} 人` : ''}` : ''}${stat ? ` · ${stat}` : ''}</small>
-        ${x.hint ? `<small class="plh">${x.hint}</small>` : ''}</span>
+        ${x.hint ? `<small class="plh">${x.hint}</small>` : ''}${low}</span>
       <span class="plnr"><span class="plbar"><i style="width:${(pct * 100).toFixed(1)}%"></i></span><small>现在 <b>${fr(x.prod)}</b> / 要 ${fr(need)} 每分钟</small></span>${go}</div>`;
   }
   planClick(e) {

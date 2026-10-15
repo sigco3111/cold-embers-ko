@@ -3,7 +3,7 @@ import * as Sim from './sim.js';
 import { View } from './render.js';
 import { Sound } from './audio.js';
 import { UI, fmt, fmtTime, RICON, ICON } from './ui.js';
-import { BLD, RES, STORY, LANDMARKS, FAR_MARKS, dayCycle, SLOTS } from './data.js';
+import { BLD, RES, STORY, LANDMARKS, FAR_MARKS, dayCycle, SLOTS, SPOT_KEYS, SPOTS } from './data.js';
 import { getWorld, idx, W, H } from './worldgen.js';
 import { iconize, injectIcons } from './icons.js';
 import { BigMap } from './bigmap.js';
@@ -447,19 +447,23 @@ class Game {
     if (slots) { this.updateRow(slots); return; }
     P.plan = null;
     P.check = Sim.checkPlace(this.S, P.type, P.x, P.y);
+    // 会不会把旁边的矿挡住（占掉它最后的采集位）：照样能放，只是先提醒
+    P.check.blocks = (P.check.ok || P.check.soft) && P.type !== 'furnace' && P.check.camp >= 0 ? Sim.blocksOre(this.S, P.type, P.x, P.y, P.check.camp) : [];
+    this.placeHints();
     let storage = null;
     if (P.check.camp >= 0 && P.type !== 'furnace') {
       const s = BLD[P.type].size, cx = P.x + s / 2, cy = P.y + s / 2;
       let bd = 1e9;
       for (const b of this.S.buildings) if (b.camp === P.check.camp && (b.type === 'furnace' || b.type === 'warehouse')) { const ss = BLD[b.type].size; const d = Math.hypot(b.x + ss / 2 - cx, b.y + ss / 2 - cy); if (d < bd) { bd = d; storage = { x: b.x + ss / 2, y: b.y + ss / 2 }; } }
     }
-    this.view.setGhost({ type: P.type, x: P.x, y: P.y, ok: P.check.ok, soft: P.check.soft, storage });
+    const blk = P.check.blocks.length > 0;
+    this.view.setGhost({ type: P.type, x: P.x, y: P.y, ok: P.check.ok && !blk, soft: P.check.soft || (P.check.ok && blk), storage });
     const btn = document.getElementById('placeOk');
     const canQ = !P.check.ok && P.check.soft && P.type !== 'furnace';
     btn.disabled = !P.check.ok && !canQ; btn.classList.toggle('q', canQ); btn.title = canQ ? '加入建造队列' : '确认建造';
     const costHtml = P.check.cost ? Object.keys(P.check.cost).map(k => `<span class="${(this.S.camps.find(c => c.id === P.check.camp) || {stock: {}}).stock[k] >= P.check.cost[k] ? '' : 'miss'}">${RICON[k]}${fmt(P.check.cost[k])}</span>`).join(' ') : '';
     const touch = this.view.lowEnd || matchMedia('(pointer:coarse)').matches;
-    const why = P.check.ok ? (P.check.clears ? `<span class="pwarn">会清掉 ${P.check.clears} 处树木/碎石</span>` : `<span class="pok">${touch ? '再点一次或按 ✓ 建造' : '点击地面建造'}</span>`)
+    const why = P.check.ok ? (blk ? `<span class="pwarn">会挡住旁边的${P.check.blocks.join('、')}：放下以后那里再也放不下采集建筑</span>` : P.check.clears ? `<span class="pwarn">会清掉 ${P.check.clears} 处树木/碎石</span>` : `<span class="pok">${touch ? '再点一次或按 ✓ 建造' : '点击地面建造'}</span>`)
       : canQ ? `<span class="pwarn">${P.check.reason} · ${touch ? '再点一次或按 ✓' : '点击地面'}排进建造队列，材料到了自动开工</span>` : `<span class="pbad">${P.check.reason}</span>`;
     const rowTip = P.type !== 'furnace' && (P.check.ok || canQ) ? (touch ? (P.rowMode ? ' · 拖动拉出一排' : '') : ' · 按住拖动连成一排') : '';
     document.getElementById('placeCost').innerHTML = iconize(`${costHtml}<br>${why}${rowTip ? `<span class="pok">${rowTip}</span>` : ''}`);
@@ -552,10 +556,32 @@ class Game {
     this.ui.open('scout');
     this.ui.toast('在地图上点一个目标（迷雾里也可以）。', 'info');
   }
+  // 摆放提示（采集建筑）：营地暖圈里能采的资源点画圈，放得下、又够得着资源点的格子铺一层浅绿
+  placeHints() {
+    const P = this.place, S = this.S;
+    if (!P || P.arrive || P.type === 'bp' || P.type === 'furnace' || !BLD[P.type].gather) { this.view.setHints(null); if (P) P.hintKey = null; return; }
+    const c = Sim.getCamp(S, P.check && P.check.camp >= 0 ? P.check.camp : S.active) || Sim.mainCamp(S); if (!c) return;
+    const r = Sim.heatRadius(S, c), key = `${P.type}:${c.id}:${S.buildings.length}:${(S.queue || []).length}:${r}`;
+    if (P.hintKey === key) return;
+    P.hintKey = key;
+    const w = getWorld(S.runSeed), d = BLD[P.type], s = d.size, kinds = d.gather.map(k => SPOT_KEYS.indexOf(k)), served = Sim.servedSpots(S);
+    const tiles = new Set(), spots = [];
+    for (let y = Math.floor(c.y - r); y <= c.y + r; y++) for (let x = Math.floor(c.x - r); x <= c.x + r; x++) {
+      if (x < 0 || x >= W || y < 0 || y >= H || (x + 0.5 - c.x) ** 2 + (y + 0.5 - c.y) ** 2 > r * r) continue;
+      const i = idx(x, y);
+      if (kinds.includes(w.spot[i]) && S.reveal[i] && Sim.harvestLeft(S, i) > 0) spots.push({ x, y, free: !served.has(i) });
+    }
+    for (let y = Math.floor(c.y - r - s); y <= c.y + r; y++) for (let x = Math.floor(c.x - r - s); x <= c.x + r; x++) {
+      const ck = Sim.checkPlace(S, P.type, x, y);
+      if (!(ck.ok || ck.soft) || ck.camp !== c.id || !ck.spots) continue;
+      for (let yy = y; yy < y + s; yy++) for (let xx = x; xx < x + s; xx++) tiles.add(idx(xx, yy));
+    }
+    this.view.setHints({ tiles: [...tiles], spots });
+  }
   cancelModes(keepPanel) {
     this.place = null; this.mode = null;
     document.body.classList.remove('placing');
-    this.view.setGhost(null); this.view.setBlueprint(null);
+    this.view.setGhost(null); this.view.setBlueprint(null); this.view.setHints(null);
     if (!keepPanel) this.scoutTarget = null;
   }
 

@@ -1958,6 +1958,30 @@ void main() {
     if (this.ringMat) { this.ringMat.opacity = 0.95; this.diskMat.opacity = 0.14; }
   }
 
+  // 摆放提示：拿着采集建筑时，矿点画圈（黄：还没人挖，白：已经有人挖），能放的格子铺一层浅绿
+  setHints(h) {
+    const H = this.hints || (this.hints = {});
+    const tiles = (h && h.tiles) || [], spots = (h && h.spots) || [], stars = (h && h.stars) || [];
+    const need = (key, n, make) => {
+      let m = H[key];
+      if (m && m.userData.cap < n) { this.scene.remove(m); m.geometry.dispose(); m.material.dispose(); m.dispose(); m = H[key] = null; }
+      if (!m && n) { const cap = Math.max(64, n * 2); m = H[key] = make(cap); m.userData.cap = cap; m.frustumCulled = false; m.renderOrder = 2; this.scene.add(m); }
+      if (m) m.count = n;
+      return m;
+    };
+    const M = new THREE.Matrix4(), Q = new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, 0)), V = new THREE.Vector3(), O = new THREE.Vector3(1, 1, 1);
+    const tm = need('tiles', tiles.length, n => new THREE.InstancedMesh(new THREE.PlaneGeometry(0.94, 0.94), new THREE.MeshBasicMaterial({ color: '#7dffa0', transparent: true, opacity: 0.3, depthWrite: false }), n));
+    tiles.forEach((i, k) => { M.compose(V.set(i % W + 0.5, 0.05, -(Math.floor(i / W) + 0.5)), Q, O); tm.setMatrixAt(k, M); });
+    if (tm) tm.instanceMatrix.needsUpdate = true;
+    const sm = need('spots', spots.length, n => { const m = new THREE.InstancedMesh(new THREE.RingGeometry(0.4, 0.52, 24), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.85, depthWrite: false }), n); return m; });
+    const cA = new THREE.Color('#ffd34d'), cB = new THREE.Color('#ffffff');
+    spots.forEach((p, k) => { M.compose(V.set(p.x + 0.5, 0.08, -(p.y + 0.5)), Q, O); sm.setMatrixAt(k, M); sm.setColorAt(k, p.free ? cA : cB); });
+    if (sm) { sm.instanceMatrix.needsUpdate = true; if (sm.instanceColor) sm.instanceColor.needsUpdate = true; }
+    const st = need('stars', stars.length, n => new THREE.InstancedMesh(new THREE.CircleGeometry(0.34, 5), new THREE.MeshBasicMaterial({ color: '#ffcf5a', transparent: true, opacity: 0.95, depthWrite: false }), n));
+    stars.forEach((p, k) => { M.compose(V.set(p.x + p.s / 2, 0.14, -(p.y + p.s / 2)), Q, O); st.setMatrixAt(k, M); });
+    if (st) st.instanceMatrix.needsUpdate = true;
+  }
+
   // 一键复制产线的蓝图：一组不同种类的建筑，各自一块底色（绿能建、黄排队、红放不下）
   setBlueprint(list) {
     const pool = this.bpPool || (this.bpPool = []);

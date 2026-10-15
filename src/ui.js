@@ -40,6 +40,8 @@ export function fmt(n) {
   if (a >= 10) return n.toFixed(0);
   return (Math.round(n * 10) / 10).toString();
 }
+// 游戏分钟：90 → 1 小时 30 分
+export const fmtMin = m => { m = Math.max(1, Math.round(m)); return m >= 60 ? `${Math.floor(m / 60)} 小时${m % 60 ? ` ${m % 60} 分钟` : ''}` : `${m} 分钟`; };
 export function fmtTime(s) {
   s = Math.max(0, Math.round(s));
   if (s >= 86400) return `${Math.floor(s / 86400)}天${Math.floor(s % 86400 / 3600)}小时`;
@@ -764,12 +766,13 @@ export class UI {
       const P = this.g.place, ck = P.check, s = BLD[P.type].size;
       const p = v.project(P.x + s / 2, P.y + s / 2, 2.6);
       let t = ck.ok ? (ck.clears ? `✓ 可以建（清掉 ${ck.clears} 处树木/碎石）` : '✓ 可以建') : esc(ck.reason);
+      if (ck.blocks && ck.blocks.length) t += `<br><b class="gwarn">⚠ 会挡住旁边的${ck.blocks.join('、')}</b>`;
       if (ck.camp >= 0 && P.type !== 'furnace') {
         t += `<br>到仓库 ${ck.dist.toFixed(1)} 格`;
         if (BLD[P.type].gather) t += ` · 资源点 ${ck.spots}`;
         if (ck.syn) t += ` · 联动 +${Math.round(ck.syn * Sim.SYN_PER * 100)}%`;
       }
-      if (p.on) html += `<div class="ghosttag ${ck.ok ? 'ok' : ck.soft ? 'soft' : 'bad'}" style="transform:translate(${p.x | 0}px,${p.y | 0}px)">${t}</div>`;
+      if (p.on) html += `<div class="ghosttag ${ck.ok && !(ck.blocks && ck.blocks.length) ? 'ok' : ck.ok || ck.soft ? 'soft' : 'bad'}" style="transform:translate(${p.x | 0}px,${p.y | 0}px)">${t}</div>`;
     }
     if (html !== this.labelsHtml) { this.labelsHtml = html; this.labels.innerHTML = iconize(html); } // 镜头没动时内容一样，不用重建（手机上每秒 20 次重建很费）
     this.tutorial();
@@ -1182,7 +1185,8 @@ export class UI {
         const sp = R.gatherSpots.get(b.id) || [];
         let left = 0, alive = 0, young = 0, grow = 0; const tended = Sim.tendedSpots(S);
         for (const s of sp) { const l = Sim.harvestLeft(S, s.i); left += l; if (l > 0) alive++; if (Sim.isSapling(S, s.i)) young++; if (Sim.spotLeft(S, s.i) < Sim.spotMax(S, s.i)) grow += Sim.regrowRate(S, s.i, tended); }
-        h += `<div class="row sub"><span>附近资源点</span><span>${alive} 处可采 · 剩 ${fmt(left)}</span></div>`;
+        const eta = Sim.gatherEta(S, b);
+        h += `<div class="row sub"><span>附近资源点</span><span>${alive} 处可采 · 剩 ${fmt(left)}${eta != null && eta > 0 && !b.deep ? ` · <b class="${eta < 20 ? 'warn' : ''}">按现在的速度还能挖约 ${fmtMin(eta)}</b>` : ''}</span></div>`;
         if (b.deep) h += `<div class="row sub"><span>⛏ 深井</span><span>采空后仍按 ${Math.round(Sim.DEEP_RATE * 100)}% 产量一直挖${br.deep ? '（正在深处挖）' : ''}</span></div>`;
         else if (Sim.deepable(b.type)) {
           const fr = Sim.gatherLeftFrac(S, b), dc = Sim.deepCost(S, b), why = Sim.deepBlock(S, b);
@@ -1622,6 +1626,7 @@ export class UI {
       const why = Sim.surveyBlock(S, c), going = S.scouts.some(s => s.camp === c.id && s.kind === 'survey');
       h += `<div class="sec">勘探矿脉</div>`;
       h += `<div class="row"><span>⛏ 在「${esc(c.name)}」供热圈里找埋得深的新矿<br><small>每次找到两处，优先找营地最缺的矿；已勘探 ${c.surveys || 0} 次，越勘越贵</small></span><span style="flex:none">${going ? '勘探队在路上' : `<button class="small ${why ? '' : 'go'}" data-act="survey" data-arg="${c.id}" ${why && !why.startsWith('缺') ? 'disabled' : ''}>出发</button>`}</span></div>`;
+      if (!going && Sim.surveyCheap(S, c)) h += `<div class="row sub"><span>💡</span><span style="color:var(--good)">这次去找快挖完的${SPOTS[Sim.surveyNext(S, c)].n}，按第一次的价钱</span></div>`;
       if (!going) h += `<div class="row sub"><span>补给</span><span>${costHtml(c.stock, Sim.surveyCost(S, c))}</span></div>${why && !why.startsWith('缺') ? `<div class="row sub"><span></span><span class="warn">${esc(why)}</span></div>` : ''}`;
     }
     const w = getWorld(S.runSeed);
@@ -1961,6 +1966,11 @@ export class UI {
       const rate = Sim.regrowRate(S, i, Sim.tendedSpots(S)), tend = rate > Sim.REGROW[k] * 1.5, sap = Sim.isSapling(S, i);
       g = `<div class="row sub"><span>恢复</span><span>${left >= mx ? '长满了' : `+${fmt(rate)}/分${tend ? (k === 'tree' ? ' · 伐木场在补种' : ' · 猎人在留种') : ''}`}</span></div>`;
       if (sap) g += `<div class="row sub"><span>${k === 'tree' ? '树苗' : '幼崽'}</span><span>长到三成（${fmt(mx * Sim.SAP_RIPE)}）才能${k === 'tree' ? '砍' : '打'}，大约 ${Math.max(1, Math.ceil((mx * Sim.SAP_RIPE - left) / Math.max(0.01, rate)))} 分钟</span></div>`;
+    }
+    if (!grow && left > 0) {
+      const by = Sim.minerOf(S, i);
+      const eta = by ? Sim.gatherEta(S, by) : null;
+      g += by ? `<div class="row sub"><span>正在挖</span><span>${BLD[by.type].n}${eta != null && eta > 0 ? ` · 这一片按现在的速度还能挖约 ${fmtMin(eta)}` : ''}</span></div>` : `<div class="row sub"><span>还没人挖</span><span>在旁边建${BLD[Sim.gatherTypeFor(k)].n}</span></div>`;
     }
     return `<div class="row"><span>剩余储量</span><span>${fmt(left)} / ${fmt(mx)} ${RES[sp.res].n}</span></div><div class="bar"><i style="width:${(left / mx * 100).toFixed(1)}%"></i></div>${g}
       <div class="hint">${grow ? (k === 'tree' ? '树砍光了会长回来。附近有伐木场会补种，长得快四倍。' : '猎物打光了会回来。附近有猎人小屋会留种，回来得快三倍。') : '矿藏采完就没有了，到时候得去更远的地方。'}在附近（${BLD[Object.keys(BLD).find(t => BLD[t].gather && BLD[t].gather.includes(k))].reach} 格内）建「${BLD[Object.keys(BLD).find(t => BLD[t].gather && BLD[t].gather.includes(k))].n}」来采集。</div>`;

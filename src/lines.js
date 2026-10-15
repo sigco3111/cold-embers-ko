@@ -1,11 +1,11 @@
 // 寒烬北行 · 产线：主线和支线、升星、累计产量里程碑、规划器的配比、老向导
 // 一条产线 = 一种材料 + 一路给它供料的上游建筑。主线由这一程给，支线自己立
-import { BLD, RES, RES_KEYS, CHAPTERS } from './data.js';
+import { BLD, RES, RES_KEYS, CHAPTERS, SPOTS } from './data.js';
 import {
   rt, dirty, getCamp, logMsg, prodRate, rateGoals, holdOf, popCap, maxWorkers, heatRadius, levelMul,
-  nextRaid, raidPrep, idleLabor, unlocked, checkPlace, HOLD, buildCost, canAfford, pay, queueBuild, QUEUE_MAX,
+  nextRaid, raidPrep, idleLabor, unlocked, checkPlace, HOLD, buildCost, canAfford, pay, queueBuild, QUEUE_MAX, ORE_URGENT, gatherTypeFor,
 } from './sim.js';
-import { journeyOf, mainCamp, stopOf, departGate, gateFlvl } from './journey.js';
+import { journeyOf, mainCamp, stopOf, departGate, gateFlvl, depotAuto } from './journey.js';
 
 export const STAR_T = [600, 1800, 5400];        // 稳住 10、30、90 分钟（游戏时间）升一颗星
 export const STAR_PROD = [0, 0.15, 0.15, 0.45]; // 一星 +15%，二星省人，三星再 +30%
@@ -223,6 +223,16 @@ export function advisor(S) {
   if (J.trip && J.trip.road) return { pri: 0, kind: 'road', text: '车队在路上遇到了事，停下来等你拿主意。', act: 'roadopen' };
   if (J.trip && J.trip.hold > 0) return { pri: 1, kind: 'trip', text: `车队停下来歇一会儿（还要 ${Math.ceil(J.trip.hold)} 秒），后面的营地照常运转。`, act: null };
   if (J.trip) return { pri: 1, kind: 'trip', text: J.trip.phase === 'arrive' ? `车队到了「${stopOf(S, J.trip.to).n}」：挑一块平地放下新熔炉。` : `车队正往「${stopOf(S, J.trip.to).n}」走，后面的营地照常运转。`, act: J.trip.phase === 'arrive' ? 'arrive' : null };
+  // 矿快挖完了（剩不到 5%，又不是深井）：先说一声
+  for (const c of [main, ...S.camps.filter(x => x !== main && !depotAuto(x))]) {
+    const ore = (R.c[c.id] || {}).ore || {};
+    for (const k in ore) {
+      const o = ore[k];
+      if (o.frac >= ORE_URGENT || o.deep) continue;
+      const t = gatherTypeFor(k);
+      return { pri: 1, kind: 'ore', camp: c.id, text: `「${c.name}」暖圈里的${SPOTS[k].n}快挖完了（剩 ${Math.max(0, Math.round(o.frac * 100))}%）：给${BLD[t].n}挖深井，挖完也有三成五的产量；或者去侦察营派勘探队找新矿脉，这次按最低价。`, act: 'spot', arg: o.b };
+    }
+  }
   // 主线卡在哪
   const g = rateGoals(S).find(x => !x.eternal) || rateGoals(S)[0];
   if (g) {
