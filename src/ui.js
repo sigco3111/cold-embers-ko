@@ -1551,7 +1551,7 @@ export class UI {
   depotHtml(c) {
     const S = this.S, cr = Sim.rt(S).c[c.id] || {}, picks = Sim.supplyPicks(S, c), sent = cr.sent || {}, m = Sim.mainCamp(S);
     let h = `<div class="sec">补给站 <small>${esc(c.name)}</small></div>`;
-    h += `<div class="hint">${c.manual ? '你正在临时接手：可以盖房、升级了。管完交回去，它会自己转。' : '这座营地自己派人、自己生产，不盖新房、不升级。你只管往北送什么。'}</div>`;
+    h += `<div class="hint">${c.manual ? '你正在临时接手：可以盖房、升级了。管完交回去，它会自己转。' : '这座营地自己派人、自己生产，不盖新房、不升级；熔炉只按留守的人数烧火，省燃料。你只管往北送什么。'}</div>`;
     const fm = cr.burnPerMin ? cr.fuelUnits / cr.burnPerMin : 0, why = Sim.depotTrouble(S, c);
     h += `<div class="row"><span>留守</span><span>${c.people} 人${c.people < Sim.DEPOT_MIN ? `（不到 ${Sim.DEPOT_MIN} 人）` : ''}</span></div>`;
     h += `<div class="row sub"><span>撑不撑得住</span><span class="${why ? 'bad' : ''}">${why ? '⚠ ' + why : `燃料够 ${fm ? fmtTime(fm * 60) : '—'} · 熟食 ${fmt(c.stock.food)}`}</span></div>`;

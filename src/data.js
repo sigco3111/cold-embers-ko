@@ -427,7 +427,7 @@ export const CHAPTERS = [
     tasks: [{ t: '古代构件产量稳住 20/分钟', k: 'rate', r: 'part', n: 20 }, { t: '自动机核心产量稳住 4/分钟', k: 'rate', r: 'core', n: 4 }, { t: '建 2 座自动机仓', k: 'bld', b: 'bay', n: 2 }],
     reward: { res: { core: 12, part: 120 }, hope: 10 }, end: '极光下，自动机和人一起扛着货往北走。' },
   { n: '第十章 · 跪着的巨人', story: '巨像跪在冰原上，双手撑着地。有人说它不是在守着什么，是在等着谁把它扶起来。',
-    tasks: [{ t: '永恒炉件产量稳住 5/分钟', k: 'rate', r: 'heart', n: 5 }, { t: '自动机核心产量稳住 4/分钟', k: 'rate', r: 'core', n: 4 }, { t: '建 1 座巨像守卫', k: 'bld', b: 'colossus', n: 1 }],
+    tasks: [{ t: '永恒炉件产量稳住 4/分钟', k: 'rate', r: 'heart', n: 4 }, { t: '自动机核心产量稳住 3/分钟', k: 'rate', r: 'core', n: 3 }, { t: '建 1 座巨像守卫', k: 'bld', b: 'colossus', n: 1 }],
     reward: { res: { heart: 30, core: 10 }, people: 20 }, end: '石头守卫站了起来，掠夺者远远看见就掉头走了。' },
   { n: '第十一章 · 星落之地', story: '坑底的石头发着紫光，摸上去是温的。老铁匠说，有了它，熔炉还能烧得更旺。',
     tasks: [{ t: '星核产量稳住 4/分钟', k: 'rate', r: 'starcore', n: 4 }, { t: '永恒炉件产量稳住 6/分钟', k: 'rate', r: 'heart', n: 6 }, { t: '建 2 座星核矿', k: 'bld', b: 'starpit', n: 2 }],

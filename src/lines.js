@@ -310,6 +310,16 @@ export function advisor(S) {
       return { pri: 1, kind: 'ore', camp: c.id, text: `「${c.name}」暖圈里的${SPOTS[k].n}快挖完了（剩 ${Math.max(0, Math.round(o.frac * 100))}%）：给${BLD[t].n}挖深井，挖完也有三成五的产量；或者去侦察营派勘探队找新矿脉，这次按最低价。`, act: 'spot', arg: o.b };
     }
   }
+  // 搬运工不够：每座建筑都跟着慢下来，比哪一环都要紧（不然会误判成「仓库满了」「缺料」）
+  {
+    const cr = R.c[main.id] || {};
+    if (cr.hf != null && cr.hf < 0.6 && cr.demand > 3) {
+      const wh = S.buildings.filter(b => b.camp === main.id && b.type === 'warehouse');
+      const room = wh.reduce((a, b) => a + Math.max(0, maxWorkers('warehouse', b.lvl) - b.workers), 0);
+      const tip = wh.length && room > 0 ? `给仓库派满人（还能派 ${room} 个）` : '多建一座仓库再派人';
+      return { pri: 1, kind: 'haul', camp: main.id, text: `「${main.name}」搬运工不够（要 ${Math.ceil(cr.demand)} 人，只有 ${Math.floor(cr.haulers)} 人），每座建筑都在等人送料：搬运工住在仓库里，${tip}；修路也能让搬运快一些。`, act: wh.length ? 'spot' : 'place', arg: wh.length ? wh[0].id : 'warehouse' };
+    }
+  }
   // 主线卡在哪
   const g = rateGoals(S).find(x => !x.eternal) || rateGoals(S)[0];
   if (g) {

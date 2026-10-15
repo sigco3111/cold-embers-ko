@@ -130,6 +130,7 @@ function shed(camp, t) {
   return true;
 }
 function upgradeLowest(camp, type, cap) {
+  if (SAVING) return false;
   const bs = G.campBuildings(S, camp.id).filter(b => b.type === type && b.lvl < cap).sort((a, b) => a.lvl - b.lvl);
   return bs[0] ? G.upgrade(S, bs[0].id).ok : false;
 }
@@ -229,7 +230,7 @@ function campThink(camp, main) {
   // 生产建筑轮流升级（不超过熔炉等级）
   const want = new Set(); for (const [r, n] of needs(camp)) for (const x of G.planLine(S, r, n).nodes) if (x.type) want.add(x.type);
   const bs = G.campBuildings(S, camp.id).filter(b => want.has(b.type) || b.type === 'warehouse' || b.type === 'hunter' || b.type === 'kitchen' || b.type === 'greenhouse').sort((a, b) => a.lvl - b.lvl);
-  for (const b of bs.slice(0, 3)) if (b.lvl < fb.lvl) { if (G.upgrade(S, b.id).ok) STAT.ups++; }
+  if (!SAVING) for (const b of bs.slice(0, 3)) if (b.lvl < fb.lvl) { if (G.upgrade(S, b.id).ok) STAT.ups++; }
   // 缺原料就加建上游
   for (const b of G.campBuildings(S, camp.id)) {
     const br = R.b[b.id]; if (!br || !br.status) continue;
@@ -341,6 +342,18 @@ function sideThink(main) {
 
 const legs = [];
 let legT0 = 0;
+// 门槛时间线：这一程里每条门槛、每项章节任务第一次满足是在出发后几小时（看哪一条拖得最久）
+const TL = { k: -1, items: {}, tasks: {} };
+function track() {
+  const J = G.journeyOf(S);
+  if (TL.k !== J.stage) { TL.k = J.stage; TL.items = {}; TL.tasks = {}; }
+  const g = G.departGate(S); if (!g) return;
+  const h = (S.t - legT0) / 3600;
+  for (const i of g.items) if (i.ok && TL.items[i.id] == null) TL.items[i.id] = h;
+  const ch = G.chapters(S).find(c => c.i === J.stage);
+  if (ch) for (const t of ch.tasks) if (t.ok && TL.tasks[t.t] == null) TL.tasks[t.t] = h;
+}
+const tlStr = () => 'gate ' + Object.entries(TL.items).map(([k, v]) => `${k}@${v.toFixed(1)}h`).join(' ') + ' | tasks ' + Object.entries(TL.tasks).map(([k, v]) => `${k.slice(0, 14)}@${v.toFixed(1)}h`).join(' ; ');
 function legReport(J) {
   const main = G.mainCamp(S), fb = G.getB(S, main.furnace), R = G.rt(S);
   const prods = G.campBuildings(S, main.id).filter(b => BLD[b.type].out && BLD[b.type].cat !== 'core');
@@ -353,13 +366,18 @@ function legReport(J) {
   const goals = G.rateGoals(S).map(g => `${RES[g.r].n} ${G.prodRate(S, g.r).toFixed(1)}/${g.n}`).join(' ');
   const lines = G.plinesOf(S).map(l => `${RES[l.r].n}${'★'.repeat(l.star)}`).join(' ');
   const upc = prods[0] ? G.upgradeCost(S, prods.sort((a, b) => b.lvl - a.lvl)[0]) : {};
+  legs.push('  ' + tlStr());
   legs.push(`leg ${J.stage} 用时 ${((S.t - legT0) / 3600).toFixed(1)}h · 熔炉 ${fb.lvl} · 产线建筑平均 ${avgL.toFixed(1)} 级 · 加成 +${Math.round(bonus * 100)}% · 人 ${main.people}/${G.popCap(S, main)} · 建筑 ${S.buildings.filter(b => b.camp === main.id).length} · 最大库存 ${Math.round(maxStock)} · 烧 ${(burn / FUEL[bestFuel]).toFixed(1)} ${RES[bestFuel].n}/分 · 产线 ${lines} · 余烬 ${S.meta.embers} · 最高级升级 ${JSON.stringify(upc)}`);
   void fuelK; void R; void goals;
+  console.log('LEG', legs.at(-2).trim(), '\nLEG', legs.at(-1));
   legT0 = S.t;
 }
 
+// 别的门槛都齐了、只差车队要带的货：先攒着，不拿去升级
+let SAVING = false;
 function think() {
   const J = G.journeyOf(S), main = G.mainCamp(S);
+  { const g0 = G.departGate(S); SAVING = !!g0 && g0.items.filter(i => i.id !== 'car').every(i => i.ok) && g0.plan.short.length > 0; }
   if (J.trip) {
     if (J.trip.phase === 'arrive') { const p = G.arriveSpot(S); if (p) { const r = G.arrive(S, p.x, p.y); log('arrive', JSON.stringify(r).slice(0, 80)); } }
     return;
@@ -410,7 +428,7 @@ const OFFS = [];
 const T_END = S.t + DAYS * 86400;
 while (S.t < T_END && G.journeyOf(S).stage < MAXSTAGE) {
   for (let i = 0; i < THINK / 10; i++) G.step(S, 10);
-  think();
+  think(); track();
   // 每天离线一次
   const d = Math.floor(S.t / 86400);
   if (OFFLINE && d !== lastOff && S.t % 86400 > 20 * 3600) {

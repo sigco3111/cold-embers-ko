@@ -23,7 +23,10 @@ const spineRate = {}; CHAPTERS.forEach(c => c.tasks.forEach(q => { if (q.k === '
     const want = st.rule === 'rich' ? 'rate' : NORTH_TASK[st.rule]?.k;
     const ruleT = st.rule === 'rich' ? rates.find(t => !NORTH_HI.includes(t.r)) : ch.tasks.find(t => t.k === want && t.k !== 'rate');
     const tower = ch.tasks.find(t => t.k === 'tower');
-    const scaled = hi.every(t => Math.abs(t.n - spineRate[t.r] * G.northMult(N)) <= (t.n >= 10 ? 0.5 : 0.25));
+    // 1.0：按人手封顶，费人的组合按同一个比例往下压，不费人的照旧
+    const rawLab = hi.reduce((a, t) => a + spineRate[t.r] * G.northMult(N) * G.laborPerUnit(t.r), 0), f = Math.min(1, G.northBudget(N) / rawLab);
+    const lab = hi.reduce((a, t) => a + t.n * G.laborPerUnit(t.r), 0);
+    const scaled = hi.every(t => Math.abs(t.n - spineRate[t.r] * G.northMult(N) * f) <= (t.n >= 10 ? 0.5 : 0.25) + 0.01) && lab <= G.northBudget(N) * 1.06;
     const fine = hi.length === 2 && hi[0].r !== hi[1].r && scaled && (st.rule === 'flat' ? !ruleT : !!ruleT) && (N <= 10 ? tower && tower.tn === N : !tower) && ch.n.startsWith(`北境第 ${N} 站 · `) && ch.story.includes(st.short);
     if (!fine) good = false;
     if (N <= 11 || !fine) msg.push(`${N}${st.rule}:${hi.map(t => t.r + t.n).join('+')}${ruleT ? '+' + (ruleT.f || ruleT.b || ruleT.r || ruleT.k) : ''}${tower ? '+T' : ''}`);

@@ -290,6 +290,12 @@ const WARMERS = ['heater', 'geowell'];
 // 第一程放宽：人口上限 +10，供热圈 +2 格
 export function firstLeg(S) { return journeyOf(S).stage === 0; }
 // 人口上限：每座营地 12 + 6 × 熔炉等级。帐篷再多，超过上限也没人来；已经超过的不会走
+// 补给站自己运转时只按留守的人烧火：熔炉按「够这么多人住」的那一级烧，不会几小时烧光一座大熔炉的燃料、再一批批冻死人
+// 「临时接手」以后照常按熔炉等级烧
+export function depotFireLvl(S, camp, fb = getB(S, camp.furnace)) {
+  if (!depotAuto(camp)) return fb.lvl;
+  return Math.max(1, Math.min(fb.lvl, Math.ceil((camp.people - 12) / 6) + 1));
+}
 export function popCap(S, camp) { return 12 + 6 * getB(S, camp.furnace).lvl + (firstLeg(S) ? 10 : 0); }
 export function popRoom(S, camp) { return popCap(S, camp) - camp.people - awayOf(S, camp); }
 // 营地基建
@@ -1638,7 +1644,7 @@ function campStep(S, camp, dt, w) {
   const ev = w.ev && w.ev.on ? w.ev.ev : null, evPrep = !!ev && wxePrepped(S, camp, ev);
   const frozen = !!ev && ev.kind === 'ice' && !evPrep, coldNight = !!ev && ev.kind === 'cold';
   const cRule = campRule(S, camp);
-  let fuelNeed = furnaceBurn(fb.lvl) * Math.max(0.3, 1 + buffOf(S, camp, 'fuel') + lawSum(S, 'fuel') + techSum(S, 'fuel')) * (od ? OD_FUEL : 1) * (coldNight ? WXE_FUEL : 1) * diffOf(S).fuel * (cRule === 'geo' ? RULE_FX.geoFuel : cRule === 'night' ? RULE_FX.nightFuel : 1) / 60 * dt;
+  let fuelNeed = furnaceBurn(depotFireLvl(S, camp, fb)) * Math.max(0.3, 1 + buffOf(S, camp, 'fuel') + lawSum(S, 'fuel') + techSum(S, 'fuel')) * (od ? OD_FUEL : 1) * (coldNight ? WXE_FUEL : 1) * diffOf(S).fuel * (cRule === 'geo' ? RULE_FX.geoFuel : cRule === 'night' ? RULE_FX.nightFuel : 1) / 60 * dt;
   const fuelKeepU = dt > 0 ? fuelNeed / dt * 60 * FUEL_KEEP_MIN : 0; // 工厂和塔身不许动的那份燃料（按燃料份数算）
   let heaterHeat = 0;
   const heaters = bs.filter(b => b.type === 'heater');
@@ -1931,15 +1937,17 @@ function campStep(S, camp, dt, w) {
   }
   // 新人投奔
   const free = Math.min(housing, popCap(S, camp)) - camp.people - away - (camp.wait || 0);
-  const canArrive = free >= 1 && (cr.foodNet == null || cr.foodNet >= EAT * 1.5) && (st.food || 0) > camp.people * EAT * 30 && tH >= -2 && !w.blizzard && hunger === 0;
+  // 自己运转的补给站：来了人火就得烧旺一档，攒够半小时的燃料才收人，免得人一多燃料跟不上又冻死一批
+  const depotFuelOk = !depotAuto(camp) || fuelUnitsOf(st) >= furnaceBurn(Math.min(fb.lvl, Math.ceil((camp.people + 1 - 12) / 6) + 1)) * 30;
+  const canArrive = free >= 1 && (cr.foodNet == null || cr.foodNet >= EAT * 1.5) && (st.food || 0) > camp.people * EAT * 30 && tH >= -2 && !w.blizzard && hunger === 0 && depotFuelOk;
   if (canArrive) {
     camp.arriveAcc += (0.12 + 0.03 * fb.lvl) * (camp.people < 20 ? 3 : 1) * (1 + 0.15 * up(S, 'people') + ((focusOf(camp) || {}).arrive || 0)) * (0.7 + 0.6 * (camp.hope ?? 50) / 100) / 60 * dt; // 开局人少时来得快；希望越高来得越快
     while (camp.arriveAcc >= 1 && camp.people + away < Math.min(housing, popCap(S, camp))) {
       camp.arriveAcc -= 1; camp.people++; S.stats.arrivals++;
       R.fx.push({ kind: 'arrive', camp: camp.id });
     }
-  } else if (camp.people < 10 && free >= 1 && !w.blizzard && hunger === 0 && (st.food || 0) > (camp.people + 1) * EAT * 20) {
-    // 营地快撑不住时，附近流浪的人仍会被火光吸引过来（保证总能恢复）；没吃的就不来，免得来一个饿死一个
+  } else if (camp.people < 10 && free >= 1 && !w.blizzard && hunger === 0 && tH >= -2 && (st.food || 0) > (camp.people + 1) * EAT * 20) {
+    // 营地快撑不住时，附近流浪的人仍会被火光吸引过来（保证总能恢复）；没吃的、屋里太冷都不来，免得来一个饿死（冻死）一个
     camp.arriveAcc += dt / 600;
     while (camp.arriveAcc >= 1) { camp.arriveAcc -= 1; camp.people++; S.stats.arrivals++; R.fx.push({ kind: 'arrive', camp: camp.id }); }
   } else camp.arriveAcc = Math.min(camp.arriveAcc, 0.9);
@@ -1956,7 +1964,7 @@ function campStep(S, camp, dt, w) {
   const perMin = 60 / Math.max(1e-6, dt), fpm = forage * perMin;
   F('wood').p += fpm * 0.35; F('game').p += fpm * 0.12; F('stone').p += fpm * 0.06; if (tierOfRow(camp.y) >= 2) F('coal').p += fpm * 0.15;
   for (const k in burned) { F(k).c += burned[k] * perMin; }
-  const fuelWant = furnaceBurn(fb.lvl);
+  const fuelWant = furnaceBurn(depotFireLvl(S, camp, fb));
   for (const k in burned) F(k).want += burned[k] * perMin;
   if (fueled < 1) F('wood').want += fuelWant * (1 - fueled) / FUEL.wood; // 断燃：按木材算缺口
   F('food').c += eaten * perMin; F('food').want += needFood * perMin;
@@ -1967,7 +1975,7 @@ function campStep(S, camp, dt, w) {
   cr.flow = flow;
   cr.foodNet = foodMade + (cr.forage || 0) * 0.12 / 2 - camp.people * EAT * eatMul;
   Object.assign(cr, {
-    temp, tH, tU, heat, fueled, drop, burnPerMin: dt > 0 ? fuelNeed / dt * 60 : furnaceBurn(fb.lvl), baseBurn: dt > 0 ? fuelNeed / dt * 60 / (od ? OD_FUEL : 1) : furnaceBurn(fb.lvl), fuelUnits: fuelUnitsOf(st),
+    temp, tH, tU, heat, fueled, drop, burnPerMin: dt > 0 ? fuelNeed / dt * 60 : furnaceBurn(depotFireLvl(S, camp, fb)), baseBurn: dt > 0 ? fuelNeed / dt * 60 / (od ? OD_FUEL : 1) : furnaceBurn(depotFireLvl(S, camp, fb)), fuelUnits: fuelUnitsOf(st),
     od, odHeat, stall,
     housing, housed, ins, labor, assigned, haulers, demand, hf, workEff, hunger, cap, sick: sickN,
     eatPerMin: camp.people * EAT * eatMul, foodPerMin: 0, botCap,
@@ -2755,6 +2763,21 @@ export function northMult(N) { return N <= 10 ? 1 + 0.08 * N : Math.min(2.5, 1.8
 const rnd5 = v => v >= 10 ? Math.round(v) : Math.round(v * 2) / 2;
 export function northPair(S, N) { const o = Math.floor(hash3(S.runSeed, 71, 5) * 6), a = (o + N) % 6, b = (a + 2 + (N % 3 === 0 ? 1 : 0)) % 6; return [NORTH_HI[a], NORTH_HI[b]]; }
 export const northEmbers = S => Math.round(40 * (1 + relicSum(S, 'ember')) * diffOf(S).ember);
+// 北境目标按人手封顶（1.0 理顺）：两条主线加起来要的工人，按 35 级建筑、+80% 加成算，
+// 不超过营地人口上限（熔炉 37 级）的一个比例：第 1 站七成，每站 +2.5%，第 10 站约九成三，之后每站 +1%，最多 105%。
+// 只削尖峰：本来就不费人的组合（比如星核）照旧
+const LAB_L = 35, LAB_BON = 0.8, LAB_CAP = 12 + 6 * 37;
+const PROD1 = {}; for (const t in BLD) for (const k in BLD[t].out || {}) if (!PROD1[k]) PROD1[k] = t;
+const LPU = {};
+export function laborPerUnit(r) {
+  if (LPU[r] != null) return LPU[r];
+  const t = PROD1[r]; if (!t) return (LPU[r] = 0);
+  const d = BLD[t], k1 = levelMul(LAB_L) * (1 + LAB_BON), cnt = 1 / (d.out[r] * k1);
+  let w = cnt * maxWorkers(t, LAB_L);
+  for (const k in d.in || {}) w += d.in[k] * cnt * k1 * laborPerUnit(k);
+  return (LPU[r] = w);
+}
+export const northBudget = N => (N <= 10 ? 0.70 + 0.025 * (N - 1) : Math.min(1.05, 0.925 + 0.01 * (N - 10))) * LAB_CAP;
 function northChapter(S, i) {
   const st = stopOf(S, i); if (!st || !st.north) return null;
   const N = st.north, m = northMult(N), pair = northPair(S, N), name = st.short;
@@ -2764,7 +2787,9 @@ function northChapter(S, i) {
     rich = { t: `${RES[r].n}产量稳住 ${Math.round(4 * BLD[g].out[r])}/分钟（富矿带）`, k: 'rate', r, n: Math.round(4 * BLD[g].out[r]) };
     const j = pair.indexOf(r); if (j >= 0) pair[j] = NORTH_HI.find(x => !pair.includes(x));
   }
-  const tasks = pair.map(r => { const n = rnd5((SPINE_RATE[r] || 6) * m); return { t: `${RES[r].n}产量稳住 ${n}/分钟`, k: 'rate', r, n }; });
+  const raw = pair.map(r => (SPINE_RATE[r] || 6) * m), lab = raw.reduce((a, n, j) => a + n * laborPerUnit(pair[j]), 0);
+  const f = lab > 0 ? Math.min(1, northBudget(N) / lab) : 1;
+  const tasks = pair.map((r, j) => { const n = Math.max(1, rnd5(raw[j] * f)); return { t: `${RES[r].n}产量稳住 ${n}/分钟`, k: 'rate', r, n }; });
   if (rich) tasks.push(rich); else if (NORTH_TASK[st.rule]) tasks.push({ ...NORTH_TASK[st.rule] });
   if (N <= TOWER_N) tasks.push({ t: `点亮${towerName(N)}`, k: 'tower', tn: N, n: 1 });
   const pick = (L, salt) => L[Math.floor(hash3(S.runSeed, N, salt) * L.length) % L.length].replace('{n}', name);
