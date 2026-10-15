@@ -248,6 +248,15 @@ export const BLD = {
   flagpole:  { n: '旗杆', t: 1, size: 1, cat: 'deco', w: 0, hope: 1.5, desc: '在营地里竖一面旗，远远就能看见家在哪儿。装饰：希望 +1.5。', cost: { wood: 40, plank: 10 } },
   statue:    { n: '先行者雕像', t: 2, size: 1, cat: 'deco', w: 0, hope: 3, desc: '纪念第一批往北走的人：一个举着火把的身影。装饰：希望 +3。', cost: { stone: 150, plank: 30, iron: 20 } },
   flowerhouse:{ n: '花窖', t: 3, size: 2, cat: 'deco', w: 1, hope: 4.5, desc: '用暖气养着一窖花，冰天雪地里的一点颜色。要一个花匠照料。装饰：希望 +4.5。', cost: { wood: 120, stone: 60, steel: 20 } },
+  // 第十三版：八种北境装饰，成就解锁（gift: 1），和别的装饰一起算在 +16 希望的上限里
+  icesculpt: { n: '冰雕', t: 1, size: 1, cat: 'deco', w: 0, hope: 2, gift: 1, desc: '冰湖里切出来的冰块，雕成一只展翅的天鹅，太阳一照透亮。装饰：希望 +2。', cost: { stone: 60, plank: 20 } },
+  windchime: { n: '极光风铃', t: 1, size: 1, cat: 'deco', w: 0, hope: 2, gift: 1, desc: '木架上挂一排彩色的管子，风一吹叮叮当当，夜里像极光一样发着光。装饰：希望 +2。', cost: { plank: 40, steel: 10 } },
+  snowman: { n: '雪人', t: 1, size: 1, cat: 'deco', w: 0, hope: 1.5, gift: 1, desc: '孩子们堆的雪人：煤球眼睛、胡萝卜鼻子，围着一条旧红围巾。装饰：希望 +1.5。', cost: { wood: 10 } },
+  lanterns: { n: '灯笼串', t: 1, size: 2, cat: 'deco', w: 0, hope: 2.5, gift: 1, desc: '两根木杆之间拉一串红灯笼，节日一样。装饰：希望 +2.5。', cost: { plank: 60, wood: 40 } },
+  deerstatue: { n: '驯鹿雕像', t: 1, size: 1, cat: 'deco', w: 0, hope: 3, gift: 1, desc: '一头昂着头的驯鹿铜像，纪念一路拉车的伙伴。装饰：希望 +3。', cost: { stone: 120, iron: 40 } },
+  bonearch: { n: '巨兽骨拱门', t: 1, size: 2, cat: 'deco', w: 0, hope: 4, gift: 1, desc: '冻土里挖出来的两根巨兽长牙，搭成一道拱门，顶上架着它的头骨。装饰：希望 +4。', cost: { stone: 200, plank: 60 } },
+  pyremem: { n: '烽火纪念碑', t: 1, size: 1, cat: 'deco', w: 0, hope: 3.5, gift: 1, desc: '一座小石碑，碑顶一盏长明的铁火盆，记着点亮过的每一座烽火塔。装饰：希望 +3.5。', cost: { stone: 300, steel: 60 } },
+  skymem: { n: '天火纪念碑', t: 1, size: 2, cat: 'deco', w: 0, hope: 5, gift: 1, desc: '高高的方尖碑，顶上一团金色的火和一颗星晶，四角的火盆一直烧着。点燃天火的人才建得起。装饰：希望 +5。', cost: { stone: 500, steel: 150, alloy: 30 } },
 };
 export const BLD_KEYS = Object.keys(BLD);
 export const CATS = { core: '核心', live: '居住', gather: '采集', make: '加工', defense: '防御', deco: '装饰' };

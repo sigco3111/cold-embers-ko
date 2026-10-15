@@ -460,7 +460,7 @@ function foundation(K, s, vt) {
 }
 
 // 返回 { geo, glow, movers, flame, flameY, h }：glow 是需要发光材质的部分；geo/glow 的 userData.hi 是拉近用的精细版
-export function buildingGeo(type, lvl, deep = false) {
+export function buildingGeo(type, lvl, deep = false, opt = '') {
   if (type === 'sledshed') return sledShedGeo(lvl);
   const d = BLD[type];
   const s = d.size;
@@ -738,8 +738,10 @@ export function buildingGeo(type, lvl, deep = false) {
       add(G.cyl6, WOOD2, { sx: 0.07, sy: h, sz: 0.07, y: 0.22 + h / 2 });
       add(G.sph, '#d8b060', { s: 0.09, y: 0.22 + h + 0.03 });
       const fc = vt >= 3 ? '#a8322a' : '#b8402e', fy = 0.22 + h - 0.3;
-      for (let k = 0; k < 3; k++) box(k === 1 ? '#c85a3a' : fc, 0.24, 0.4, 0.02, 0.05 + 0.12 + k * 0.23, fy - k * 0.02, Math.sin(k * 1.7) * 0.05, { ry: (k % 2 ? 0.25 : -0.25) });
-      box('#f0d090', 0.2, 0.06, 0.025, 0.4, fy - 0.02, Math.sin(1.7) * 0.05 + 0.005, { ry: 0.25 });
+      if (opt !== 'bare') { // 换了成就旗子的图案：旗面另画（render 里挂一面会飘的）
+        for (let k = 0; k < 3; k++) box(k === 1 ? '#c85a3a' : fc, 0.24, 0.4, 0.02, 0.05 + 0.12 + k * 0.23, fy - k * 0.02, Math.sin(k * 1.7) * 0.05, { ry: (k % 2 ? 0.25 : -0.25) });
+        box('#f0d090', 0.2, 0.06, 0.025, 0.4, fy - 0.02, Math.sin(1.7) * 0.05 + 0.005, { ry: 0.25 });
+      }
       box('#d8c8a8', 0.012, h - 0.4, 0.012, 0.06, 0.22 + (h - 0.4) / 2, 0.05);
       add(G.cyl6, p.metal, { sx: 0.05, sy: 0.08, sz: 0.05, x: 0.06, y: 0.5, z: 0.06 });
       drift(-0.2, 0.25, 0.3, 0.18);
@@ -765,6 +767,120 @@ export function buildingGeo(type, lvl, deep = false) {
       add(G.hemi, SNOW, { sx: 0.16, sy: 0.05, sz: 0.16, y: y + 0.93 });
       box(SNOW, 0.22, 0.03, 0.14, 0, y + 0.69, -0.02);
       drift(0.3, 0.3, 0.26, 0.16);
+      break;
+    }
+    // ---------- 第十三版：八种北境装饰 ----------
+    case 'icesculpt': {
+      // 雪砖台子上一块透亮的冰：展翅的天鹅，冰里透着一点蓝光
+      box(SNOW2, 0.62, 0.2, 0.62, 0, 0.1, 0, { jit: 0.1 });
+      box(ICE, 0.5, 0.16, 0.5, 0, 0.28, 0, { jit: 0.06 });
+      const ic = '#d8f0ff', y = 0.36;
+      add(G.ico, ic, { sx: 0.34, sy: 0.24, sz: 0.46, y: y + 0.16, z: 0.02 });                 // 身子
+      seg(ic, [0, y + 0.2, -0.16], [0, y + 0.52, -0.2], 0.07); seg(ic, [0, y + 0.52, -0.2], [0, y + 0.6, -0.08], 0.06); // 弯脖子
+      add(G.sph, ic, { s: 0.11, y: y + 0.62, z: -0.05 });
+      add(G.cone5, '#bcdcf4', { sx: 0.04, sy: 0.1, sz: 0.04, y: y + 0.62, z: 0.04, rx: Math.PI / 2 });
+      for (const sg of [-1, 1]) add(G.cone4, ic, { sx: 0.1, sy: 0.42, sz: 0.3, x: sg * 0.2, y: y + 0.36, z: 0.08, rz: -sg * 0.9, ry: sg * 0.2 }); // 展开的翅膀
+      lit(G.oct, '#9ad8ff', { s: 0.1, y: y + 0.14, z: 0.02 });
+      for (const [x, z] of [[0.24, 0.22], [-0.25, -0.2], [0.22, -0.24]]) add(G.oct, ICE, { sx: 0.06, sy: 0.14, sz: 0.06, x, y: 0.42, z, jit: 0.2 });
+      drift(-0.28, 0.26, 0.24, 0.16);
+      break;
+    }
+    case 'windchime': {
+      // 木架子、小坡顶，横梁上挂一排长短不一的管子：绿、青、紫，夜里发光
+      for (const sg of [-1, 1]) { box(STONE, 0.14, 0.1, 0.14, sg * 0.32, 0.05, 0); add(G.cyl6, WOOD2, { sx: 0.06, sy: 1.15, sz: 0.06, x: sg * 0.32, y: 0.62, z: 0 }); }
+      box(WOOD, 0.8, 0.07, 0.1, 0, 1.18, 0);
+      for (const sg of [-1, 1]) box(WOOD2, 0.86, 0.04, 0.2, 0, 1.27, sg * 0.06, { rx: sg * 0.5 });
+      box(SNOW, 0.84, 0.03, 0.26, 0, 1.31, 0);
+      const cols = ['#6dffae', '#5ae0ff', '#9a7cff', '#6dffae', '#5ae0ff', '#c08cff'];
+      cols.forEach((c, i) => { const x = -0.25 + i * 0.1, L = 0.32 + ((i * 37) % 5) * 0.06; seg('#3a3a3a', [x, 1.15, 0], [x, 1.08, 0], 0.008); lit(G.cyl6, c, { sx: 0.04, sy: L, sz: 0.04, x, y: 1.08 - L / 2, z: 0 }); });
+      add(G.sph, '#d8b060', { s: 0.06, x: 0, y: 0.6, z: 0 }); seg('#3a3a3a', [0, 1.15, 0], [0, 0.63, 0], 0.008); // 风铃锤
+      drift(0.22, 0.24, 0.24, 0.16);
+      break;
+    }
+    case 'snowman': {
+      // 比人高一点就好（k 把整只雪人缩小）
+      const k = 0.64, P = (x, y, z) => [x * k, y * k, z * k];
+      add(G.sph2, SNOW, { sx: 0.5 * k, sy: 0.44 * k, sz: 0.5 * k, y: 0.2 * k });
+      add(G.sph2, SNOW, { s: 0.36 * k, y: 0.55 * k });
+      add(G.sph2, SNOW, { s: 0.26 * k, y: 0.82 * k });
+      add(G.cone6, '#ff8a2a', { sx: 0.05 * k, sy: 0.16 * k, sz: 0.05 * k, y: 0.82 * k, z: 0.17 * k, rx: Math.PI / 2 });          // 胡萝卜鼻子
+      for (const sg of [-1, 1]) add(G.sph, DARK, { s: 0.035 * k, x: sg * 0.06 * k, y: 0.87 * k, z: 0.115 * k });
+      for (const yy of [0.5, 0.6, 0.29]) add(G.sph, DARK, { s: 0.035 * k, y: yy * k, z: (yy > 0.4 ? 0.178 : 0.248) * k });
+      add(G.torus16, '#c8322a', { s: 0.32 * k, rx: Math.PI / 2, y: 0.71 * k });                                     // 红围巾
+      box('#c8322a', 0.07 * k, 0.2 * k, 0.03 * k, 0.08 * k, 0.6 * k, 0.15 * k, { rz: 0.2 });
+      add(G.cyl12, DARK, { sx: 0.2 * k, sy: 0.04 * k, sz: 0.2 * k, y: 0.95 * k }); add(G.cyl12, DARK, { sx: 0.14 * k, sy: 0.16 * k, sz: 0.14 * k, y: 1.04 * k }); // 旧礼帽
+      for (const sg of [-1, 1]) { seg(WOOD2, P(sg * 0.16, 0.6, 0), P(sg * 0.42, 0.78, 0.02), 0.025 * k); seg(WOOD2, P(sg * 0.36, 0.74, 0.01), P(sg * 0.42, 0.86, 0), 0.018 * k); } // 树枝胳膊
+      add(G.ico, SNOW2, { s: 0.09, x: 0.3, y: 0.04, z: 0.2, jit: 0.3 }); add(G.ico, SNOW2, { s: 0.07, x: -0.28, y: 0.03, z: 0.26, jit: 0.3 }); // 滚剩的雪球
+      drift(0.3, -0.25, 0.22, 0.14);
+      break;
+    }
+    case 'lanterns': {
+      // 两根木杆之间拉一根绳，挂一串红灯笼（绳子往下垂）
+      const A = [-0.75, 0, 0.55], B = [0.75, 0, -0.55], H0 = 1.55;
+      for (const q of [A, B]) { box(STONE, 0.2, 0.12, 0.2, q[0], 0.06, q[2]); add(G.cyl6, WOOD2, { sx: 0.07, sy: H0, sz: 0.07, x: q[0], y: H0 / 2, z: q[2] }); add(G.sph, '#d8b060', { s: 0.07, x: q[0], y: H0 + 0.03, z: q[2] }); }
+      const at = u => [A[0] + (B[0] - A[0]) * u, H0 - 0.08 - Math.sin(u * Math.PI) * 0.32, A[2] + (B[2] - A[2]) * u];
+      for (let i = 0; i < 8; i++) seg('#4a3a2a', at(i / 8), at((i + 1) / 8), 0.012);
+      for (let i = 1; i <= 5; i++) {
+        const q = at(i / 6), c = i % 2 ? '#ff5a3a' : '#ff7a2a';
+        seg('#4a3a2a', q, [q[0], q[1] - 0.08, q[2]], 0.01);
+        lit(G.sph2, c, { sx: 0.16, sy: 0.19, sz: 0.16, x: q[0], y: q[1] - 0.18, z: q[2] });
+        add(G.cyl8, '#3a2a1a', { sx: 0.1, sy: 0.03, sz: 0.1, x: q[0], y: q[1] - 0.08, z: q[2] }); add(G.cyl8, '#3a2a1a', { sx: 0.08, sy: 0.03, sz: 0.08, x: q[0], y: q[1] - 0.28, z: q[2] });
+        box('#ffd060', 0.015, 0.08, 0.015, q[0], q[1] - 0.34, q[2]);
+      }
+      drift(-0.6, -0.4, 0.3, 0.2); drift(0.5, 0.5, 0.28, 0.18);
+      break;
+    }
+    case 'deerstatue': {
+      // 石台上一头昂着头的驯鹿铜像
+      const brz = '#8a6a3c', dk = '#6a4e2a';
+      box(STONE, 0.74, 0.16, 0.74, 0, 0.08, 0, { jit: 0.1 }); box('#a4aab2', 0.56, 0.24, 0.56, 0, 0.28, 0, { jit: 0.06 }); box(p.trim, 0.6, 0.04, 0.6, 0, 0.41, 0);
+      const y = 0.43;
+      add(G.cyl8, brz, { sx: 0.2, sy: 0.44, sz: 0.2, y: y + 0.32, rx: Math.PI / 2 });                          // 身子
+      for (const [x, z] of [[0.07, 0.15], [-0.07, 0.15], [0.07, -0.15], [-0.07, -0.15]]) add(G.cyl6, dk, { sx: 0.05, sy: 0.24, sz: 0.05, x, y: y + 0.12, z });
+      seg(brz, [0, y + 0.36, -0.18], [0, y + 0.6, -0.26], 0.08);                                                 // 脖子
+      add(G.cone6, brz, { sx: 0.1, sy: 0.22, sz: 0.11, y: y + 0.62, z: -0.33, rx: -1.9 });                      // 头
+      for (const sg of [-1, 1]) { const b0 = [sg * 0.04, y + 0.7, -0.27]; seg(dk, b0, [sg * 0.16, y + 0.92, -0.24], 0.02); seg(dk, [sg * 0.11, y + 0.84, -0.25], [sg * 0.13, y + 0.94, -0.33], 0.016); seg(dk, [sg * 0.16, y + 0.92, -0.24], [sg * 0.22, y + 1.0, -0.18], 0.016); } // 鹿角
+      add(G.cone5, brz, { sx: 0.06, sy: 0.1, sz: 0.04, y: y + 0.42, z: 0.24, rx: 2.4 });                          // 小尾巴
+      add(G.hemi, SNOW, { sx: 0.2, sy: 0.05, sz: 0.36, y: y + 0.42 });
+      drift(0.3, 0.3, 0.24, 0.16);
+      break;
+    }
+    case 'bonearch': {
+      // 两根巨兽长牙从石堆里伸出来，弯成一道圆拱，顶上用皮绳捆住、架着头骨；两侧各插一根肋骨，像走进一副骨架里
+      const bone = '#e6dcc4', bn2 = '#cfc2a4', hy = 1.62;
+      const arc = (sg, z, R, H, x0, t0, t1, n) => { let prev = null; for (let i = 0; i <= n; i++) { const u = i / n, a = u * Math.PI / 2, q = [sg * (x0 + R * Math.cos(a)), 0.08 + H * Math.sin(a), z]; if (prev) seg(i % 3 ? bone : bn2, prev, q, t0 + (t1 - t0) * u); prev = q; } };
+      for (const sg of [-1, 1]) {
+        add(G.dode, STONE, { sx: 0.46, sy: 0.26, sz: 0.46, x: sg * 0.76, y: 0.08, jit: 0.12 });
+        arc(sg, 0, 0.7, hy - 0.16, 0.06, 0.15, 0.07, 10);                                      // 长牙
+        for (const z of [-0.5, 0.5]) arc(sg, z, 0.5, 0.95, 0.1, 0.06, 0.03, 6);                  // 肋骨
+      }
+      add(G.cyl12, WOOD2, { sx: 0.13, sy: 0.16, sz: 0.13, y: hy - 0.06, rz: Math.PI / 2 });     // 捆牙尖的皮绳
+      // 头骨：圆顶、眼窝、两根小角
+      add(G.sph2, bone, { sx: 0.3, sy: 0.22, sz: 0.28, y: hy + 0.1 });
+      box(bn2, 0.18, 0.1, 0.22, 0, hy + 0.02, 0.1);
+      for (const sg of [-1, 1]) { add(G.sph, DARK, { s: 0.055, x: sg * 0.065, y: hy + 0.11, z: 0.12 }); seg(bone, [sg * 0.11, hy + 0.17, 0], [sg * 0.24, hy + 0.34, -0.05], 0.03); }
+      add(G.hemi, SNOW, { sx: 0.26, sy: 0.06, sz: 0.24, y: hy + 0.2 });
+      for (const [x, z] of [[0.3, 0.6], [-0.4, -0.5], [0.7, -0.3]]) add(G.ico, STONE, { s: 0.14, x, y: 0.06, z, jit: 0.3 });
+      drift(0.2, 0.62, 0.36, 0.2); drift(-0.6, -0.55, 0.3, 0.2);
+      break;
+    }
+    case 'pyremem': case 'skymem': {
+      // 方尖碑：几层石台、碑身、铜铭牌，碑顶一盏长明的铁火盆（天火的那座更高，顶上一颗星晶，四角也有火盆）
+      const sky = type === 'skymem', S0 = sky ? 1.0 : 0.62, H = sky ? 2.3 : 1.35;
+      box(STONE, S0 + 0.2, 0.16, S0 + 0.2, 0, 0.08, 0, { jit: 0.08 }); box('#a4aab2', S0, 0.14, S0, 0, 0.23, 0, { jit: 0.05 });
+      add(G.frust8, sky ? '#b8b0a2' : '#9ea4ac', { sx: S0 * 0.55, sy: H, sz: S0 * 0.55, y: 0.3 + H / 2, ry: Math.PI / 8, jit: 0.04 });
+      for (let k = 1; k <= 2; k++) add(G.torus16, sky ? '#c8a050' : '#4a4e56', { s: S0 * 0.5 * (1 - k * 0.06), rx: Math.PI / 2, y: 0.3 + H * k / 3 });
+      box('#5a4a38', S0 * 0.34, 0.2, 0.02, 0, 0.62, S0 * 0.27); box('#c8a860', S0 * 0.26, 0.02, 0.022, 0, 0.66, S0 * 0.275); box('#c8a860', S0 * 0.2, 0.02, 0.022, 0, 0.6, S0 * 0.275);
+      const ty = 0.3 + H;
+      add(G.cyl8, p.metal, { sx: S0 * 0.42, sy: 0.12, sz: S0 * 0.42, y: ty + 0.06 }); add(G.cone8, p.metal, { sx: S0 * 0.4, sy: 0.12, sz: S0 * 0.4, y: ty - 0.04, rx: Math.PI });
+      lit(G.cone6, sky ? '#ffe070' : '#ffb040', { sx: S0 * 0.3, sy: sky ? 0.5 : 0.36, sz: S0 * 0.3, y: ty + (sky ? 0.38 : 0.3) });
+      lit(G.cone5, '#fff4c0', { sx: S0 * 0.14, sy: sky ? 0.32 : 0.2, sz: S0 * 0.14, y: ty + (sky ? 0.34 : 0.26) });
+      if (sky) {
+        lit(G.oct, '#bfe8ff', { sx: 0.16, sy: 0.3, sz: 0.16, y: ty + 0.85 });
+        for (const [x, z] of [[0.58, 0.58], [-0.58, 0.58], [0.58, -0.58], [-0.58, -0.58]]) { add(G.cyl6, p.metal, { sx: 0.05, sy: 0.4, sz: 0.05, x, y: 0.36, z }); add(G.cyl8, p.metal, { sx: 0.16, sy: 0.06, sz: 0.16, x, y: 0.58, z }); lit(G.cone5, '#ffb040', { sx: 0.1, sy: 0.16, sz: 0.1, x, y: 0.68, z }); }
+      }
+      add(G.hemi, SNOW, { sx: S0 * 0.5, sy: 0.05, sz: S0 * 0.5, y: 0.3 + H * 0.995 - 0.02 });
+      drift(S0 * 0.5, S0 * 0.5, 0.24, 0.16);
       break;
     }
     case 'flowerhouse': {

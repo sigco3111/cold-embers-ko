@@ -8,7 +8,8 @@ import { getWorld, idx, W, H } from './worldgen.js';
 import { iconize, injectIcons } from './icons.js';
 import { BigMap } from './bigmap.js';
 import { ChainMap } from './chainmap.js';
-import { Photo } from './photo.js';
+import { Photo, compose, captionOf } from './photo.js';
+import { albumAdd, toJpeg } from './album.js';
 import { downloadsApi, saveFile, pickTextFile, stamp } from './files.js';
 import { Hints, WHATS_NEW, whatsNewHtml } from './hints.js';
 
@@ -313,7 +314,7 @@ class Game {
       else if (f.kind === 'fest') { if (!quiet) { this.sfx('win'); const c = Sim.getCamp(this.S, f.camp), L = c && this.view.lifeSpots(c); if (L && L.fest) for (let k = 0; k < 4; k++) setTimeout(() => this.view.burst('spark', L.fest[0] + (Math.random() - 0.5) * 2, L.fest[1] + (Math.random() - 0.5) * 2, 30, 0.3, 2.5 + Math.random()), k * 450); } }
       else if (f.kind === 'festdone') { if (!quiet) { this.sfx('up'); const c = Sim.getCamp(this.S, f.camp); if (c) this.view.ringFx && this.view.ringFx(c.x, c.y, 3); } } // 离线补算时达成的也报一下
       else if (f.kind === 'odstall') { if (!quiet) { this.sfx('lose'); const c = Sim.getCamp(this.S, f.camp); if (c) this.view.burst('dust', c.x, c.y, 30, 1.2, 2.5); } }
-      else if (f.kind === 'star' || f.kind === 'mile') { if (!quiet) { this.sfx('win'); const c = Sim.mainCamp(this.S); if (c) this.fireworks(c.x, c.y, f.kind === 'star' ? 3 + f.star * 2 : 4); } }
+      else if (f.kind === 'star' || f.kind === 'mile') { if (!quiet) { this.sfx('win'); const c = Sim.mainCamp(this.S); if (c) this.fireworks(c.x, c.y, f.kind === 'star' ? 3 + f.star * 2 : 4); if (f.kind === 'star' && f.star >= 3 && !this.S.meta.alb3) { this.S.meta.alb3 = 1; this.albumShot(`${RES[f.r] ? RES[f.r].n : ''}产线三星`, 2200); } } }
       else if (f.kind === 'depart') { if (!quiet) this.sfx('horn'); }
       else if (f.kind === 'road') { if (!quiet) { if (this.speed > 1) this.setSpeed(1); if (!document.getElementById('modal').classList.contains('show') && !this.titleOn && this.ui.roadModal()) this.sfx('event'); } }
       else if (f.kind === 'douse') { if (!quiet) { this.view.burst('dust', f.x, f.y, 40, 2, 1.5); this.view.ringFx && this.view.ringFx(f.x, f.y, 3); } }
@@ -321,8 +322,8 @@ class Game {
       else if (f.kind === 'trip-arrived') { if (!quiet) this.sfx('event'); }
       else if (f.kind === 'trip-arrived') { if (!quiet) { if (this.speed > 1) this.setSpeed(1); this.sfx('horn'); if (!document.getElementById('modal').classList.contains('show') && !this.titleOn && !this.place) this.startArrive(); } }
       else if (f.kind === 'skyfire') this.skyCine();
-      else if (f.kind === 'tower-lit') { if (!quiet && f.n < Sim.TOWER_N) { this.sfx('win'); this.view.focus(f.x, f.y); this.view.cam.tdist = Math.max(this.view.cam.tdist, 34); this.fireworks(f.x, f.y, 8); this.view.burst('spark', f.x, f.y, 40, 1.2, 1.6); this.view.ringFx && this.view.ringFx(f.x, f.y, 3); } }
-      else if (f.kind === 'arrive-stop') { if (!quiet) { this.sfx('win'); const c = Sim.mainCamp(this.S); if (c) { this.view.focus(c.x, c.y); this.fireworks(c.x, c.y, 6); } } }
+      else if (f.kind === 'tower-lit') { if (!quiet && f.n < Sim.TOWER_N) { this.sfx('win'); this.view.focus(f.x, f.y); this.view.cam.tdist = Math.max(this.view.cam.tdist, 34); this.fireworks(f.x, f.y, 8); this.view.burst('spark', f.x, f.y, 40, 1.2, 1.6); this.view.ringFx && this.view.ringFx(f.x, f.y, 3); this.albumShot(`${Sim.towerName(f.n)}点亮`, 3200); } }
+      else if (f.kind === 'arrive-stop') { if (!quiet) { this.sfx('win'); const c = Sim.mainCamp(this.S); if (c) { this.view.focus(c.x, c.y); this.fireworks(c.x, c.y, 6); } const st = Sim.stopOf(this.S, f.k); this.albumShot(`抵达${st ? st.n : '新的一站'}`, 3600); } }
       else if (f.kind === 'trueend') { if (!quiet) { this.sfx('win'); const c = Sim.mainCamp(this.S); if (c) this.fireworks(c.x, c.y, 10); } this.modalOrLater(`<h2>🏔 世界之脊</h2><p class="story">${STORY.trueEnd}</p><p>这是北行真正的终点。你可以留在这里接着经营，往北还有无尽的冰原；也可以在菜单里开始一次新的北行，余烬、专家、收集册和遗物都会留着。</p>`, [{ t: '好', a: 'ending', cls: 'go' }]); }
       else if (f.kind === 'ending') this.ui.modal(`<h2>🌟 永恒之炉重燃</h2><p class="story">${STORY.ending}</p><p>你用了 ${this.S.meta.runs} 次北行完成了旅程。车队可以接着往北走，世界之脊还在更远的地方；也可以在菜单里开始一次新的北行。</p>`, [{ t: '继续', a: 'ending', cls: 'go' }]);
     }
@@ -380,6 +381,7 @@ class Game {
     // 跳过的话直接到最后那个镜头：永恒之炉，朝北，光柱排到天边
     if (C.t < C.last + 3.4) { const p = C.pts.at(-1), v = this.view, c = v.cam; for (; C.i < C.segs.length; C.i++) { const q = C.segs[C.i].b; if (q.n) v.flashPillar(q.n); } v.focus(p.x, p.y, true); c.dist = c.tdist = 46 * (innerWidth < innerHeight ? 1.5 : 1); c.yaw = c.tyaw = C.yaw + Math.PI / 2 - 0.3; v.photoPitch = 0.16; v.pillarWide = 1; v.camera.far = 2000; v.camera.updateProjectionMatrix(); }
     this.skyBackTo = C.back;
+    if (!Sim.skyEnded(this.S) || !this.S.tower.end.seen) this.albumShot('天火点燃 · 十道光柱连回永恒之炉', 700, true);
     this.ui.skyEndModal();
   }
   skyBack() {
@@ -397,6 +399,23 @@ class Game {
     for (let k = 0; k < n; k++) setTimeout(() => { const a = Math.random() * 6.28, r = 2 + Math.random() * 5; this.view.burst('spark', x + Math.cos(a) * r, y + Math.sin(a) * r, 26, 1.4, 2.2); if (this.view.ringFx && k % 2 === 0) this.view.ringFx(x + Math.cos(a) * r, y + Math.sin(a) * r, 1.2); }, k * 380);
   }
   // 收集册：成就单独报（有余烬），其余新进册的合成一条
+  // 自动收进相册：等镜头落定再拍下一帧（拍照模式、终章镜头、切到后台时不拍；终章那张例外）
+  albumShot(cap, delay = 3000, inCine = false, tries = 4) {
+    setTimeout(() => {
+      const v = this.view;
+      if (document.hidden || this.titleOn || (this.photo && this.photo.on) || (this.cine && !inCine)) return;
+      if (v.shotCb) { if (tries > 0) this.albumShot(cap, 1500, inCine, tries - 1); return; } // 上一张还没拍完：等一等
+      v.shotCb = async src => {
+        try {
+          const S = this.S, cv = compose(this, src, { frame: Sim.frameOf(S), cap: captionOf(S, cap) }), j = await toJpeg(cv);
+          if (!j) return;
+          await albumAdd({ blob: j.blob, w: j.w, h: j.h, cap, auto: 1 });
+          this.ui.albumDirty && this.ui.albumDirty();
+          if (!this.cine && !this.skyBackTo) this.ui.toast(`📔 收进相册：${cap}`, 'info', { act: 'album', label: '看看' });
+        } catch (e) { /* 拍不了就算了 */ }
+      };
+    }, delay);
+  }
   bookFx(f) {
     // 标题画面还开着（或刚读档）时先攒着，进游戏后再报，免得提示在看不见的时候就过期了
     if ((this.photo && this.photo.on) || this.cine || this.skyBackTo) { (this.bookLater ||= []).push(f); return; } // 拍照、终章镜头时不弹提示，退出后再报

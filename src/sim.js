@@ -450,9 +450,9 @@ export function storeCap(S, camp) {
   for (const b of S.buildings) if (b.camp === camp.id && b.type === 'warehouse') cap += BLD.warehouse.store * Math.pow(b.lvl, 1.2);
   return Math.round(cap * (1 + techSum(S, 'cap')));
 }
-export function unlocked(S, type) { const d = BLD[type]; return d.t <= S.known && (!d.stage || journeyOf(S).stage >= d.stage) && (!d.rule || ruleNow(S) === d.rule) && (!d.tower || !towerLock(S, type)); }
+export function unlocked(S, type) { const d = BLD[type]; return d.t <= S.known && (!d.gift || cosHave(S, 'deco', type)) && (!d.stage || journeyOf(S).stage >= d.stage) && (!d.rule || ruleNow(S) === d.rule) && (!d.tower || !towerLock(S, type)); }
 // 永恒之炉以北的新东西：走到那一程才解锁；北境地貌的建筑：只有那种地貌的站能建
-export const stageLock = (S, type) => { const d = BLD[type]; if (d.rule && ruleNow(S) !== d.rule) return `只有在「${NORTH_RULES[d.rule].n}」的站才能建`; if (d.tower && towerLock(S, type)) return towerLock(S, type); return d.stage && journeyOf(S).stage < d.stage ? `走到「${stopOf(S, d.stage).n}」才能建` : ''; };
+export const stageLock = (S, type) => { const d = BLD[type]; if (d.gift && !cosHave(S, 'deco', type)) { const a = giftFrom('deco', type); return `成就「${a && a.hid && !bookOf(S).a[a.id] ? '？？？' : a ? a.n : '？'}」解锁`; } if (d.rule && ruleNow(S) !== d.rule) return `只有在「${NORTH_RULES[d.rule].n}」的站才能建`; if (d.tower && towerLock(S, type)) return towerLock(S, type); return d.stage && journeyOf(S).stage < d.stage ? `走到「${stopOf(S, d.stage).n}」才能建` : ''; };
 export const forecastOf = S => FORECAST * (journeyOf(S).stage >= 9 ? 2 : 1) * (ruleNow(S) === 'storm' ? 2 : 1); // 到了极光观测站，天气预报提前一倍；风暴走廊再早一倍
 // 加工厂不把基础建材吃光：锯木厂不会把木材全锯成木板、炼钢厂不会把铁锭用完——仓库里留两成（最多 300）给建造。
 // 只管前两层的建材；更高层的中间品本来就是为了往下加工，留料会卡住整条链
@@ -3679,6 +3679,21 @@ export function titleOf(S) {
   return best ? TITLES[best] : '';
 }
 export function setTitle(S, id) { if (id !== 'none' && !cosHave(S, 'title', id)) return { ok: false }; cosOf(S).title = id; return { ok: true }; }
+// 炉火颜色：全部营地一个默认色（跟着北迁走），单个营地还能另选；换过一次就算「换个颜色」
+export function flameOf(S, camp) { const C = S.meta.cos || {}, id = (camp && camp.flame) || C.flame || 'def'; return cosHave(S, 'flame', id) ? id : 'def'; }
+export function setFlame(S, cid, id) {
+  if (!FLAMES[id] || !cosHave(S, 'flame', id)) return { ok: false };
+  const C = cosOf(S);
+  if (cid == null) { C.flame = id; for (const c of S.camps) delete c.flame; }
+  else { const c = getCamp(S, cid); if (!c) return { ok: false }; if (id === (C.flame || 'def')) delete c.flame; else c.flame = id; }
+  C.fc = 1;
+  return { ok: true };
+}
+// 营地旗子的图案（旗杆和车队领头那辆车上都挂这一面）、照片相框的默认值
+export function flagOf(S) { const id = (S.meta.cos || {}).flag || 'def'; return cosHave(S, 'flag', id) ? id : 'def'; }
+export function setFlag(S, id) { if (!FLAGS[id] || !cosHave(S, 'flag', id)) return { ok: false }; cosOf(S).flag = id; return { ok: true }; }
+export function frameOf(S) { const id = (S.meta.cos || {}).frame || 'none'; return cosHave(S, 'frame', id) ? id : 'none'; }
+export function setFrame(S, id) { if (!FRAMES[id] || !cosHave(S, 'frame', id)) return { ok: false }; cosOf(S).frame = id; return { ok: true }; }
 export const BOOK_BLD = Object.keys(BLD);
 export function bookOf(S) {
   const m = S.meta, B = m.book || (m.book = {});

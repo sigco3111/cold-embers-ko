@@ -5,6 +5,8 @@ import { personOf, personState, campVoices } from './people.js';
 import { getWorld, idx, W, H } from './worldgen.js';
 import { iconize } from './icons.js';
 import { chartHtml, chartHover, chartLeave, CV_COL, fmtV, dayLabel } from './curves.js';
+import { drawFlag, drawFrame } from './cosmetic.js';
+import { albumList, AlbumView, ALBUM_MAX } from './album.js';
 
 export const ICON = {
   furnace: '🔥', tent: '⛺', lumber: '🪓', nursery: '🌲', quarry: '⛏️', hunter: '🏹', sawmill: '🪚', kitchen: '🍲', warehouse: '📦', tower: '🗼', scout: '🚩', sledshed: '🛷', kennel: '🐕', workshop: '🔬', lamp: '🏮', flagpole: '🚩', infirmary: '🩺', statue: '🗽', flowerhouse: '🌷',
@@ -1866,14 +1868,77 @@ export class UI {
   // ---------- 装扮：成就送的称号、炉火颜色、旗子、相框、北境装饰 ----------
   p_dress(part) {
     if (part === 'title') return '装扮';
-    const S = this.S, C = Sim.cosOf(S), cur = Sim.titleOf(S);
-    const lockTxt = (k, id) => { const a = Sim.giftFrom(k, id); return a ? `成就「${a.hid && !Sim.bookOf(S).a[a.id] ? '？？？' : a.n}」` : ''; };
+    const S = this.S, cur = Sim.titleOf(S), B = Sim.bookOf(S);
+    const lockTxt = (k, id) => { const a = Sim.giftFrom(k, id); return a ? `成就「${a.hid && !B.a[a.id] ? '？？？' : a.n}」` : ''; };
     let h = `<div class="hint">装扮只是好看，不改数值。做到成就就能解锁，北迁以后也留着。</div>`;
+    // 称号
     h += `<div class="sec">🎖 称号<small>显示在主营地名字下面，也印在照片角上</small></div><div class="dgrid">`;
-    h += `<button class="dchip ${!cur ? 'on' : ''}" data-act="settitle" data-arg="none"><b>不显示</b></button>`;
-    for (const id in TITLES) { const have = Sim.cosHave(S, 'title', id); h += `<button class="dchip ${have ? '' : 'off'} ${have && cur === TITLES[id] ? 'on' : ''}" ${have ? `data-act="settitle" data-arg="${id}"` : 'disabled'}><b>${have ? TITLES[id] : '？？？'}</b>${have ? '' : `<small>${lockTxt('title', id)}</small>`}</button>`; }
+    h += `<button class="dpick ${!cur ? 'on' : ''}" data-act="settitle" data-arg="none"><b>不显示</b></button>`;
+    for (const id in TITLES) { const have = Sim.cosHave(S, 'title', id); h += `<button class="dpick ${have ? '' : 'off'} ${have && cur === TITLES[id] ? 'on' : ''}" ${have ? `data-act="settitle" data-arg="${id}"` : 'disabled'}><b>${have ? TITLES[id] : '？？？'}</b>${have ? '' : `<small>${lockTxt('title', id)}</small>`}</button>`; }
     h += '</div>';
-    return h + (this.dressMore ? this.dressMore() : '');
+    // 炉火颜色：全部营地一起换，营地多的话还能单独给某一座换
+    const sw = (id, on, act, arg) => { const f = FLAMES[id], have = Sim.cosHave(S, 'flame', id), c = f.c || ['#fff2b8', '#ffc040', '#ff6a18'];
+      return `<button class="dsw2 ${on ? 'on' : ''} ${have ? '' : 'off'}" style="background:radial-gradient(circle at 50% 62%,${c[0]} 0 22%,${c[1]} 45%,${c[2]} 80%)" title="${have ? f.n : `${f.n}：${lockTxt('flame', id)}解锁`}" ${have ? `data-act="${act}" data-arg="${arg}"` : 'disabled'}></button>`; };
+    const all = (Sim.cosOf(S).flame && Sim.cosHave(S, 'flame', Sim.cosOf(S).flame)) ? Sim.cosOf(S).flame : 'def';
+    h += `<div class="sec">🔥 炉火颜色<small>熔炉的火苗和火光换个颜色</small></div><div class="dgrid">`;
+    for (const id in FLAMES) { const f = FLAMES[id], have = Sim.cosHave(S, 'flame', id), c = f.c || ['#fff2b8', '#ffc040', '#ff6a18'];
+      h += `<button class="dpick ${have ? '' : 'off'} ${have && all === id ? 'on' : ''}" ${have ? `data-act="setflame" data-arg="all:${id}"` : 'disabled'}><i class="dsw" style="background:radial-gradient(circle at 50% 62%,${c[0]} 0 22%,${c[1]} 45%,${c[2]} 80%)"></i><b>${have ? f.n : '？？？'}</b>${have ? '' : `<small>${lockTxt('flame', id)}</small>`}</button>`; }
+    h += '</div>';
+    if (S.camps.length > 1 && Object.keys(FLAMES).filter(id => Sim.cosHave(S, 'flame', id)).length > 1) {
+      h += `<div class="mlab">单独给某座营地换<small>不选就跟上面一样</small></div>`;
+      for (const c of S.camps) { const fo = Sim.flameOf(S, c); h += `<div class="dcamp"><span>${esc(c.name)}</span><div class="dsws">${Object.keys(FLAMES).filter(id => Sim.cosHave(S, 'flame', id)).map(id => sw(id, fo === id, 'setflame', c.id + ':' + id)).join('')}</div></div>`; }
+    }
+    // 旗子
+    const fl = Sim.flagOf(S);
+    h += `<div class="sec">🚩 营旗图案<small>挂在旗杆和北迁车队的领头车上</small></div><div class="dgrid">`;
+    for (const id in FLAGS) { const have = Sim.cosHave(S, 'flag', id);
+      h += `<button class="dpick ${have ? '' : 'off'} ${have && fl === id ? 'on' : ''}" ${have ? `data-act="setflag" data-arg="${id}"` : 'disabled'}><img src="${this.cosPrev('flag', id)}" alt=""><b>${have ? FLAGS[id].n : '？？？'}</b>${have ? '' : `<small>${lockTxt('flag', id)}</small>`}</button>`; }
+    h += '</div>';
+    // 相框
+    const fr = Sim.frameOf(S);
+    h += `<div class="sec">🖼 相框<small>拍照时默认套上的框，拍照工具条里也能换</small></div><div class="dgrid">`;
+    for (const id in FRAMES) { const have = Sim.cosHave(S, 'frame', id);
+      h += `<button class="dpick ${have ? '' : 'off'} ${have && fr === id ? 'on' : ''}" ${have ? `data-act="setframe" data-arg="${id}"` : 'disabled'}><img src="${this.cosPrev('frame', id)}" alt=""><b>${have ? FRAMES[id].n : '？？？'}</b>${have ? '' : `<small>${lockTxt('frame', id)}</small>`}</button>`; }
+    h += '</div>';
+    // 北境装饰
+    h += `<div class="sec">🗿 北境装饰<small>解锁后在「建造 → 装饰」里，也加希望</small></div>`;
+    for (const k of NDECO) { const d = BLD[k], have = Sim.cosHave(S, 'deco', k);
+      h += `<div class="ndeco"><b>${have ? d.n : '？？？'}</b><small>${have ? `希望 +${d.hope} · ${Object.entries(d.cost).map(([r, v]) => `${RICON[r] || ''}${v}`).join(' ')}` : lockTxt('deco', k) + '解锁'}</small>${have ? `<button class="btn" data-act="place" data-arg="${k}">去建造</button>` : ''}</div>`; }
+    return h;
+  }
+  // ---------- 相册：新的在前，点开看大图 ----------
+  p_album(part) {
+    if (part === 'title') return '相册';
+    if (!this.album) { this.loadAlbum(); return '<div class="hint">正在翻相册…</div>'; }
+    const L = this.album;
+    let h = `<div class="hint">抵达新一站、点亮烽火塔、第一次三星产线、点燃天火时会自动拍一张；拍照模式里也能「收进相册」。照片存在这台设备的浏览器里，最多 ${ALBUM_MAX} 张，满了先挤掉最早的自动照片。</div>`;
+    if (!L.length) return h + '<div class="empty">相册还是空的。先去拍一张吧。</div><button class="btn go" data-act="photo">📷 拍照模式</button>';
+    h += `<div class="mlab">${L.length} 张<small>${L.filter(r => r.auto).length} 张自动拍的</small></div><div class="algrid">`;
+    for (const r of L) { const d = new Date(r.t); h += `<button class="alcell" data-act="albumview" data-arg="${r.id}"><img src="${this.albumUrl(r)}" alt=""><small>${esc(r.cap || '')}<i>${d.getMonth() + 1}/${d.getDate()}</i></small></button>`; }
+    return h + '</div>';
+  }
+  albumUrl(r) { const M = this.albumUrls || (this.albumUrls = new Map()); if (!M.has(r.id)) { try { M.set(r.id, URL.createObjectURL(r.blob)); } catch (e) { M.set(r.id, ''); } } return M.get(r.id); }
+  async loadAlbum() {
+    if (this.albumLoading) return; this.albumLoading = true;
+    try { this.album = await albumList(); } catch (e) { this.album = []; }
+    this.albumLoading = false;
+    if (this.panel && (this.panel.kind === 'album' || this.panel.kind === 'menu')) { this.lastHtml = ''; this.renderPanel(true); }
+  }
+  albumDirty() { this.album = null; if (this.panel && (this.panel.kind === 'album' || this.panel.kind === 'menu')) this.loadAlbum(); }
+  // 装扮页的小样：旗面、相框各画一张小图，画一次就记住
+  cosPrev(kind, id) {
+    const C = this._cosPrev || (this._cosPrev = {}), k = kind + id;
+    if (C[k]) return C[k];
+    const c = document.createElement('canvas'), x = c.getContext('2d');
+    if (kind === 'flag') { c.width = 128; c.height = 80; if (id === 'def') { x.fillStyle = '#b8402e'; x.fillRect(0, 0, 128, 80); x.fillStyle = '#c85a3a'; x.fillRect(43, 0, 42, 80); x.fillStyle = '#f0d090'; x.fillRect(60, 34, 40, 10); } else drawFlag(x, id, 128, 80); }
+    else {
+      c.width = 192; c.height = 120;
+      const g = x.createLinearGradient(0, 0, 0, 120); g.addColorStop(0, '#8fa6bf'); g.addColorStop(0.55, '#dfe7ef'); g.addColorStop(1, '#f4f6f8'); x.fillStyle = g; x.fillRect(0, 0, 192, 120);
+      x.fillStyle = '#5b4a3a'; x.beginPath(); x.moveTo(70, 92); x.lineTo(96, 52); x.lineTo(122, 92); x.closePath(); x.fill();
+      x.fillStyle = '#ff9a3a'; x.beginPath(); x.arc(96, 84, 6, 0, 7); x.fill();
+      drawFrame(x, id, 192, 120, 1.8);
+    }
+    try { return (C[k] = c.toDataURL('image/png')); } catch (e) { return ''; }
   }
   p_book(part) {
     const S = this.S;
@@ -2033,7 +2098,8 @@ export class UI {
     { const B = Sim.bookOf(S), got = Sim.ACH.filter(x => B.a[x.id]).length, nf = B.fresh.filter(f => f.startsWith('a:')).length;
       h += `<div class="mrow2"><button class="mlink" data-act="ach"><span>🏆</span><span>成就${nf ? `<b class="mnew">${nf} 新</b>` : ''}<small>${got}/${Sim.ACH.length} · 按类别看进度和奖励</small></span><i>›</i></button><button class="mlink" data-act="dress"><span>🎨</span><span>装扮<small>称号、炉火、旗子、相框</small></span><i>›</i></button></div>`; }
     h += `<button class="mlink" data-act="curve"><span>📈</span><span>数据曲线<small>人口、心情、温度，物资的储量和产量怎么变的</small></span><i>›</i></button>`;
-    h += `<button class="mlink" data-act="photo"><span>📷</span><span>拍照模式<small>藏起界面，换时辰、滤镜和镜头角度，拍一张营地的照片（H）</small></span><i>›</i></button>`;
+    if (!this.album) this.loadAlbum();
+    h += `<div class="mrow2"><button class="mlink" data-act="photo"><span>📷</span><span>拍照模式<small>藏起界面，换时辰、滤镜、相框，拍一张（H）</small></span><i>›</i></button><button class="mlink" data-act="album"><span>📔</span><span>相册<small>${this.album ? `${this.album.length} 张 · ` : ''}一路上自动拍的和你收进来的</small></span><i>›</i></button></div>`;
     h += `<button class="mlink" data-act="help"><span>📖</span><span>怎么玩<small>建筑、生产线、寒冷和北行的规则</small></span><i>›</i></button>`;
     // 声音与画面
     const tg = (k, on, ic, n, d) => `<button class="tgl ${on ? 'on' : ''}" data-act="snd" data-arg="${k}"><span class="ti">${ic}</span><span class="tt">${n}<small>${d}</small></span><i class="sw"></i></button>`;
@@ -2381,6 +2447,11 @@ export class UI {
       case 'ach': this.achShown = null; this.open('ach'); break;
       case 'dress': this.open('dress'); break;
       case 'settitle': Sim.setTitle(S, arg); break;
+      case 'setflame': { const [cid, id] = arg.split(':'); Sim.setFlame(S, cid === 'all' ? null : +cid, id); break; }
+      case 'setflag': Sim.setFlag(S, arg); g.view.syncBuildings(true); break;
+      case 'album': this.open('album'); break;
+      case 'albumview': { const r = (this.album || []).find(x => String(x.id) === arg); if (r) { this.albumView ||= new AlbumView(id => { const u = this.albumUrls && this.albumUrls.get(id); if (u) { URL.revokeObjectURL(u); this.albumUrls.delete(id); } this.albumDirty(); }); this.albumView.show(r, this.albumUrl(r)); } break; }
+      case 'setframe': Sim.setFrame(S, arg); if (g.photo) g.photo.fr = arg; break;
       case 'skyreplay': this.close(); g.skyCine(); break;
     }
     this.renderPanel(true);

@@ -1,10 +1,11 @@
 // 2.5D 画面：斜俯视镜头、低多边形地形、建筑、小人、迷雾、雪、烟
 import * as THREE from 'three';
 import { W, H, BASE_H, getWorld, idx, T_SNOW, T_ROCK, T_ICE, hash3 } from './worldgen.js';
-import { SPOT_KEYS, SPOTS, BLD, LANDMARKS, LM_R, FAR_MARKS, RES, furnaceRadius, RAIDERS, tierOfRow, ETERNAL_STAGES, dayCycle, FOCUS } from './data.js';
+import { SPOT_KEYS, SPOTS, BLD, LANDMARKS, LM_R, FAR_MARKS, RES, furnaceRadius, RAIDERS, tierOfRow, ETERNAL_STAGES, dayCycle, FOCUS, FLAMES } from './data.js';
 import * as M from './models.js';
 import * as Sim from './sim.js';
 import { RICON } from './ui.js';
+import { drawFlag } from './cosmetic.js';
 
 const toW = (x, y) => new THREE.Vector3(x, 0, -y);
 const RESCOL = Object.fromEntries(Object.entries(RES).map(([k, v]) => [k, new THREE.Color(v.c)]));
@@ -771,12 +772,30 @@ void main() {
     return this.pTex;
   }
   gkey(type, lvl) { return type === 'furnace' ? `f:${lvl}` : `${type}:${M.visTier(type, lvl)}:${type === 'tent' && lvl >= 3 ? 1 : 0}:${Math.min(20, lvl)}`; }
-  bgeo(type, lvl, deep = false) {
+  bgeo(type, lvl, deep = false, opt = '') {
     this.geoCache ||= new Map();
-    const key = this.gkey(type, lvl) + (deep ? ':deep' : '');
+    const key = this.gkey(type, lvl) + (deep ? ':deep' : '') + (opt ? ':' + opt : '');
     let g = this.geoCache.get(key);
-    if (!g) { g = M.buildingGeo(type, lvl, deep); this.geoCache.set(key, g); }
+    if (!g) { g = M.buildingGeo(type, lvl, deep, opt); this.geoCache.set(key, g); }
     return g;
+  }
+  // 成就送的旗子图案：贴图和材质每种一份；旗面是一块会飘的平面（每面旗自己一份顶点）
+  patMat(id) {
+    const C = this._patMats || (this._patMats = {});
+    if (C[id]) return C[id];
+    const c = document.createElement('canvas'); c.width = 128; c.height = 80; drawFlag(c.getContext('2d'), id, 128, 80);
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+    return (C[id] = new THREE.MeshLambertMaterial({ map: t, emissive: '#ffffff', emissiveMap: t, emissiveIntensity: 0.28, side: THREE.DoubleSide }));
+  }
+  patFlag(id, w, h) {
+    const geo = new THREE.PlaneGeometry(w, h, 10, 2); geo.translate(w / 2, 0, 0);
+    const mesh = new THREE.Mesh(geo, this.patMat(id)); mesh.castShadow = true;
+    return { mesh, geo, w, base: Float32Array.from(geo.attributes.position.array), ph: Math.random() * 6 };
+  }
+  wave(f, t) {
+    const P = f.geo.attributes.position, a = P.array, B = f.base;
+    for (let i = 0; i < a.length; i += 3) { const x = B[i], k = x / f.w; a[i + 2] = Math.sin(t * 3.2 + f.ph - x * 5.5) * 0.09 * k; a[i + 1] = B[i + 1] - k * k * 0.05; }
+    P.needsUpdate = true; f.geo.computeVertexNormals();
   }
   // 建造队列：等材料的建筑画成半透明的蓝图
   // 袭击前点的火墙：营地供热圈外一圈火把，袭击过后再烧一会儿
@@ -1143,11 +1162,12 @@ void main() {
     for (const b of S.buildings) {
       seen.add(b.id);
       const lv = this.blvl(b), vt = M.visTier(b.type, lv);
-      const key = (b.type === 'furnace' ? `${lv}` : `${vt}:${b.type === 'tent' && lv >= 3 ? 1 : 0}:${Math.min(20, lv)}${b.deep ? ':d' : ''}`) + `@${b.x},${b.y}`; // 挪了位置也要重摆
+      const fid = b.type === 'flagpole' ? Sim.flagOf(S) : 'def';
+      const key = (b.type === 'furnace' ? `${lv}` : `${vt}:${b.type === 'tent' && lv >= 3 ? 1 : 0}:${Math.min(20, lv)}${b.deep ? ':d' : ''}`) + `@${b.x},${b.y}` + (fid !== 'def' ? ':' + fid : ''); // 挪了位置也要重摆
       let e = this.buildings.get(b.id);
       if (e && e.key === key) continue;
-      if (e) { this.bldGroup.remove(e.g); if (e.scaf) this.bldGroup.remove(e.scaf); }
-      const { geo, glow, h, flame, flameY } = this.bgeo(b.type, lv, !!b.deep);
+      if (e) { this.bldGroup.remove(e.g); if (e.scaf) this.bldGroup.remove(e.scaf); if (e.pf) e.pf.geo.dispose(); }
+      const { geo, glow, h, flame, flameY } = this.bgeo(b.type, lv, !!b.deep, fid !== 'def' ? 'bare' : '');
       const g = new THREE.Group();
       const m = new THREE.Mesh(geo, this.matStd); m.castShadow = true; m.receiveShadow = true; g.add(m);
       if (glow) g.add(new THREE.Mesh(glow, this.matWin));
@@ -1158,7 +1178,9 @@ void main() {
       g.userData.bid = b.id;
       this.bldGroup.add(g);
       const s0 = BLD[b.type].size, cx0 = b.x + s0 / 2, cy0 = b.y + s0 / 2;
-      const ent = { g, key, h, fl, camp: b.camp, ph: hash3(b.id, 3, 3) * 6, lvl: b.lvl, deep: !!b.deep, cons: 0, up: 0 };
+      let pf = null;
+      if (fid !== 'def') { const ph = 2.1 + 0.05 * Math.min(lv, 10); pf = this.patFlag(fid, 0.68, 0.42); pf.mesh.position.set(0.06, 0.22 + ph - 0.3, 0); pf.ph = hash3(b.id, 5, 5) * 6; g.add(pf.mesh); }
+      const ent = { g, key, h, fl, pf, type: b.type, camp: b.camp, ph: hash3(b.id, 3, 3) * 6, lvl: b.lvl, deep: !!b.deep, cons: 0, up: 0 };
       if (!e && !force) {
         // 新建：先搭脚手架，房子从地里一层层长出来
         ent.cons = 1;
@@ -1182,7 +1204,7 @@ void main() {
       }
       this.buildings.set(b.id, ent);
     }
-    for (const [id, e] of this.buildings) if (!seen.has(id)) { this.bldGroup.remove(e.g); if (e.scaf) this.bldGroup.remove(e.scaf); this.buildings.delete(id); }
+    for (const [id, e] of this.buildings) if (!seen.has(id)) { this.bldGroup.remove(e.g); if (e.scaf) this.bldGroup.remove(e.scaf); if (e.pf) e.pf.geo.dispose(); this.buildings.delete(id); }
     this.syncRuins();
     if (pathsStale) this.buildPaths();
     this.refreshPools();
@@ -2279,7 +2301,28 @@ void main() {
     this.cracks.material.opacity = k * 0.9; this.crackWater.material.opacity = k * 0.85;
   }
 
+  // 换了颜色的炉火：同一套火苗模型，按顶点颜色的亮度重新上色（芯 → 中 → 外焰）；极光色在青和紫之间慢慢流动
+  flameMat(id) {
+    const f = FLAMES[id];
+    if (!f || !f.c) return this.matGlow;
+    const C = this._flameMats || (this._flameMats = {});
+    if (C[id]) return C[id];
+    const m = new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false });
+    const u = { fc0: { value: new THREE.Color(f.c[0]) }, fc1: { value: new THREE.Color(f.c[1]) }, fc2: { value: new THREE.Color(f.c[2]) }, fSh: { value: f.shift ? 1 : 0 }, fT: this.flameT || (this.flameT = { value: 0 }) };
+    m.onBeforeCompile = sh => {
+      Object.assign(sh.uniforms, u);
+      sh.fragmentShader = 'uniform vec3 fc0, fc1, fc2; uniform float fSh, fT;\n' + sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+        { float lu = dot(vColor.rgb, vec3(0.2126, 0.7152, 0.0722)), t = clamp((lu - 0.3) / 0.58, 0.0, 1.0);
+          vec3 a2 = fc2, a1 = fc1;
+          if (fSh > 0.5) { float k = 0.5 + 0.5 * sin(fT * 1.3 + gl_FragCoord.y * 0.015 + gl_FragCoord.x * 0.006); a2 = mix(fc2, fc1, k); a1 = mix(fc1, fc2, k * 0.6); }
+          diffuseColor.rgb = t < 0.5 ? mix(a2, a1, t * 2.0) : mix(a1, fc0, t * 2.0 - 1.0); }`);
+    };
+    m.customProgramCacheKey = () => 'flamepal';
+    return (C[id] = m);
+  }
+
   animBuildings(dt) {
+    if (this.flameT) this.flameT.value = this.time;
     for (const [, e] of this.buildings) {
       if (e.cons > 0) {
         // 施工 2.4 秒：房子升起，最后脚手架收掉
@@ -2293,6 +2336,8 @@ void main() {
         }
       }
       if (e.up > 0) { e.up = Math.max(0, e.up - dt * 1.6); const s = 1 + Math.sin((1 - e.up) * Math.PI) * 0.08; e.g.scale.set(s, s, s); }
+      if (e.pf) this.wave(e.pf, this.time);
+      if (e.fl && e.type === 'furnace') { const mt = this.flameMat(Sim.flameOf(this.S, Sim.getCamp(this.S, e.camp))); if (e.fl.material !== mt) e.fl.material = mt; }
       if (e.fl) {
         // 火焰随燃料多少变化，并轻轻跳动
         // 超载时火苗蹿高、跳得更急，还往外冒火星；停炉时只剩一点余烬
@@ -2315,6 +2360,7 @@ void main() {
       const cr = Sim.rt(S).c[cp.id];
       const f = cr ? (cr.stall ? 0 : cr.fueled) : 1, od = cr && cr.od ? 1.45 : 1;
       l.position.set(cp.x, 3.2, -cp.y);
+      { const fp = FLAMES[Sim.flameOf(S, cp)].c; if (!fp) l.color.set('#ff8a30'); else { l.color.set(fp[1]); if (FLAMES[Sim.flameOf(S, cp)].shift) l.color.lerp(this._tc || (this._tc = new THREE.Color()).set(fp[2]), 0.5 + 0.5 * Math.sin(this.time * 1.3)); } }
       l.intensity = (9 + Math.sin(this.time * 7 + i) * 0.8 + Math.sin(this.time * 13) * 0.4) * (0.3 + 0.7 * f) * (1 + this.nf * 1.4) * od;
       l.distance = furnaceRadius(Sim.getB(S, cp.furnace).lvl) * (1.3 + this.nf * 0.5);
     });
@@ -2415,7 +2461,7 @@ void main() {
     if (tsig !== this.trailSig) { this.trailSig = tsig; this.syncTrail(); }
     this.animSupply();
     const m = this._cm || (this._cm = new THREE.Matrix4()), q = this._cq || (this._cq = new THREE.Quaternion()), e = this._ce || (this._ce = new THREE.Euler()), v = this._cv || (this._cv = new THREE.Vector3()), one = this._c1 || (this._c1 = new THREE.Vector3(1, 1, 1));
-    const n = { sled: 0, tractor: 0, icebreaker: 0 }; let nm = 0;
+    const n = { sled: 0, tractor: 0, icebreaker: 0 }; let nm = 0, lead = null;
     this.cvEmit = null;
     if (T) {
       // 车：破冰车打头开路，拖车跟着，雪橇在最后；破冰车隔 2.6 格，拖车 2.1 格，雪橇 1.6 格；还没出营地的先不画
@@ -2431,6 +2477,7 @@ void main() {
         const R = cv[k]; R.body.setMatrixAt(n[k], m); if (R.glow) R.glow.setMatrixAt(n[k], m); n[k]++;
         if (k === 'tractor' && moving) this.cvEmit.push([p.x - Math.cos(p.dir) * 0.1, p.y - Math.sin(p.dir) * 0.1, 0.9, 1.2]);
         if (i === 0 && this.followTrip) { this.cam.ttx = p.x; this.cam.tty = p.y; }
+        if (i === 0) lead = p;
       });
       // 前面的路：每隔一格一个小路标，一闪一闪往前走
       if (moving) {
@@ -2454,9 +2501,37 @@ void main() {
         }
       } else this.routePrev = null;
     }
+    this.cvFlagSync(lead);
     this.cvMarks.material.opacity = T ? 0.75 : this.routePrev ? 0.9 : 0.45;
     for (const k in cv) { cv[k].body.count = n[k]; cv[k].body.instanceMatrix.needsUpdate = true; if (cv[k].glow) { cv[k].glow.count = n[k]; cv[k].glow.instanceMatrix.needsUpdate = true; } }
     this.cvMarks.count = nm; this.cvMarks.instanceMatrix.needsUpdate = true;
+  }
+  // 车队领头那辆车插一面营旗（成就送的图案），旗面往车后飘
+  cvFlagSync(p) {
+    const id = p ? Sim.flagOf(this.S) : 'def';
+    if (this.cvFlagId !== id) {
+      this.cvFlagId = id;
+      if (this.cvFlag) { this.scene.remove(this.cvFlag.g); this.cvFlag.f.geo.dispose(); this.cvFlag = null; }
+      if (id !== 'def') {
+        const g = new THREE.Group(), H = 1.75;
+        this.flagPoleGeo ||= new THREE.CylinderGeometry(0.04, 0.055, 1, 6);
+        this.flagKnobGeo ||= new THREE.SphereGeometry(0.07, 8, 6);
+        this.flagPoleMat ||= new THREE.MeshLambertMaterial({ color: '#4a3a2c' });
+        this.flagKnobMat ||= new THREE.MeshLambertMaterial({ color: '#d8b060' });
+        const pole = new THREE.Mesh(this.flagPoleGeo, this.flagPoleMat); pole.scale.y = H; pole.position.y = H / 2; pole.castShadow = true;
+        const knob = new THREE.Mesh(this.flagKnobGeo, this.flagKnobMat); knob.position.y = H + 0.04;
+        const f = this.patFlag(id, 0.72, 0.45); f.mesh.position.y = H - 0.27;
+        g.add(pole, knob, f.mesh); this.scene.add(g);
+        this.cvFlag = { g, f };
+      }
+    }
+    if (!this.cvFlag) return;
+    const g = this.cvFlag.g;
+    // 插在车尾右角（不穿过驾驶室），旗面斜着往后飘，从上往下看也看得见图案
+    const bx = -Math.cos(p.dir) * 0.85 + Math.sin(p.dir) * 0.42, by = -Math.sin(p.dir) * 0.85 - Math.cos(p.dir) * 0.42;
+    g.position.set(p.x + bx, 0, -(p.y + by));
+    g.rotation.y = Math.PI + p.dir - 0.75;
+    this.wave(this.cvFlag.f, this.time || 0);
   }
   // ---------- 细节层级与动作 ----------
   // 会动的小人和动物：换上带动作的材质；小人另备一套拉近时用的精细模型
