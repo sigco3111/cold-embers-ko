@@ -192,7 +192,32 @@ export class Sound {
   }
 
   // ---------- 提示音 ----------
-  play(name) {
+  // 一口钟：几个不成整数倍的泛音，长长地响，带混响
+  sbell(t, m, peak, d = 2.6) {
+    const c = this.ctx, g = c.createGain();
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+    g.connect(this.sfxBus); g.connect(this.verb);
+    for (const [k, a] of [[0.5, 0.35], [1, 1], [2, 0.32], [2.76, 0.16], [5.4, 0.05]]) {
+      const o = c.createOscillator(); o.type = 'sine'; o.frequency.value = mtof(m) * k;
+      const og = c.createGain(); og.gain.value = a; o.connect(og); og.connect(g); o.start(t); o.stop(t + d + 0.1);
+    }
+  }
+  // 呼的一声：噪声慢慢涌起来，滤波往上扫（火焰腾起来）
+  whoosh(t, a, d, f0, f1, peak) {
+    const c = this.ctx, s = c.createBufferSource(); s.buffer = this.white;
+    const f = c.createBiquadFilter(); f.type = 'lowpass'; f.Q.value = 0.9; f.frequency.setValueAtTime(f0, t); f.frequency.exponentialRampToValueAtTime(f1, t + a); f.frequency.exponentialRampToValueAtTime(f0, t + a + d);
+    const g = c.createGain(); this.env(g, t, a, peak, d);
+    s.connect(f); f.connect(g); g.connect(this.sfxBus); g.connect(this.verb);
+    s.start(t, Math.random() * 3, a + d + 0.1);
+  }
+  // 低沉的长音（锯齿波过低通），天火过场垫底
+  drone(t, ms, a, hold, d, peak) {
+    const c = this.ctx, lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 520;
+    const g = c.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + a); g.gain.setValueAtTime(peak, t + a + hold); g.gain.exponentialRampToValueAtTime(0.0001, t + a + hold + d);
+    lp.connect(g); g.connect(this.sfxBus); g.connect(this.verb);
+    for (const m of ms) for (const det of [-5, 5]) { const o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.value = mtof(m); o.detune.value = det; o.connect(lp); o.start(t); o.stop(t + a + hold + d + 0.1); }
+  }
+  play(name, arg) {
     if (!this.ctx || this.ctx.state !== 'running' || !this.sfxOn) return;
     const t = this.ctx.currentTime + 0.01, out = this.sfxBus;
     const chime = (ms, gap, peak) => ms.forEach((m, i) => { const g = this.tone(t + i * gap, mtof(m), 'triangle', 0.005, 0.9, peak, out); g.connect(this.verb); });
@@ -205,6 +230,19 @@ export class Sound {
       case 'event': chime([69, 76], 0.18, 0.045); break;
       case 'tap': this.tone(t, 1300, 'sine', 0.001, 0.05, 0.03, out); break;
       case 'warn': this.tone(t, 330, 'triangle', 0.005, 0.18, 0.06, out); this.tone(t + 0.12, 294, 'triangle', 0.005, 0.22, 0.06, out); break;
+      // 烽火塔点亮：轰的一声火起来，再敲一组钟
+      case 'tower': this.tone(t, 72, 'sine', 0.01, 0.9, 0.3, out, 42); this.whoosh(t, 0.35, 1.5, 260, 2600, 0.16); [62, 69, 74].forEach((m, i) => this.sbell(t + 0.32 + i * 0.16, m, 0.05)); break;
+      // 天火过场：沿路一座座塔亮起来，钟声一座比一座高（arg 是第几座）
+      case 'pillar': { const P = [62, 65, 67, 69, 72, 74, 77, 79, 81, 84]; this.sbell(t, P[Math.max(0, Math.min(P.length - 1, arg | 0))], 0.045, 2.2); this.whoosh(t, 0.08, 0.6, 400, 1800, 0.05); break; }
+      // 天火塔点亮（过场开头）：低音铺开，火冲上去，钟一路往上
+      case 'sky': this.drone(t, [38, 45], 1.4, 1.6, 3, 0.05); this.whoosh(t, 1.1, 2.4, 200, 2400, 0.13); this.tone(t, 60, 'sine', 0.02, 1.6, 0.18, out, 36); [62, 69, 74, 78, 81].forEach((m, i) => this.sbell(t + 0.9 + i * 0.22, m, 0.05, 3)); break;
+      // 光连回永恒之炉：大和弦 + 钟
+      case 'skyend': this.drone(t, [38, 45, 50, 54], 1.2, 2.4, 3.5, 0.04); this.whoosh(t, 0.6, 2.8, 220, 2000, 0.1); [74, 78, 81, 86].forEach((m, i) => this.sbell(t + 0.15 + i * 0.3, m, 0.045, 3.2)); break;
+      // 拍照：快门咔嚓两下
+      case 'shutter': this.noiseHit(t, 0.014, 'highpass', 2600, 0.7, 0.22); this.tone(t, 190, 'square', 0.001, 0.03, 0.03, out, 90); this.noiseHit(t + 0.075, 0.012, 'highpass', 3600, 0.7, 0.16); this.tone(t + 0.075, 140, 'square', 0.001, 0.025, 0.02, out, 70); break;
+      // 挪建筑：拖着蹭过雪地，再咚地放下
+      case 'move': { const c = this.ctx, s = c.createBufferSource(); s.buffer = this.white; const f = c.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 1.4; f.frequency.setValueAtTime(500, t); f.frequency.exponentialRampToValueAtTime(1300, t + 0.22); const g = c.createGain(); this.env(g, t, 0.06, 0.07, 0.18); s.connect(f); f.connect(g); g.connect(out); s.start(t, Math.random() * 3, 0.3);
+        this.tone(t + 0.24, 120, 'sine', 0.002, 0.2, 0.13, out, 55); this.noiseHit(t + 0.24, 0.1, 'lowpass', 700, 0.7, 0.08); break; }
     }
   }
 }

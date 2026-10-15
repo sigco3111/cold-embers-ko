@@ -140,7 +140,7 @@ export class Photo {
     if (this.busy) return;
     this.busy = true; clearTimeout(this.busyT); this.busyT = setTimeout(() => { if (this.busy) { this.busy = false; this.draw(); } }, 60000);
     const btn = this.bar.querySelector('.phshot'); if (btn) { btn.disabled = true; btn.textContent = '冲洗中…'; }
-    g.sfx('tap');
+    g.sfx('shutter');
     document.body.classList.add('photo-flash'); setTimeout(() => document.body.classList.remove('photo-flash'), 380);
     v.shotCb = src => {
       const txt = captionOf(S), cv = compose(g, src, { css: this.filterCss(), frame: this.frame(), cap: txt });

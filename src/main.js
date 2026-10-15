@@ -368,7 +368,7 @@ class Game {
       else if (f.kind === 'trip-arrived') { if (!quiet) this.sfx('event'); }
       else if (f.kind === 'trip-arrived') { if (!quiet) { if (this.speed > 1) this.setSpeed(1); this.sfx('horn'); if (!document.getElementById('modal').classList.contains('show') && !this.titleOn && !this.place) this.startArrive(); } }
       else if (f.kind === 'skyfire') this.skyCine();
-      else if (f.kind === 'tower-lit') { if (!quiet && f.n < Sim.TOWER_N) { this.sfx('win'); this.view.focus(f.x, f.y); this.view.cam.tdist = Math.max(this.view.cam.tdist, 34); this.fireworks(f.x, f.y, 8); this.view.burst('spark', f.x, f.y, 40, 1.2, 1.6); this.view.ringFx && this.view.ringFx(f.x, f.y, 3); this.albumShot(`${Sim.towerName(f.n)}点亮`, 3200); } }
+      else if (f.kind === 'tower-lit') { if (!quiet && f.n < Sim.TOWER_N) { this.sfx('tower'); this.view.focus(f.x, f.y); this.view.cam.tdist = Math.max(this.view.cam.tdist, 34); this.fireworks(f.x, f.y, 8); this.view.burst('spark', f.x, f.y, 40, 1.2, 1.6); this.view.ringFx && this.view.ringFx(f.x, f.y, 3); this.albumShot(`${Sim.towerName(f.n)}点亮`, 3200); } }
       else if (f.kind === 'arrive-stop') { if (!quiet) { this.sfx('win'); const c = Sim.mainCamp(this.S); if (c) { this.view.focus(c.x, c.y); this.fireworks(c.x, c.y, 6); } const st = Sim.stopOf(this.S, f.k); this.albumShot(`抵达${st ? st.n : '新的一站'}`, 3600); } }
       else if (f.kind === 'trueend') { if (!quiet) { this.sfx('win'); const c = Sim.mainCamp(this.S); if (c) this.fireworks(c.x, c.y, 10); } this.modalOrLater(`<h2>🏔 世界之脊</h2><p class="story">${STORY.trueEnd}</p><p>旧地图到这里就画完了，可路还在往北：北境一站接一站，没有尽头，前十站各有一座烽火塔等着点亮，第十座是天火塔。你也可以在菜单里开始一次新的北行，余烬、专家、收集册、成就和装扮都会留着。</p>`, [{ t: '往北看看', a: 'wn-north', cls: 'go' }, { t: '先留在这里', a: 'ending' }]); }
       else if (f.kind === 'ending') this.ui.modal(`<h2>🌟 永恒之炉重燃</h2><p class="story">${STORY.ending}</p><p>你用了 ${this.S.meta.runs} 次北行完成了旅程。车队可以接着往北走，世界之脊还在更远的地方；也可以在菜单里开始一次新的北行。</p>`, [{ t: '继续', a: 'ending', cls: 'go' }]);
@@ -394,7 +394,7 @@ class Game {
     let bar = document.getElementById('cinebar');
     if (!bar) { bar = document.createElement('div'); bar.id = 'cinebar'; bar.innerHTML = '<div class="cap"></div><button class="btn" data-skip>跳过 ›</button>'; document.body.appendChild(bar); bar.querySelector('[data-skip]').onclick = () => this.cineEnd(); }
     document.body.classList.add('cine'); this.cineCap('🔥 天火塔点亮了');
-    this.sfx('win'); this.fireworks(pts[0].x, pts[0].y, 10); v.ringFx && v.ringFx(pts[0].x, pts[0].y, 4);
+    this.sfx('sky'); this.fireworks(pts[0].x, pts[0].y, 10); v.ringFx && v.ringFx(pts[0].x, pts[0].y, 4);
   }
   cineCap(t) { const el = document.querySelector('#cinebar .cap'); if (!el) return; el.classList.remove('in'); void el.offsetWidth; el.textContent = t; el.classList.add('in'); }
   cineStep(dt) {
@@ -416,8 +416,8 @@ class Game {
   }
   cineArrive(p) {
     const v = this.view; this.cineCap(p.cap);
-    if (p.n) { v.flashPillar(p.n); this.sfx('up'); v.burst('spark', p.x, p.y, 30, 1.2, 1.6); }
-    else { v.eternalHold = false; this.sfx('win'); this.fireworks(p.x, p.y, 12); v.ringFx && v.ringFx(p.x, p.y, 5); }
+    if (p.n) { v.flashPillar(p.n); this.sfx('pillar', Sim.TOWER_N - p.n); v.burst('spark', p.x, p.y, 30, 1.2, 1.6); }
+    else { v.eternalHold = false; this.sfx('skyend'); this.fireworks(p.x, p.y, 12); v.ringFx && v.ringFx(p.x, p.y, 5); }
   }
   // 放完（或者点了跳过）：停在永恒之炉，弹出「这一路」；点「继续往北」再回到主营地
   cineEnd() {
@@ -439,7 +439,7 @@ class Game {
     if (b) { v.cam.dist = v.cam.tdist = b.dist; v.cam.yaw = v.cam.tyaw = b.yaw; }
     this.save();
   }
-  sfx(name) { this.audio.play(name); }
+  sfx(name, arg) { this.audio.play(name, arg); }
   // 烟花：营地上空一阵一阵的火花
   fireworks(x, y, n) {
     for (let k = 0; k < n; k++) setTimeout(() => { const a = Math.random() * 6.28, r = 2 + Math.random() * 5; this.view.burst('spark', x + Math.cos(a) * r, y + Math.sin(a) * r, 26, 1.4, 2.2); if (this.view.ringFx && k % 2 === 0) this.view.ringFx(x + Math.cos(a) * r, y + Math.sin(a) * r, 1.2); }, k * 380);
@@ -691,7 +691,7 @@ class Game {
     if (P.move) {
       const id = P.move, r = Sim.moveBuilding(this.S, id, P.x, P.y);
       if (!r.ok) { this.ui.toast(r.reason || '不能挪到这里', 'warn'); this.sfx('warn'); return; }
-      this.sfx('build'); this.cancelModes();
+      this.sfx('move'); this.cancelModes();
       const b = Sim.getB(this.S, id);
       this.ui.toast(`${BLD[b.type].n}挪好了，停工 ${Sim.MOVE_PAUSE} 秒后接着干活。${r.belts ? `拆掉了 ${r.belts} 条传送带。` : ''}`, 'good');
       this.view.select(id); this.ui.open('bld', id);
