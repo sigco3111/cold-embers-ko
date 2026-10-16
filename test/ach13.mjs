@@ -6,7 +6,7 @@ import { TITLES, NDECO, BLD } from '../src/data.js';
 let fail = 0;
 const ok = (c, m) => { if (!c) { fail++; console.log('FAIL', m); } else console.log('ok  ', m); };
 const load = f => G.deserialize(fs.readFileSync(f, 'utf8'));
-const NEW = G.ACH.filter(a => a.cat);
+const NEW = G.ACH.filter(a => a.cat && !a.v); // 1.1 加的（v: 11）另算
 const got = (S, id) => !!G.bookOf(S).a[id];
 
 ok(NEW.length === 20 && NEW.every(a => a.rw === 0 && a.gift && G.giftList(a).length) && G.ACH.filter(a => !a.cat).every(a => a.rw > 0), `20 new achievements, cosmetics only (${G.ACH.length} in all)`);

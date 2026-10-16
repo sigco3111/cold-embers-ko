@@ -154,11 +154,11 @@ if (uDetail > 0.0) {
     const c = S.camps.find(c => c.id === S.active) || S.camps[0];
     this.focus(c.x, c.y, true);
     this.refreshTerrain(true);
-    this.mapGrew = Sim.rt(S).mapGrew || 0;
+    this.mapGrew = Sim.rt(S).mapGrew || 0; this.worldGen = Sim.rt(S).worldGen || 0;
   }
   // 地图往北接了一段：新的地形、群山、资源点、迷雾、地点和北境地标补上（建筑和镜头不动）
-  regrow() {
-    const S = this.S, oldH = this.builtH;
+  regrow(all) { // all：1.1 分岔选了路，整张图重新生成过，地面全部重建
+    const S = this.S, oldH = all ? 0 : this.builtH;
     this.world = getWorld(S.runSeed);
     for (const [y0, m] of this.terr) if (m.userData.y1 >= oldH - 1) { this.root.remove(m); m.geometry.dispose(); this.terr.delete(y0); }
     for (const [, m] of this.skirt) { this.root.remove(m); m.geometry.dispose(); }
@@ -720,7 +720,7 @@ if (uDetail > 0.0) {
         }
         // 熄火的营地：塔自己立着（建筑已经不在了）
         if (!et && !ids.has(t.n + ':' + t.camp)) {
-          const { geo, glow, flame, flameY } = this.bgeo(t.type, 6);
+          const { geo, glow, flame, flameY } = this.bgeo(t.type || Sim.towerType(t.n), 6);
           const m = new THREE.Mesh(geo, this.matStd); m.castShadow = true; m.receiveShadow = true; g.add(m);
           if (glow) g.add(new THREE.Mesh(glow, this.matWin));
           if (flame) { const fl = new THREE.Mesh(flame, this.matGlow); fl.position.y = flameY; g.add(fl); g.userData.fl = fl; }
@@ -2235,7 +2235,8 @@ void main() {
     this.syncPillars(rdt);
     this.syncLines();
     if (R.infraDirty) { R.infraDirty = false; this.buildPaths(); }
-    if ((R.mapGrew || 0) !== this.mapGrew) { this.mapGrew = R.mapGrew || 0; this.regrow(); }
+    if ((R.worldGen || 0) !== this.worldGen) { this.worldGen = R.worldGen || 0; this.mapGrew = R.mapGrew || 0; this.regrow(true); }
+    else if ((R.mapGrew || 0) !== this.mapGrew) { this.mapGrew = R.mapGrew || 0; this.regrow(); }
     if (H > BASE_H && this.fogWin() !== this.fogF0) { this.fogF0 = this.fogWin(); this.fogMesh.position.z = -(this.fogF0 + this.fogH / 2); this.refreshFog(); }
     if (R.revealDirty) { R.revealDirty = false; this.spotBig = (this.spotBig || 0) + 1; this.refreshFog(); this.refreshSpots(); this.refreshRocks(); this.refreshLandmarks(); this.refreshSites(); }
     if (R.gangDirty) { R.gangDirty = false; this.refreshSites(); }

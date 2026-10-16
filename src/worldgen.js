@@ -53,7 +53,11 @@ const applyPick = (seed, p) => {
   const o = (PICK.get(seed) || {})[p.k], r = o ? o.rule : p.rule0, rich = o ? o.rich : p.rich0;
   p.rule = r; if (r === 'rich' && rich) p.rich = rich; else delete p.rich;
 };
-export function northPicks(seed, picks) { PICK.set(seed, { ...(picks || {}) }); if (NS.seed === seed) for (const p of NS.list) applyPick(seed, p); }
+export function northPicks(seed, picks) {
+  const a = JSON.stringify(PICK.get(seed) || {}), b = JSON.stringify(picks || {});
+  PICK.set(seed, { ...(picks || {}) }); if (NS.seed === seed) for (const p of NS.list) applyPick(seed, p);
+  return a !== b;
+}
 export function setNorthPick(seed, k, o) {
   const P = PICK.get(seed) || {}; if (o) P[k] = { rule: o.rule, rich: o.rich }; else delete P[k]; PICK.set(seed, P);
   if (NS.seed === seed && NS.list[k - 1]) applyPick(seed, NS.list[k - 1]);

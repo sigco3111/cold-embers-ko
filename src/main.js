@@ -3,7 +3,7 @@ import * as Sim from './sim.js';
 import { View } from './render.js';
 import { Sound } from './audio.js';
 import { UI, fmt, fmtTime, RICON, ICON } from './ui.js';
-import { BLD, RES, TECHS, STORY, LANDMARKS, FAR_MARKS, dayCycle, SLOTS, SPOT_KEYS, SPOTS } from './data.js';
+import { BLD, RES, TECHS, STORY, LANDMARKS, FAR_MARKS, dayCycle, SLOTS, SPOT_KEYS, SPOTS, QY } from './data.js';
 import { getWorld, idx, W, H } from './worldgen.js';
 import { iconize, injectIcons } from './icons.js';
 import { BigMap } from './bigmap.js';
@@ -331,6 +331,7 @@ class Game {
       else if (free && this.skyLater && !this.cine) { this.skyLater = false; this.skyCine(); }
       else if (free && Sim.roadView(S)) { if (this.ui.roadModal()) this.sfx('event'); }
       else if (free && Sim.expPending(S)) { if (this.ui.siteModal()) this.sfx('event'); }
+      else if (free && !window.__noEvents && Sim.qyPending(S) && S.qy.pop !== S.qy.st) { S.qy.pop = S.qy.st; if (this.ui.qyModal()) this.sfx('event'); }
       else if (free && this.chapQ && this.chapQ.length) { if (this.ui.chapterModal(this.chapQ.shift())) this.sfx('win'); }
       else if (free && !this.paused && !window.__noEvents && (S.meta.tut || S.buildings.length > 8) && Sim.rollEvent(S)) { if (this.ui.eventModal()) this.sfx('event'); }
     }
@@ -362,6 +363,8 @@ class Game {
       else if (f.kind === 'odstall') { if (!quiet) { this.sfx('lose'); const c = Sim.getCamp(this.S, f.camp); if (c) this.view.burst('dust', c.x, c.y, 30, 1.2, 2.5); } }
       else if (f.kind === 'star' || f.kind === 'mile') { if (!quiet) { this.sfx('win'); const c = Sim.mainCamp(this.S); if (c) this.fireworks(c.x, c.y, f.kind === 'star' ? 3 + f.star * 2 : 4); if (f.kind === 'star' && f.star >= 3 && !this.S.meta.alb3) { this.S.meta.alb3 = 1; this.albumShot(`${RES[f.r] ? RES[f.r].n : ''}产线三星`, 2200); } } }
       else if (f.kind === 'depart') { if (!quiet) this.sfx('horn'); }
+      else if (f.kind === 'qy-end') { if (!quiet) this.albumShot(`奇遇·${QY[f.id].n}`, 1500); }
+      else if (f.kind === 'fork') { if (!quiet) this.sfx('horn'); }
       else if (f.kind === 'cmd') { if (!quiet) { this.sfx('horn'); const c = Sim.getCamp(this.S, f.camp); if (c) { this.view.shakeT = 0.7; this.view.burst('spark', c.x, c.y, 40, 0.6, 2.2); this.view.burst('dust', c.x, c.y, 16, 1.2, 1.2); this.view.ringFx && this.view.ringFx(c.x, c.y, f.id === 'shelter' ? 4 : 3); } } }
       else if (f.kind === 'road') { if (!quiet) { if (this.speed > 1) this.setSpeed(1); if (!document.getElementById('modal').classList.contains('show') && !this.titleOn && this.ui.roadModal()) this.sfx('event'); } }
       else if (f.kind === 'douse') { if (!quiet) { this.view.burst('dust', f.x, f.y, 40, 2, 1.5); this.view.ringFx && this.view.ringFx(f.x, f.y, 3); } }

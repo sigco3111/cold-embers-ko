@@ -9,6 +9,7 @@ import {
   EAT, FOUND_DIST, CAMP_GAP,
 } from './sim.js';
 import { trunkRoad, healNet } from './net.js';
+import { forkOf, pickFork, qyArrive, qyLeave } from './north.js';
 
 // ---------- 一程一程的站 ----------
 // 0～6 是七个地标，7～12 是永恒之炉以北的六个远方地标，世界之脊（12）以北是北境，一站接一站没有尽头
@@ -263,6 +264,9 @@ export function depart(S) {
   if (!g) return { ok: false, reason: '已经走到尽头了' };
   if (J.trip) return { ok: false, reason: '车队已经在路上' };
   if (!g.ok) return { ok: false, reason: g.items.filter(i => !i.ok).map(i => i.t + '：' + i.sub).join('；') };
+  // 1.1 北境：没选路就走侦察兵推荐的第一条；这一站没做完的奇遇就错过了
+  { const F = forkOf(S); if (F && F.pick == null) pickFork(S, 0, true); }
+  qyLeave(S);
   const p = g.plan, main = mainCamp(S);
   pay(main.stock, p.need);
   for (const c of p.camps) {
@@ -585,6 +589,7 @@ export function arrive(S, x, y) {
   if (st.rule) logMsg(S, `${NORTH_RULES[st.rule].ic} 老向导：「${NORTH_RULES[st.rule].tip}」`, 'story');
   // 北境：新的一章；第一次走到这个站号给一点余烬，记下最远纪录（新的北行也留着）
   if (st.north) {
+    qyArrive(S, J.stage); // 1.1 这一站的奇遇：半天以后出现
     rt(S).fx.push({ kind: 'chapter', i: J.stage });
     if (st.north > (S.meta.northMax || 0)) {
       S.meta.northMax = st.north;

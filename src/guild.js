@@ -2,7 +2,7 @@
 // 卖货换银币（每天的价钱上下浮动四成，同一天卖得越多越便宜）、接订单（限时送一批货，给银币和余烬）、
 // 用银币买商会装饰的图纸、买余烬（每天最多 20），缺建材时还能按三倍价钱买一点救急。银币算在主营地，跟着北迁走
 import { RES, RES_KEYS, BLD, GUILD, DAY_LEN } from './data.js';
-import { rt, getCamp, logMsg, techDone, prodRate } from './sim.js';
+import { rt, getCamp, logMsg, techDone, prodRate, gBuff } from './sim.js';
 import { mainCamp } from './journey.js';
 import { hash3 } from './worldgen.js';
 
@@ -25,9 +25,10 @@ export const floatOf = (S, k, day = guildDay(S)) => 1 + GUILD.float * (2 * hash3
 const depthOf = k => GUILD.depth / RES[k].t; // 卖到这么多，价钱掉到三成七
 const volOf = (S, k) => (guildOf(S).vol[k] || 0);
 // 现在卖一个能换多少银币
-export function sellPrice(S, k) { return basePrice(k) * floatOf(S, k) * Math.exp(-volOf(S, k) / depthOf(k)); }
+const qyMul = S => 1 + gBuff(S, 'guild'); // 奇遇「迷路的商队」：一天里收价 +20%
+export function sellPrice(S, k) { return basePrice(k) * floatOf(S, k) * qyMul(S) * Math.exp(-volOf(S, k) / depthOf(k)); }
 // 卖 n 个一共换多少（越卖越便宜，按积分算）
-export function sellValue(S, k, n) { const D = depthOf(k), v = volOf(S, k); return basePrice(k) * floatOf(S, k) * D * (Math.exp(-v / D) - Math.exp(-(v + n) / D)); }
+export function sellValue(S, k, n) { const D = depthOf(k), v = volOf(S, k); return basePrice(k) * floatOf(S, k) * qyMul(S) * D * (Math.exp(-v / D) - Math.exp(-(v + n) / D)); }
 export function guildSell(S, cid, k, n) {
   const c = guildCamp(S, cid); if (!c) return { ok: false, reason: '先在哪座营地盖一座商会驿站' };
   if (!tradable(S, k)) return { ok: false, reason: '商会不收这样东西' };

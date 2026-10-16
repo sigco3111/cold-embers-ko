@@ -175,6 +175,31 @@ export const CMDS = {
   unity: { n: '万众一心', ic: '🤝', d: '烽火塔身、奇观施工快 3 倍；不满清零，号令期间不再涨', len: 120, cd: 900, tech: 'cmd2' },
   shelter: { n: '炉火庇护', ic: '🛡️', d: '熔炉燃料 −50%，暖圈 +2 格', len: 180, cd: 1200, tech: 'cmd2' },
 };
+// 1.1 分岔北境：路的难度（目标 ×0.9 / ×1.0 / ×1.15）和对应的奖励倍数；好处三选一
+export const FORK = { diff: [0.9, 1, 1.15], rew: [0.75, 1, 1.5], dn: ['好走', '平常', '难走'], embers: 40, hardEmbers: 20 };
+export const FORK_BONUS = { embers: { n: '余烬', ic: '🔥' }, bp: { n: '一张奇观图纸', ic: '📜' }, spec: { n: '一位专家', ic: '🧑' } };
+// 1.1 奇观（第 10 步做全）：六种，图纸从研究和奇遇里拿
+export const WONDERS = {
+  wcolossus: { n: '蒸汽巨像', ic: '🗿', tech: 'wonder1' }, wvault: { n: '万年冰窖', ic: '🧊', tech: 'wonder1' }, wbeacon: { n: '不灭灯塔', ic: '🗼', tech: 'wonder1' },
+  waurora: { n: '极光塔', ic: '🌌', tech: 'wonder2' }, wterminal: { n: '铁路总站', ic: '🚉', tech: 'wonder2' }, wstarforge: { n: '星辰熔炉', ic: '✨', tech: 'wonder2' },
+};
+export const WONDER_KEYS = Object.keys(WONDERS);
+// 1.1 站点奇遇：北境每站一件（事情本身写在 north.js）
+export const QY = {
+  wolfking: { n: '狼王', ic: '🐺', d: '比马还高的白狼，在暖圈外挑今晚从哪儿下口。' },
+  undercity: { n: '冰下古城', ic: '🏛', d: '冰湖底下冻着一整座城，屋顶、街道和钟楼都还在。' },
+  geyser: { n: '地热喷发', ic: '♨', d: '营地边的雪地裂开，喷出一股冒白汽的热泉。' },
+  whale: { n: '冻住的巨鲸', ic: '🐋', d: '冰原上鼓起的灰色小山，是一头冻在冰里的巨鲸。' },
+  aurora: { n: '极光风暴', ic: '🌌', d: '极光像帘子一样垂到地上，工程站的仪器亮得出奇。' },
+  caravan: { n: '迷路的商队', ic: '🔔', d: '风雪里的一串铃铛声，是一支迷了路的商队。' },
+  sleepers: { n: '冰洞里的冬眠者', ic: '🧊', d: '冰洞深处裹着毛毡冬眠的人，胸口还在起伏。' },
+  starfall: { n: '坠落的星核', ic: '☄', d: '半夜划过天空的火光，在营地北边砸出一个大坑。' },
+  wreck: { n: '冻住的破冰船', ic: '🚢', d: '冻在冰湖中间的破冰船，锅炉上结着红锈。' },
+  hermit: { n: '雪原隐士', ic: '🧓', d: '住在雪窝子里等了四十年的老人。' },
+  stormeye: { n: '风暴之眼', ic: '🌀', d: '压过来的风暴，正中间却平静得连雪都不下。' },
+  altar: { n: '古老的火坛', ic: '🔥', d: '雪下挖出的石头火坛，坛底的炭还是温的。' },
+};
+export const QY_KEYS = Object.keys(QY);
 export const GUILD = { price: [0, 1, 3, 8, 15, 30, 60, 120], float: 0.4, depth: 300, orders: 3, ordersPro: 5, buyMul: 3, buyLim: [0, 300, 150, 80, 40, 20, 10, 5], emberDay: 20, emberCost: 40 };
 // 北境每站一章：两条产能目标从六种高级材料里轮着抽，加一条地貌任务，前十站各一座烽火塔
 export const NORTH_HI = ['part', 'battery', 'alloy', 'core', 'starcore', 'heart'];
@@ -208,7 +233,7 @@ export const NORTH_END = [
   '最后一批货装上了雪橇。「{n}」会一直烧着，等后来的人。',
 ];
 // ---------- 第十三版：成就换来的装扮（只是好看：称号、炉火颜色、旗子、相框、北境装饰）----------
-export const TITLES = { ice: '破冰者', walker: '北境旅人', far: '极北之人', lamp: '点灯人', sky: '点燃天火的人', wolf: '狼口守夜人', storm: '风暴里的人', keeper: '守火人' };
+export const TITLES = { tale: '听过奇遇的人', tales: '十二奇遇', ice: '破冰者', walker: '北境旅人', far: '极北之人', lamp: '点灯人', sky: '点燃天火的人', wolf: '狼口守夜人', storm: '风暴里的人', keeper: '守火人' };
 // 炉火颜色：c = [火心, 火身, 火尖]；aurora 会慢慢变色
 export const FLAMES = {
   def: { n: '本色' },
@@ -313,6 +338,7 @@ export const BLD = {
   snowman: { n: '雪人', t: 1, size: 1, cat: 'deco', w: 0, hope: 1.5, gift: 1, desc: '孩子们堆的雪人：煤球眼睛、胡萝卜鼻子，围着一条旧红围巾。装饰：希望 +1.5。', cost: { wood: 10 } },
   lanterns: { n: '灯笼串', t: 1, size: 2, cat: 'deco', w: 0, hope: 2.5, gift: 1, desc: '两根木杆之间拉一串红灯笼，节日一样。装饰：希望 +2.5。', cost: { plank: 60, wood: 40 } },
   deerstatue: { n: '驯鹿雕像', t: 1, size: 1, cat: 'deco', w: 0, hope: 3, gift: 1, desc: '一头昂着头的驯鹿铜像，纪念一路拉车的伙伴。装饰：希望 +3。', cost: { stone: 120, iron: 40 } },
+  wolfrug: { n: '狼王皮', t: 1, size: 1, cat: 'deco', w: 0, hope: 3, gift: 1, desc: '奇遇里打倒的狼王，皮毛绷在木架上，挂在熔炉边。孩子们路过都要摸一下。装饰：希望 +3。', cost: { plank: 40, stone: 30 } },
   bonearch: { n: '巨兽骨拱门', t: 1, size: 2, cat: 'deco', w: 0, hope: 4, gift: 1, desc: '冻土里挖出来的两根巨兽长牙，搭成一道拱门，顶上架着它的头骨。装饰：希望 +4。', cost: { stone: 200, plank: 60 } },
   pyremem: { n: '烽火纪念碑', t: 1, size: 1, cat: 'deco', w: 0, hope: 3.5, gift: 1, desc: '一座小石碑，碑顶一盏长明的铁火盆，记着点亮过的每一座烽火塔。装饰：希望 +3.5。', cost: { stone: 300, steel: 60 } },
   skymem: { n: '天火纪念碑', t: 1, size: 2, cat: 'deco', w: 0, hope: 5, gift: 1, desc: '高高的方尖碑，顶上一团金色的火和一颗星晶，四角的火盆一直烧着。点燃天火的人才建得起。装饰：希望 +5。', cost: { stone: 500, steel: 150, alloy: 30 } },

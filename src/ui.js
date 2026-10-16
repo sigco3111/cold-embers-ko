@@ -1,5 +1,5 @@
 // 界面：顶部状态、资源条、底部工具栏、面板、提示
-import { BRIEF, RES, RES_KEYS, BLD, BLD_KEYS, CATS, TIER_NAMES, LANDMARKS, FAR_MARKS, SPECS, SPEC_MAX, EMBER_UPS, emberCost, specTrainCost, specBonus, FUEL, furnaceRadius, furnaceHeat, furnaceBurn, baseTempOfRow, tierOfRow, ETERNAL_STAGES, GATE, GATE_EVERY, STORY, SPOTS, SPOT_KEYS, dayCycle, LAWS, TECHS, TECH_BR, SITES, CHAPTERS, INFRA, RAIDERS, DAY_LEN, DIFF, DIFF_KEYS, SLOTS, FOCUS, FOCUS_KEYS, FOCUS_LVL, NORTH_RULES, TOWER_FX, TITLES, FLAMES, FLAGS, FRAMES, NDECO, ALT_SWITCH, CAMP_SPEC, CSPEC_FX, CSPEC_FX2, BOT, BOT_MODELS, CMDS } from './data.js';
+import { BRIEF, RES, RES_KEYS, BLD, BLD_KEYS, CATS, TIER_NAMES, LANDMARKS, FAR_MARKS, SPECS, SPEC_MAX, EMBER_UPS, emberCost, specTrainCost, specBonus, FUEL, furnaceRadius, furnaceHeat, furnaceBurn, baseTempOfRow, tierOfRow, ETERNAL_STAGES, GATE, GATE_EVERY, STORY, SPOTS, SPOT_KEYS, dayCycle, LAWS, TECHS, TECH_BR, SITES, CHAPTERS, INFRA, RAIDERS, DAY_LEN, DIFF, DIFF_KEYS, SLOTS, FOCUS, FOCUS_KEYS, FOCUS_LVL, NORTH_RULES, TOWER_FX, TITLES, FLAMES, FLAGS, FRAMES, NDECO, ALT_SWITCH, CAMP_SPEC, CSPEC_FX, CSPEC_FX2, BOT, BOT_MODELS, CMDS, QY, FORK, FORK_BONUS } from './data.js';
 import * as Sim from './sim.js';
 import { personOf, personState, campVoices } from './people.js';
 import { getWorld, idx, W, H } from './worldgen.js';
@@ -14,7 +14,7 @@ export const ICON = {
   furnace: '🔥', tent: '⛺', lumber: '🪓', nursery: '🌲', quarry: '⛏️', hunter: '🏹', sawmill: '🪚', kitchen: '🍲', warehouse: '📦', tower: '🗼', scout: '🚩', sledshed: '🛷', kennel: '🐕', workshop: '🔬', lamp: '🏮', flagpole: '🚩', infirmary: '🩺', statue: '🗽', flowerhouse: '🌷',
   coalmine: '⚫', ironmine: '🟤', smelter: '🏭', coker: '🧱', limequarry: '⬜', steelworks: '🏗️', gearworks: '⚙️', engineworks: '🚂', greenhouse: '🌱', heater: '♨️',
   shalepit: '🛢️', refinery: '⚗️', sealworks: '🔩', crystalmine: '💎', batteryworks: '🔋', alloyworks: '🧪', salvage: '🛸', partworks: '🧩', coreworks: '🤖', bay: '🦾', excavator: '🔶', forge: '⚒️',
-  beacon: '🔦', colossus: '🧌', starpit: '🔮', guildpost: '🏪', gbench: '🪑', glamp: '🏮', gsled: '🛷', gbell: '🔔', ggate: '⛩️', gfount: '⛲',
+  beacon: '🔦', colossus: '🧌', starpit: '🔮', guildpost: '🏪', gbench: '🪑', glamp: '🏮', gsled: '🛷', gbell: '🔔', ggate: '⛩️', gfount: '⛲', wolfrug: '🐺',
 };
 export const RICON = {
   wood: '🪵', stone: '🪨', game: '🥩', plank: '🟫', food: '🍖', coal: '⚫', ore: '🟤', iron: '🔘', coke: '◼️', lime: '⬜', steel: '🔷', gear: '⚙️', engine: '🚂',
@@ -466,6 +466,19 @@ export class UI {
     return true;
   }
 
+  // 1.1 站点奇遇：一段一段地选；选完显示结果（有下文就说多久以后）
+  qyModal(res) {
+    const S = this.S, m = this.$('modal');
+    if (res) {
+      m.innerHTML = iconize(`<div class="mbox ev qy"><div class="evtag">北境 · 奇遇</div><h2>${res.ic} ${esc(res.n)}</h2><p class="story">${esc(res.msg)}</p>${res.next ? `<p class="hint">${res.wait > 5 ? `过 ${fmtTime(res.wait)} 还有下文${res.away ? `，派出去的 ${res.away} 个人那时回来` : ''}。` : '马上还有下文。'}</p>` : '<p class="hint">这件奇遇走完了，记进了收集册。</p>'}<div class="mbtns"><button class="btn go" data-act="${res.next && res.wait <= 5 ? 'qyopen' : 'close-modal'}">${res.next && res.wait <= 5 ? '接着看' : '知道了'}</button></div></div>`);
+      m.classList.add('show'); return true;
+    }
+    const v = Sim.qyView(S); if (!v) return false;
+    m.innerHTML = iconize(`<div class="mbox ev qy"><div class="evtag">北境 · 奇遇 · ${esc(v.camp)}${v.st ? ' · 下文' : ''}</div><h2>${v.ic} ${esc(v.n)}</h2><p class="story">${esc(v.text)}</p><div class="evopts">${v.opts.map((o, i) => `<button class="evopt ${o.ok ? '' : 'no'}" ${o.ok ? `data-act="qyopt" data-arg="${i}"` : 'disabled'}><b>${o.g ? '🧭 ' : ''}${esc(o.t)}</b><small>${esc(o.d)}${o.ok ? '' : ` · ${esc(o.why)}`}</small></button>`).join('')}</div><div class="mbtns"><button class="btn ghost" data-act="close-modal">稍后再说</button></div></div>`);
+    m.classList.add('show');
+    return true;
+  }
+
   // 点亮远方地标：带回一件遗物
   relicModal(i) {
     const f = FAR_MARKS[i]; if (!f) return false;
@@ -525,6 +538,8 @@ export class UI {
     for (const d of Sim.gangDemands(S)) A.push({ k: 'gang' + d.g.id, ic: '🏴', lvl: d.st.dem.fight ? 'bad' : 'warn', urgent: true, t: `「${Sim.gangName(d.g)}」${d.st.dem.fight ? '要打过来了' : '来索贡'}`, cnt: fmtTime(d.left), d: d.st.dem.fight ? '靠箭塔和民兵顶回去，或者趁早交贡。' : '交贡、做买卖，或者靠箭塔顶回去。到时候没人答复，守得住就打，守不住就交贡。', act: 'gang', arg: d.g.id, btn: '去答复' });
     if (S.car) { const left = S.car.orders.filter(o => !o.done).length; if (left) A.push({ k: 'car', ic: '🛷', lvl: 'good', t: '雪橇商队扎营了', cnt: fmtTime(S.car.until - S.t), d: `在「${Sim.getCamp(S, S.car.camp)?.name || ''}」外面，还有 ${left} 张订单。`, act: 'car', btn: '看订单' }); }
     if (S.aurOpen != null) A.push({ k: 'aur', ic: '🌌', lvl: 'good', t: '极光夜', d: '大家一起看一会儿：所有营地希望 +4、余烬 +1。', act: 'aurora', btn: '一起看' });
+    { const qv = Sim.qyView(S); if (qv) A.push({ k: 'qy', ic: qv.ic, lvl: 'good', t: `奇遇：${qv.n}`, d: qv.st ? '有了下文，等你拿主意。' : '北境的这一站碰上了一件事，等你拿主意。', act: 'qyopen', btn: '去看看' }); }
+    { const F = Sim.forkOf(S); if (F && F.pick == null) A.push({ k: 'fork', ic: '🧭', lvl: 'info', t: '下一站有几条路可选', d: '地貌、碰上的事和好处都不一样。出发前选一条，不选就走第一条。', act: 'tb', arg: 'migrate', btn: '去选路' }); }
     { const chs = Sim.chapters(S); if (chs.some(x => x.done && !x.got)) A.push({ k: 'gift', ic: '🎁', lvl: 'good', t: '章节奖励可以领了', d: '这一章的任务做完了。', act: 'chapter', btn: '领奖励' }); }
     { const hp = Math.round(c.hope ?? 50), ds = Math.round(c.disc ?? 10);
       if (ds >= 70 || hp <= 25 || ds >= 55) A.push({ k: 'mood', ic: '🕯️', lvl: ds >= 70 ? 'bad' : 'warn', t: ds >= 55 ? `「${c.name}」不满 ${ds}` : `「${c.name}」希望只剩 ${hp}`, d: ds >= Sim.LEAVE_AT ? '有人在趁夜离开。看看是什么在拖累大家。' : '干活会变慢。看看是什么在拖累大家，改一改律令。', act: 'tb', arg: 'mood', btn: '看人心' }); }
@@ -2301,6 +2316,7 @@ export class UI {
     const P = g.plan, V = Sim.VEH, main = Sim.mainCamp(S);
     const rl = Sim.ruleOf(g.next);
     h += `<div class="mighero"><div class="mgto">下一站 · <b>${esc(g.next.n)}</b></div><small>${g.route.ok ? `路长约 ${Math.round(g.route.len)} 格，车队要走 ${Math.max(1, Math.round(P.secs / 60))} 分钟左右` : '路还没探通'}${g.next.far ? '' : ` · 纬度 ${Math.round(g.next.y)}`}</small>${rl ? `<div class="mgrule"><b>${rl.ic} 地貌：${esc(rl.n)}</b><span class="good">好：${esc(rl.good)}</span><span class="bad">坏：${esc(rl.bad)}</span></div>` : ''}</div>`;
+    h += this.forkHtml(J);
     // 四条门槛
     h += `<div class="sec">出发前要做到 <small class="mgn">${g.n}/4</small></div>`;
     const go = { route: '去探路', chap: '看章节', flvl: '去熔炉', car: '去雪橇棚' };
@@ -2342,6 +2358,32 @@ export class UI {
     }
     if (g.route.ok) h += `<button class="btn wide ghost" data-act="routeprev">在地图上看路线</button>`;
     h += `<button class="btn wide ${g.ok ? 'go' : ''}" data-act="depart" ${g.ok ? '' : 'disabled'}>${g.ok ? `出发去「${esc(g.next.n)}」` : `还差 ${4 - g.n} 条才能出发`}</button>`;
+    return h;
+  }
+  // 1.1 分岔北境：去下一站的几条路；这一站的奇遇
+  forkHtml(J) {
+    const S = this.S, N = Sim.northN(J.stage); if (!N) return '';
+    let h = '';
+    const F = Sim.forkOf(S);
+    if (F) {
+      const n = Sim.forkN(S);
+      h += `<div class="sec">选一条路 <small class="mgn">侦察兵带回 ${n} 条${n < 3 ? ' · 研究「三岔侦察」多一条' : ''}</small></div><div class="fkl">`;
+      F.opts.slice(0, n).forEach((o, i) => {
+        const rl = NORTH_RULES[o.rule], on = F.pick === i, q = QY[o.qy];
+        h += `<div class="fko ${on ? 'on' : ''}"><div class="fkh"><b>${rl.ic} ${esc(rl.n)}${o.rich ? `<small>${esc(RES[SPOTS[o.rich].res].n)}</small>` : ''}</b><i class="fkd d${o.d}">${FORK.dn[o.d]}</i></div>`
+          + `<div class="fkr"><span class="good">好：${esc(rl.good)}</span><span class="bad">坏：${esc(rl.bad)}</span></div>`
+          + `<div class="fkg"><span>特产<b>${esc(Sim.forkSpec(o))}</b></span><span>奇遇<b>${q.ic} ${esc(q.n)}</b></span><span>好处<b>${esc(Sim.bonusTxt(o.bonus, o.d))}</b></span><span>目标<b>×${FORK.diff[o.d]}</b></span></div>`
+          + (on ? '<div class="fkon">✓ 走这条</div>' : `<button class="small" data-act="forkpick" data-arg="${i}">选这条${F.pick == null && i === 0 ? '（不选就走它）' : ''}</button>`) + '</div>';
+      });
+      h += `</div><div class="hint">下一站的位置不变，选了哪条，那一片地就照它重新生成。难走的路目标高一成半，奖励 ×${FORK.rew[2]}；好走的目标低一成，奖励 ×${FORK.rew[0]}。出发前都能改。</div>`;
+    } else if (N) {
+      h += `<div class="row sub"><span>🧭 下一站的路</span><span>${N <= Sim.TOWER_N ? '点亮这一站的烽火塔以后，侦察兵会带回几条路来选' : '这一章做完以后，侦察兵会带回几条路来选'}</span></div>`;
+    }
+    const q = Sim.qyOf(S);
+    if (q) {
+      const Q = QY[q.id], w = Sim.qyWait(S);
+      h += `<div class="row"><span>${Q.ic} 这一站的奇遇<small>${esc(Q.n)}</small></span>${q.done ? `<span>${q.miss ? '错过了' : '走完了'}</span>` : w ? `<span>${q.away ? `${q.away} 人在外面，` : ''}${fmtTime(w.left)} 后${q.st ? '有下文' : '出现'}</span>` : '<button class="small go" data-act="qyopen">拿主意</button>'}</div>`;
+    }
     return h;
   }
   // 车队在路上：进度、路上的事、跟着看；到了以后去放熔炉
@@ -2783,6 +2825,9 @@ export class UI {
       case 'scoutcancel': g.scoutTarget = null; g.mode = null; break;
       case 'siteopt': { const [sid, i] = String(arg).split(':').map(Number); const msg = Sim.resolveSite(S, sid, i); this.closeModal(); if (msg) { this.toast(msg, 'story'); g.sfx('tap'); } if (this.panel && this.panel.kind === 'site') this.close(); break; }
       case 'site-decide': this.siteModal(); break;
+      case 'qyopen': if (!this.qyModal()) { const w = Sim.qyWait(S); this.toast(w ? `奇遇「${QY[w.q.id].n}」还要 ${fmtTime(w.left)} 才有下文。` : '这件奇遇已经过去了。', 'info'); } break;
+      case 'qyopt': { const q = S.qy, away0 = q && q.away; const r = res(Sim.qyChoose(S, +arg)); if (r.ok) { g.sfx('tap'); g.drainFx(); this.qyModal({ ic: QY[q.id].ic, n: QY[q.id].n, msg: r.msg, next: r.next, wait: r.wait, away: q.away && q.away !== away0 ? q.away : 0 }); if (this.panel) this.renderPanel(true); } break; }
+      case 'forkpick': { const r = res(Sim.pickFork(S, +arg)); if (r.ok) { g.sfx('tap'); this.renderPanel(true); } break; }
       case 'title-go': g.leaveTitle(); break;
       case 'hintsw': S.meta.hintOff = !S.meta.hintOff; if (S.meta.hintOff) g.hints.hide(); this.renderPanel(true); break;
       case 'sugsw': g.sugOn = !g.sugOn; try { localStorage.setItem('hanjin-beixing-v1-sug', g.sugOn ? '1' : '0'); } catch (e) {} this.renderPanel(true); break;
