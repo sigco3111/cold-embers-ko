@@ -21,18 +21,20 @@ const CHAIN = {
 import fs0 from 'fs';
 // LOAD=存档：从这份存档接着玩（比如世界之脊或北境的测试存档）；MAXSTAGE：走到第几站停（默认世界之脊）
 let S = process.env.LOAD ? G.deserialize(fs0.readFileSync(process.env.LOAD, 'utf8')) : G.newRun(G.defaultMeta(), 0, +(process.env.SEED || 777));
+// 测试存档有的仓里塞得比仓库上限还多（拼出来的存档）：先压回上限，不然那几样产线一直「仓库满了」
+if (process.env.LOAD) for (const c of S.camps) { const cap = G.storeCap(S, c); for (const k in c.stock) if (c.stock[k] > cap) c.stock[k] = cap; }
 const MAXSTAGE = +(process.env.MAXSTAGE || G.STOP_N - 1);
 if (process.env.NOGANG) { S.gangs = {}; for (const g of G.gangsOf(S)) S.gangs[g.id] = { seen: 1, gone: 1, next: 9e12, rel: 0, wins: 2, n: 0 }; }
 const day = () => (S.t / 86400).toFixed(2) + 'd';
 const log = (...a) => { if (VERBOSE) console.log(day(), ...a); };
 
-function bestSpot(camp, type) {
+function bestSpot(camp, type, soft = false) {
   const d = BLD[type], f = G.getB(S, camp.furnace);
   const r = G.heatRadius(S, camp) + 1;
   let best = null, bs = -1e9;
   for (let y = Math.floor(camp.y - r); y <= camp.y + r; y++) for (let x = Math.floor(camp.x - r); x <= camp.x + r; x++) {
     const ck = G.checkPlace(S, type, x, y);
-    if (!ck.ok || ck.camp !== camp.id) continue;
+    if (!(ck.ok || (soft && ck.soft)) || ck.camp !== camp.id) continue;
     let sc = -ck.dist * 2 + ck.syn * 3;
     if (d.gather) { if (!ck.spots) continue; sc += ck.spots * 4; }
     if (type === 'tower') sc = Math.hypot(x - camp.x, y - camp.y) - Math.abs(Math.hypot(x - camp.x, y - camp.y) - 5);
@@ -45,7 +47,14 @@ function tryBuild(camp, type) {
   if (!G.unlocked(S, type)) return false;
   S.active = camp.id;
   const p = bestSpot(camp, type);
-  if (!p) return false;
+  if (!p) {
+    // 料不够：像玩家一样先排进建造队列，物流网会把料从别的营地运来（每个营地最多排 3 栋）
+    if (type === 'furnace' || (S.queue || []).filter(q => q.camp === camp.id).length >= 3) return false;
+    const q = bestSpot(camp, type, true); if (!q) return false;
+    const r = G.queueBuild(S, type, q[0], q[1]);
+    if (r.ok) { STAT.queued = (STAT.queued || 0) + 1; log('queue', type, camp.name); }
+    return false;
+  }
   const r = G.place(S, type, p[0], p[1]);
   if (r.ok) log('build', type, camp.name);
   return r.ok;
@@ -102,8 +111,9 @@ function fillWorkers(camp) {
     const t = b.type, cat = BLD[t].cat;
     if (t === 'hunter' || t === 'kitchen' || t === 'greenhouse') return (cr.foodNet || 0) < 1 || (camp.stock.food || 0) < camp.people * 30 ? 0 : 5;
     if (FOCUS[camp.id] === t) return 0.5;
-    if (line.has(t)) return 1;
-    if (t === 'warehouse') return (cr.hf || 1) < 0.95 ? 2 : 6;
+    if (line.has(t)) return cat === 'gather' ? 0.9 : 1; // 同一条线：先给采集的派人，原料够了加工厂才转得起来
+    if (t === 'warehouse') return (cr.hf || 1) < 0.8 ? 0.5 : (cr.hf || 1) < 0.95 ? 2 : 6; // 搬运工缺得多：先派仓库，不然所有建筑都只转一半
+    if (t === 'quarry' && (camp.stock.stone || 0) < 100) return 1.5; // 石料见底，盖不了房
     if (t === 'lumber' || t === 'coalmine') return (cr.fuelUnits || 0) < (cr.burnPerMin || 1) * 90 ? 2 : 4;
     if (t === 'tower') return raid ? 0 : 9;
     if (t === 'workshop' || t === 'scout') return 3;
@@ -208,11 +218,14 @@ function campThink(camp, main) {
         const eat = {}, R2 = G.rt(S), from = (pl.nodes.find(x => x.k === w.from) || {}).type;
         for (const b of G.campBuildings(S, camp.id)) { const ir = ((R2.b[b.id] || {}).inRate || {})[w.k]; if (ir > 0 && b.type !== from) eat[b.type] = (eat[b.type] || 0) + ir; }
         const top = Object.keys(eat).sort((a, b) => eat[b] - eat[a])[0];
+        if (process.env.SHDBG) console.log('SHED comp', Math.round(S.t / 60), gr, 'k', w.k, 'from', from, 'top', top, JSON.stringify(eat));
         if (top && shed(camp, top)) fillWorkers(camp);
         break;
       }
       if (G.idleLabor(S, camp) < (BLD[w.type].w || 0)) {
-        const over = pl.nodes.filter(x => x.type && x.workers > 0 && x.ratio > 1.8 && x.k !== gr).sort((a, b) => b.ratio - a.ratio)[0];
+        // 产得多但仓里攒不住（被盖房、烧火吃掉）的不减人
+        const over = pl.nodes.filter(x => x.type && x.workers > 0 && x.ratio > 1.8 && x.k !== gr && (camp.stock[x.k] || 0) > Math.min(600, G.storeCap(S, camp) * 0.5)).sort((a, b) => b.ratio - a.ratio)[0];
+        if (over && process.env.SHDBG) console.log('SHED over', Math.round(S.t / 60), gr, over.type, over.ratio, 'worst', w.type, w.k);
         if (over) shed(camp, over.type);
       }
       if (G.idleLabor(S, camp) >= (BLD[w.type].w || 0) && tryBuild(camp, w.type)) { STAT.lineBuild++; fillWorkers(camp); continue; }
@@ -417,8 +430,15 @@ const DEATH_RE = [['hunger', /没能熬过去（饥饿/], ['cold', /没能熬过
 const OFFS = [];
 const T_END = S.t + DAYS * 86400;
 while (S.t < T_END && G.journeyOf(S).stage < MAXSTAGE) {
+  const _fk = ['battery', 'coke', 'coal', 'wood'], _m0 = G.mainCamp(S), _a = _fk.map(k => _m0.stock[k] || 0);
   for (let i = 0; i < THINK / 10; i++) G.step(S, 10);
+  const _b = _fk.map(k => _m0.stock[k] || 0);
   think(); track();
+  if (process.env.FDBG && S.t < +process.env.FDBG) { // 燃料去哪了：步进和机器人动作各吃了多少，按建筑类型列出消耗
+    const _c = _fk.map(k => _m0.stock[k] || 0), R = G.rt(S), use = {};
+    for (const b of S.buildings) { if (b.camp !== _m0.id) continue; const br = R.b[b.id]; if (!br || !br.inRate) continue; for (const k of _fk) if (br.inRate[k] > 0) use[b.type + '.' + k] = (use[b.type + '.' + k] || 0) + br.inRate[k]; }
+    console.log(`FDBG ${day()} cap=${G.storeCap(S, _m0)} wh=${S.buildings.filter(b => b.camp === _m0.id && b.type === "warehouse").map(b => b.lvl + (b.done ? "" : "?")).join("/")} step=${_fk.map((k, i) => Math.round(_b[i] - _a[i])).join(',')} think=${_fk.map((k, i) => Math.round(_c[i] - _b[i])).join(',')} stock=${_c.map(Math.round).join(',')} use=${Object.entries(use).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([k, v]) => k + ':' + v.toFixed(1)).join(' ')} prod=${_fk.map(k => (G.prodRate ? G.prodRate(S, k) : 0).toFixed?.(1)).join(',')}`);
+  }
   // 每天离线一次
   const d = Math.floor(S.t / 86400);
   if (OFFLINE && d !== lastOff && S.t % 86400 > 20 * 3600) {
@@ -434,7 +454,12 @@ while (S.t < T_END && G.journeyOf(S).stage < MAXSTAGE) {
   }
   if (process.env.EARLY && Math.floor(S.t / +process.env.EARLY) !== Math.floor((S.t - THINK) / +process.env.EARLY)) { // 开局每隔 EARLY 秒打一行：新手前 30 分钟看节奏
     const m = G.mainCamp(S), ch = G.chapters(S).find(c => c.i === G.journeyOf(S).stage), adv = G.advisor ? G.advisor(S) : null, nr = G.nextRaid(S), wx = G.weatherAt(S, S.t);
+    if (process.env.WDBG) { const wb = {}; for (const b of G.campBuildings(S, m.id)) if (G.bMax(S, b) > 0) { const k = b.type; wb[k] = wb[k] || [0, 0, 0]; wb[k][0]++; wb[k][1] += b.workers; wb[k][2] += G.bMax(S, b); } console.log('WDBG', Object.entries(wb).map(([k, v]) => k + ':' + v.join('/')).join(' '), 'cap', JSON.stringify(CAP[m.id] || {}), 'focus', FOCUS[m.id], 'auto', m.auto); }
     console.log(`EARLY ${Math.round(S.t / 60)}m ppl=${m.people}/${G.popCap ? G.popCap(S, m) : '?'} wait=${(m.wait || 0)} bld=${S.buildings.length} f=${G.getB(S, m.furnace).lvl} food=${Math.round(m.stock.food || 0)} meat=${Math.round(m.stock.game || 0)} wood=${Math.round(m.stock.wood || 0)} plank=${Math.round(m.stock.plank || 0)} stone=${Math.round(m.stock.stone || 0)} hope=${Math.round(m.hope ?? 0)} deaths=${S.stats.deaths} | ${ch ? ch.tasks.map(t => (t.ok ? '✓' : '✗') + t.t + ' ' + (typeof t.cur === 'number' ? t.cur.toFixed(1) : t.cur)).join(' / ') : ''} | raid in ${nr ? Math.round(nr.in / 60) + 'm' : '-'} wx ${wx.blizzard ? 'BLIZZ' : wx.warn ? 'warn' : Math.round((wx.next || 0) / 60) + 'm'}${adv ? ' | adv ' + adv.text.slice(0, 60) : ''}`);
+  }
+  if (process.env.NDBG && Math.floor(S.t / +process.env.NDBG) !== Math.floor((S.t - THINK) / +process.env.NDBG)) { // 每隔 NDBG 秒看一眼主营地冷不冷、烧什么
+    const m = G.mainCamp(S), cr = G.rt(S).c[m.id] || {}, cs = G.coldAt(S), z = G.tideAt(S), wx = G.weatherAt(S, S.t);
+    console.log(`NDBG ${day()} ppl=${m.people} beds=${G.bedsOf(S, m)} wait=${m.wait || 0} sick=${Math.round(m.sick || 0)} temp=${Math.round(cr.temp ?? 0)} tH=${Math.round(cr.tH ?? 0)} tU=${Math.round(cr.tU ?? 0)} drop=${Math.round(cr.drop ?? 0)} fueled=${(cr.fueled ?? 0).toFixed(2)} fuelU=${Math.round(cr.fuelUnits || 0)} burn=${(cr.burnPerMin || 0).toFixed(1)} f=${G.getB(S, m.furnace).lvl} heat=${Math.round(cr.heat ?? 0)} od=${cr.od ? 1 : 0} stall=${cr.stall ? 1 : 0} cold=${cs ? (cs.on ? 'ON' : cs.fc ? 'fc' : '-') : 'x'} tide=${z ? (z.on ? 'ON' : 'fc' + Math.round(z.inSec / 60)) : 'x'} bliz=${wx.blizzard ? 1 : 0} deaths=${S.stats.deaths} food=${Math.round(m.stock.food || 0)}`);
   }
   if (d !== lastDay) {
     lastDay = d;

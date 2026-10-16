@@ -89,7 +89,7 @@ export class Hints {
 }
 
 // 老存档第一次打开新版：说一下这版加了什么，老存档是怎么接上的（from：存档原来是第几版）
-export const WHATS_NEW = 14; // 14 = 1.0.0 正式版
+export const WHATS_NEW = 15; // 14 = 1.0.0 正式版，15 = 1.1.0 炉火连城
 export function whatsNewHtml(S, from = 13) {
   const J = Sim.journeyOf(S), main = Sim.mainCamp(S), depots = S.camps.filter(c => c.depot);
   Sim.bookTick(S); // 先把老存档早就做到的新成就补发了，下面好说个数
@@ -103,10 +103,18 @@ export function whatsNewHtml(S, from = 13) {
   if (atSpine) notes.push('车队停在世界之脊，往北的路已经通了：北迁面板里的下一站就是「北境第 1 站」。');
   else if (north) notes.push(`你已经在北境第 ${north} 站了，接着往北走就行。`);
   if (got && from < 13) notes.push(`你以前做到的事已经算数：补发了 ${got} 个新成就，奖励在「菜单 → 收藏 → 装扮」里换上。`);
+  if (from < 15) {
+    const nr = (S.meta.netNew || []).length, sp = S.camps.filter(c => c.spec).length, bots = S.buildings.reduce((a, b) => a + (b.bots || 0), 0);
+    notes.push(`1.1 接上了：${nr ? `原来的运输线和补给站换成了物流网，新修了 ${nr} 条路；` : S.camps.length > 1 ? '原来的运输线换成了物流网；' : ''}${sp ? `每座营地按地形分到了一样特产；` : ''}在岗的建筑从熟练 1 级算起；以前的研究都还在；${bots ? `营地里的 ${bots} 台自动机都按劳工型装回了仓里；` : ''}${S.cold ? '寒潮过一天开始报；' : ''}${north >= 4 ? '已经过了北境第 4 站，第一波永冬潮大约两天后报出来；' : ''}读档前自动备份了一份，「菜单 → 自动备份」里能退回去。`);
+  }
   notes.push('存档里的东西都没丢。');
-  const v1 = `<div class="wn"><b>🎉 正式版</b><span>${CHANGELOG[0].items.map(t => '· ' + t).join('<br>')}<small class="wnmore">菜单 → 更新日志 里能看到每一版加了什么。</small></span></div>`;
-  if (from >= 13) return `<h2>${VERSION_NAME}</h2>${v1}<div class="wn"><b>📜 你的存档</b><span>${notes.join('')}</span></div>`;
-  return `<h2>${VERSION_NAME}</h2>${v1}<p class="hint wnfirst">第十三版「极北篇」的内容也一起来了：</p>
+  const W11 = [['🧭', '新界面', 0], ['🛷', '物流网', 1], ['⚗', '配方和特产', 2], ['🌨', '熟练工和寒潮', 3], ['🏪', '北方商会', 4], ['🔬', '45 项研究', 5], ['🤖', '自动机和号令', 6], ['🗺', '分岔和奇遇', 7], ['🏛', '奇观和城镇', 8], ['🔥', '鼎盛和永冬潮', 9]];
+  const v11 = W11.map(([ic, n, i]) => `<div class="wn"><b>${ic} ${n}</b><span>${CHANGELOG[0].items[i]}</span></div>`).join('');
+  const more = `<p class="hint">菜单 → 更新日志 里能看到每一版加了什么。</p>`;
+  if (from >= 14) return `<h2>${VERSION_NAME}</h2>${v11}<div class="wn"><b>📜 你的存档</b><span>${notes.join('')}</span></div>${more}`;
+  const v1 = `<div class="wn"><b>🎉 1.0.0 正式版</b><span>${CHANGELOG[1].items.map(t => '· ' + t).join('<br>')}</span></div>`;
+  if (from >= 13) return `<h2>${VERSION_NAME}</h2>${v11}<p class="hint wnfirst">1.0.0 正式版的改动也一起来了：</p>${v1}<div class="wn"><b>📜 你的存档</b><span>${notes.join('')}</span></div>${more}`;
+  return `<h2>${VERSION_NAME}</h2>${v11}<p class="hint wnfirst">1.0.0 正式版和第十三版「极北篇」的内容也一起来了：</p>${v1}
 <div class="wn"><b>🧭 无尽北境</b><span>翻过世界之脊还能一直往北走。北境每一站有一种地貌：地热谷、富矿带、永夜、狼群领地、冰湖群、古城遗址、风暴走廊、陨石雨、冻土无林……各有好处和麻烦，还有一项专属任务。菜单和地图上记着你走到过的最远一站。</span></div>
 <div class="wn"><b>🗼 烽火塔</b><span>北境前十站各点亮一座烽火塔：打地基、喂高级材料、点火，一道光柱连回南边。第十站是天火塔，点着它就是最终结局。</span></div>
 <div class="wn"><b>🏆 成就与装扮</b><span>二十个新成就，奖励称号、炉火颜色、营旗图案、相框和八种北境装饰。相册会自动记下抵达、点塔这些时刻，拍照模式里也能收进去。</span></div>

@@ -1158,12 +1158,12 @@ export class UI {
     const m = T.fuel, burn = cr.burnPerMin || 0, cold = Sim.coldNow(S), base = z.on ? burn / Math.max(m, cold ? Sim.coldFuel(S) : 1) : burn, need = base * m * (z.on ? z.left : T.len) / 60, have = cr.fuelUnits || 0;
     const tIn = Math.round((cr.tH ?? c.temp) - (z.on ? 0 : z.drop)), tc = tIn >= 2 ? 'ok' : tIn >= -8 ? 'warn' : 'bad';
     let h = `<div class="wxhero tide ${z.on ? 'on' : z.inSec <= 600 ? 'near' : ''}"><div class="wxi">🌌</div><div><b>${z.on ? `永冬潮第 ${z.n} 波，还剩 ${fmtTime(z.left)}` : `第 ${z.n} 波约 ${fmtTime(z.inSec)} 后到`}</b><small>持续一天半 · 气温 −${z.drop}° · 熔炉烧 ${m} 倍燃料 · 户外采集 ${Math.round(Sim.tideGather(S) * 100)}%${Sim.techDone(S, 'botshell') ? '（自动机不受影响）' : ''}</small></div></div>`;
-    h += `<div class="row"><span>屋里体感</span><span>${z.on ? '现在' : '潮里约'} <b class="${tc}">${tIn}°</b>${tIn >= 2 ? '，没人会冻着' : '，会有人冻伤：升级帐篷、造暖炉，或者让熔炉超载'}</span></div>`;
-    h += `<div class="row"><span>燃料</span><span>${z.on ? '剩下这段' : '这一波'}要烧约 ${fmt(need)} · 现在有 ${fmt(have)} ${have >= need ? '<b class="ok">✔ 够</b>' : '<b class="bad">✖ 不够</b>'}${z.on ? '' : '<small>（物流网在帮每座营地补）</small>'}</span></div>`;
+    h += `<div class="row nw"><span>屋里体感</span><span>${z.on ? '现在' : '潮里约'} <b class="${tc}">${tIn}°</b>${tIn >= 2 ? '，没人会冻着' : '，会有人冻伤：升级帐篷、造暖炉，或者让熔炉超载'}</span></div>`;
+    h += `<div class="row nw"><span>燃料</span><span>${z.on ? '剩下这段' : '这一波'}要烧约 ${fmt(need)} · 现在有 ${fmt(have)} ${have >= need ? '<b class="ok">✔ 够</b>' : '<b class="bad">✖ 不够</b>'}${z.on ? '' : '<small>（物流网在帮每座营地补）</small>'}</span></div>`;
     const bv = Sim.beastView(S, z);
-    if (bv) h += `<div class="row"><span>霜巨兽</span><span>${bv.done ? (bv.won ? '<b class="ok">✔ 打退了</b>' : '<b class="bad">闯进来过</b>，冻住的建筑过一阵会化开') : `${bv.in > 0 ? fmtTime(bv.in) + '后' : '马上'}冲「${esc(bv.name)}」 · 强度 ${bv.str} · 防御 ${bv.def} ${bv.def >= bv.str ? '<b class="ok">✔ 守得住</b>' : Sim.colossusReady && Sim.colossusReady(S) && Sim.wonderOn(S, 'wcolossus') ? '<b class="warn">靠蒸汽巨像吓走</b>' : '<b class="bad">✖ 守不住</b>'}`}<br><small>守不住：几座建筑冻住 ${T.frz / 60} 分钟，几个人冻伤病倒，不会死人</small></span></div>`;
+    if (bv) h += `<div class="row nw"><span>霜巨兽</span><span>${bv.done ? (bv.won ? '<b class="ok">✔ 打退了</b>' : '<b class="bad">闯进来过</b>，冻住的建筑过一阵会化开') : `${bv.in > 0 ? fmtTime(bv.in) + '后' : '马上'}冲「${esc(bv.name)}」 · 强度 ${bv.str} · 防御 ${bv.def} ${bv.def >= bv.str ? '<b class="ok">✔ 守得住</b>' : Sim.colossusReady && Sim.colossusReady(S) && Sim.wonderOn(S, 'wcolossus') ? '<b class="warn">靠蒸汽巨像吓走</b>' : '<b class="bad">✖ 守不住</b>'}`}<br><small>守不住：几座建筑冻住 ${T.frz / 60} 分钟，几个人冻伤病倒，不会死人</small></span></div>`;
     const best = S.meta.tideBest || 0;
-    h += `<div class="row sub"><span>挺过去</span><span>没人冻伤、霜巨兽没闯进来：余烬 +${T.embers * z.n}，每座营地希望 +${T.hope}${best < 5 ? '<br>挺过第 5 波：专属炉火「霜白」和称号「永冬守火人」' : best < 10 ? '<br>挺过第 10 波：专属炉火「永冬」和称号「十潮不灭」' : ''}</span></div>`;
+    h += `<div class="row sub nw"><span>挺过去</span><span>没人冻伤、霜巨兽没闯进来：余烬 +${T.embers * z.n}，每座营地希望 +${T.hope}${best < 5 ? '<br>挺过第 5 波：专属炉火「霜白」和称号「永冬守火人」' : best < 10 ? '<br>挺过第 10 波：专属炉火「永冬」和称号「十潮不灭」' : ''}</span></div>`;
     return h;
   }
   // 1.1 寒潮：多久到、这一天要烧多少燃料、屋里会不会冻着、挺过去有什么
@@ -1430,7 +1430,7 @@ export class UI {
       h += `<div class="row sub"><span>防御</span><span>${Sim.campDefense(S, c)}</span></div>`;
       h += `<button class="mlink" data-act="camptab" data-arg="infra"><span>${INFRA.pipe.ic}</span><span>营地基建：${INFRA.road.lv[c.road || 0].n} · ${INFRA.pipe.lv[c.pipe || 0].n}<small>修路让搬运更快，修蒸汽管道让供热圈更大</small></span><i>›</i></button>`;
     }
-    if (b.type === 'tent') h += `<div class="row"><span>床位</span><span>${Sim.housingOf(b)} 人 · 保温 +${Sim.insulOf(b)}°</span></div>`;
+    if (b.type === 'tent') h += `<div class="row"><span>床位</span><span>${Sim.housingOf(b, S)} 人 · 保温 +${Sim.insulOf(b)}°</span></div>`;
     if (b.type === 'warehouse') h += `<div class="row"><span>仓储</span><span>每种物资上限 ${fmt(cr.cap)}</span></div>`;
     if (b.type === 'tower') h += `<div class="row"><span>威力</span><span>${Math.round(Sim.towerPower(b.lvl))}</span></div>`;
     if (b.type === 'sledshed') h += this.shedHtml(b, c);
@@ -1474,7 +1474,7 @@ export class UI {
       if (d.out) fx.push(`产量 ×${Sim.levelMul(b.lvl).toFixed(2)}→×${Sim.levelMul(b.lvl + 1).toFixed(2)}`);
       const m2 = Sim.maxWorkers(b.type, b.lvl + 1); if (m2 > mx) fx.push(`岗位 ${mx}→${m2}`);
       if (b.type === 'furnace') fx.push(`供热 +5°`, `半径 ${furnaceRadius(b.lvl)}→${furnaceRadius(b.lvl + 1)}`, '耗燃料 +17%');
-      if (b.type === 'tent') fx.push(`床位 ${Sim.housingOf(b)}→${Sim.housingOf(nb)}`, `保温 +${Sim.insulOf(b)}→+${Sim.insulOf(nb)}°`);
+      if (b.type === 'tent') fx.push(`床位 ${Sim.housingOf(b, S)}→${Sim.housingOf(nb, S)}`, `保温 +${Sim.insulOf(b)}→+${Sim.insulOf(nb)}°`);
       if (b.type === 'tower') fx.push(`威力 ${Math.round(Sim.towerPower(b.lvl))}→${Math.round(Sim.towerPower(b.lvl + 1))}`);
       if (b.type === 'heater') fx.push('加温 +50%');
       if (b.type === 'scout') fx.push('走得更远 +8 格');

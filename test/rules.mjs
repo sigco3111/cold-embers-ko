@@ -102,8 +102,9 @@ for (let n = 1; n <= 11; n++) {
     ok(c / n2 > 0.55, `${tag}: ${c}/${n2} weather events are ice cracks`);
     const p = spotFor('icefish', 1), r = p && G.place(S, 'icefish', p.x, p.y);
     const b = S.buildings.find(q => q.type === 'icefish'); if (b) b.workers = 2;
+    m.stock.food = Math.min(m.stock.food, G.storeCap(S, m) * 0.5); // 测试存档的粮仓塞得比仓库上限还满：先腾出地方
     const f0 = m.stock.food; run(120);
-    ok(r && r.ok && (G.rt(S).b[b.id].rate || {}).food > 3, `${tag}: icefish catches fish ${JSON.stringify(G.rt(S).b[b && b.id]?.rate)}`);
+    ok(r && r.ok && (G.rt(S).b[b.id].rate || {}).food > 3, `${tag}: icefish catches fish ${JSON.stringify(G.rt(S).b[b && b.id]?.rate)} ${G.rt(S).b[b && b.id]?.status} food=${Math.round(m.stock.food)} cap=${G.storeCap(S, m)} w=${b && b.workers}`);
     ok(G.checkPlace(S, 'tent', ...(() => { const w = getWorld(S.runSeed); for (let i = 0; i < w.terrain.length; i++) if (w.terrain[i] === WG.T_ICE && G.warmCampAt(S, i % W, Math.floor(i / W)) === m.id) return [i % W, Math.floor(i / W)]; return [0, 0]; })()).reason.includes('冰湖'), `${tag}: cannot build on the ice`);
   }
   if (rule === 'wolf') {

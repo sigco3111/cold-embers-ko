@@ -73,7 +73,8 @@ class Game {
       this.S = S;
       this.view.bind(S);
       const away = (Date.now() - S.savedAt) / 1000;
-      if (away > 20) { this.backup('open', this.slot, raw); this.offline(away); } // 离线结算前先备份一份：离开时出了事还能退回去
+      if (away > 20 || this.whatsNew) this.backup('open', this.slot, raw); // 离线结算、换新版本之前先备份一份：出了事还能退回去
+      if (away > 20) this.offline(away); // 离线结算前先备份一份：离开时出了事还能退回去
     } else {
       const meta = Sim.defaultMeta();
       try { const d = localStorage.getItem(KEY + '-newdiff'); if (d) { meta.diff = d; localStorage.removeItem(KEY + '-newdiff'); } } catch (e) {}

@@ -489,6 +489,17 @@ export const forecastOf = S => FORECAST * (journeyOf(S).stage >= 9 ? 2 : 1) * (r
 export const KEEP_FRAC = 0.2, KEEP_MAX = 300, KEEP_WHY = '留料给建造';
 // 燃料也留一份给熔炉：工厂和烽火塔塔身拿燃料（木材、煤、焦煤、晶体电池）时，营地的燃料总量不低于熔炉 FUEL_KEEP_MIN 分钟的用量
 export const FUEL_KEEP_MIN = 10, FUEL_KEEP_WHY = '留燃料给熔炉';
+// 「造燃料」的建筑：产出的燃料份数比吃进去的燃料多（晶体电池厂、焦煤炉）。它们缺的非燃料原料（铁锭）算进 feed，造这些原料的建筑也不受留燃料限制
+export function fuelGain(d) { let o = 0, i = 0; for (const k in d.out || {}) o += (FUEL[k] || 0) * d.out[k]; for (const k in d.in || {}) i += (FUEL[k] || 0) * d.in[k]; return o > 0 && o > i; }
+export function fuelFeedOf(plans) {
+  const feed = new Set();
+  for (const p of plans) {
+    const d = p.d; if (!d.in || !fuelGain(d) || p.b.workers <= 0) continue;
+    for (const k in d.in) if (!FUEL[k]) feed.add(k);
+  }
+  return feed;
+}
+export function fuelFeedFree(d, feed) { if (fuelGain(d)) return true; for (const k in d.out || {}) if (feed.has(k)) return true; return false; }
 export function fuelKeep(st, k, keepU) { return FUEL[k] && keepU > 0 ? Math.max(0, (keepU - (fuelUnitsOf(st) - (st[k] || 0) * FUEL[k])) / FUEL[k]) : 0; }
 const BUILD_MAT = new Set(); for (const t in BLD) for (const k in BLD[t].cost || {}) if (RES[k].t <= 2 && k !== 'game' && k !== 'food') BUILD_MAT.add(k); // 生肉、熟食是口粮，不当建材留
 export function isBuildMat(k) { return BUILD_MAT.has(k); }
@@ -1125,6 +1136,7 @@ export function pickCampSpec(S, camp, rad) {
 // 北境的站按地貌，富矿带按那一种矿，别的营地按矿点
 export function specForStop(S, camp, st, rad) { return st && st.rule ? (st.rule === 'rich' ? st.rich : st.rule) : pickCampSpec(S, camp, rad); }
 
+export const PERM_CAP = 2, BONUS_BURST = new Set(['鼓舞', '奇观', '炉火鼎盛']);
 export const BONUS_CAP = { tech: 0.4, spec: 1, focus: 0.3, star: 0.45, mile: 0.15, ember: 0.6, relic: 0.1, adj: 0.4 };
 export const EMBER_PROD = 0.04;
 export function prodBonus(S, b, camp, syn, beltB) {
@@ -1153,6 +1165,9 @@ export function prodBonus(S, b, camp, syn, beltB) {
     ['炉火鼎盛', peakProd(S, b)],
     ['城', townProd(camp)],
   ].filter(p => Math.abs(p[1]) > 1e-9);
+  // 1.1 长期加成合起来最多 +200%（×3）；鼓舞、奇观、炉火鼎盛这种爆发的另算在上面
+  let perm = 0; for (const p of parts) if (!BONUS_BURST.has(p[0]) && p[1] > 0) perm += p[1];
+  if (perm > PERM_CAP) parts.push(['长期加成封顶', PERM_CAP - perm]);
   let sum = 0; for (const p of parts) sum += p[1];
   return { sum: Math.max(-0.5, sum), parts };
 }
@@ -2107,6 +2122,8 @@ function campStep(S, camp, dt, w) {
   }
   const hf = demand > 0 ? Math.min(1, haulers / demand) : 1;
 
+  // 留给熔炉的那份燃料不拦「造燃料」的链：晶体电池厂要的铁锭、焦煤炉本身（烧煤出更值钱的焦煤）照样能拿，不然燃料越少越造不出燃料
+  const fuelFeed = fuelFeedOf(plans);
   // 第二遍：真正生产（上游先算）
   plans.sort((a, b) => (a.d.gather ? 0 : 1) - (b.d.gather ? 0 : 1) || a.d.t - b.d.t || a.b.id - b.b.id);
   for (const p of plans) {
@@ -2130,7 +2147,7 @@ function campStep(S, camp, dt, w) {
     if (d.in) for (const k in d.in) {
       const need = d.in[k] * f;
       if (need <= 0) continue;
-      const fk = fuelKeep(st, k, fuelKeepU), keep = keepOf(camp, k, cap) + fk, have = Math.max(0, (st[k] || 0) - keep);
+      const fk = fuelFeedFree(d, fuelFeed) ? 0 : fuelKeep(st, k, fuelKeepU), keep = keepOf(camp, k, cap) + fk, have = Math.max(0, (st[k] || 0) - keep);
       if (have < need) { const r = have / need; if (r < lim) { lim = r; why = fk > 0 && (st[k] || 0) > need ? FUEL_KEEP_WHY : keep && (st[k] || 0) >= keep * 0.5 ? KEEP_WHY : `缺${RES[k].n}`; whyK = k; } }
     }
     // 产出满仓则停（开了「满仓自动兑换」就不停，多出来的拿去换）
@@ -2148,9 +2165,9 @@ function campStep(S, camp, dt, w) {
     if (d.in) for (const k in d.in) st[k] = Math.max(0, (st[k] || 0) - d.in[k] * f);
     for (const k in d.out) {
       const amt = d.out[k] * f * (k === 'food' ? kitMul : 1);
-      const over = (st[k] || 0) + amt - cap;
+      const s0 = st[k] || 0, over = Math.min(amt, s0 + amt - cap); // 只换新产出里装不下的那份；仓里本来就超出的（拆了仓库、商会买来的）不动
       if (over > 0 && camp.trade) tradeOverflow(S, camp, k, over, cap, cr, d);
-      st[k] = Math.min(cap, (st[k] || 0) + amt);
+      st[k] = Math.max(s0, Math.min(cap, s0 + amt));
       S.stats.prod[k] = (S.stats.prod[k] || 0) + amt;
       (R.made || (R.made = {}))[k] = (R.made[k] || 0) + amt;
       if (d.gather) depleteSpots(S, b, amt * spotShare);
@@ -2178,10 +2195,10 @@ function campStep(S, camp, dt, w) {
   for (const p of plans) stalled += p.b.workers * lf * (1 - (p.br.avail != null ? p.br.avail : 1));
   const idle = Math.max(0, camp.people - Math.min(camp.people, assigned)) + Math.min(camp.people, stalled);
   const forage = w.blizzard ? 0 : idle * workEff / 60 * dt;
-  st.wood = Math.min(cap, (st.wood || 0) + forage * 0.35);
-  if (tierOfRow(camp.y) >= 2) st.coal = Math.min(cap, (st.coal || 0) + forage * 0.15); // 北方地表能捡到煤块
-  st.game = Math.min(cap, (st.game || 0) + forage * 0.12);
-  st.stone = Math.min(cap, (st.stone || 0) + forage * 0.06);
+  st.wood = Math.max(st.wood || 0, Math.min(cap, (st.wood || 0) + forage * 0.35));
+  if (tierOfRow(camp.y) >= 2) st.coal = Math.max(st.coal || 0, Math.min(cap, (st.coal || 0) + forage * 0.15)); // 北方地表能捡到煤块
+  st.game = Math.max(st.game || 0, Math.min(cap, (st.game || 0) + forage * 0.12));
+  st.stone = Math.max(st.stone || 0, Math.min(cap, (st.stone || 0) + forage * 0.06));
   cr.forage = idle;
   // 吃饭
   const eatMul = Math.max(0.3, 1 + lawSum(S, 'food') + techSum(S, 'eat')) * diffOf(S).eat;
@@ -2651,7 +2668,11 @@ function scoutsStep(S, dt) {
     const tx = s.phase === 'out' ? s.tx + 0.5 : home.x, ty = s.phase === 'out' ? s.ty + 0.5 : home.y;
     const dx = tx - s.x, dy = ty - s.y, d = Math.hypot(dx, dy);
     const mv = spd * dt;
-    if (d > mv) { s.x += dx / d * mv; s.y += dy / d * mv; if (s.phase === 'out') revealCircle(S, s.x, s.y, 2 + up(S, 'sight')); continue; }
+    if (d > mv) {
+      const rr = 2 + up(S, 'sight'), n = s.phase === 'out' ? Math.max(1, Math.ceil(mv / rr)) : 0; // 一步走得远（离线追赶、侦察所等级高）：沿路每隔一个揭雾半径揭一次，不留空档
+      for (let k = 1; k <= n; k++) revealCircle(S, s.x + dx / d * mv * k / n, s.y + dy / d * mv * k / n, rr);
+      s.x += dx / d * mv; s.y += dy / d * mv; continue;
+    }
     s.x = tx; s.y = ty;
     if (s.phase === 'out' && s.kind === 'survey') { foundVein(S, s); s.phase = 'back'; continue; }
     if (s.phase === 'out') {
@@ -3306,7 +3327,7 @@ function raidsStep(S, dt) {
       S.stats.raidsWon++;
       if (ns) { ns.raidW = (ns.raidW || 0) + 1; wolfSafe(S, camp, ns); }
       const wolf = campRule(S, camp) === 'wolf', g = Math.round(str * 2 * (wolf ? RULE_FX.wolfLoot : 1) * (1 + buffOf(S, camp, 'loot')));
-      camp.stock.game = Math.min(storeCap(S, camp), (camp.stock.game || 0) + g);
+      camp.stock.game = Math.max(camp.stock.game || 0, Math.min(storeCap(S, camp), (camp.stock.game || 0) + g));
       bumpMood(camp, 4, -2);
       logMsg(S, `${helped.length ? '箭塔和' + helped.join('、') : '箭塔'}击退了${name}（${def} 对 ${str}），收获生肉 ${g}${wolf ? '（狼群领地，战利品翻倍）' : ''}。`, 'good');
       R.fx.push({ kind: 'raid', camp: camp.id, won: true, str, def, t: S.t });
@@ -3534,7 +3555,7 @@ const EVENTS = [
       { t: '撬开看看', d: () => '可能有好东西，也可能白忙一场', go: (S, c, x) => {
         if (!x.lucky) { addBuff(S, c, 'prod', -0.1, 180, '有人撬箱子划伤了手'); return '箱子是空的，还有人划伤了手，大家干活慢了一会儿。'; }
         const cap = storeCap(S, c), got = [];
-        for (const k of rawOfTier(x.t).slice(0, 2)) { const a = Math.round(cap * 0.08); c.stock[k] = Math.min(cap, (c.stock[k] || 0) + a); got.push(`${RES[k].n} +${a}`); }
+        for (const k of rawOfTier(x.t).slice(0, 2)) { const a = Math.round(cap * 0.08); c.stock[k] = Math.max(c.stock[k] || 0, Math.min(cap, (c.stock[k] || 0) + a)); got.push(`${RES[k].n} +${a}`); }
         return `箱子里塞满了物资：${got.join('，')}。`; } },
       { t: '交给侦察营研究', d: () => '余烬 +4', go: S => { S.meta.embers += 4; S.meta.emberTotal += 4; return '箱子上的字是一段旧路线，北行的人会记住它。'; } },
     ] },
