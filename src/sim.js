@@ -2,7 +2,7 @@
 import {
   RES, RES_KEYS, FUEL, FUEL_ORDER, GATE, GATE_EVERY, SPOTS, SPOT_KEYS, LANDMARKS, BAND_START,
   tierOfRow, baseTempOfRow, ETERNAL_STAGES, BLD, furnaceHeat, furnaceRadius, furnaceBurn,
-  SPECS, SPEC_MAX, specBonus, specTrainCost, EMBER_UPS, emberCost, RAIDERS, STORY, DAY_LEN, LAWS, LAW_CD, TECHS, SITES, CHAPTERS, INFRA, LM_R, FAR_MARKS, DIFF, DIFF_KEYS, FOCUS, FOCUS_KEYS, FOCUS_LVL, FOCUS_CD, NORTH_RULES, RULE_FX, NORTH_HI, TITLES, FLAMES, FLAGS, FRAMES, NDECO, NORTH_TASK, NORTH_STORY, NORTH_END, TOWER_STEPS, TOWER_FX,
+  SPECS, SPEC_MAX, specBonus, specTrainCost, EMBER_UPS, emberCost, RAIDERS, STORY, DAY_LEN, LAWS, LAW_CD, TECHS, SITES, CHAPTERS, INFRA, LM_R, FAR_MARKS, DIFF, DIFF_KEYS, FOCUS, FOCUS_KEYS, FOCUS_LVL, FOCUS_CD, NORTH_RULES, RULE_FX, RICH_KINDS, CAMP_SPEC, CSPEC_FX, CSPEC_FX2, ALT, ALT_SWITCH, NORTH_HI, TITLES, FLAMES, FLAGS, FRAMES, NDECO, NORTH_TASK, NORTH_STORY, NORTH_END, TOWER_STEPS, TOWER_FX,
 } from './data.js';
 import { W, H, BASE_H, setRows, rowsFor, northStop, T_SNOW, T_ICE, getWorld, idx, inMap, hash3, mulberry32 } from './worldgen.js';
 import { journeyOf, journeyStep, mainCamp, outpostBlock, outpostKit, moveFuel, fuelUnits, stopOf, depotAuto, growNext, ruleNow, campRule, ruleSpan, ruleSpans, nsOf, SPINE, northN } from './journey.js';
@@ -60,6 +60,7 @@ export function newRun(meta, site = 0, seed) {
   const fx = L.x - 1, fy = site === 0 ? L.row - 1 : L.row - 8; // 地标遗迹在营地北边
   const camp = makeCamp(S, fx, fy, L.n);
   S.active = camp.id;
+  camp.spec = pickCampSpec(S, camp, furnaceRadius(1) + 1);
   S.journey = { stage: site, main: camp.id, trip: null, fleet: { sled: 0, tractor: 0 }, plan: {}, legs: [], ruins: [] };
   const k = site;
   // 越往北起点：熔炉等级更高、人更多，但更冷
@@ -553,6 +554,7 @@ export function place(S, type, x, y) {
     payer.people -= move; camp.people += move;
     trimWorkers(S, payer);
     getB(S, camp.furnace).lvl = 2 + 2 * (tierOfRow(camp.y) - 1); // 越往北，前哨熔炉一开始就要烧得越旺
+    camp.spec = pickCampSpec(S, camp, furnaceRadius(getB(S, camp.furnace).lvl) + 1);
     // 先遣队带上口粮和燃料，再顺手捎点木板
     payer.stock.food -= c.kit.food; camp.stock.food = (camp.stock.food || 0) + c.kit.food;
     moveFuel(payer.stock, camp.stock, c.kit.fuel);
@@ -764,7 +766,7 @@ export function beltCheck(S, aid, bid, k) {
   if (!a || !b || a.id === b.id) { res.reason = '建筑不在了'; return res; }
   if (a.camp !== b.camp) { res.reason = '不在同一个营地'; return res; }
   if (S.known < BELT[1].tier) { res.reason = '侦察到「煤与铁」纬度后才能造传送带'; return res; }
-  if (!(BLD[a.type].out || {})[k] || !(BLD[b.type].in || {})[k]) { res.reason = '这两栋之间没有这种物资往来'; return res; }
+  if (!(bdef(a).out || {})[k] || !(bdef(b).in || {})[k]) { res.reason = '这两栋之间没有这种物资往来'; return res; }
   if (S.belts.some(e => e.a === aid && e.b === bid && e.k === k)) { res.reason = '已经连上了'; return res; }
   if (beltsOf(S, aid).length >= BELT_PER || beltsOf(S, bid).length >= BELT_PER) { res.reason = `一栋建筑最多连 ${BELT_PER} 条`; return res; }
   const e = beltEnds(a, b);
@@ -828,10 +830,10 @@ export function removeBelt(S, id) {
 // 这栋建筑能连到哪：产品送给附近用它的，原料从附近产它的来
 export function beltOptions(S, bid) {
   const b = getB(S, bid); if (!b) return [];
-  const d = BLD[b.type], out = [];
+  const d = bdef(b), out = [];
   for (const x of S.buildings) {
     if (x.camp !== b.camp || x.id === b.id) continue;
-    const dx = BLD[x.type];
+    const dx = bdef(x);
     for (const k in d.out || {}) if ((dx.in || {})[k]) out.push({ a: b.id, b: x.id, k, dir: 'out', other: x });
     for (const k in d.in || {}) if ((dx.out || {})[k]) out.push({ a: x.id, b: b.id, k, dir: 'in', other: x });
   }
@@ -1008,7 +1010,7 @@ export function campDefense(S, camp) {
     if (b.camp !== camp.id || b.type !== 'tower') continue;
     const mx = maxWorkers('tower', b.lvl);
     const staff = mx ? b.workers / mx : 1;
-    d += towerPower(b.lvl) * staff * (1 + specOf(S, b) + 0.15 * up(S, 'guard') + ((focusOf(camp) || {}).tower || 0));
+    d += towerPower(b.lvl) * staff * (1 + specOf(S, b) + 0.15 * up(S, 'guard') + ((focusOf(camp) || {}).tower || 0) + campSpecFx(S, b, camp));
   }
   return Math.round(d * (1 + buffOf(S, camp, 'def') + lawSum(S, 'def') + techSum(S, 'def') + relicSum(S, 'def') + ((focusOf(camp) || {}).def || 0)));
 }
@@ -1048,6 +1050,59 @@ export function raiderName(S, camp) { return campRule(S, camp) === 'wolf' ? '雪
 
 // ---------- 加成：各项百分比先加在一起再乘一次，每样都有上限（全部拉满大约 ×4）----------
 // 吃不饱、太冷、希望低、人手不足照旧打折扣，这些不算加成
+// ---------- 1.1 替代配方 ----------
+// 换了配方的建筑（b.alt）吃的、产的换成另一套；别的（人手、等级、加成）都一样
+const ALT_DEF = {};
+for (const t in ALT) ALT_DEF[t] = { ...BLD[t], in: ALT[t].in, out: ALT[t].out, alt: true };
+export function bdef(b) { return b.alt && ALT_DEF[b.type] ? ALT_DEF[b.type] : BLD[b.type]; }
+export const altDef = type => ALT_DEF[type] || null;
+export const ALT_TECH = { alt1: '替代配方·一', alt2: '替代配方·二' };
+export const altTech = type => (BLD[type].t <= 3 ? 'alt1' : 'alt2');
+const fmtQ = v => Math.round(v * 10) / 10;
+export const recipeTxt = d => Object.keys(d.in || {}).map(k => RES[k].n + fmtQ(d.in[k])).join('+') + '→' + Object.keys(d.out || {}).map(k => RES[k].n + fmtQ(d.out[k])).join('+');
+export function altOk(S, type) { return !!ALT[type] && techDone(S, altTech(type)); }
+export function setAlt(S, id, on) {
+  const b = getB(S, id);
+  if (!b || !ALT[b.type]) return { ok: false, reason: '这种建筑没有替代配方' };
+  on = !!on;
+  if (!!b.alt === on) return { ok: true, same: true };
+  if (on && !altOk(S, b.type)) return { ok: false, reason: `先研究「${ALT_TECH[altTech(b.type)]}」` };
+  if (on) b.alt = 1; else delete b.alt;
+  b.altT = S.t + ALT_SWITCH; // 换配方要停工一会儿
+  dirty(S);
+  return { ok: true };
+}
+// 这一种建筑现在大多用哪套配方（规划器按多数算；一座都没有就按原配方）
+export function recipeOf(S, type) {
+  let a = 0, n = 0;
+  for (const b of S.buildings) if (b.type === type) { n++; if (b.alt) a++; }
+  return a * 2 > n && ALT_DEF[type] ? ALT_DEF[type] : BLD[type];
+}
+
+// ---------- 1.1 营地特产 ----------
+export function campSpecOf(camp) { return camp && camp.spec && CAMP_SPEC[camp.spec] ? CAMP_SPEC[camp.spec] : null; }
+export function campSpecFx(S, b, camp) {
+  const sp = campSpecOf(camp || getCamp(S, b.camp));
+  return sp && sp.b.includes(b.type) ? (techDone(S, 'specpro') ? CSPEC_FX2 : CSPEC_FX) : 0;
+}
+// 按暖圈里的矿点定特产：哪种矿比平常多就是哪种（按每种矿的平常密度折算）；一处矿都没有，就看树、碎石、猎物
+const SPEC_ALIAS = { dead: 'tree' };
+export function pickCampSpec(S, camp, rad) {
+  const w = getWorld(S.runSeed), r = rad || 10, cnt = {};
+  for (let y = Math.floor(camp.y - r); y <= camp.y + r; y++) for (let x = Math.floor(camp.x - r); x <= camp.x + r; x++) {
+    if (!inMap(x, y) || Math.hypot(x + 0.5 - camp.x, y + 0.5 - camp.y) > r) continue;
+    let k = SPOT_KEYS[w.spot[idx(x, y)]]; if (!k) continue;
+    k = SPEC_ALIAS[k] || k; if (!CAMP_SPEC[k]) continue;
+    cnt[k] = (cnt[k] || 0) + 1;
+  }
+  const rel = k => cnt[k] / (SPOTS[k].dens || 0.02);
+  const ores = RICH_KINDS.filter(k => cnt[k]), pool = ores.length ? ores : ['tree', 'rock', 'herd'].filter(k => cnt[k]);
+  if (!pool.length) return 'tree';
+  return pool.sort((a, b) => rel(b) - rel(a) || RICH_KINDS.indexOf(a) - RICH_KINDS.indexOf(b))[0];
+}
+// 北境的站按地貌，富矿带按那一种矿，别的营地按矿点
+export function specForStop(S, camp, st, rad) { return st && st.rule ? (st.rule === 'rich' ? st.rich : st.rule) : pickCampSpec(S, camp, rad); }
+
 export const BONUS_CAP = { tech: 0.4, spec: 1, focus: 0.3, star: 0.45, mile: 0.15, ember: 0.6, relic: 0.1, adj: 0.4 };
 export const EMBER_PROD = 0.04;
 export function prodBonus(S, b, camp, syn, beltB) {
@@ -1062,6 +1117,7 @@ export function prodBonus(S, b, camp, syn, beltB) {
     ['研究', Math.min(BONUS_CAP.tech, techBP(S, b.type))],
     ['专家', Math.min(BONUS_CAP.spec, specOf(S, b))],
     ['专精', Math.min(BONUS_CAP.focus, focusProd(camp, b.type))],
+    ['特产', campSpecFx(S, b, camp)],
     ['相邻、传送带', Math.min(BONUS_CAP.adj, SYN_PER * syn + beltB)],
     ['余烬', Math.min(BONUS_CAP.ember, EMBER_PROD * up(S, 'prod'))],
     ['遗物', Math.min(BONUS_CAP.relic, relicSum(S, 'prod'))],
@@ -1676,7 +1732,7 @@ function campStep(S, camp, dt, w) {
     const take = Math.min(st.coal || 0, need);
     heaterCoal += take; heaterWant += need;
     st.coal = (st.coal || 0) - take;
-    if (need > 0) heaterHeat += BLD.heater.heat * (1 + 0.5 * (h.lvl - 1)) * (take / need) * staff * (1 + techSum(S, 'heater'));
+    if (need > 0) heaterHeat += BLD.heater.heat * (1 + 0.5 * (h.lvl - 1)) * (take / need) * staff * (1 + techSum(S, 'heater') + campSpecFx(S, h, camp));
   }
   // 地热井：不烧燃料，派了人就一直热
   for (const h of bs) {
@@ -1779,7 +1835,7 @@ function campStep(S, camp, dt, w) {
   for (const b of bs) {
     if (b.type !== 'workshop') continue;
     const mx = maxWorkers(b.type, b.lvl), staff = mx ? Math.min(1, b.workers * lf / mx) : 0;
-    const r = BLD.workshop.research * (1 + 0.25 * (b.lvl - 1)) * staff * workEff * moodMul(camp) * (1 + specOf(S, b) + ((focusOf(camp) || {}).rp || 0));
+    const r = BLD.workshop.research * (1 + 0.25 * (b.lvl - 1)) * staff * workEff * moodMul(camp) * (1 + specOf(S, b) + ((focusOf(camp) || {}).rp || 0) + campSpecFx(S, b, camp));
     const br = R.b[b.id] || (R.b[b.id] = {});
     br.staff = staff; br.rp = r;
     const cur = S.tech && S.tech.cur;
@@ -1815,7 +1871,7 @@ function campStep(S, camp, dt, w) {
   const plans = [];
   let demand = 0;
   for (const b of bs) {
-    const d = BLD[b.type];
+    const d = bdef(b);
     if (!d.out) continue;
     const mx = bMax(S, b);
     const staff = mx ? Math.min(1, b.workers * lf / mx) : 1;
@@ -1828,6 +1884,7 @@ function campStep(S, camp, dt, w) {
     br.staff = staff;
     if (b.moveT > S.t) { br.act = 0; br.status = '在搬家'; br.haul = 0; br.rate = {}; br.inRate = {}; br.want = {}; br.dep = 0; continue; }
     if (b.hitT > S.t) { br.act = 0; br.status = '被陨石砸了，在修'; br.haul = 0; br.rate = {}; br.inRate = {}; br.want = {}; br.dep = 0; continue; }
+    if (b.altT > S.t) { br.act = 0; br.status = '在换配方'; br.haul = 0; br.rate = {}; br.inRate = {}; br.want = {}; br.dep = 0; continue; }
     if (mult <= 0) { br.act = 0; br.status = b.workers ? '没人干活' : '没有派人'; br.haul = 0; continue; }
     const dist = R.dist.get(b.id) || 1;
     let units = 0;
@@ -1908,6 +1965,7 @@ function campStep(S, camp, dt, w) {
     br.dist = p.dist;
     br.status = lim < 0.05 ? why : hf < 0.7 ? '搬运工不够' : lim < 0.95 ? why : br.staff < 0.99 ? '人手不足' : workEff < 0.9 ? '太冷，干活慢' : '运转中';
     br.deep = deepX > 0;
+    if (lim < 0.05 && why.startsWith('缺')) { if (br.stop0 == null) br.stop0 = S.t; } else br.stop0 = null; // 缺料停了多久（老向导提替代配方用）
   }
 
   { const offK = R.offline && R.histOff ? R.histOff.rate : 1; // 离线时塔身按离线收益的比例吃货、长进度
@@ -1998,7 +2056,7 @@ export function resValue(k) { const r = RES[k]; return Math.pow(3, r.t - 1) * (r
 function tradeOverflow(S, camp, k, over, cap, cr, d) {
   const st = camp.stock, t0 = RES[k].t, flow = cr.flow || {};
   const used = new Set(['food']);
-  for (const b of S.buildings) if (b.camp === camp.id && BLD[b.type].in) for (const q in BLD[b.type].in) used.add(q);
+  for (const b of S.buildings) if (b.camp === camp.id && bdef(b).in) for (const q in bdef(b).in) used.add(q);
   for (const f in FUEL) if (RES[f].t <= S.known) used.add(f);
   // 先换「有建筑在等」的，缺得越多越优先；没有在等的，就换库存不到一半的
   let best = null, bs = 0, br = 0.5;
@@ -3199,7 +3257,19 @@ export function deserialize(str) {
   rt(o);
   growNext(o); // 已经在世界之脊或北境：下一站要用的地图先接上
   if (!o.roads) migrateNet(o); // 1.1 以前的存档：运输线和补给站的路换成物流网
+  migrateSpec(o);
   return o;
+}
+// 1.1 以前的营地没有特产：北境的站按名字找回那一站的地貌，别的按暖圈里的矿点
+function migrateSpec(S) {
+  const J = journeyOf(S);
+  for (const c of S.camps) {
+    if (c.spec) continue;
+    let st = null;
+    for (let k = SPINE + 1; k <= J.stage + 1 && !st; k++) { const x = stopOf(S, k); if (x && x.n === c.name) st = x; }
+    const fb = getB(S, c.furnace);
+    c.spec = specForStop(S, c, st, furnaceRadius(fb ? fb.lvl : 1) + 1);
+  }
 }
 function rle(arr) { const out = []; let cur = arr[0], n = 0; for (let i = 0; i < arr.length; i++) { if (arr[i] === cur) n++; else { out.push(n); cur = arr[i]; n = 1; } } out.push(n); return (arr[0] ? '1:' : '0:') + out.join(','); }
 function unrle(s, N) { const a = new Uint8Array(N); const [h, body] = s.split(':'); let v = +h, p = 0; for (const n of body.split(',').map(Number)) { if (v) a.fill(1, p, Math.min(N, p + n)); p += n; v = 1 - v; } return a; }
@@ -3526,15 +3596,15 @@ export function activeBuffs(S, camp) { return (camp.buffs || []).filter(b => b.u
 
 // 生产链：这栋建筑的原料从哪些建筑来、产品送到哪些建筑去（同一营地内，按距离取最近的几栋）
 export function chainOf(S, b) {
-  const d = BLD[b.type], ctr = x => { const s = BLD[x.type].size; return [x.x + s / 2, x.y + s / 2]; }, [bx, by] = ctr(b);
+  const d = bdef(b), ctr = x => { const s = BLD[x.type].size; return [x.x + s / 2, x.y + s / 2]; }, [bx, by] = ctr(b);
   const ins = Object.keys(d.in || {}), outs = Object.keys(d.out || {});
   if (b.type === 'furnace') ins.push(...Object.keys(FUEL));
   if (b.type === 'heater') ins.push('coal');
-  const takes = (x, r) => x.id !== b.id && ((BLD[x.type].in && BLD[x.type].in[r]) || (x.type === 'furnace' && FUEL[r]) || (x.type === 'heater' && r === 'coal'));
+  const takes = (x, r) => x.id !== b.id && ((bdef(x).in && bdef(x).in[r]) || (x.type === 'furnace' && FUEL[r]) || (x.type === 'heater' && r === 'coal'));
   const pick = (r, ok) => S.buildings.filter(x => x.camp === b.camp && x.id !== b.id && ok(x)).map(x => { const [x0, y0] = ctr(x); return { b: x, res: r, d: Math.hypot(x0 - bx, y0 - by) }; }).sort((p, q) => p.d - q.d);
   const up = [], down = [], missing = [];
   for (const r of ins) {
-    const l = pick(r, x => BLD[x.type].out && BLD[x.type].out[r]);
+    const l = pick(r, x => bdef(x).out && bdef(x).out[r]);
     if (!l.length && b.type !== 'furnace') missing.push(r);
     up.push(...l.slice(0, b.type === 'furnace' ? 4 : 6));
   }

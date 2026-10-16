@@ -118,6 +118,47 @@ export const RICH_KINDS = ['coal', 'ore', 'lime', 'shale', 'crystal', 'star', 's
 // 地貌规则的数值
 export const RULE_FX = { geoWarm: 3, geoFuel: 0.7, richWarm: -2, nightFuel: 1.2, nightOut: 0.9, nightHope: 4, wolfRaid: 1.5, wolfLoot: 2, metHit: 120 };
 export const NORTH_RULE_KEYS = Object.keys(NORTH_RULES);
+
+// 1.1 营地特产：建营地那一刻定下，之后不变；这几种建筑在这座营地里产量 +50%（研究「特产精工」后 +75%）
+// 北境的站按地貌定（富矿带按那一种矿）；其余营地和前哨按暖圈里最多的矿点定（多少按平常的密度折算）
+export const CAMP_SPEC = {
+  flat:    { n: '林木', b: ['lumber', 'nursery', 'sawmill'] },
+  geo:     { n: '地热', b: ['greenhouse', 'batteryworks'] },
+  night:   { n: '观星', b: ['workshop'] },
+  wolf:    { n: '猎场', b: ['hunter', 'kitchen', 'tower'] },
+  lakes:   { n: '冰湖', b: ['icefish', 'crystalmine'] },
+  ruins:   { n: '古城', b: ['salvage', 'partworks'] },
+  storm:   { n: '风口', b: ['coker', 'heater'] },
+  meteor:  { n: '星陨', b: ['starpit', 'forge'] },
+  tundra:  { n: '冻土', b: ['quarry', 'limequarry', 'steelworks'] },
+  coal:    { n: '煤', b: ['coalmine', 'coker'] },
+  ore:     { n: '铁', b: ['ironmine', 'smelter'] },
+  lime:    { n: '石灰石', b: ['limequarry', 'steelworks'] },
+  shale:   { n: '油页岩', b: ['shalepit', 'refinery'] },
+  crystal: { n: '霜晶', b: ['crystalmine', 'batteryworks'] },
+  star:    { n: '星铁', b: ['salvage', 'partworks'] },
+  shard:   { n: '炉心碎片', b: ['excavator', 'forge'] },
+  starfall:{ n: '星核', b: ['starpit', 'forge'] },
+  tree:    { n: '木材', b: ['lumber', 'sawmill'] },
+  rock:    { n: '石料', b: ['quarry'] },
+  herd:    { n: '猎物', b: ['hunter', 'kitchen'] },
+};
+export const CSPEC_FX = 0.5, CSPEC_FX2 = 0.75;
+// 1.1 替代配方：在建筑面板上换，换一次停工 20 秒。研究「替代配方·一」开 1–3 级建筑的，「替代配方·二」开 4–7 级的
+export const ALT = {
+  sawmill:    { in: { wood: 3, tar: 1 }, out: { plank: 3 } },
+  coker:      { in: { wood: 10 }, out: { coke: 1 } },
+  smelter:    { in: { ore: 3, coke: 0.5 }, out: { iron: 2.5 } },
+  steelworks: { in: { iron: 3, coal: 1 }, out: { steel: 1.5 } },
+  gearworks:  { in: { iron: 2, coal: 1 }, out: { gear: 1.5 } },
+  refinery:   { in: { wood: 6, coal: 1 }, out: { tar: 1.5 } },
+  sealworks:  { in: { tar: 3, iron: 2 }, out: { seal: 1.5 } },
+  alloyworks: { in: { crystal: 2, steel: 2 }, out: { alloy: 1 } },
+  partworks:  { in: { star: 4, steel: 3 }, out: { part: 1 } },
+  coreworks:  { in: { part: 3, engine: 2 }, out: { core: 0.5 } },
+  forge:      { in: { shard: 5, starcore: 1 }, out: { heart: 0.6 } },
+};
+export const ALT_SWITCH = 20;
 // 北境每站一章：两条产能目标从六种高级材料里轮着抽，加一条地貌任务，前十站各一座烽火塔
 export const NORTH_HI = ['part', 'battery', 'alloy', 'core', 'starcore', 'heart'];
 // 烽火塔：第 1–3 座 2 种材料 4–5/分钟喂 10 分钟；4–6 座 3 种 5–6/分钟 12 分钟；7–9 座 4 种 6–7/分钟 15 分钟；天火塔 6 种 6/分钟 20 分钟

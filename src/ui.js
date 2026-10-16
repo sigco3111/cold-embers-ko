@@ -1,5 +1,5 @@
 // 界面：顶部状态、资源条、底部工具栏、面板、提示
-import { BRIEF, RES, RES_KEYS, BLD, BLD_KEYS, CATS, TIER_NAMES, LANDMARKS, FAR_MARKS, SPECS, SPEC_MAX, EMBER_UPS, emberCost, specTrainCost, specBonus, FUEL, furnaceRadius, furnaceHeat, furnaceBurn, baseTempOfRow, tierOfRow, ETERNAL_STAGES, GATE, GATE_EVERY, STORY, SPOTS, SPOT_KEYS, dayCycle, LAWS, TECHS, TECH_BR, SITES, CHAPTERS, INFRA, RAIDERS, DAY_LEN, DIFF, DIFF_KEYS, SLOTS, FOCUS, FOCUS_KEYS, FOCUS_LVL, NORTH_RULES, TOWER_FX, TITLES, FLAMES, FLAGS, FRAMES, NDECO } from './data.js';
+import { BRIEF, RES, RES_KEYS, BLD, BLD_KEYS, CATS, TIER_NAMES, LANDMARKS, FAR_MARKS, SPECS, SPEC_MAX, EMBER_UPS, emberCost, specTrainCost, specBonus, FUEL, furnaceRadius, furnaceHeat, furnaceBurn, baseTempOfRow, tierOfRow, ETERNAL_STAGES, GATE, GATE_EVERY, STORY, SPOTS, SPOT_KEYS, dayCycle, LAWS, TECHS, TECH_BR, SITES, CHAPTERS, INFRA, RAIDERS, DAY_LEN, DIFF, DIFF_KEYS, SLOTS, FOCUS, FOCUS_KEYS, FOCUS_LVL, NORTH_RULES, TOWER_FX, TITLES, FLAMES, FLAGS, FRAMES, NDECO, ALT_SWITCH, CAMP_SPEC, CSPEC_FX, CSPEC_FX2 } from './data.js';
 import * as Sim from './sim.js';
 import { personOf, personState, campVoices } from './people.js';
 import { getWorld, idx, W, H } from './worldgen.js';
@@ -1000,7 +1000,7 @@ export class UI {
       if (fresh) shown.push(k);
       cards += `<div class="card ${locked ? 'locked' : ''} ${short ? 'short' : ''}" data-act="${locked ? '' : 'place'}" data-arg="${k}">
         <div class="ci pic">${this.ico(k, k === 'furnace' ? 2 : 1)}${fresh ? '<i class="cnew">新</i>' : ''}${n ? `<i class="chave">${n}</i>` : ''}</div>
-        <div class="cb"><div class="cn">${k === 'furnace' ? '前哨熔炉<small class="cnx">（新营地）</small>' : d.n}${n ? ` <small class="chas">已有 ${n}</small>` : ''}</div>
+        <div class="cb"><div class="cn">${k === 'furnace' ? '前哨熔炉<small class="cnx">（新营地）</small>' : d.n}${n ? ` <small class="chas">已有 ${n}</small>` : ''}${(Sim.campSpecOf(c) || { b: [] }).b.includes(k) ? `<i class="spec-tag">特产 +${this.specPct()}%</i>` : ''}</div>
         <div class="cd">${esc(d.desc)}</div>
         <div class="cc">${far ? `🔒 ${esc(Sim.stageLock(S, k))}` : locked ? `需要侦察到「${TIER_NAMES[d.t]}」纬度` : costHtml(c.stock, cost)}${k === 'furnace' ? ' <small class="cnx">（越往北越贵）</small>' : ''}</div>
         ${d.out ? `<div class="cio">${d.in ? Object.keys(d.in).map(r => RICON[r] + d.in[r]).join(' ') + ' → ' : ''}${Object.keys(d.out).map(r => RICON[r] + d.out[r]).join(' ')}<small>/分 · ${d.w}人</small></div>` : ''}
@@ -1225,10 +1225,18 @@ export class UI {
     }
     return h;
   }
+  // 1.1 替代配方：两套配方并排，点哪套换哪套（换一次停工 20 秒）
+  altHtml(b) {
+    const S = this.S, alt = Sim.altDef(b.type), ok = Sim.altOk(S, b.type), sw = b.altT > S.t;
+    const rc = D => `${Object.keys(D.in).map(k => RICON[k] + fmt(D.in[k])).join(' ')} → ${Object.keys(D.out).map(k => RICON[k] + fmt(D.out[k])).join(' ')}`;
+    const opt = (on, D) => `<button class="achip ${!!b.alt === on ? 'on' : ''}" data-act="altset" data-arg="${b.id}:${on ? 1 : 0}" ${(on && !ok) || sw ? 'disabled' : ''}><b>${on ? '替代配方' : '原配方'}</b><small>${rc(D)}</small></button>`;
+    const sub = sw ? `正在换，还要 ${Math.ceil(b.altT - S.t)} 秒` : ok ? `换一次停工 ${ALT_SWITCH} 秒` : `研究「${Sim.ALT_TECH[Sim.altTech(b.type)]}」后能换`;
+    return `<div class="sec">配方 <small>${sub}</small></div><div class="achips">${opt(false, BLD[b.type])}${opt(true, alt)}</div>`;
+  }
   p_bld(part) {
     const S = this.S, b = Sim.getB(S, this.panel.arg);
     if (!b) { this.close(); return ''; }
-    const d = BLD[b.type], c = Sim.getCamp(S, b.camp), R = Sim.rt(S), br = R.b[b.id] || {}, cr = R.c[c.id] || {};
+    const d = Sim.bdef(b), c = Sim.getCamp(S, b.camp), R = Sim.rt(S), br = R.b[b.id] || {}, cr = R.c[c.id] || {};
     if (part === 'title') return d.tower ? `${Sim.towerName(b.tn)} <small>${esc(c.name)}</small>` : `${d.n} <small>${b.lvl} 级 · ${esc(c.name)}</small>`;
     let h = '';
     const tc = this.thumb(b.type, b.lvl);
@@ -1246,10 +1254,12 @@ export class UI {
       const same = b.type !== 'furnace' ? Sim.sameType(S, b) : [];
       if (same.length > 1) { const sf = Sim.staffOf(S, b); h += `<div class="row sub bulkr"><span>同类 ${same.length} 栋</span><span>共 ${sf.w}/${sf.mx} 人<button class="bulkb" data-act="bulkw" data-arg="${b.id}" ${sf.w >= sf.mx ? 'disabled' : ''}>${sf.w >= sf.mx ? '都满了' : '都派满'}</button></span></div>`; }
     }
+    if (!d.out && Sim.campSpecFx(S, b, c) > 0) h += `<div class="row sub"><span>营地特产</span><span>${b.type === 'workshop' ? '研究' : b.type === 'tower' ? '威力' : '热量'} +${this.specPct()}%<small>（「${esc(c.name)}」的特产）</small></span></div>`;
     if (d.out) {
       const rate = br.rate || {};
       h += `<div class="row"><span>产出</span><span>${Object.keys(d.out).map(k => `${RICON[k]}${fmt(rate[k] || 0)}`).join(' ')}<small>/分</small></span></div>`;
       if (d.in) h += `<div class="row"><span>消耗</span><span>${Object.keys(d.in).map(k => `${RICON[k]}${fmt((br.inRate || {})[k] || 0)}`).join(' ')}<small>/分</small></span></div>`;
+      if (Sim.altDef(b.type)) h += this.altHtml(b);
       { const B = Sim.prodBonus(S, b, c), pc = x => Math.round(x * 100);
         h += `<div class="row sub"><span>等级、加成</span><span>${b.lvl} 级 ×${Sim.levelMul(b.lvl).toFixed(2)} · 加成 ${B.sum >= 0 ? '+' : ''}${pc(B.sum)}%${B.parts.length ? `<small>（${B.parts.map(p => `${p[0]} ${p[1] >= 0 ? '+' : ''}${pc(p[1])}`).join(' · ')}）</small>` : ''}</span></div>`; }
       h += `<div class="row sub"><span>到最近仓库</span><span>${(br.dist || 0).toFixed(1)} 格 · 占用搬运工 ${fmt(br.haul || 0)}</span></div>`;
@@ -1556,12 +1566,23 @@ export class UI {
       const cr = Sim.rt(S).c[c.id] || {};
       const f = Sim.getB(S, c.furnace);
       h += `<div class="card ${c.id === S.active ? 'on' : ''}" data-act="campgo" data-arg="${c.id}"><div class="ci">🔥</div><div class="cb">
-        <div class="cn">${esc(c.name)} <small>熔炉 ${f.lvl} 级 · 纬度 ${Math.round(c.y)}</small></div>
+        <div class="cn">${esc(c.name)} <small>熔炉 ${f.lvl} 级 · 纬度 ${Math.round(c.y)}</small>${Sim.campSpecOf(c) ? `<i class="spec-tag">特产·${Sim.campSpecOf(c).n}</i>` : ''}</div>
         <div class="cd">👥${c.people}/${cr.housing || 0} · 🌡${Math.round(cr.tH ?? 0)}° · 🍖${fmt(c.stock.food)}（${(cr.foodNet || 0) >= 0 ? '+' : ''}${fmt(cr.foodNet)}/分）· 🔥${cr.burnPerMin ? fmtTime(cr.fuelUnits / cr.burnPerMin * 60) : '—'} · 搬运 ${fmt(cr.haulers)}/${fmt(cr.demand)} · 防御 ${Sim.campDefense(S, c)}</div></div></div>`;
     }
     const c0 = this.camp();
+    h += this.specHtml(c0);
     if (!c0.depot) h += this.focusHtml(c0);
     h += this.infraHtml(c0);
+    return h;
+  }
+  // 1.1 营地特产：哪几种建筑在这座营地里更出活，为什么是它
+  specPct() { return Math.round((Sim.techDone(this.S, 'specpro') ? CSPEC_FX2 : CSPEC_FX) * 100); }
+  specHtml(c) {
+    const sp = Sim.campSpecOf(c); if (!sp) return '';
+    const v = this.specPct(), what = t => (t === 'workshop' ? '研究' : t === 'tower' ? '威力' : t === 'heater' ? '热量' : '产量');
+    const why = NORTH_RULES[c.spec] ? `${NORTH_RULES[c.spec].n}的地貌` : SPOTS[c.spec] ? `暖圈里${SPOTS[c.spec].n}比别处多` : '';
+    let h = `<div class="sec">营地特产 <small>建营地时就定了，不会变</small></div>`;
+    h += `<div class="row"><span>${esc(sp.n)}<br><small>${why}</small></span><span>${sp.b.map(t => `${BLD[t].n} ${what(t)} +${v}%`).join('<br>')}</span></div>`;
     return h;
   }
   // 营地 › 人手：住的、病的、饿的；哪类建筑缺几个人，一键派满
@@ -2677,6 +2698,7 @@ export class UI {
       case 'roadup': { const r = res(Sim.upgradeRoad(S, +arg, S.active)); if (r.ok) { this.toast(r.queued ? r.reason : '路升级了，能多运一半。', r.queued ? 'info' : 'good'); g.sfx('build'); } break; }
       case 'roadrail': { const r = res(Sim.railRoad(S, +arg, S.active)); if (r.ok) { this.toast(r.queued ? r.reason : '改成铁路了。', r.queued ? 'info' : 'good'); g.sfx('build'); } break; }
       case 'roadx': Sim.cancelRoad(S, +arg); break;
+      case 'altset': { const [id, on] = String(arg).split(':'); const r = res(Sim.setAlt(S, +id, on === '1')); if (r.ok && !r.same) { this.toast(`换成${on === '1' ? '替代配方' : '原配方'}了，停工 ${ALT_SWITCH} 秒。`, 'info'); g.sfx('tap'); } break; }
       case 'gatego': {
         const m = Sim.mainCamp(S);
         if (arg === 'route') this.open('scout');
@@ -2816,6 +2838,7 @@ export const HELP = `<h3>怎么玩</h3>
 <p><b>升级门槛：</b>建筑每升 5 级，就要用下一层的材料。下一层的原料只在更北的地方有，所以要不断往北走。</p>
 <p><b>往北：</b>建侦察营，派侦察队揭开迷雾，找资源、幸存者、专家和地标，也把去下一站的路探出来。主营地和下一站之间可以建「前哨熔炉」开新营地，点火就有一条雪橇道连到最近的营地。</p>
 <p><b>物流：</b>所有营地连成一张路网。每 10 秒每座营地算一次缺什么、多什么，多的装上雪橇顺着路送到缺的营地，路上能经过别的营地转运。先送保命的燃料口粮，再送排队的建筑要的料、产线缺的料、主营地升熔炉和北迁要的，最后给每座营地补到木材木板石料铁锭各 200。「生产 → 物流」里看每座营地运来、送出、还缺什么，升级道路（雪橇道、北行主干道、铁路），也能手动送一批、设长期供货、把某样货标成不外送。</p>
+<p><b>替代配方和营地特产：</b>有些加工厂能换一套配方（比如焦煤坊不用煤、改用木材），在建筑面板的「配方」里换，换一次停工 20 秒；研究「替代配方·一」「替代配方·二」后才能换。某样原料断了，老向导会提醒你换。每座营地建起来时就定了一样特产：北境的站看地貌，别处看暖圈里哪种矿多。特产的那几种建筑在这座营地里产量 +50%（研究「特产精工」后 +75%），营地面板里能看到。</p>
 <p><b>人心：</b>每个营地有「希望」和「不满」。吃不饱、太冷、有人死去会让人失望；住得好、有进展会让人振奋。希望高干活更快、来投奔的人更多；不满太高会有人离开。在「营地 → 律令」里签署营地律令，每条都有好处也有代价。</p>
 <p><b>研究：</b>建工程站，派工程师攒研究点数，解锁三条分支的 17 项改良。探险带回的图纸可以直接抵研究点数。</p>
 <p><b>探索：</b>迷雾里藏着废弃仓库、冻住的列车、观测站这样的地点。侦察队揭开后，从侦察营派 4 人的探险队去；带足补给更安全，到了还能做更多选择。</p>

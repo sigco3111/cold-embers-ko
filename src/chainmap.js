@@ -28,8 +28,9 @@ export function chainGraph(S, cid) {
     if (b.camp !== cid || !BLD[b.type].out) continue;
     const br = R.b[b.id] || {};
     let n = nodes.get(b.type);
-    if (!n) nodes.set(b.type, n = { id: b.type, type: b.type, n: 0, w: 0, lvl: 0, out: {}, inn: {}, ks: {}, worst: b.id, wr: -1, st: '', short: new Set(), ins: Object.keys(BLD[b.type].in || {}), outs: Object.keys(BLD[b.type].out) });
+    if (!n) nodes.set(b.type, n = { id: b.type, type: b.type, n: 0, w: 0, lvl: 0, out: {}, inn: {}, ks: {}, worst: b.id, wr: -1, st: '', short: new Set(), ins: [], outs: Object.keys(BLD[b.type].out) });
     n.n++; n.w += b.workers || 0; n.lvl = Math.max(n.lvl, b.lvl);
+    for (const k in Sim.bdef(b).in || {}) if (!n.ins.includes(k)) n.ins.push(k); // 同一种建筑有的换了替代配方：两套原料都画上
     for (const k in br.rate || {}) n.out[k] = (n.out[k] || 0) + br.rate[k];
     for (const k in br.inRate || {}) n.inn[k] = (n.inn[k] || 0) + br.inRate[k];
     const sk = statusKind(br.status);
@@ -279,7 +280,7 @@ export class ChainMap {
     if (t && BLD[t].gather) for (const k of BLD[t].gather) { const o = Sim.oreInfo(S, Sim.mainCamp(S), k); if (o && !o.deep && o.frac < Sim.ORE_WARN) low = `<small class="plh plow">⛏ 暖圈里的${SPOTS[k].n}只剩 ${Math.round(o.frac * 100)}%${o.eta ? `，约 ${Math.max(1, Math.round(o.eta))} 分钟` : ''}：挖深井或勘探</small>`; }
     return `<div class="pln ${x.worst ? 'worst' : ''} ${pct >= 0.999 ? 'ok' : ''}" style="--d:${x.depth}">
       <span class="plni">${RICON[x.k]}</span>
-      <span class="plnt"><span><b>${RES[x.k].n}</b>${x.worst ? `<em>${x.comp ? '被分走了' : '最卡'}</em>` : ''}</span><small>${t ? `${BLD[t].n} ×${x.count}${x.count ? ` · ${x.lvl} 级 · ${x.workers} 人` : ''}` : ''}${stat ? ` · ${stat}` : ''}</small>
+      <span class="plnt"><span><b>${RES[x.k].n}</b>${x.worst ? `<em>${x.comp ? '被分走了' : '最卡'}</em>` : ''}</span><small>${t ? `${BLD[t].n} ×${x.count}${x.count ? ` · ${x.lvl} 级 · ${x.workers} 人` : ''}${x.alt ? ` · ${x.alt === x.count ? '都' : ` ${x.alt} 座`}用替代配方` : ''}` : ''}${stat ? ` · ${stat}` : ''}</small>
         ${x.hint ? `<small class="plh">${x.hint}</small>` : ''}${low}${x.depth ? this.planNet(x.k) : ''}${this.planMiss(x, P)}</span>
       <span class="plnr"><span class="plbar"><i style="width:${(pct * 100).toFixed(1)}%"></i></span><small>现在 <b>${fr(x.prod)}</b> / 要 ${fr(need)} 每分钟</small></span>${go}</div>`;
   }

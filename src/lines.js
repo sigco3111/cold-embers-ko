@@ -1,10 +1,11 @@
 // 寒烬北行 · 产线：主线和支线、升星、累计产量里程碑、规划器的配比、老向导
 // 一条产线 = 一种材料 + 一路给它供料的上游建筑。主线由这一程给，支线自己立
-import { BLD, RES, RES_KEYS, SPOTS, SPOT_KEYS, FUEL } from './data.js';
+import { BLD, RES, RES_KEYS, SPOTS, SPOT_KEYS, FUEL, ALT_SWITCH } from './data.js';
 import {
   rt, dirty, getCamp, logMsg, prodRate, rateGoals, holdOf, popCap, maxWorkers, heatRadius, levelMul,
   nextRaid, raidPrep, idleLabor, unlocked, checkPlace, HOLD, buildCost, canAfford, pay, queueBuild, QUEUE_MAX, ORE_URGENT, gatherTypeFor,
   servedSpots, spotLeft, moveBlock, prodBonus, getB, blocksOre, chapIdx, chapterDef, countType, fuelLeft, KEEP_WHY, FUEL_KEEP_WHY, FUEL_KEEP_MIN, isBuildMat, keepOf, storeCap, queueCost,
+  bdef, recipeOf, altOk, altDef, recipeTxt,
 } from './sim.js';
 import { getWorld, idx, W } from './worldgen.js';
 import { journeyOf, mainCamp, stopOf, departGate, gateFlvl, depotAuto } from './journey.js';
@@ -135,8 +136,8 @@ export function planLine(S, r, n) {
   const walk = (k, q, d, from) => {
     need[k] = (need[k] || 0) + q;
     if (depth[k] == null || d < depth[k]) { depth[k] = d; via[k] = from; }
-    const t = producersOf(k)[0]; if (!t || !BLD[t].in) return;
-    for (const i in BLD[t].in) walk(i, q * BLD[t].in[i] / BLD[t].out[k], d + 1, k);
+    const t = producersOf(k)[0], D = t && recipeOf(S, t); if (!D || !D.in) return; // 这一种大多换了替代配方，就按替代配方算原料
+    for (const i in D.in) walk(i, q * D.in[i] / D.out[k], d + 1, k);
   };
   walk(r, n, 0, null);
   const R = rt(S), bs = {};
@@ -144,20 +145,20 @@ export function planLine(S, r, n) {
   const nodes = Object.keys(need).sort((a, b) => depth[a] - depth[b]).map(k => {
     const types = producersOf(k), list = types.flatMap(t => bs[t] || []);
     const lvl = list.length ? Math.round(list.reduce((a, b) => a + b.lvl, 0) / list.length) : 1;
-    const t = types[0], one = t ? BLD[t].out[k] * levelMul(lvl) : 0; // 一座这个等级、满员的建筑每分钟产多少（不算加成）
+    const t = types[0], one = t ? recipeOf(S, t).out[k] * levelMul(lvl) : 0; // 一座这个等级、满员的建筑每分钟产多少（不算加成）
     const prod = prodRate(S, k), q = need[k];
     const workers = list.reduce((a, b) => a + b.workers, 0);
     const stat = {};
     for (const b of list) { const s = (R.b[b.id] || {}).status; if (s) stat[s] = (stat[s] || 0) + 1; }
-    return { k, need: Math.round(q * 10) / 10, prod: Math.round(prod * 10) / 10, gap: Math.max(0, q - prod), ratio: q > 0 ? prod / q : 1, depth: depth[k], via: via[k], type: t, count: list.length, lvl, one, workers, stat, ids: list.map(b => b.id) };
+    return { k, need: Math.round(q * 10) / 10, prod: Math.round(prod * 10) / 10, gap: Math.max(0, q - prod), ratio: q > 0 ? prod / q : 1, depth: depth[k], via: via[k], type: t, count: list.length, alt: list.filter(b => b.alt).length, lvl, one, workers, stat, ids: list.map(b => b.id) };
   });
   // 最卡的那一环：从这条线的成品往上找，原料比成品更缺就往上走
   const by = Object.fromEntries(nodes.map(x => [x.k, x]));
   let cur = nodes[0];
   if (cur.ratio < 0.999) {
     for (let guard = 0; guard < 8; guard++) {
-      const t = cur.type; if (!t || !BLD[t].in) break;
-      const ins = Object.keys(BLD[t].in).map(k => by[k]).filter(Boolean).sort((a, b) => a.ratio - b.ratio);
+      const t = cur.type; if (!t || !recipeOf(S, t).in) break;
+      const ins = Object.keys(recipeOf(S, t).in).map(k => by[k]).filter(Boolean).sort((a, b) => a.ratio - b.ratio);
       const worst = ins[0];
       const starved = Object.keys(cur.stat).some(s => s.startsWith('缺'));
       // 建筑自己说缺哪样，就先看那样：总产量够、却被别的建筑吃掉了，也算卡在这里
@@ -171,7 +172,7 @@ export function planLine(S, r, n) {
   for (const x of nodes) {
     if (!x.via) continue;
     const up = by[x.via], ut = up.type; if (!ut || !x.type) continue;
-    const eat = BLD[ut].in[x.k] * levelMul(up.lvl), give = BLD[x.type].out[x.k] * levelMul(x.lvl);
+    const eat = (recipeOf(S, ut).in[x.k] || 0) * levelMul(up.lvl), give = recipeOf(S, x.type).out[x.k] * levelMul(x.lvl);
     x.hint = `1 座 ${up.lvl} 级${BLD[ut].n}每分钟吃 ${fmtR(eat)} 个${RES[x.k].n}，大约要 ${fmtR(eat / give)} 座 ${x.lvl} 级${BLD[x.type].n}`;
   }
   const main = mainCamp(S);
@@ -324,7 +325,7 @@ function netTip(S, R, main, wait) {
       const f = fl[k], i = inc[k], want = f && f.want - f.c > Math.max(0.05, f.want * 0.08);
       const q = (S.queue || []).find(x => x.camp === c.id && (queueCost(S, x)[k] || 0) > (c.stock[k] || 0));
       if (!want && !q) continue;
-      const user = q ? `排队的${BLD[q.type].n}` : (() => { const b = S.buildings.find(b => b.camp === c.id && BLD[b.type].in && BLD[b.type].in[k]); return b ? `的${BLD[b.type].n}` : ''; })();
+      const user = q ? `排队的${BLD[q.type].n}` : (() => { const b = S.buildings.find(b => b.camp === c.id && bdef(b).in && bdef(b).in[k]); return b ? `的${BLD[b.type].n}` : ''; })();
       const from = [...i.from].map(id => `「${(getCamp(S, id) || {}).name}」`).join('');
       return { pri: 2, kind: 'netwait', camp: c.id, text: `「${c.name}」${user}在等${RES[k].n}：正从${from}运来，约 ${fmtS(i.eta)}。`, act: 'netview', arg: c.id };
     }
@@ -378,6 +379,8 @@ export function advisor(S) {
   }
   // 物流网：要紧的货（排队的建筑、产线缺料）路满了运不过来，或者整张网都没有
   { const n = netTip(S, R, main, false); if (n) return n; }
+  // 替代配方：一座加工厂缺一样原料停了好一阵，换一套配方就能接着干
+  { const a = altTip(S, R, main, 180); if (a) return a; }
   // 主线卡在哪
   const g = rateGoals(S).find(x => !x.eternal) || rateGoals(S)[0];
   if (g) {
@@ -400,7 +403,7 @@ export function advisor(S) {
       // 这一环自己在等料（缺料、留料给建造、留燃料给熔炉）：再多建它也没用，该补的是上游
       { const cnt = Object.values(w.stat || {}).reduce((a, n) => a + n, 0) || 1;
         const st = Object.keys(w.stat || {}).find(x => (x.startsWith('缺') || x === KEEP_WHY || x === FUEL_KEEP_WHY) && w.stat[x] * 2 >= cnt);
-        const ins = w.type && BLD[w.type].in ? Object.keys(BLD[w.type].in) : [];
+        const ins = w.type && recipeOf(S, w.type).in ? Object.keys(recipeOf(S, w.type).in) : [];
         const k = st && (st.startsWith('缺') ? ins.find(x => RES[x].n === st.slice(1)) : ins.find(x => st === FUEL_KEEP_WHY ? FUEL[x] : isBuildMat(x)));
         const pt = k && producerOf(S, k);
         if (k && pt) {
@@ -413,6 +416,7 @@ export function advisor(S) {
             const forW = [kb > 0 && '盖房', kf > 0 && '熔炉'].filter(Boolean).join('和');
             text = `${RES[g.r].n}线卡在${kn}：${kn}要先攒过 ${Math.ceil(Math.max(kb, kf))} 份（留给${forW}），多出来的才给${n}。${idle ? `${more}，或者先少盖点房子，让${kn}攒起来` : `先少盖点房子，让${kn}攒起来；人多了再多建几座${BLD[pt].n}`}。`;
           } else text = `${RES[g.r].n}线卡在${kn}：${n}在等${kn}，${BLD[pt].n}供不上。${idle ? more : `没有闲人了：盖帐篷让更多人来投奔，再${BLD[pt].n}多派人`}。`;
+          { const sw = altSwap(S, w.type, k); if (sw) text += `也可以把${n}换成${sw}，不用${kn}。`; }
           return { pri: 1, kind: 'line', text, act: can && idle ? 'place' : 'plan', arg: can && idle ? pt : g.r };
         } }
       const why = by ? `${BLD[by.type].n}要 ${fmtR(w.need)}/分，${BLD[w.type].n}只供 ${fmtR(w.prod)}/分` : `目标 ${fmtR(w.need)}/分，现在 ${fmtR(w.prod)}/分`;
@@ -452,6 +456,30 @@ export function advisor(S) {
     }
     const nxt = chapterDef(S, J.stage + 1), q = nxt && nxt.tasks.find(t => t.k === 'rate');
     if (q) return { pri: 3, kind: 'next', text: `下一程要${RES[q.r].n}：${nextNeeds(S, q.r)}`, act: 'plan', arg: q.r };
+  }
+  return null;
+}
+// 换一套配方能不能绕开缺的这样原料：另一套不吃它，而且另一套要的营地里都有
+function altSwap(S, type, k, camp) {
+  if (!type || !altOk(S, type)) return null;
+  const list = S.buildings.filter(b => b.type === type && (!camp || b.camp === camp.id)), on = list.filter(b => b.alt).length * 2 > list.length;
+  const other = on ? BLD[type] : altDef(type);
+  if (!other.in || other.in[k]) return null;
+  const c = camp || mainCamp(S), flow = (rt(S).c[c.id] || {}).flow || {};
+  const have = x => (c.stock[x] || 0) >= other.in[x] * 3 || ((flow[x] || {}).p || 0) - ((flow[x] || {}).want || 0) >= other.in[x] * 0.5;
+  return Object.keys(other.in).every(have) ? `${on ? '原配方' : '替代配方'}（${recipeTxt(other)}）` : null;
+}
+export function altTip(S, R, main, secs) {
+  for (const b of S.buildings) {
+    if (b.camp !== main.id || !altOk(S, b.type) || b.altT > S.t) continue;
+    const br = R.b[b.id]; if (!br || br.stop0 == null || S.t - br.stop0 < secs) continue;
+    const k = Object.keys(bdef(b).in || {}).find(x => br.status === '缺' + RES[x].n); if (!k) continue;
+    const other = b.alt ? BLD[b.type] : altDef(b.type);
+    if (other.in[k]) continue;
+    const flow = (R.c[main.id] || {}).flow || {};
+    const have = x => (main.stock[x] || 0) >= other.in[x] * 3 || ((flow[x] || {}).p || 0) - ((flow[x] || {}).want || 0) >= other.in[x] * 0.5;
+    if (!Object.keys(other.in).every(have)) continue;
+    return { pri: 1, kind: 'alt', camp: main.id, text: `${BLD[b.type].n}缺${RES[k].n}停了 ${Math.floor((S.t - br.stop0) / 60)} 分钟：换成${b.alt ? '原配方' : '替代配方'}（${recipeTxt(other)}）就能接着干。点开它，在「配方」里换，停工 ${ALT_SWITCH} 秒。`, act: 'spot', arg: b.id };
   }
   return null;
 }

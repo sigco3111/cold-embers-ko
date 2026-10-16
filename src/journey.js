@@ -1,9 +1,9 @@
 // 寒烬北行 · 一路往北：每一程的状态、北迁门槛、车队、新营地的范围
 // 整局只有一条路：主营地带着车队从一个地标搬到下一个，留在后面的营地变成补给站或者熄火
-import { LANDMARKS, FAR_MARKS, BLD, RES, RES_KEYS, FUEL, FUEL_ORDER, SPOT_KEYS, furnaceBurn, NORTH_RULES, NORTH_MARKS } from './data.js';
+import { LANDMARKS, FAR_MARKS, BLD, RES, RES_KEYS, FUEL, FUEL_ORDER, SPOT_KEYS, furnaceBurn, furnaceRadius, NORTH_RULES, NORTH_MARKS } from './data.js';
 import { W, H, T_ROCK, getWorld, idx, inMap, mulberry32, northStop } from './worldgen.js';
 import {
-  rt, dirty, getB, getCamp, logMsg, revealCircle, canAfford, missing, pay, chapters, makeCamp, markFounded, trimWorkers,
+  rt, dirty, getB, getCamp, logMsg, revealCircle, canAfford, missing, pay, chapters, makeCamp, markFounded, trimWorkers, specForStop,
   autoAssign, clearFootprint, landmarkBlock, siteAt, occAt, housingOf, bumpMood, diffOf, relicSum, upgradeCost, maxWorkers, levelMul,
   storeCap, addPeople, up, techSum, weatherAt, growFor, northEmbers,
   EAT, FOUND_DIST, CAMP_GAP,
@@ -539,6 +539,7 @@ export function arrive(S, x, y) {
   clearFootprint(S, 'furnace', x, y, camp.id);
   trunkRoad(S, J.main, camp.id); // 车队走过的路成了北行主干道（旧主营地要是熄火，两头会自动接上）
   getB(S, camp.furnace).lvl = T.fl;
+  camp.spec = specForStop(S, camp, st, furnaceRadius(T.fl) + 1); // 营地特产：北境按地貌，别处按暖圈里的矿
   camp.people = T.people;
   if (T.sick) camp.sick = Math.min(camp.people * 0.3, (camp.sick || 0) + T.sick);
   if (T.hope) bumpMood(camp, T.hope, 0);
