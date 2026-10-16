@@ -11,6 +11,8 @@ import { linesTick, bMax, bStar, lineProd, plinesOf, STAR_PROD } from './lines.j
 export * from './lines.js';
 import { netStep, autoRoad, roads, roadOn, ships, migrateNet } from './net.js';
 export * from './net.js';
+import { guildStep, shopHave } from './guild.js';
+export * from './guild.js';
 
 export const VERSION = 1;
 export const MIN_PEOPLE = 3;          // 营地永远不会全灭
@@ -467,9 +469,9 @@ export function storeCap(S, camp) {
   for (const b of S.buildings) if (b.camp === camp.id && b.type === 'warehouse') cap += BLD.warehouse.store * Math.pow(b.lvl, 1.2);
   return Math.round(cap * (1 + techSum(S, 'cap')));
 }
-export function unlocked(S, type) { const d = BLD[type]; return d.t <= S.known && (!d.gift || cosHave(S, 'deco', type)) && (!d.stage || journeyOf(S).stage >= d.stage) && (!d.rule || ruleNow(S) === d.rule) && (!d.tower || !towerLock(S, type)); }
+export function unlocked(S, type) { const d = BLD[type]; return d.t <= S.known && (!d.shop || shopHave(S, type)) && (!d.gift || cosHave(S, 'deco', type)) && (!d.stage || journeyOf(S).stage >= d.stage) && (!d.rule || ruleNow(S) === d.rule) && (!d.tower || !towerLock(S, type)); }
 // 永恒之炉以北的新东西：走到那一程才解锁；北境地貌的建筑：只有那种地貌的站能建
-export const stageLock = (S, type) => { const d = BLD[type]; if (d.gift && !cosHave(S, 'deco', type)) { const a = giftFrom('deco', type); return `成就「${a && a.hid && !bookOf(S).a[a.id] ? '？？？' : a ? a.n : '？'}」解锁`; } if (d.rule && ruleNow(S) !== d.rule) return `只有在「${NORTH_RULES[d.rule].n}」的站才能建`; if (d.tower && towerLock(S, type)) return towerLock(S, type); return d.stage && journeyOf(S).stage < d.stage ? `走到「${stopOf(S, d.stage).n}」才能建` : ''; };
+export const stageLock = (S, type) => { const d = BLD[type]; if (d.shop && !shopHave(S, type)) return `在北方商会用 ${d.shop} 银币买下图纸`; if (d.gift && !cosHave(S, 'deco', type)) { const a = giftFrom('deco', type); return `成就「${a && a.hid && !bookOf(S).a[a.id] ? '？？？' : a ? a.n : '？'}」解锁`; } if (d.rule && ruleNow(S) !== d.rule) return `只有在「${NORTH_RULES[d.rule].n}」的站才能建`; if (d.tower && towerLock(S, type)) return towerLock(S, type); return d.stage && journeyOf(S).stage < d.stage ? `走到「${stopOf(S, d.stage).n}」才能建` : ''; };
 export const forecastOf = S => FORECAST * (journeyOf(S).stage >= 9 ? 2 : 1) * (ruleNow(S) === 'storm' ? 2 : 1); // 到了极光观测站，天气预报提前一倍；风暴走廊再早一倍
 // 加工厂不把基础建材吃光：锯木厂不会把木材全锯成木板、炼钢厂不会把铁锭用完——仓库里留两成（最多 300）给建造。
 // 只管前两层的建材；更高层的中间品本来就是为了往下加工，留料会卡住整条链
@@ -1404,7 +1406,7 @@ export function step(S, dt) {
   raidsStep(S, dt);
   journeyStep(S, dt);
   R.chapT = (R.chapT || 0) + dt; if (R.chapT >= 1) { const cdt = R.chapT; R.chapT = 0; chapterStep(S); linesTick(S, cdt); farStep(S); gangsStep(S); }
-  R.qT = (R.qT || 0) + dt; if (R.qT >= 2) { R.qT = 0; queueStep(S); caravanStep(S); }
+  R.qT = (R.qT || 0) + dt; if (R.qT >= 2) { R.qT = 0; queueStep(S); caravanStep(S); guildStep(S); }
   R.bookT = (R.bookT || 0) + dt; if (R.bookT >= 3) { R.bookT = 0; bookTick(S); }
   S.t += dt;
   histStep(S, dt);

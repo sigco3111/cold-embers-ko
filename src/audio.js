@@ -229,6 +229,8 @@ export class Sound {
       case 'lose': chime([62, 61, 57], 0.22, 0.05); break;
       case 'event': chime([69, 76], 0.18, 0.045); break;
       case 'tap': this.tone(t, 1300, 'sine', 0.001, 0.05, 0.03, out); break;
+      // 银币落袋：两三声清脆的叮
+      case 'coin': [88, 93, 96].forEach((m, i) => this.tone(t + i * 0.06, mtof(m), 'triangle', 0.001, 0.22, 0.035, out)); break;
       case 'warn': this.tone(t, 330, 'triangle', 0.005, 0.18, 0.06, out); this.tone(t + 0.12, 294, 'triangle', 0.005, 0.22, 0.06, out); break;
       // 烽火塔点亮：轰的一声火起来，再敲一组钟
       case 'tower': this.tone(t, 72, 'sine', 0.01, 0.9, 0.3, out, 42); this.whoosh(t, 0.35, 1.5, 260, 2600, 0.16); [62, 69, 74].forEach((m, i) => this.sbell(t + 0.32 + i * 0.16, m, 0.05)); break;

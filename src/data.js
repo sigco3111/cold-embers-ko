@@ -159,6 +159,8 @@ export const ALT = {
   forge:      { in: { shard: 5, starcore: 1 }, out: { heart: 0.6 } },
 };
 export const ALT_SWITCH = 20;
+// 1.1 北方商会：按物资的纬度带定底价（银币），每天上下浮动四成；同一天卖得越多越便宜，第二天恢复
+export const GUILD = { price: [0, 1, 3, 8, 15, 30, 60, 120], float: 0.4, depth: 300, orders: 3, ordersPro: 5, buyMul: 3, buyLim: [0, 300, 150, 80, 40, 20, 10, 5], emberDay: 20, emberCost: 40 };
 // 北境每站一章：两条产能目标从六种高级材料里轮着抽，加一条地貌任务，前十站各一座烽火塔
 export const NORTH_HI = ['part', 'battery', 'alloy', 'core', 'starcore', 'heart'];
 // 烽火塔：第 1–3 座 2 种材料 4–5/分钟喂 10 分钟；4–6 座 3 种 5–6/分钟 12 分钟；7–9 座 4 种 6–7/分钟 15 分钟；天火塔 6 种 6/分钟 20 分钟
@@ -245,6 +247,7 @@ export const BLD = {
   kennel:    { n: '雪橇犬舍', t: 1, size: 2, cat: 'core', w: 2, dogs: 4, feed: 0.5, desc: '养雪橇犬：犬夫每天喂生肉、训狗。狗越多，这座营地派出的侦察队跑得越快、连着它的路运得越多，营地里也会有狗跑来跑去。', cost: { wood: 60, plank: 20 }, syn: ['hunter'] },
   scout:     { n: '侦察营', t: 1, size: 2, cat: 'core', w: 0, desc: '派出侦察队走进迷雾，发现资源、幸存者、遗迹和地标。等级越高可同时派出的队伍越多、越耐寒。', cost: { wood: 80, plank: 30 } },
   sledshed:  { n: '雪橇棚', t: 1, size: 2, cat: 'core', w: 2, desc: '造北迁用的雪橇，到了蒸汽峡谷还能造蒸汽拖车。派的人越多、等级越高造得越快；造好的车归车队，跟着主营地走。', cost: { wood: 80, plank: 30 } },
+  guildpost: { n: '商会驿站', t: 2, size: 2, cat: 'core', w: 1, desc: '北方商会的驿站：每天有商会的车队来，带来新的价钱和订单。可以卖货换银币、接订单、用银币买商会的装饰和余烬，缺建材时也能高价买一点救急。', cost: { plank: 120, iron: 40 } },
 
   coalmine:  { n: '煤矿', t: 2, size: 2, cat: 'gather', w: 3, gather: ['coal'], out: { coal: 5 }, reach: 3, desc: '开采煤层，煤是比木材耐烧三倍的燃料。', cost: { wood: 120, plank: 40, stone: 60 }, syn: ['smelter', 'coker'] },
   ironmine:  { n: '铁矿场', t: 2, size: 2, cat: 'gather', w: 3, gather: ['ore'], out: { ore: 5 }, reach: 3, desc: '开采铁矿脉。', cost: { wood: 120, plank: 40, stone: 60 }, syn: ['smelter'] },
@@ -298,6 +301,13 @@ export const BLD = {
   bonearch: { n: '巨兽骨拱门', t: 1, size: 2, cat: 'deco', w: 0, hope: 4, gift: 1, desc: '冻土里挖出来的两根巨兽长牙，搭成一道拱门，顶上架着它的头骨。装饰：希望 +4。', cost: { stone: 200, plank: 60 } },
   pyremem: { n: '烽火纪念碑', t: 1, size: 1, cat: 'deco', w: 0, hope: 3.5, gift: 1, desc: '一座小石碑，碑顶一盏长明的铁火盆，记着点亮过的每一座烽火塔。装饰：希望 +3.5。', cost: { stone: 300, steel: 60 } },
   skymem: { n: '天火纪念碑', t: 1, size: 2, cat: 'deco', w: 0, hope: 5, gift: 1, desc: '高高的方尖碑，顶上一团金色的火和一颗星晶，四角的火盆一直烧着。点燃天火的人才建得起。装饰：希望 +5。', cost: { stone: 500, steel: 150, alloy: 30 } },
+  // 1.1 北方商会的六种装饰：在商会用银币买下图纸（一直有效），再照常花材料盖；和别的装饰一起算在 +16 希望的上限里
+  gbench:  { n: '铁艺长椅', t: 1, size: 1, cat: 'deco', w: 0, hope: 1.5, shop: 300, desc: '黑铁花架的长椅，椅背后立一盏小灯。干完活的人坐着歇脚。装饰：希望 +1.5。', cost: { plank: 30, iron: 20 } },
+  glamp:   { n: '琉璃灯柱', t: 1, size: 1, cat: 'deco', w: 0, hope: 2, shop: 500, desc: '商会从南边运来的彩色琉璃灯罩，铸铁灯柱，夜里一圈暖光。装饰：希望 +2。', cost: { iron: 30, stone: 20 } },
+  gsled:   { n: '彩绘雪橇', t: 1, size: 2, cat: 'deco', w: 0, hope: 2.5, shop: 800, desc: '一架漆成红金两色的旧商队雪橇，装满礼物箱子，摆在路边给孩子们爬。装饰：希望 +2.5。', cost: { plank: 60, wood: 40 } },
+  gbell:   { n: '商会铜钟', t: 1, size: 1, cat: 'deco', w: 0, hope: 3, shop: 1200, desc: '木架上吊着一口商会的铜钟，车队进营地时敲三下。装饰：希望 +3。', cost: { plank: 50, iron: 40 } },
+  ggate:   { n: '商会旗门', t: 1, size: 2, cat: 'deco', w: 0, hope: 3.5, shop: 2000, desc: '两根挂满彩旗的木柱撑着一道横匾，写着「北方商会」。装饰：希望 +3.5。', cost: { plank: 80, iron: 30 } },
+  gfount:  { n: '冰晶喷泉', t: 1, size: 2, cat: 'deco', w: 0, hope: 4, shop: 3200, desc: '石砌的圆池，中间的水喷到半空就冻成了冰花，底下一盏暖灯照得发亮。装饰：希望 +4。', cost: { stone: 120, iron: 40, plank: 40 } },
 };
 export const BLD_KEYS = Object.keys(BLD);
 export const CATS = { core: '核心', live: '居住', gather: '采集', make: '加工', defense: '防御', deco: '装饰' };

@@ -158,7 +158,7 @@ const MAP = {
   '🩹': 'bandage', '🛡': 'shield', '🧶': 'yarn', '🩺': 'stetho', '🏠': 'house', '🏚': 'ruin', '🗿': 'shrine', '🎈': 'airship', '🔮': 'starcore', '🔦': 'beacon', '🧌': 'giant', '🛳': 'icebreaker',
   '🪓': 'axe', '🏹': 'bow', '🪚': 'saw', '🍲': 'pot', '🗼': 'tower', '🧱': 'brick', '🏗': 'tower', '🛸': 'star', '🦾': 'core', '⚒': 'hammer', '🏭': 'factory', '🌱': 'sprout', '🌲': 'fir', '🦌': 'deer', '🐕': 'wolf', '☄': 'meteor', '🔒': 'lock', '🗑': 'trash', '↩': 'undo', '🕒': 'timer', '📂': 'import', '🔄': 'flag2', '❗': 'bang', '🏮': 'lamp', '🏴': 'flagb', '🗽': 'statue', '🌷': 'flower',
   '⏳': 'hourglass', '🏆': 'trophy', '🏺': 'vase', '⚠': 'warn', '🔗': 'link', '📈': 'chart', '⚔': 'swords', '🎨': 'palette', '📷': 'camera', '🧊': 'ice', '💧': 'drop', '🎉': 'party', '🤝': 'hands',
-  '🌨': 'snowcloud', '🗺': 'map', '💡': 'bulb', '🎖': 'medal', '🖼': 'frame', '⭐': 'star5', '📔': 'album', '🏛': 'temple', '🏔': 'mountain', '🎣': 'fishing', '🌪': 'tornado', '🌤': 'cloudsun', '⛓': 'chain',
+  '🌨': 'snowcloud', '🗺': 'map', '💡': 'bulb', '🎖': 'medal', '🖼': 'frame', '⭐': 'star5', '📔': 'album', '🏛': 'temple', '🏔': 'mountain', '🎣': 'fishing', '🌪': 'tornado', '🌤': 'cloudsun', '⛓': 'chain', '🪙': 'silver',
 };
 const KEYS = Object.keys(MAP).sort((a, b) => b.length - a.length);
 const RE = new RegExp('(?:' + KEYS.map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')\\uFE0F?', 'gu');

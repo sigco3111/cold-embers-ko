@@ -117,12 +117,14 @@ export const LINE = {
   fishing: 'M5 21V4l13 6' + 'M18 10v6.5a2 2 0 0 1-4 0' + 'M3 21h4',
   tornado: 'M3.5 5h17' + 'M5.5 9h13' + 'M8 13h9' + 'M10 17h5.5' + 'M12 20.5h2',
   cloudsun: 'M8 18a3.5 3.5 0 0 1-.4-7 5 5 0 0 1 9.6 1.3A3 3 0 0 1 16.8 18z' + 'M14.5 4.5v1.5M19.6 6.4l-1.1 1.1M21.5 11.5H20' + 'M17.3 9.2a3.2 3.2 0 0 0-5.6-1.6',
+  silver: 'M4 8a8 3 0 1 0 16 0a8 3 0 1 0-16 0z' + 'M4 8v3.8a8 3 0 0 0 16 0V8' + 'M4 11.8v3.8a8 3 0 0 0 16 0v-3.8' + 'M10.5 7.6h3',
   chain: 'M9 15.5l6-7' + 'M7.6 12.2l-2.2 2.6a3 3 0 0 0 4.6 3.9l2.2-2.6' + 'M16.4 11.8l2.2-2.6a3 3 0 0 0-4.6-3.9l-2.2 2.6',
 
 };
 
 // 物资的淡色（深色底上看得清；纸条和亮按钮上改用文字色）
 export const LTINT = {
+  silver: '#dfe6ee',
   wood: '#d6a46c', stone: '#b9c3cc', game: '#e88a7c', plank: '#e6bf86', food: '#f0c46a', coal: '#9aa3ae', ore: '#d48c64', iron: '#b4c0cc', coke: '#aea4bc',
   lime: '#e6dfc6', steel: '#9cc4ea', gear: '#d8b878', engine: '#dc9e5e', shale: '#bba390', tar: '#a99aa6', seal: '#b8a6e4', crystal: '#8fe6ff', battery: '#6fd4f4',
   alloy: '#a8f0dc', star: '#c4a2ff', part: '#d8bcff', core: '#ff9ed8', shard: '#ffaa5a', heart: '#ffd470', starcore: '#e894ff',

@@ -14,7 +14,7 @@ export const ICON = {
   furnace: '🔥', tent: '⛺', lumber: '🪓', nursery: '🌲', quarry: '⛏️', hunter: '🏹', sawmill: '🪚', kitchen: '🍲', warehouse: '📦', tower: '🗼', scout: '🚩', sledshed: '🛷', kennel: '🐕', workshop: '🔬', lamp: '🏮', flagpole: '🚩', infirmary: '🩺', statue: '🗽', flowerhouse: '🌷',
   coalmine: '⚫', ironmine: '🟤', smelter: '🏭', coker: '🧱', limequarry: '⬜', steelworks: '🏗️', gearworks: '⚙️', engineworks: '🚂', greenhouse: '🌱', heater: '♨️',
   shalepit: '🛢️', refinery: '⚗️', sealworks: '🔩', crystalmine: '💎', batteryworks: '🔋', alloyworks: '🧪', salvage: '🛸', partworks: '🧩', coreworks: '🤖', bay: '🦾', excavator: '🔶', forge: '⚒️',
-  beacon: '🔦', colossus: '🧌', starpit: '🔮',
+  beacon: '🔦', colossus: '🧌', starpit: '🔮', guildpost: '🏪', gbench: '🪑', glamp: '🏮', gsled: '🛷', gbell: '🔔', ggate: '⛩️', gfount: '⛲',
 };
 export const RICON = {
   wood: '🪵', stone: '🪨', game: '🥩', plank: '🟫', food: '🍖', coal: '⚫', ore: '🟤', iron: '🔘', coke: '◼️', lime: '⬜', steel: '🔷', gear: '⚙️', engine: '🚂',
@@ -80,7 +80,7 @@ function techLayout(list) {
 // 底部五个分区（加上菜单、提醒）：每个分区几张页签，一张页签就是一种面板；def 是第一次打开时停在哪张
 const HUBS = {
   camp: { n: '营地', tabs: [['camp', '概况'], ['folk', '人手'], ['mood', '人心'], ['law', '律令']] },
-  prod: { n: '生产', tabs: [['stock', '物资'], ['plines', '产线'], ['lines', '物流']] },
+  prod: { n: '生产', tabs: [['stock', '物资'], ['plines', '产线'], ['lines', '物流'], ['guild', '商会']] },
   build: { n: '建造', tabs: [['build', '建筑'], ['bqueue', '队列'], ['plan', '规划']] },
   research: { n: '研究', tabs: [['research', '研究']] },
   north: { n: '北行', def: 'migrate', tabs: [['scout', '地图与侦察'], ['migrate', '北迁'], ['towers', '烽火塔'], ['specs', '专家与余烬']] },
@@ -1855,6 +1855,51 @@ export class UI {
     }
     return h;
   }
+  // 1.1 北方商会：卖货 / 订单 / 买（装饰图纸、余烬、救急物资）
+  p_guild(part) {
+    const S = this.S, G = Sim.guildOf(S), on = Sim.guildOn(S), m = Sim.guildCamp(S, S.active);
+    const sv = v => `🪙${fmt(v)}`;
+    if (part === 'title') return `北方商会 <small>${on ? `银币 ${fmt(G.silver)}` : '还没有驿站'}</small>`;
+    if (!on) return `<div class="hint">在任何一座营地盖一座「商会驿站」（煤与铁纬度，木板 120、铁锭 40），北方商会的车队就会每天来一趟：卖货换银币、接订单，用银币买装饰图纸和余烬；缺建材时还能高价买一点救急。</div>${Sim.unlocked(S, 'guildpost') ? '<button class="btn wide go" data-act="place" data-arg="guildpost">去盖商会驿站</button>' : `<div class="hint">要先侦察到「${TIER_NAMES[2]}」纬度。</div>`}`;
+    const pg = this.gPg || 'sell', posts = Sim.guildPosts(S), cids = [...new Set(posts.map(b => b.camp))];
+    const day = Sim.guildDay(S), left = (day + 1) * DAY_LEN - S.t;
+    let h = `<div class="ghero"><div><b>${sv(G.silver)}</b><small>银币 · 算在主营地，跟着北迁走</small></div><div><small>在「${esc(m.name)}」交易 · 车队 ${fmtTime(left)} 后换新的价钱和订单</small></div></div>`;
+    if (cids.length > 1) h += `<div class="dchips">${cids.map(id => `<button class="dchip ${id === m.id ? 'on' : ''}" data-act="campgo" data-arg="${id}">${esc(Sim.getCamp(S, id).name)}</button>`).join('')}</div>`;
+    h += `<div class="tabs">${[['sell', '卖货'], ['order', `订单 ${G.orders.length}`], ['buy', '买']].map(([k, n]) => `<button class="tab ${k === pg ? 'on' : ''}" data-act="gpg" data-arg="${k}">${n}</button>`).join('')}</div>`;
+    const pct = k => { const f = Sim.floatOf(S, k); return `<i class="${f >= 1.15 ? 'pos' : f <= 0.85 ? 'neg' : ''}">${Math.round(f * 100)}%</i>`; };
+    if (pg === 'sell') {
+      const ks = RES_KEYS.filter(k => Sim.tradable(S, k) && (m.stock[k] || 0) >= 1).sort((a, b) => Sim.sellValue(S, b, m.stock[b]) - Sim.sellValue(S, a, m.stock[a]));
+      h += `<div class="hint">每天的价钱上下浮动；同一天卖得越多越便宜，第二天恢复。卖的是「${esc(m.name)}」仓库里的货。</div>`;
+      if (!ks.length) h += `<div class="hint">「${esc(m.name)}」的仓库是空的。</div>`;
+      for (const k of ks) {
+        const have = Math.floor(m.stock[k]), q = [50, 200].filter(n => n < have * 0.9), half = Math.floor(have / 2);
+        h += `<div class="grow"><span class="gk">${RICON[k]}<span><b>${RES[k].n}</b><small>有 ${fmt(have)} · 现价 ${sv(Sim.sellPrice(S, k))}/个 ${pct(k)}</small></span></span><span class="gb">${q.map(n => `<button class="small" data-act="gsell" data-arg="${k}:${n}">卖 ${n}<small>${sv(Sim.sellValue(S, k, n))}</small></button>`).join('')}${half >= 1 ? `<button class="small" data-act="gsell" data-arg="${k}:${half}">卖一半<small>${sv(Sim.sellValue(S, k, half))}</small></button>` : ''}</span></div>`;
+      }
+    } else if (pg === 'order') {
+      h += `<div class="hint">每天 ${Sim.orderMax(S)} 张订单：限时把一批货交到驿站，给银币和余烬。交的是「${esc(m.name)}」仓库里的货，不够可以让物流网先运过来。</div>`;
+      if (!G.orders.length) h += `<div class="hint">今天的订单都交完了，明天车队还会带新的来。</div>`;
+      for (const o of G.orders) {
+        const have = m.stock[o.k] || 0, ok = have >= o.n, tl = o.until - S.t;
+        h += `<div class="gord ${ok ? 'ok' : ''}"><div class="gk">${RICON[o.k]}<span><b>送 ${fmt(o.n)} ${RES[o.k].n}</b><small>还剩 ${fmtTime(tl)} · 奖励 ${sv(o.silver)} + 余烬 ${o.emb}</small></span></div><div class="gbar"><i style="width:${Math.min(100, have / o.n * 100).toFixed(0)}%"></i></div><div class="gb"><small>「${esc(m.name)}」有 ${fmt(have)}/${fmt(o.n)}</small><button class="small ${ok ? 'go' : ''}" data-act="gdeliv" data-arg="${o.id}" ${ok ? '' : 'disabled'}>交货</button></div></div>`;
+      }
+    } else {
+      h += `<div class="sec">装饰图纸 <small>买一次一直有效，再花材料盖</small></div><div class="gdeco">`;
+      for (const t of Sim.SHOP_DECOS) {
+        const d = BLD[t], have = Sim.shopHave(S, t);
+        h += `<div class="gdc ${have ? 'have' : ''}">${this.ico(t, 1)}<b>${d.n}</b><small>希望 +${d.hope}</small>${have ? '<small class="ok">已有图纸</small>' : `<button class="small ${G.silver >= d.shop ? 'go' : ''}" data-act="gdeco" data-arg="${t}" ${G.silver >= d.shop ? '' : 'disabled'}>${sv(d.shop)}</button>`}</div>`;
+      }
+      h += `</div>`;
+      const ep = Sim.emberPrice(S), el = Sim.emberLeft(S);
+      h += `<div class="sec">余烬 <small>今天还能买 ${el}</small></div><div class="grow"><span class="gk">🔥<span><b>余烬</b><small>${sv(ep)}/个 · 越往北越贵</small></span></span><span class="gb">${[1, 5, el].filter((n, i, a) => n >= 1 && a.indexOf(n) === i).map(n => `<button class="small" data-act="gemb" data-arg="${n}" ${G.silver >= ep * n && el >= n ? '' : 'disabled'}>买 ${n}<small>${sv(ep * n)}</small></button>`).join('')}</span></div>`;
+      h += `<div class="sec">救急物资 <small>三倍价钱，每天限量，送到「${esc(m.name)}」</small></div>`;
+      const bk = RES_KEYS.filter(k => Sim.tradable(S, k) && !RES[k].raw || ['wood', 'stone', 'coal'].includes(k)).filter(k => Sim.tradable(S, k) && k !== 'food' && k !== 'game');
+      for (const k of bk) {
+        const p = Sim.buyPrice(S, k), bl = Sim.buyLeft(S, k), q = [Math.min(50, bl), bl].filter((n, i, a) => n >= 1 && a.indexOf(n) === i);
+        h += `<div class="grow"><span class="gk">${RICON[k]}<span><b>${RES[k].n}</b><small>${sv(p)}/个 · 今天还剩 ${fmt(bl)}</small></span></span><span class="gb">${q.map(n => `<button class="small" data-act="gbuy" data-arg="${k}:${n}" ${G.silver >= p * Math.min(n, 1) ? '' : 'disabled'}>买 ${n}<small>${sv(p * n)}</small></button>`).join('')}${!q.length ? '<small>今天卖完了</small>' : ''}</span></div>`;
+      }
+    }
+    return h;
+  }
   // 道路：每条路的运力、实际在运多少、路上几车；升级、改铁路；再修一条
   netRoads(c) {
     const S = this.S, R = Sim.roads(S).slice().sort((a, b) => ((b.a === c.id || b.b === c.id) - (a.a === c.id || a.b === c.id)) || a.id - b.id);
@@ -2724,6 +2769,13 @@ export class UI {
       case 'roadup': { const r = res(Sim.upgradeRoad(S, +arg, S.active)); if (r.ok) { this.toast(r.queued ? r.reason : '路升级了，能多运一半。', r.queued ? 'info' : 'good'); g.sfx('build'); } break; }
       case 'roadrail': { const r = res(Sim.railRoad(S, +arg, S.active)); if (r.ok) { this.toast(r.queued ? r.reason : '改成铁路了。', r.queued ? 'info' : 'good'); g.sfx('build'); } break; }
       case 'roadx': Sim.cancelRoad(S, +arg); break;
+      case 'gpg': this.gPg = arg; g.sfx('tap'); break;
+      case 'guild': g.cancelModes(); this.open('guild'); break;
+      case 'gsell': { const [k, n] = String(arg).split(':'); const r = res(Sim.guildSell(S, S.active, k, +n)); if (r.ok) { this.toast(`卖了 ${fmt(r.n)} ${RES[k].n}，得银币 ${fmt(r.silver)}。`, 'good'); g.sfx('coin'); } break; }
+      case 'gbuy': { const [k, n] = String(arg).split(':'); const r = res(Sim.guildBuy(S, S.active, k, +n)); if (r.ok) { this.toast(`买了 ${fmt(r.n)} ${RES[k].n}，花银币 ${fmt(r.silver)}。`, 'info'); g.sfx('coin'); } break; }
+      case 'gemb': { const r = res(Sim.buyEmbers(S, +arg)); if (r.ok) { this.toast(`买了 ${r.n} 点余烬。`, 'good'); g.sfx('coin'); } break; }
+      case 'gdeco': { const r = res(Sim.buyDeco(S, arg)); if (r.ok) { this.toast(`买下了「${BLD[arg].n}」的图纸：在建造 › 篝火里能盖了。`, 'good'); g.sfx('win'); } break; }
+      case 'gdeliv': { const r = res(Sim.guildDeliver(S, S.active, +arg)); if (r.ok) { this.toast(`订单交了：银币 +${fmt(r.silver)}，余烬 +${r.emb}。`, 'good'); g.sfx('win'); } break; }
       case 'altset': { const [id, on] = String(arg).split(':'); const r = res(Sim.setAlt(S, +id, on === '1')); if (r.ok && !r.same) { this.toast(`换成${on === '1' ? '替代配方' : '原配方'}了，停工 ${ALT_SWITCH} 秒。`, 'info'); g.sfx('tap'); } break; }
       case 'gatego': {
         const m = Sim.mainCamp(S);
