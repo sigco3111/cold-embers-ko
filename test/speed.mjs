@@ -1,11 +1,11 @@
-// 暂停 / 2 倍速 / 说话气泡 / 侧边齿轮菜单
+// 暂停（长按速度键）/ 2 倍速 / 说话气泡 / 菜单键
 const OUT = process.env.OUTDIR || '/tmp';
 const TAG = process.env.TAG || 'pc';
 const tap = async (page, sel) => { const b = await page.evaluate(s => { const r = document.querySelector(s).getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; }, sel); if (TAG === 'phone') await page.touchscreen.tap(b.x, b.y); else await page.mouse.click(b.x, b.y); };
 export default async function (page) {
   await page.waitForTimeout(1500);
   const t0 = await page.evaluate(() => window.game.S.t);
-  await tap(page, '#pauseBtn');
+  { const r = await page.evaluate(() => { const b = document.getElementById('speedBtn').getBoundingClientRect(); return [b.x + b.width / 2, b.y + b.height / 2]; }); await page.mouse.move(r[0], r[1]); await page.mouse.down(); await page.waitForTimeout(800); await page.mouse.up(); } // 1.1：长按速度键暂停
   await page.waitForTimeout(1500);
   const p1 = await page.evaluate(() => ({ paused: window.game.paused, body: document.body.classList.contains('paused'), t: window.game.S.t, ts: window.game.view.timeScale }));
   await page.waitForTimeout(1500);

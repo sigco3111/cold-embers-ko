@@ -23,6 +23,6 @@ export default async function (page) {
   await page.screenshot({ path: `${OUT}/sky_aur_${q}.png`, timeout: 120000 });
   await page.evaluate(() => { const g = window.game; g.S.t = window.__tI; g.view.ice = 1; g.view.aur = 0; });
   await page.waitForTimeout(4500);
-  console.log('pill', await page.evaluate(() => document.getElementById('stats').innerText.replace(/\s+/g, ' ')));
+  console.log('pill', await page.evaluate(() => document.getElementById('vitals').innerText.replace(/\s+/g, ' ')));
   await page.screenshot({ path: `${OUT}/sky_ice_${q}.png`, timeout: 120000 });
 }

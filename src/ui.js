@@ -1034,7 +1034,9 @@ export class UI {
     const tb = tabs && tabs.length > 1 ? `<div class="ptabs">${tabs.map(([k, n]) => `<button class="${k === tk ? 'on' : ''}" data-act="htab" data-arg="${k}">${n}${k !== tk && this.tabDot(k) ? '<i class="tdot"></i>' : ''}</button>`).join('')}</div>` : '';
     const bk = this.back ? '<button class="bk" data-act="back" title="返回" aria-label="返回">‹</button>' : '';
     const ff = this['pf_' + tk], ft = ff ? ff.call(this) : ''; // 面板底部固定的主按钮（有就放）
-    const html = `<div class="phead ${tb ? 'tabbed' : ''}">${bk}<b>${f.call(this, 'title')}</b><button class="x" data-act="close">✕</button>${tb}</div><div class="pbody">${f.call(this, 'body')}</div>${ft ? `<div class="pfbar">${ft}</div>` : ''}`;
+    const ttl = f.call(this, 'title'); if (!this.panel || this.panel.kind !== tk) return; // 面板自己关掉了（排队的建筑刚开工、目标没了）
+    const body = f.call(this, 'body'); if (!this.panel || this.panel.kind !== tk) return;
+    const html = `<div class="phead ${tb ? 'tabbed' : ''}">${bk}<b>${ttl}</b><button class="x" data-act="close">✕</button>${tb}</div><div class="pbody">${body}</div>${ft ? `<div class="pfbar">${ft}</div>` : ''}`;
     if (html === this.lastHtml) return;
     this.lastHtml = html;
     const st = this.sheet.scrollTop, sx = {};

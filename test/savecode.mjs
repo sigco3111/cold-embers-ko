@@ -1,6 +1,7 @@
 export default async function (page) {
   await page.click('text=点起篝火');
   await page.click('#menuBtn');
+  await page.click('#sheet .ptabs button[data-arg=msave]'); // 1.1：存档码在「菜单 › 存档」页签
   await page.click('text=导出存档码');
   await page.waitForTimeout(500);
   const code = await page.$eval('#exportBox', e => e.value);

@@ -8,10 +8,10 @@ export default async function (page) {
     let nr = Sim.nextRaid(S); S.t = nr.t - 800; window.__simstep(2); g.ui.hud();
     nr = Sim.nextRaid(S); const c = Sim.getCamp(S, nr.camp); S.active = c.id;
     g.view.focus(c.x, c.y, true); g.view.cam.tdist = g.view.cam.dist = 46;
-    return { in: Math.round(nr.in), camp: c.name, str: Sim.raidStrength(S, c, nr), def: Sim.raidDefense(S, c, nr), pill: document.querySelector('#stats .pill.raid')?.textContent, log: S.log.slice(-1)[0].msg };
+    return { in: Math.round(nr.in), camp: c.name, str: Sim.raidStrength(S, c, nr), def: Sim.raidDefense(S, c, nr), bell: document.querySelector('#bellBtn')?.textContent, log: S.log.slice(-1)[0].msg };
   });
   console.log('warn', JSON.stringify(a));
-  await page.evaluate(() => document.querySelector('#stats .pill.raid')?.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })));
+  await page.evaluate(() => window.game.ui.actDo('raidp')); // 1.1：袭击提醒在铃铛里，点开就是备战面板
   await page.waitForTimeout(900);
   console.log('panel', await page.evaluate(() => document.querySelector('#sheet .pbody')?.innerText.replace(/\s+/g, ' ').slice(0, 500)));
   await page.screenshot({ path: `${OUT}/raid_panel_${TAG}.png`, timeout: 120000 });

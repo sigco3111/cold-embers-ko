@@ -17,8 +17,7 @@ export default async function (page) {
   await page.waitForTimeout(600);
   steps.push(await page.evaluate(() => document.querySelector('#coach .cstep')?.textContent + ' ' + window.game.S.buildings.map(b => b.type).join(',')));
   await page.screenshot({ path: `${OUT}/tut_4.png`, timeout: 120000 });
-  if (await page.evaluate(() => !!document.getElementById('reschips').offsetHeight)) { await page.click('#reschips'); await page.waitForTimeout(500); await page.click('#resdrawer .rdo', { timeout: 20000 }).catch(() => page.evaluate(() => window.game.ui.open('stock'))); }
-  else await page.evaluate(() => window.game.ui.open('stock')); // 手机：物资栏收在 ▾ 里
+  await page.click('#tbProd'); // 1.1：物资总览在底部的「生产」里
   await page.waitForTimeout(500); await page.click('#sheet button.x');
   await page.waitForTimeout(500);
   await page.screenshot({ path: `${OUT}/tut_5.png`, timeout: 120000 });

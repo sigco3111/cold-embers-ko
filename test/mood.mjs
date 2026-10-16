@@ -4,7 +4,7 @@ export default async function (page) {
   await page.waitForTimeout(1500);
   await page.evaluate(() => { const c = window.game.ui.camp(); c.disc = 64; c.hope = 41; });
   await page.waitForTimeout(1500);
-  { const r = await page.evaluate(() => { const b = document.querySelector('.pill.mood').getBoundingClientRect(); return [b.x + b.width / 2, b.y + b.height / 2]; }); await page.mouse.click(r[0], r[1]); }
+  await page.evaluate(() => window.game.ui.open('mood')); // 1.1：人心在「营地」大页的页签里
   await page.waitForTimeout(1200);
   await page.click('[data-act=law][data-arg=fires]');
   await page.waitForTimeout(900);

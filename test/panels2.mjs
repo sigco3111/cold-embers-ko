@@ -25,9 +25,8 @@ export default async function (page) {
   await page.waitForTimeout(800);
   console.log('tabs', await page.evaluate(() => [...document.querySelectorAll('.ptabs button')].map(b => b.className + ':' + b.textContent).join(',')));
   await page.screenshot({ path: `${OUT}/p2_camp_${TAG}.png`, timeout: 120000 });
-  const t = await page.evaluate(() => { const e = document.querySelector('.ptabs button[data-arg=infra]'); const r = e.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; });
-  if (TAG === 'phone') await page.touchscreen.tap(t.x, t.y); else await page.mouse.click(t.x, t.y);
-  await page.waitForTimeout(800);
-  console.log('tab now', await page.evaluate(() => document.querySelector('.ptabs button.on').textContent + ' ' + document.querySelectorAll('#sheet .ifc').length));
+  // 1.1：基建卡直接在营地概况里，滚到那里看
+  console.log('infra', await page.evaluate(() => { const e = document.querySelector('#sheet .ifc'); if (e) e.scrollIntoView({ block: 'center' }); return document.querySelector('.ptabs button.on').textContent + ' ' + document.querySelectorAll('#sheet .ifc').length; }));
+  await page.waitForTimeout(500);
   await page.screenshot({ path: `${OUT}/p2_infra_${TAG}.png`, timeout: 120000 });
 }

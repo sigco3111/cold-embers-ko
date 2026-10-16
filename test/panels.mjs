@@ -10,7 +10,7 @@ export default async function (page) {
     c.people = 20;
   });
   for (const k of ['build','camp','scout','lines','specs','migrate','menu']) {
-    await page.click(k === 'menu' ? '#menuBtn' : `#toolbar button[data-arg=${k}]`); // 菜单在 v9 挪到了侧栏齿轮
+    if (k === 'menu') await page.click('#menuBtn'); else await page.evaluate(k => window.game.ui.open(k), k); // 1.1：底栏换成五个分区，这些面板在分区的页签里
     await page.waitForTimeout(400);
     await page.screenshot({ path: `/tmp/panel_${k}.png`, timeout: 120000 });
     await page.click('#sheet .x');

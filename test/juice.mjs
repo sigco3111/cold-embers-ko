@@ -17,7 +17,7 @@ export default async function (page) {
   console.log('mid', JSON.stringify(await page.evaluate(() => ({ fly: document.querySelectorAll('#fxl .flyi').length, wood: document.querySelector('[data-rk=wood]')?.textContent, food: document.querySelector('[data-rk=food]')?.textContent }))));
   await page.evaluate(() => document.getAnimations().forEach(a => { if (a.effect && a.effect.target && a.effect.target.closest && a.effect.target.closest('#fxl')) { a.pause(); a.currentTime = 520; } }));
   await page.screenshot({ path: `${OUT}/juice_fly_${TAG}.png`, timeout: 120000 });
-  await page.evaluate(() => document.getAnimations().forEach(a => a.finish()));
+  await page.evaluate(() => document.getAnimations().forEach(a => { try { a.finish(); } catch (e) { /* 1.1 有循环动画（铃铛、提醒），跳过 */ } }));
   // 升级熔炉：光圈 + 「升到 N 级」
   const up = await page.evaluate(() => { const g = window.game, S = g.S, c = g.ui.camp(), f = window.__sim.getB(S, c.furnace); g.view.focus(f.x + 1.5, f.y + 1.5, true); f.lvl++; g.ui.hud(); return { lvl: f.lvl, fx: document.querySelectorAll('#floats .upfx').length, txt: document.querySelector('#floats .upfx b')?.textContent }; });
   console.log('up', JSON.stringify(up));

@@ -1,4 +1,4 @@
-// 提示改版：同一句合并 ×N、最多 3 条（手机 2 条）、带按钮的警告；消息记录面板和未读数
+// 提示：同一句合并 ×N、最多 3 条（手机 2 条）、带按钮的警告；1.1 铃铛里的提醒和消息记录
 const OUT = process.env.OUTDIR || '/tmp';
 const TAG = process.env.TAG || 'pc';
 export default async function (page) {
@@ -16,10 +16,10 @@ export default async function (page) {
     g.ui.toast('不能建在这里：太靠近别的建筑', 'warn');
   });
   await page.waitForTimeout(900);
-  const info = await page.evaluate(() => ({ toasts: [...document.querySelectorAll('#toasts .toast:not(.out)')].map(t => t.className + ' | ' + t.textContent), badge: document.getElementById('logBtn').className + ' ' + document.querySelector('#logBtn .lbn').textContent }));
+  const info = await page.evaluate(() => ({ toasts: [...document.querySelectorAll('#toasts .toast:not(.out)')].map(t => t.className + ' | ' + t.textContent), badge: document.getElementById('bellBtn').className + ' ' + (document.querySelector('#bellBtn b')?.textContent || '') }));
   console.log(JSON.stringify(info));
   await page.screenshot({ path: `${OUT}/toasts_${TAG}.png`, timeout: 120000 });
-  const b = await page.evaluate(() => { const r = document.getElementById('logBtn').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; });
+  const b = await page.evaluate(() => { const r = document.getElementById('bellBtn').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; });
   if (TAG === 'phone') await page.touchscreen.tap(b.x, b.y); else await page.mouse.click(b.x, b.y);
   await page.waitForTimeout(1200);
   console.log('panel', await page.evaluate(() => window.game.ui.panel && window.game.ui.panel.kind), await page.evaluate(() => document.querySelectorAll('.lrow').length));
