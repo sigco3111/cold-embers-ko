@@ -24,7 +24,7 @@ export default async function (page) {
     console.log('after', await page.evaluate(() => { const g = window.game, Sim = window.__sim; return [Sim.flameOf(g.S, Sim.mainCamp(g.S)), !!document.querySelector('.dpick.on [style*="7fd8ff"]')]; }));
   }
   if (MODE === 'flame') {
-    const ids = (process.env.FLAMES || 'gold,blue,purple,green,aurora').split(',');
+    const ids = (process.env.FLAMES || 'gold,blue,purple,green,aurora').split(/[,+]/); // 回归任务列表里逗号被当成分隔，用 + 连
     await page.evaluate(() => { const g = window.game, S = g.S, Sim = window.__sim, c = Sim.mainCamp(S), DL = 720; S.t = Math.floor(S.t / DL) * DL + 0.8 * DL; g.ui.close(); g.view.focus(c.x, c.y, true); g.view.cam.tdist = g.view.cam.dist = 15; });
     for (const id of ids) {
       await page.evaluate(id => { const g = window.game, Sim = window.__sim; Sim.setFlame(g.S, null, id); }, id);
@@ -88,7 +88,7 @@ export default async function (page) {
     }
     await page.waitForTimeout(1500);
     console.log('toast', await page.evaluate(() => [...document.querySelectorAll('.toast')].map(t => t.innerText).join(' | ')));
-    await page.evaluate(() => { const g = window.game; g.ui.open('menu'); });
+    await page.evaluate(() => { const g = window.game; g.ui.open('mcoll'); }); // 1.1：相册、成就在「菜单 › 收藏」页签
     await page.waitForTimeout(1500);
     console.log('menu', await page.evaluate(() => [...document.querySelectorAll('.mrow2 .mlink')].map(b => b.innerText.replace(/\s+/g, ' ')).join(' | ')));
     await page.evaluate(() => window.game.ui.open('album'));

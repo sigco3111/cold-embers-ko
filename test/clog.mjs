@@ -19,6 +19,8 @@ export default async function (page) {
   await page.waitForTimeout(900);
   const foot = await txt('.mfoot');
   console.log('CHECK mfoot', foot, /v1\.1\.0/.test(foot) ? 'ok' : 'FAIL');
+  await page.evaluate(() => window.game.ui.open('mhelp')); // 1.1：更新日志在「菜单 › 帮助」页签
+  await page.waitForTimeout(600);
   await page.evaluate(() => { const b = document.querySelector('[data-act="changelog"]'); b.scrollIntoView({ block: 'center' }); });
   await page.waitForTimeout(300);
   await page.screenshot({ path: `${OUT}/clog_menu_${TAG}.png`, timeout: 120000 });

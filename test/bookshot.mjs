@@ -7,7 +7,7 @@ export default async function (page) {
   console.log('book', await page.evaluate(() => { const N = window.__sim.bookCount(window.game.S); return JSON.stringify({ got: N.got, all: N.all, ach: N.cats.a, emb: window.game.S.meta.embers, dot: document.getElementById('menuBtn').classList.contains('dot') }); }));
   await page.screenshot({ path: `${OUT}/book_toast_${TAG}.png`, timeout: 120000 });
   // 从菜单进
-  await page.evaluate(() => window.game.ui.open('menu'));
+  await page.evaluate(() => window.game.ui.open('mcoll')); // 1.1：收集册在「菜单 › 收藏」页签
   await page.waitForTimeout(600);
   await page.screenshot({ path: `${OUT}/book_menu_${TAG}.png`, timeout: 120000 });
   await page.evaluate(() => document.querySelector('.mlink.book').click());

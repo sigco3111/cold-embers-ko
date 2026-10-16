@@ -23,7 +23,7 @@ export default async function (page) {
   L = await list();
   check('depart backup', L.length === 2 && L[0] === 'depart:改过的名字', L.join(' '));
   // 菜单里的一行
-  await page.evaluate(() => document.getElementById('menuBtn').click());
+  await page.evaluate(() => window.game.ui.open('msave')); // 1.1：自动备份在「菜单 › 存档」页签
   await W(1200);
   const row = await page.evaluate(() => { const b = document.querySelector('[data-act="backups"]'); if (!b) return null; b.scrollIntoView({ block: 'center' }); return b.closest('.row').innerText.replace(/\s+/g, ' '); });
   check('menu row', row && /自动备份 2 份/.test(row), row);

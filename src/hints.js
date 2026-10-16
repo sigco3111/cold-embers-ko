@@ -105,12 +105,12 @@ export function whatsNewHtml(S, from = 13) {
   if (got && from < 13) notes.push(`你以前做到的事已经算数：补发了 ${got} 个新成就，奖励在「菜单 → 收藏 → 装扮」里换上。`);
   if (from < 15) {
     const nr = (S.meta.netNew || []).length, sp = S.camps.filter(c => c.spec).length, bots = S.buildings.reduce((a, b) => a + (b.bots || 0), 0);
-    notes.push(`1.1 接上了：${nr ? `原来的运输线和补给站换成了物流网，新修了 ${nr} 条路；` : S.camps.length > 1 ? '原来的运输线换成了物流网；' : ''}${sp ? `每座营地按地形分到了一样特产；` : ''}在岗的建筑从熟练 1 级算起；以前的研究都还在；${bots ? `营地里的 ${bots} 台自动机都按劳工型装回了仓里；` : ''}${S.cold ? '寒潮过一天开始报；' : ''}${north >= 4 ? '已经过了北境第 4 站，第一波永冬潮大约两天后报出来；' : ''}读档前自动备份了一份，「菜单 → 自动备份」里能退回去。`);
+    notes.push(`1.1 接上了：${nr ? `原来的运输线和补给站换成了物流网，新修了 ${nr} 条路；` : S.camps.length > 1 ? '原来的运输线换成了物流网；' : ''}${sp ? `每座营地按地形分到了一样特产；` : ''}在岗的建筑从熟练 1 级算起；以前的研究都还在；${bots ? `营地里的 ${bots} 台自动机都按劳工型装回了仓里；` : ''}${S.cold ? '寒潮过一天开始报；' : ''}${north >= 4 ? '已经过了北境第 4 站，第一波永冬潮大约两天后报出来；' : ''}读档前自动备份了一份，「菜单 → 存档 → 自动备份」里能退回去。`);
   }
   notes.push('存档里的东西都没丢。');
   const W11 = [['🧭', '新界面', 0], ['🛷', '物流网', 1], ['⚗', '配方和特产', 2], ['🌨', '熟练工和寒潮', 3], ['🏪', '北方商会', 4], ['🔬', '45 项研究', 5], ['🤖', '自动机和号令', 6], ['🗺', '分岔和奇遇', 7], ['🏛', '奇观和城镇', 8], ['🔥', '鼎盛和永冬潮', 9]];
   const v11 = W11.map(([ic, n, i]) => `<div class="wn"><b>${ic} ${n}</b><span>${CHANGELOG[0].items[i]}</span></div>`).join('');
-  const more = `<p class="hint">菜单 → 更新日志 里能看到每一版加了什么。</p>`;
+  const more = `<p class="hint">「菜单 → 帮助 → 更新日志」里能看到每一版加了什么。</p>`;
   if (from >= 14) return `<h2>${VERSION_NAME}</h2>${v11}<div class="wn"><b>📜 你的存档</b><span>${notes.join('')}</span></div>${more}`;
   const v1 = `<div class="wn"><b>🎉 1.0.0 正式版</b><span>${CHANGELOG[1].items.map(t => '· ' + t).join('<br>')}</span></div>`;
   if (from >= 13) return `<h2>${VERSION_NAME}</h2>${v11}<p class="hint wnfirst">1.0.0 正式版的改动也一起来了：</p>${v1}<div class="wn"><b>📜 你的存档</b><span>${notes.join('')}</span></div>${more}`;

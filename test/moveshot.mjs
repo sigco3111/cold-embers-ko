@@ -3,7 +3,7 @@ export default async function (page) {
   const step = process.env.MOVESHOT || 'ghost';
   await page.evaluate(() => { const g = window.game, b = g.S.buildings.find(x => x.x === 27 && x.y === 197); g.view.focus(b.x + 1, b.y + 1); g.view.cam.tdist = g.view.cam.dist = 18; g.ui.open('bld', b.id); g.view.select(b.id); window.__mb = b.id; });
   await page.waitForTimeout(800);
-  await page.click('#sheet [data-act="movebld"]');
+  await page.evaluate(() => document.querySelector('#sheet [data-act="movebld"]').click()); // 忙的存档面板每 0.3 秒重画，page.click 会点空
   await page.waitForTimeout(500);
   await page.evaluate(() => { const g = window.game; g.place.x = 26; g.place.y = 193; g.updateGhost(); });
   await page.waitForTimeout(1500);

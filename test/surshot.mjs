@@ -43,7 +43,8 @@ export default async function (page) {
   await page.waitForTimeout(2500);
   console.log('aur', await page.evaluate(() => window.game.S.aurOpen + ' pill:' + !!document.querySelector('.pill.aurgo')));
   await page.screenshot({ path: `${OUT}/sur_aurora_${TAG}.png`, timeout: 120000 });
-  const pb = await page.evaluate(() => { for (const e of document.querySelectorAll('.pill.aurgo, #aurBtn')) { const b = e.getBoundingClientRect(); if (b.width > 0) return { x: b.x + b.width / 2, y: b.y + b.height / 2, id: e.id || e.className }; } return null; });
+  await page.evaluate(() => window.game.ui.open('alerts')); await page.waitForTimeout(500); // 1.1：极光夜是铃铛里的一条提醒
+  const pb = await page.evaluate(() => { for (const e of document.querySelectorAll('.pill.aurgo, #aurBtn, #sheet [data-act=aurora]')) { const b = e.getBoundingClientRect(); if (b.width > 0) return { x: b.x + b.width / 2, y: b.y + b.height / 2, id: e.id || e.className }; } return null; });
   console.log('aur btn', JSON.stringify(pb));
   if (pb) await page.mouse.click(pb.x, pb.y);
   await page.waitForTimeout(700);

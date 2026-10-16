@@ -2319,7 +2319,7 @@ export class UI {
     if (this.albumLoading) return; this.albumLoading = true;
     try { this.album = await albumList(); } catch (e) { this.album = []; }
     this.albumLoading = false;
-    if (this.panel && (this.panel.kind === 'album' || this.panel.kind === 'menu')) { this.lastHtml = ''; this.renderPanel(true); }
+    if (this.panel && (this.panel.kind === 'album' || this.panel.kind === 'mcoll')) { this.lastHtml = ''; this.renderPanel(true); }
   }
   // ---------- 自动备份 ----------
   agoText(at) { const s = Math.max(0, (Date.now() - at) / 1000); return s < 60 ? '刚刚' : s < 3600 ? Math.floor(s / 60) + ' 分钟前' : s < 86400 ? Math.floor(s / 3600) + ' 小时前' : Math.floor(s / 86400) + ' 天前'; }
@@ -2347,7 +2347,7 @@ export class UI {
       <p class="hint">定时备份会留下几分钟前、半小时前、几小时前和一天前的进度；北迁出发前、导入存档码前、重开前、删除前这些时刻的备份留最近 4 份。</p>`, [{ t: '关闭', a: 'close-modal' }]);
     this.$('modal').querySelector('.mbox').classList.add('bkbox'); this.bkOpen = true;
   }
-  albumDirty() { this.album = null; if (this.panel && (this.panel.kind === 'album' || this.panel.kind === 'menu')) this.loadAlbum(); }
+  albumDirty() { this.album = null; if (this.panel && (this.panel.kind === 'album' || this.panel.kind === 'mcoll')) this.loadAlbum(); }
   // 装扮页的小样：旗面、相框各画一张小图，画一次就记住
   cosPrev(kind, id) {
     const C = this._cosPrev || (this._cosPrev = {}), k = kind + id;

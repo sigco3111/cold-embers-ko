@@ -22,7 +22,7 @@ export default async function (page) {
   await page.waitForTimeout(1500);
   const end = await page.evaluate(() => { const g = window.game, v = g.view, c = v.cam; return { seen: g.S.tower.end.seen, modal: document.getElementById('modal').classList.contains('show'), cam: [Math.round(c.tx), Math.round(c.ty), Math.round(c.tdist)], camp: window.__cam0, pitch: v.photoPitch, far: v.camera.far, menu: null }; });
   console.log('after', JSON.stringify(end));
-  await page.evaluate(() => window.game.ui.open('menu'));
+  await page.evaluate(() => window.game.ui.open('mcoll')); // 1.1：再看一遍天火在「菜单 › 收藏」页签
   await page.waitForTimeout(800);
   console.log('menu replay button', await page.evaluate(() => !!document.querySelector('[data-act="skyreplay"]')));
 }

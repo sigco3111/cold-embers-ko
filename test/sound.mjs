@@ -11,11 +11,11 @@ export default async function (page) {
   await page.evaluate(() => window.game.ui.open('menu'));
   await page.waitForTimeout(400);
   await page.screenshot({ path: `${OUT}/snd_menu.png`, timeout: 120000 });
-  await page.click('text=音乐：开'); await page.waitForTimeout(300);
-  await page.click('text=音效：开'); await page.waitForTimeout(800);
+  await page.click('.tgl[data-arg="music"]'); await page.waitForTimeout(300);
+  await page.click('.tgl[data-arg="sfx"]'); await page.waitForTimeout(800);
   const r2 = await page.evaluate(() => { const a = window.game.audio; return { st: a.ctx.state, sfx: a.sfxOn, music: a.musicOn, pref: localStorage.getItem('hanjin-beixing-v1-snd') }; });
   console.log('after toggle', JSON.stringify(r2));
-  await page.click('text=音乐：关'); await page.waitForTimeout(500);
+  await page.click('.tgl[data-arg="music"]'); await page.waitForTimeout(500);
   const r3 = await page.evaluate(() => { const a = window.game.audio; return { st: a.ctx.state, music: a.musicOn }; });
   console.log('music back', JSON.stringify(r3));
 }

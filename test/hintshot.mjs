@@ -32,11 +32,9 @@ export default async function (page) {
   await page.waitForTimeout(300);
   // 怎么玩
   await page.evaluate(() => { const g = window.game; g.ui.close(); document.querySelector('[data-act=help]') ? null : null; });
-  await page.evaluate(() => { const g = window.game; g.ui.open('menu'); });
-  await page.waitForTimeout(400);
-  await page.click('.mlink[data-act=help]');
+  await page.evaluate(() => { const g = window.game; g.ui.open('mhelp'); }); // 1.1：「怎么玩」直接写在「菜单 › 帮助」页签里
   await page.waitForTimeout(800);
-  await page.evaluate(() => { const m = document.querySelector('#modal .mbody, #modal .box, #modal'); const p = [...document.querySelectorAll('#modal p')].find(p => p.textContent.includes('天气与掠夺者')); if (p) p.scrollIntoView({ block: 'center' }); });
+  await page.evaluate(() => { const p = [...document.querySelectorAll('#sheet p')].find(p => p.textContent.includes('天气与掠夺者')); if (p) p.scrollIntoView({ block: 'center' }); });
   await page.waitForTimeout(400);
   await page.screenshot({ path: `${OUT}/hint_help_${TAG}.png`, timeout: 120000 });
 }

@@ -5,7 +5,7 @@ export default async function (page) {
   await page.waitForTimeout(1500);
   const info = () => page.evaluate(() => ({ slot: window.game.slot, diff: window.game.S.meta.diff || 'std', camp: window.game.ui.camp().name, ppl: window.game.S.camps.reduce((a, c) => a + c.people, 0), keys: Object.keys(localStorage).filter(k => k.startsWith('hanjin')).sort() }));
   console.log('start', JSON.stringify(await info()));
-  await page.evaluate(() => window.game.ui.open('menu'));
+  await page.evaluate(() => window.game.ui.open('msave')); // 1.1：存档位在「菜单 › 存档」页签
   await page.waitForTimeout(600);
   await page.evaluate(() => { const el = document.querySelector('#sheet [data-act=slots]'); el.scrollIntoView({ block: 'center' }); });
   await page.waitForTimeout(300);
