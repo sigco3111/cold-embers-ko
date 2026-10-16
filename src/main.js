@@ -3,7 +3,7 @@ import * as Sim from './sim.js';
 import { View } from './render.js';
 import { Sound } from './audio.js';
 import { UI, fmt, fmtTime, RICON, ICON } from './ui.js';
-import { BLD, RES, TECHS, STORY, LANDMARKS, FAR_MARKS, dayCycle, SLOTS, SPOT_KEYS, SPOTS, QY } from './data.js';
+import { BLD, RES, TECHS, STORY, LANDMARKS, FAR_MARKS, dayCycle, SLOTS, SPOT_KEYS, SPOTS, QY, WONDERS, TOWN } from './data.js';
 import { getWorld, idx, W, H } from './worldgen.js';
 import { iconize, injectIcons } from './icons.js';
 import { BigMap } from './bigmap.js';
@@ -372,6 +372,12 @@ class Game {
       else if (f.kind === 'trip-arrived') { if (!quiet) this.sfx('event'); }
       else if (f.kind === 'trip-arrived') { if (!quiet) { if (this.speed > 1) this.setSpeed(1); this.sfx('horn'); if (!document.getElementById('modal').classList.contains('show') && !this.titleOn && !this.place) this.startArrive(); } }
       else if (f.kind === 'skyfire') this.skyCine();
+      else if (f.kind === 'wonder-ph') { if (!quiet) { this.sfx('up'); this.view.burst('spark', f.x, f.y, 40, 1.4, 2.4); this.view.burst('dust', f.x, f.y, 30, 1.6); this.view.ringFx && this.view.ringFx(f.x, f.y, 3); } }
+      else if (f.kind === 'wonder-done') { if (!quiet) { this.sfx('tower'); this.view.focus(f.x, f.y); this.view.cam.tdist = Math.max(this.view.cam.tdist, 26); this.fireworks(f.x, f.y, 9); this.view.ringFx && this.view.ringFx(f.x, f.y, 4); } this.albumShot(`奇观·${WONDERS[f.w] ? WONDERS[f.w].n : ''}落成`, 3200); }
+      else if (f.kind === 'town') { if (!quiet) { this.sfx('win'); this.view.focus(f.x, f.y); this.fireworks(f.x, f.y, 5 + f.lvl * 2); this.view.ringFx && this.view.ringFx(f.x, f.y, 3); } const c = Sim.getCamp(this.S, f.camp); this.albumShot(`「${c ? c.name : ''}」升成${TOWN[f.lvl] ? TOWN[f.lvl].n : ''}`, 3200); }
+      else if (f.kind === 'peak') { if (!quiet) { this.sfx('win'); this.view.burst('spark', f.x, f.y, 50, 1.2, 3); this.view.ringFx && this.view.ringFx(f.x, f.y, 3); if (f.first) { this.view.focus(f.x, f.y); this.fireworks(f.x, f.y, 4); } } if (f.first) { const c = Sim.getCamp(this.S, f.camp); this.albumShot(`「${c ? c.name : ''}」炉火鼎盛`, 2600); } }
+      else if (f.kind === 'tide') { if (!quiet) this.sfx('horn'); }
+      else if (f.kind === 'tide-end') { if (!quiet) { this.sfx(f.win ? 'win' : 'lose'); if (f.win) { const c = Sim.mainCamp(this.S); if (c) this.fireworks(c.x, c.y, 3 + Math.min(6, f.n)); } } }
       else if (f.kind === 'tower-lit') { if (!quiet && f.n < Sim.TOWER_N) { this.sfx('tower'); this.view.focus(f.x, f.y); this.view.cam.tdist = Math.max(this.view.cam.tdist, 34); this.fireworks(f.x, f.y, 8); this.view.burst('spark', f.x, f.y, 40, 1.2, 1.6); this.view.ringFx && this.view.ringFx(f.x, f.y, 3); this.albumShot(`${Sim.towerName(f.n)}点亮`, 3200); } }
       else if (f.kind === 'arrive-stop') { if (!quiet) { this.sfx('win'); const c = Sim.mainCamp(this.S); if (c) { this.view.focus(c.x, c.y); this.fireworks(c.x, c.y, 6); } const st = Sim.stopOf(this.S, f.k); this.albumShot(`抵达${st ? st.n : '新的一站'}`, 3600); } }
       else if (f.kind === 'trueend') { if (!quiet) { this.sfx('win'); const c = Sim.mainCamp(this.S); if (c) this.fireworks(c.x, c.y, 10); } this.modalOrLater(`<h2>🏔 世界之脊</h2><p class="story">${STORY.trueEnd}</p><p>旧地图到这里就画完了，可路还在往北：北境一站接一站，没有尽头，前十站各有一座烽火塔等着点亮，第十座是天火塔。你也可以在菜单里开始一次新的北行，余烬、专家、收集册、成就和装扮都会留着。</p>`, [{ t: '往北看看', a: 'wn-north', cls: 'go' }, { t: '先留在这里', a: 'ending' }]); }

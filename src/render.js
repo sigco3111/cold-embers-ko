@@ -699,7 +699,7 @@ if (uDetail > 0.0) {
   // ---------- 建筑 ----------
   // 同类型同外观的建筑共用一份几何体
   // 烽火塔按建到哪一步换模型：1 地基，2–5 塔身四分之一到砌满，6 点亮
-  blvl(b) { if (!BLD[b.type].tower) return b.lvl; const T = b.tw || {}; if (T.lit) return 6; const d = Sim.towerSpec(this.S, b.tn).dur; return 1 + Math.min(4, Math.floor((T.p || 0) / d * 4 + 1e-9)); }
+  blvl(b) { if (BLD[b.type].wonder) return 1 + Math.min(3, (b.wd && b.wd.ph) || 0); if (!BLD[b.type].tower) return b.lvl; const T = b.tw || {}; if (T.lit) return 6; const d = Sim.towerSpec(this.S, b.tn).dur; return 1 + Math.min(4, Math.floor((T.p || 0) / d * 4 + 1e-9)); }
   // 点亮的塔：塔顶一道光柱，营地熄火走了塔也照样立着、亮着
   syncPillars(rdt) {
     const S = this.S, L = Sim.towerChain(S), ids = new Set(S.buildings.filter(b => BLD[b.type].tower).map(b => b.tn + ':' + b.camp));
@@ -742,6 +742,25 @@ if (uDetail > 0.0) {
       const wide = this.pillarWide ? 1 + this.pillarWide * Math.max(0, Math.hypot(e.g.position.x - this.camera.position.x, e.g.position.z - this.camera.position.z) / 140 - 0.5) : 1;
       e.g.children.forEach((m, i) => { if (i < 2) { m.scale.set((1 + fl * 0.9) * wide, Math.max(0.001, k), (1 + fl * 0.9) * wide); m.position.y = e.top + e.H * k / 2; m.material.uniforms.uOp.value = Math.min(1, m.userData.op * pulse * (0.4 + 0.6 * k) * (1 + fl * 1.6) * (e.n === 0 && this.pillarWide ? 1 - 0.55 * this.pillarWide : 1)); } });
       if (e.g.userData.fl) { const f = e.g.userData.fl; f.scale.y = 0.85 + 0.2 * Math.sin(this.time * 9 + e.n); }
+    }
+  }
+  // 1.1 落成的奇观：营地熄火走了，建筑不在了，奇观自己照样立着
+  syncWonders() {
+    const S = this.S, L = Sim.wonderList(S), ids = new Set(S.buildings.map(b => b.id));
+    const sig = L.map(w => w.w + ':' + (ids.has(w.bid) ? 1 : 0)).join(',');
+    const W = this.wonders ||= { sig: null, group: new THREE.Group() };
+    if (!W.group.parent) this.scene.add(W.group);
+    if (sig === W.sig) return;
+    W.sig = sig;
+    while (W.group.children.length) W.group.remove(W.group.children[0]);
+    for (const w of L) {
+      if (ids.has(w.bid)) continue;
+      const { geo, glow, flame, flameY } = this.bgeo(w.w, 4), g = new THREE.Group(); // 远景版：转的部件已经并在里面
+      g.position.set(w.x, 0, -w.y);
+      const m = new THREE.Mesh(geo, this.matStd); m.castShadow = true; m.receiveShadow = true; g.add(m);
+      if (glow) g.add(new THREE.Mesh(glow, this.matWin));
+      if (flame) { const fl = new THREE.Mesh(flame, this.matGlow); fl.position.y = flameY; g.add(fl); }
+      W.group.add(g);
     }
   }
   // 终章镜头经过一座塔：那道光闪一下
@@ -1155,6 +1174,7 @@ void main() {
     let sig = S.buildings.length, s2 = 7, s3 = 11;
     for (const b of S.buildings) { const lv = this.blvl(b); sig = (sig * 31 + b.id * 131 + lv * 7 + (b.deep ? 3 : 0)) | 0; s2 = (s2 * 17 + b.id + lv * 1009 + b.x * 7919 + b.y * 104729) | 0; s3 = (s3 * 31 + b.id + b.x * 61 + b.y * 1031) | 0; }
     sig = S.buildings.length + ':' + sig + ':' + s2;
+    for (const c of S.camps) if (c.town) sig += ':' + c.id + 't' + c.town; // 升了镇 / 城，房子要换
     if (!force && sig === this.bldSig) return;
     this.bldSig = sig;
     // 小路只跟建筑在哪有关：光是升级（比如排队的帐篷一座座自动升）不用重铺
@@ -1167,10 +1187,12 @@ void main() {
       const lv = this.blvl(b), vt = M.visTier(b.type, lv);
       const fid = b.type === 'flagpole' ? Sim.flagOf(S) : 'def';
       const key = (b.type === 'furnace' ? `${lv}` : `${vt}:${b.type === 'tent' && lv >= 3 ? 1 : 0}:${Math.min(20, lv)}${b.deep ? ':d' : ''}`) + `@${b.x},${b.y}` + (fid !== 'def' ? ':' + fid : ''); // 挪了位置也要重摆
+      const tw = b.type === 'tent' ? Sim.townOf(Sim.getCamp(S, b.camp)) : 0; // 1.1 镇、城、大城：帐篷换成木屋、石屋、蒸汽公寓
+      const key2 = tw ? key + ':tw' + tw : key;
       let e = this.buildings.get(b.id);
-      if (e && e.key === key) continue;
+      if (e && e.key === key2) continue;
       if (e) { this.bldGroup.remove(e.g); if (e.scaf) this.bldGroup.remove(e.scaf); if (e.pf) e.pf.geo.dispose(); }
-      const { geo, glow, h, flame, flameY } = this.bgeo(b.type, lv, !!b.deep, fid !== 'def' ? 'bare' : '');
+      const { geo, glow, h, flame, flameY } = this.bgeo(b.type, lv, !!b.deep, fid !== 'def' ? 'bare' : tw ? 'tw' + tw : '');
       const g = new THREE.Group();
       const m = new THREE.Mesh(geo, this.matStd); m.castShadow = true; m.receiveShadow = true; g.add(m);
       if (glow) g.add(new THREE.Mesh(glow, this.matWin));
@@ -1183,7 +1205,7 @@ void main() {
       const s0 = BLD[b.type].size, cx0 = b.x + s0 / 2, cy0 = b.y + s0 / 2;
       let pf = null;
       if (fid !== 'def') { const ph = 2.1 + 0.05 * Math.min(lv, 10); pf = this.patFlag(fid, 0.68, 0.42); pf.mesh.position.set(0.06, 0.22 + ph - 0.3, 0); pf.ph = hash3(b.id, 5, 5) * 6; g.add(pf.mesh); }
-      const ent = { g, key, h, fl, pf, type: b.type, camp: b.camp, ph: hash3(b.id, 3, 3) * 6, lvl: b.lvl, deep: !!b.deep, cons: 0, up: 0 };
+      const ent = { g, key: key2, h, fl, pf, type: b.type, camp: b.camp, ph: hash3(b.id, 3, 3) * 6, lvl: b.lvl, deep: !!b.deep, cons: 0, up: 0 };
       if (!e && !force) {
         // 新建：先搭脚手架，房子从地里一层层长出来
         ent.cons = 1;
@@ -1811,12 +1833,14 @@ void main() {
     if (au > 0.001) bc.lerp(C.t.setRGB(0.07, 0.22, 0.22), au * 0.4);
     if (ic > 0.001) bc.lerp(C.t.setRGB(0.8, 0.85, 0.9).lerp(C.night, nf * 0.7), ic * 0.85);
     // 冰风暴：灰蓝的阴天；极寒夜：夜色更蓝更沉，屏幕四角结霜
-    const X = this.wxk || { ice: 0, cold: 0 }, wi = X.ice, wc = X.cold;
+    const X = this.wxk || { ice: 0, cold: 0 }, wi = X.ice, wc = X.cold, wt = X.tide || 0;
     if (wi > 0.001) bc.lerp(C.t.setRGB(0.56, 0.66, 0.76).lerp(C.night, nf * 0.8), wi * 0.45);
     if (wc > 0.001) bc.lerp(C.t.setRGB(0.04, 0.08, 0.2), wc * 0.4 * nf);
+    if (wt > 0.001) bc.lerp(C.t.setRGB(0.62, 0.72, 0.9).lerp(C.night, nf * 0.75), wt * 0.4); // 永冬潮：天地发青，白天也像隔着一层冰
     this.scene.fog.color.copy(bc);
     this.hemi.color.copy(C.skyD).lerp(C.skyN, nf); this.hemi.groundColor.copy(C.gndD).lerp(C.gndN, nf);
     if (wc > 0.001) this.hemi.color.lerp(C.t.setRGB(0.5, 0.66, 1), wc * 0.35);
+    if (wt > 0.001) this.hemi.color.lerp(C.t.setRGB(0.6, 0.74, 1), wt * 0.4);
     if (wi > 0.001) this.hemi.color.lerp(C.t.setRGB(0.75, 0.85, 0.95), wi * 0.3);
     if (au > 0.001) this.hemi.color.lerp(C.t.setRGB(0.35, 1, 0.72), au * 0.45);
     this.hemi.intensity = (1.1 - nf * 0.62) * (1 - bz * 0.27) * (1 + au * 0.22 + ic * 0.12);
@@ -1829,7 +1853,7 @@ void main() {
     if (this.fogMesh) this.fogMesh.material.color.setRGB(1, 1, 1).lerp(C.fogN, nf);
     if (this.smokePts) this.smokePts.material.color.copy(C.smokeD).lerp(C.smokeN, nf);
     if (this.snowPts) { this.snowPts.material.color.setRGB(1, 1, 1).lerp(C.snowN, nf); if (wi > 0.001) this.snowPts.material.color.lerp(C.t.setRGB(0.66, 0.84, 1), wi * 0.6); }
-    const cc = Math.round(wc * 50) / 50;
+    const cc = Math.round(Math.max(wc, wt * 0.75) * 50) / 50;
     if (cc !== this.coldCss) { this.coldCss = cc; document.body.style.setProperty('--cold', cc); }
     const sl = Math.round(wi * (1 - bz) * 50) / 50;
     if (sl !== this.sleetCss) {
@@ -1950,7 +1974,8 @@ void main() {
     }
     let fest = 0;
     for (const cp of S.camps) if (cp.fest) { const L = this.lifeSpots(cp), f = L.fest || [cp.x, cp.y]; fest = Math.max(fest, 1 - Math.hypot(f[0] - c.tx, f[1] - c.ty) / (10 + c.dist * 0.4)); }
-    return { near: Math.max(0, near) * zk, chop: chop * zk, mine: mine * zk, ind: ind * zk, blizz: this.blizz, nf: this.nf, dist: c.dist, fest: Math.max(0, fest) * zk };
+    const pc = Sim.getCamp(S, S.active), peak = Sim.peakOn(S, pc) ? 1 : 0, tide = this.wxk ? this.wxk.tide || 0 : 0;
+    return { near: Math.max(0, near) * zk, chop: chop * zk, mine: mine * zk, ind: ind * zk, blizz: this.blizz, nf: this.nf, dist: c.dist, fest: Math.max(0, fest) * zk, peak, tide };
   }
 
   // ---------- 施工尘土、升级火星、光圈 ----------
@@ -2211,6 +2236,11 @@ void main() {
       const base = Math.PI / 2 + (Math.random() - 0.5);
       const tier = tierOfRow(c.y);
       const col = new THREE.Color(fx.gang != null ? '#5a4030' : tier >= 6 ? '#8a70b0' : tier >= 5 ? '#c0e0f0' : tier >= 3 ? '#6a4a3a' : '#7d828c');
+      if (fx.beast) { // 1.1 霜巨兽：一头冰蓝的巨狼，后面跟着几只小的
+        const bc = new THREE.Color('#cfe6ff');
+        this.raids.push({ camp: c.id, t0: this.time, won: fx.won, col: bc, beast: 1, wolves: Array.from({ length: 5 }, (_, i) => ({ a: base + (i / 5 - 0.5) * 0.9, r0: r + (i ? 2 + Math.random() * 2 : 1), s: i ? 1.1 : 4.2, die: fx.won ? (i ? 4 + Math.random() * 4 : 9) : 99 })), lastShot: 0 });
+        return;
+      }
       this.raids.push({ camp: c.id, t0: this.time, won: fx.won, col, wolves: Array.from({ length: n }, (_, i) => ({ a: base + (i / n - 0.5) * 1.4, r0: r + Math.random() * 3, die: fx.won ? 4 + Math.random() * 6 : 99 })), lastShot: 0 });
     }
   }
@@ -2233,6 +2263,7 @@ void main() {
     this.syncFocus();
     this.syncRings();
     this.syncPillars(rdt);
+    this.syncWonders();
     this.syncLines();
     if (R.infraDirty) { R.infraDirty = false; this.buildPaths(); }
     if ((R.worldGen || 0) !== this.worldGen) { this.worldGen = R.worldGen || 0; this.mapGrew = R.mapGrew || 0; this.regrow(true); }
@@ -2245,8 +2276,9 @@ void main() {
     if (R.spotsDirty || (R.spotTouched && this.spotTimer > 4)) { if (R.spotsDirty) { this.decorKey = ''; this.spotBig = (this.spotBig || 0) + 1; } R.spotsDirty = false; R.spotTouched = false; this.spotTimer = 0; this.refreshSpots(); }
     const w = Sim.weatherAt(S, S.t);
     this.blizz += ((w.blizzard ? 1 : 0) - this.blizz) * Math.min(1, rdt * 0.5);
-    { const we = Sim.wxeAt(S, S.t), wk = we.on ? we.ev.kind : null, X = this.wxk ||= { ice: 0, cold: 0, crack: 0 };
-      for (const k in X) X[k] += ((wk === k ? 1 : 0) - X[k]) * Math.min(1, rdt * (k === 'crack' ? 0.3 : 0.5)); }
+    { const we = Sim.wxeAt(S, S.t), wk = we.on ? we.ev.kind : null, X = this.wxk ||= { ice: 0, cold: 0, crack: 0, tide: 0 };
+      X.tide ??= 0; const tn = Sim.tideNow(S) ? 1 : 0;
+      for (const k in X) X[k] += ((k === 'tide' ? tn : wk === k ? 1 : 0) - X[k]) * Math.min(1, rdt * (k === 'crack' ? 0.3 : 0.5)); }
     this.syncCracks();
     this.updateCamera(rdt);
     this.refreshTerrain();
@@ -2346,7 +2378,17 @@ void main() {
 
   animBuildings(dt) {
     if (this.flameT) this.flameT.value = this.time;
-    for (const [, e] of this.buildings) {
+    const S = this.S;
+    for (const [bid, e] of this.buildings) {
+      // 1.1 霜巨兽冻住的建筑：罩一层半透明的冰壳，化了就拿掉
+      if (e.type !== 'furnace') {
+        const b = Sim.getB(S, bid), fz = !!(b && b.frz > S.t);
+        if (fz && !e.ice) {
+          const s = BLD[e.type].size;
+          e.ice = new THREE.Mesh(this.iceGeo ||= new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0), this.iceMat ||= new THREE.MeshStandardMaterial({ color: '#cfe8ff', emissive: '#4a7ab0', emissiveIntensity: 0.25, transparent: true, opacity: 0.5, roughness: 0.12, metalness: 0.1, depthWrite: false }));
+          e.ice.scale.set(s * 0.96, Math.min(4, (e.h || 1.6) * 1.08), s * 0.96); e.g.add(e.ice);
+        } else if (!fz && e.ice) { e.g.remove(e.ice); e.ice = null; this.burst('dust', e.g.position.x, -e.g.position.z, 10, 0.6); }
+      }
       if (e.cons > 0) {
         // 施工 2.4 秒：房子升起，最后脚手架收掉
         e.cons = Math.max(0, e.cons - dt / 2.4);
@@ -2360,7 +2402,7 @@ void main() {
       }
       if (e.up > 0) { e.up = Math.max(0, e.up - dt * 1.6); const s = 1 + Math.sin((1 - e.up) * Math.PI) * 0.08; e.g.scale.set(s, s, s); }
       if (e.pf) this.wave(e.pf, this.time);
-      if (e.fl && e.type === 'furnace') { const mt = this.flameMat(Sim.flameOf(this.S, Sim.getCamp(this.S, e.camp))); if (e.fl.material !== mt) e.fl.material = mt; }
+      if (e.fl && e.type === 'furnace') { const cp = Sim.getCamp(S, e.camp), mt = this.flameMat(Sim.peakFlame(S, cp, Sim.flameOf(S, cp))); if (e.fl.material !== mt) e.fl.material = mt; }
       if (e.fl) {
         // 火焰随燃料多少变化，并轻轻跳动
         // 超载时火苗蹿高、跳得更急，还往外冒火星；停炉时只剩一点余烬
@@ -2375,7 +2417,7 @@ void main() {
       }
     }
     // 熔炉的光：离镜头最近的 4 个营地
-    const S = this.S, c = this.cam;
+    const c = this.cam;
     const camps = S.camps.slice().sort((a, b) => Math.hypot(a.x - c.tx, a.y - c.ty) - Math.hypot(b.x - c.tx, b.y - c.ty)).slice(0, 4);
     this.lights.forEach((l, i) => {
       const cp = camps[i];
@@ -2383,9 +2425,10 @@ void main() {
       const cr = Sim.rt(S).c[cp.id];
       const f = cr ? (cr.stall ? 0 : cr.fueled) : 1, od = cr && cr.od ? 1.45 : 1;
       l.position.set(cp.x, 3.2, -cp.y);
-      { const fp = FLAMES[Sim.flameOf(S, cp)].c; if (!fp) l.color.set('#ff8a30'); else { l.color.set(fp[1]); if (FLAMES[Sim.flameOf(S, cp)].shift) l.color.lerp(this._tc || (this._tc = new THREE.Color()).set(fp[2]), 0.5 + 0.5 * Math.sin(this.time * 1.3)); } }
-      l.intensity = (9 + Math.sin(this.time * 7 + i) * 0.8 + Math.sin(this.time * 13) * 0.4) * (0.3 + 0.7 * f) * (1 + this.nf * 1.4) * od;
-      l.distance = furnaceRadius(Sim.getB(S, cp.furnace).lvl) * (1.3 + this.nf * 0.5);
+      const fid = Sim.peakFlame(S, cp, Sim.flameOf(S, cp)), pk = Sim.peakOn(S, cp) ? 1 : 0; // 炉火鼎盛：金色的火，光更暖更亮
+      { const fp = FLAMES[fid].c; if (!fp) l.color.set('#ff8a30'); else { l.color.set(fp[1]); if (FLAMES[fid].shift) l.color.lerp(this._tc || (this._tc = new THREE.Color()).set(fp[2]), 0.5 + 0.5 * Math.sin(this.time * 1.3)); } }
+      l.intensity = (9 + Math.sin(this.time * 7 + i) * 0.8 + Math.sin(this.time * 13) * 0.4) * (0.3 + 0.7 * f) * (1 + this.nf * 1.4) * od * (1 + pk * 0.3);
+      l.distance = furnaceRadius(Sim.getB(S, cp.furnace).lvl) * (1.3 + this.nf * 0.5) * (1 + pk * 0.15);
     });
   }
 
@@ -2561,7 +2604,7 @@ void main() {
     for (const grp of this.bldGroup.children) {
       const bid = grp.userData.bid; if (bid == null || grp.userData.mv) continue;
       const b = Sim.getB(this.S, bid); if (!b) continue;
-      const G0 = this.bgeo(b.type, b.lvl, !!b.deep), L = G0.movers || [];
+      const G0 = this.bgeo(b.type, this.blvl(b), !!b.deep), L = G0.movers || [];
       grp.userData.mv = L.map(mv => {
         const o = new THREE.Mesh(mv.geo, this.matStd); o.castShadow = true; o.userData.mover = mv; o.visible = !!this.lodHi;
         o.position.set(...mv.pos); grp.add(o); return o;
@@ -2761,6 +2804,16 @@ void main() {
           putFig(x, y, ang, COATS[(i * 3 + 2) % COATS.length], bob, { k: 'kid', i, camp: c.id }, 0.62);
         }
       }
+      if (c.town) {
+        // 1.1 镇子里的街坊：在自家门前慢慢踱步（只在房子门口那一条空地上走，不穿墙）
+        const hs = S.buildings.filter(b => b.camp === c.id && b.type === 'tent').slice(0, 2 + 3 * c.town);
+        hs.forEach((b, i) => {
+          const ph = t * 0.32 + i * 1.7 + c.id, u = Math.sin(ph), dir = Math.cos(ph) >= 0 ? 1 : -1;
+          const x = b.x + 0.95 + u * 0.5, y = b.y + 1 - 0.9, ang = dir > 0 ? Math.PI * 1.5 : Math.PI / 2;
+          putFig(x, y, ang, COATS[(i * 3 + c.id + 1) % COATS.length], t * 6 + i, { k: 'tw', i, camp: c.id });
+          if (night && i % 2 === 0) putLamp(x, y, ang);
+        });
+      }
       if (c.fest && L.fest) {
         // 庆典：一圈人手拉手绕着篝火跳，鼓手、拉琴的和看热闹的站在外圈
         const [fx, fy, , FR] = L.fest, nd = Math.max(8, Math.min(FR > 2 ? 18 : FR > 1.7 ? 12 : 10, Math.floor(c.people / 5))), rd = FR * 0.5;
@@ -2953,8 +3006,9 @@ void main() {
         const x = c.x + Math.cos(wf.a) * rr, y = c.y + Math.sin(wf.a) * rr;
         if (dead && age - wf.die > 2) continue;
         e.set(dead ? Math.PI / 2 : 0, Math.atan2(c.x - x, -(c.y - y)) + Math.PI, 0); q.setFromEuler(e);
-        m.compose(v.set(x, dead ? -0.1 * (age - wf.die) : Math.abs(Math.sin(t * 12 + wf.a * 9)) * 0.08, -y), q, sc.set(1.2, 1.2, 1.2));
-        if (nw < 120) { this.wolves.setMatrixAt(nw, m); this.wolves.setColorAt(nw, r.col); M.setAnim(this.wolves, nw, t * 12 + wf.a * 9, 10, dead ? 0 : 0.7); nw++; }
+        const ws = wf.s || 1.2, gait = ws > 2 ? 4 : 12; // 巨兽步子慢、一步一震
+        m.compose(v.set(x, dead ? -0.1 * ws * (age - wf.die) : Math.abs(Math.sin(t * gait + wf.a * 9)) * 0.08 * Math.sqrt(ws), -y), q, sc.set(ws, ws, ws));
+        if (nw < 120) { this.wolves.setMatrixAt(nw, m); this.wolves.setColorAt(nw, r.col); M.setAnim(this.wolves, nw, t * gait + wf.a * 9, 10, dead ? 0 : 0.7); nw++; }
         wf.x = x; wf.y = y; wf.dead = dead;
       }
       // 箭塔射击

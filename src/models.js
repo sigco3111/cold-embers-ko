@@ -459,9 +459,371 @@ function foundation(K, s, vt) {
   if (vt >= 4) for (const [sx, sz, x, z] of [[s - 0.02, 0.05, 0, s / 2 - 0.03], [s - 0.02, 0.05, 0, -s / 2 + 0.03], [0.05, s - 0.02, s / 2 - 0.03, 0], [0.05, s - 0.02, -s / 2 + 0.03, 0]]) box(p.trim, sx, 0.045, sz, x, 0.13, z);
 }
 
+// 1.1 奇观：4×4 的大模型。st = 已完工的期数（0 刚圈起工地、1 地基好了、2 主体起来了、3 落成）。
+// 没落成时围着脚手架、一台塔吊和几堆料；落成以后撤掉，亮起来
+function wonderGeo(K, type, st) {
+  const { add, lit, box, hi, mover, seg, crate, barrel, drift, rocks, parts } = K;
+  const done = st >= 3;
+  const IRON = '#5d6670', IRON2 = '#454d57', CU = '#b87333', BRASS = '#d4a050', RIV = '#2e333a', GLOW = '#ff8a2a';
+  groundPad(4, parts);
+  // 脚手架：a 是半边长，h 是高
+  const scaf = (a, h, back = true) => {
+    for (const [x, z] of [[-a, -a], [a, -a], [-a, a], [a, a]]) box(WOOD, 0.07, h, 0.07, x, h / 2, z);
+    for (const t of [-a / 3, a / 3]) for (const [x, z] of (back ? [[t, -a], [t, a], [-a, t], [a, t]] : [[t, a], [-a, t], [a, t]])) box(WOOD, 0.05, h, 0.05, x, h / 2, z);
+    for (let y = 0.75; y < h; y += 0.75) {
+      for (const z of (back ? [-a, a] : [a])) box(WOOD2, a * 2 + 0.06, 0.05, 0.05, 0, y, z);
+      for (const x of [-a, a]) box(WOOD2, 0.05, 0.05, a * 2 + 0.06, x, y, 0);
+      box('#a88458', a * 2, 0.03, 0.2, 0, y + 0.04, a - 0.11, { jit: 0.2 }); box('#a88458', 0.2, 0.03, a * 2, -a + 0.11, y + 0.04, 0, { jit: 0.2 });
+    }
+    for (let y = 0; y + 0.75 <= h; y += 0.75) { seg(WOOD2, [-a, y + 0.05, a + 0.02], [-a / 3, y + 0.75, a + 0.02], 0.03); seg(WOOD2, [a, y + 0.05, a + 0.02], [a / 3, y + 0.75, a + 0.02], 0.03); seg(WOOD2, [-a - 0.02, y + 0.05, -a], [-a - 0.02, y + 0.75, -a / 3], 0.03); }
+    hi(() => { for (let y = 0.75; y < h; y += 1.5) { seg(WOOD2, [-a + 0.15, y + 0.04, a - 0.05], [-a + 0.15 + 0.3, y + 0.75, a - 0.05], 0.025); } });
+  };
+  // 塔吊：立在 (cx,cz)，高 H，吊臂朝 ang（x 轴往 -z 转）
+  const crane = (cx, cz, H, ang, load = '#9a9086') => {
+    const Y = '#d8a838', m = 0.12, dx = Math.cos(ang), dz = Math.sin(ang), L = 2.3;
+    for (const [ex, ez] of [[-m, -m], [m, -m], [-m, m], [m, m]]) box(Y, 0.04, H, 0.04, cx + ex, H / 2, cz + ez);
+    for (let y = 0.4; y < H; y += 0.4) { box(Y, m * 2, 0.03, 0.03, cx, y, cz + m); box(Y, m * 2, 0.03, 0.03, cx, y, cz - m); box(Y, 0.03, 0.03, m * 2, cx + m, y, cz); box(Y, 0.03, 0.03, m * 2, cx - m, y, cz); }
+    for (let y = 0; y + 0.4 <= H; y += 0.4) { seg(Y, [cx - m, y, cz + m], [cx + m, y + 0.4, cz + m], 0.02); seg(Y, [cx + m, y, cz - m], [cx - m, y + 0.4, cz - m], 0.02); seg(Y, [cx + m, y, cz + m], [cx + m, y + 0.4, cz - m], 0.02); }
+    box('#c84a30', 0.24, 0.2, 0.22, cx, H + 0.1, cz);
+    lit(G.box, '#bfe4ff', { sx: 0.12, sy: 0.08, sz: 0.01, x: cx + dx * 0.12, y: H + 0.13, z: cz + dz * 0.12, ry: -ang + Math.PI / 2 });
+    seg(Y, [cx, H + 0.25, cz], [cx + dx * L, H + 0.25, cz + dz * L], 0.07);
+    seg(Y, [cx, H + 0.25, cz], [cx - dx * 0.85, H + 0.25, cz - dz * 0.85], 0.07);
+    box('#6a6e76', 0.26, 0.22, 0.26, cx - dx * 0.78, H + 0.1, cz - dz * 0.78);
+    box(Y, 0.05, 0.55, 0.05, cx, H + 0.5, cz);
+    seg('#e0e4ea', [cx, H + 0.77, cz], [cx + dx * L * 0.92, H + 0.28, cz + dz * L * 0.92], 0.012);
+    seg('#e0e4ea', [cx, H + 0.77, cz], [cx - dx * 0.78, H + 0.28, cz - dz * 0.78], 0.012);
+    const tx = cx + dx * L * 0.62, tz = cz + dz * L * 0.62, hy = H * 0.72;
+    box('#3a3e46', 0.12, 0.07, 0.12, tx, H + 0.17, tz);
+    seg('#d8dde4', [tx, H + 0.14, tz], [tx, hy, tz], 0.01);
+    box('#3a3e46', 0.07, 0.07, 0.07, tx, hy - 0.04, tz);
+    for (const sg of [-1, 1]) seg('#d8dde4', [tx, hy - 0.07, tz], [tx + sg * 0.14, hy - 0.2, tz], 0.008);
+    box(load, 0.36, 0.16, 0.24, tx, hy - 0.28, tz, { jit: 0.1 });
+  };
+  // 工地边上的料：钢梁、石块、货箱、木桶（[种类, x, z]）
+  const pile = (k, x, z) => {
+    if (k === 'beam') for (let i = 0; i < 3; i++) box(i % 2 ? '#7f9fc0' : '#6f8fb0', 0.7, 0.07, 0.09, x, 0.05 + i * 0.075, z + (i === 1 ? 0.05 : 0));
+    else if (k === 'stone') { box('#a0968a', 0.3, 0.2, 0.24, x - 0.08, 0.1, z, { jit: 0.1 }); box('#8c8378', 0.28, 0.18, 0.22, x + 0.14, 0.09, z + 0.04, { ry: 0.4, jit: 0.1 }); box('#a0968a', 0.26, 0.17, 0.22, x, 0.28, z + 0.02, { ry: 0.2, jit: 0.1 }); }
+    else if (k === 'crate') { crate(x, z, 0.02, 0.26); crate(x + 0.3, z + 0.05, 0.02, 0.2); }
+    else if (k === 'barrel') { barrel(x, z, 0.02); barrel(x + 0.2, z + 0.1, 0.02); }
+  };
+  // 没落成时：脚手架（半边长 a，高 h，back=false 就不搭后面那面）、塔吊、料堆
+  const site = (h, a, cr, pl, back = true) => {
+    if (done) return;
+    scaf(a, h, back);
+    crane(cr[0], cr[1], Math.max(2.6, h + 1.2), cr[2]);
+    for (const q of pl) pile(...q);
+  };
+
+  switch (type) {
+    case 'wcolossus': {
+      // 蒸汽巨像：八角石台上站着一尊铁皮巨人，胸口是锅炉的炉门，背上两根烟囱冒白汽，一手拄着一把大扳手
+      add(G.cyl8, '#70747c', { sx: 3.6, sy: 0.3, sz: 3.6, y: 0.15, ry: Math.PI / 8, jit: 0.1 });
+      if (st >= 1) {
+        add(G.cyl8, '#868a92', { sx: 3.1, sy: 0.3, sz: 3.1, y: 0.45, ry: Math.PI / 8, jit: 0.08 });
+        for (let k = 0; k < 3; k++) box('#9aa0a8', 1.0, 0.1, 0.22, 0, 0.05 + k * 0.1, 1.72 - k * 0.14);
+        // 两条腿：脚、小腿、膝盖、大腿，胯
+        for (const sg of [-1, 1]) {
+          const x = sg * 0.52;
+          box(IRON2, 0.56, 0.26, 0.86, x, 0.73, 0.12, { jit: 0.08 });
+          box(RIV, 0.58, 0.05, 0.88, x, 0.62, 0.12);
+          add(G.frust12, IRON, { sx: 0.5, sy: 1.15, sz: 0.5, x, y: 1.43, jit: 0.06 });
+          for (const y of [1.05, 1.75]) add(G.torus16, CU, { sx: 0.5, sy: 0.5, s: 1, rx: Math.PI / 2, x, y });
+          add(G.sph2, IRON2, { s: 0.52, x, y: 2.06 });
+          add(G.frust12, IRON, { sx: 0.6, sy: 1.0, sz: 0.6, x: x * 0.92, y: 2.62, rx: Math.PI, jit: 0.06 });
+          // 膝盖的铜活塞
+          seg(BRASS, [x + sg * 0.27, 1.6, 0.06], [x + sg * 0.3, 2.45, 0.04], 0.06);
+        }
+        box(IRON2, 1.55, 0.46, 0.82, 0, 3.18, 0, { jit: 0.05 });
+        box(CU, 1.6, 0.08, 0.86, 0, 3.0, 0);
+      }
+      if (st >= 2) {
+        // 身子：一口竖着的大锅炉，三道铆钉箍
+        add(G.cyl16, IRON, { sx: 1.7, sy: 1.6, sz: 1.2, y: 4.2, jit: 0.05 });
+        for (const y of [3.5, 4.2, 4.9]) add(G.torus16, RIV, { sx: 1.72, sy: 1.22, sz: 1.2, rx: Math.PI / 2, y });
+        add(G.hemi, IRON, { sx: 1.7, sy: 0.5, sz: 1.2, y: 5.0 });
+        // 肩膀和两条胳膊：左手垂着，右手拄着一把大扳手
+        for (const sg of [-1, 1]) {
+          add(G.sph2, IRON2, { s: 0.62, x: sg * 1.05, y: 4.85 });
+          add(G.cyl12, IRON, { sx: 0.36, sy: 1.0, sz: 0.36, x: sg * 1.2, y: 4.2, rz: sg * 0.18 });
+          add(G.sph2, IRON2, { s: 0.36, x: sg * 1.3, y: 3.68 });
+          add(G.cyl12, IRON, { sx: 0.32, sy: 0.9, sz: 0.32, x: sg * 1.33, y: 3.2, rx: sg > 0 ? -0.35 : 0 });
+          box(IRON2, 0.36, 0.34, 0.34, sg * 1.35, 2.68, sg > 0 ? 0.18 : 0, { jit: 0.1 });
+          seg(BRASS, [sg * 0.95, 4.6, 0.3], [sg * 1.25, 3.7, 0.24], 0.05);
+        }
+        // 扳手：长柄拄地，头在上
+        box('#6a727c', 0.14, 2.2, 0.14, 1.42, 1.65, 0.5, { rz: -0.05 });
+        box('#6a727c', 0.5, 0.22, 0.14, 1.42, 2.82, 0.5); box('#6a727c', 0.12, 0.3, 0.14, 1.24, 3.0, 0.5); box('#6a727c', 0.12, 0.3, 0.14, 1.6, 3.0, 0.5);
+      }
+      if (done) {
+        // 胸口的炉门：火光透出来
+        add(G.arch, RIV, { sx: 0.62, sy: 0.6, sz: 0.14, y: 3.8, z: 0.6 });
+        lit(G.arch, GLOW, { sx: 0.48, sy: 0.48, sz: 0.05, y: 3.85, z: 0.66 });
+        for (let b = -1; b <= 1; b++) box(RIV, 0.03, 0.5, 0.03, b * 0.13, 4.1, 0.7);
+        // 头：铁盔，一道发光的眼缝，头顶一根小烟囱
+        box(IRON2, 0.62, 0.6, 0.6, 0, 5.55, 0.05, { jit: 0.06 });
+        add(G.hemi, IRON, { sx: 0.64, sy: 0.3, sz: 0.62, y: 5.85, z: 0.05 });
+        lit(G.box, '#ffb050', { sx: 0.44, sy: 0.07, sz: 0.04, y: 5.6, z: 0.36 });
+        box(CU, 0.66, 0.06, 0.64, 0, 5.3, 0.05);
+        // 背上两根烟囱
+        for (const sg of [-1, 1]) { add(G.cyl12, '#3a3e46', { sx: 0.26, sy: 1.6, sz: 0.26, x: sg * 0.45, y: 5.4, z: -0.55 }); add(G.torus16, BRASS, { s: 0.3, rx: Math.PI / 2, x: sg * 0.45, y: 6.2, z: -0.55 }); }
+        // 胸前的压力表、铜管
+        add(G.cyl12, BRASS, { sx: 0.24, sy: 0.05, sz: 0.24, rx: Math.PI / 2, x: 0.5, y: 4.6, z: 0.6 });
+        lit(G.cyl12, '#f0e8d0', { sx: 0.18, sy: 0.02, sz: 0.18, rx: Math.PI / 2, x: 0.5, y: 4.6, z: 0.63 });
+        seg(CU, [-0.55, 4.9, 0.55], [-0.75, 3.6, 0.5], 0.05);
+        hi(() => {
+          for (let k = 0; k < 16; k++) { const a = k / 16 * Math.PI * 2; for (const y of [3.5, 4.9]) add(G.sph, RIV, { s: 0.06, x: Math.cos(a) * 0.86, y, z: Math.sin(a) * 0.61 }); }
+          for (const sg of [-1, 1]) for (let k = 0; k < 4; k++) add(G.sph, RIV, { s: 0.05, x: sg * 0.52 + (k - 1.5) * 0.12, y: 0.86, z: 0.56 });
+          add(G.sph, IRON2, { s: 0.12, x: 0.5, y: 4.6, z: 0.66 });
+        });
+        // 台子前面两盏铁灯
+        for (const sg of [-1, 1]) { box(IRON2, 0.08, 0.9, 0.08, sg * 1.1, 1.05, 1.35); lit(G.box, '#ffc070', { s: 0.14, x: sg * 1.1, y: 1.55, z: 1.35 }); box(IRON2, 0.2, 0.04, 0.2, sg * 1.1, 1.65, 1.35); }
+      }
+      site(st >= 2 ? 5.2 : st >= 1 ? 3.3 : 1.2, 1.72, [-1.32, -1.32, Math.PI / 4], [['beam', 1.25, 1.62], ['stone', -1.35, 1.6], ['crate', 1.2, -1.55]]);
+      break;
+    }
+    case 'wvault': {
+      // 万年冰窖：石圈围着一座冰砖砌的大穹顶，前面一道石拱门洞，两扇包铁的大门，门两边各立一根冰尖碑
+      add(G.cyl16, '#6f747c', { sx: 3.7, sy: 0.3, sz: 3.7, y: 0.15, jit: 0.1 });
+      for (let k = 0; k < 16; k++) { const a = k / 16 * Math.PI * 2; box(k % 2 ? '#7c8088' : '#8a8e96', 0.6, 0.22, 0.3, Math.cos(a) * 1.72, 0.4, Math.sin(a) * 1.72, { ry: -a + Math.PI / 2, jit: 0.1 }); }
+      if (st >= 1) {
+        // 冰砖一圈圈砌起来的墙基
+        for (let i = 0; i < 3; i++) for (let k = 0; k < 18; k++) { const a = (k + (i % 2) * 0.5) / 18 * Math.PI * 2, r = 1.42; box(i % 2 ? '#bfe0f4' : '#d4ecfa', 0.5, 0.26, 0.3, Math.cos(a) * r, 0.42 + i * 0.27, Math.sin(a) * r, { ry: -a + Math.PI / 2, jit: 0.08 }); }
+        // 门洞的石拱
+        box('#7c8088', 1.2, 1.3, 0.7, 0, 0.95, 1.45, { jit: 0.08 });
+        add(G.arch, DARK, { sx: 0.74, sy: 0.9, sz: 0.74, y: 0.3, z: 1.48 });
+      }
+      if (st >= 2) {
+        add(G.hemi, '#cfe8f8', { sx: 3.0, sy: 2.3, sz: 3.0, y: 1.2, jit: 0.06 });
+        // 冰砖的缝：一圈圈横线 + 竖线
+        for (let i = 1; i < 6; i++) { const t = i / 6, y = 1.2 + 2.3 / 2 * Math.sin(t * Math.PI / 2), r = 1.5 * Math.cos(t * Math.PI / 2) + 0.01; add(G.torus16, '#a8cce4', { sx: r * 2, sy: r * 2, sz: 0.4, rx: Math.PI / 2, y }); }
+        for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2; seg('#a8cce4', [Math.cos(a) * 1.51, 1.2, Math.sin(a) * 1.51], [Math.cos(a) * 0.55, 2.2, Math.sin(a) * 0.55], 0.04); }
+        box('#8a8e96', 1.3, 0.2, 0.8, 0, 1.68, 1.45);
+      }
+      if (done) {
+        // 两扇大门：包铁、铆钉、门环
+        for (const sg of [-1, 1]) { box('#4a5a6a', 0.34, 0.86, 0.06, sg * 0.18, 0.74, 1.84); for (const y of [0.45, 0.75, 1.05]) box(IRON, 0.36, 0.05, 0.07, sg * 0.18, y, 1.86); add(G.torus16, BRASS, { s: 0.12, x: sg * 0.06, y: 0.8, z: 1.9 }); }
+        lit(G.box, '#9fe0ff', { sx: 0.7, sy: 0.06, sz: 0.04, y: 1.24, z: 1.86 });
+        // 顶上的通风小塔
+        add(G.cyl8, '#8a8e96', { sx: 0.5, sy: 0.5, sz: 0.5, y: 2.55 });
+        add(G.cone8, '#5d6670', { sx: 0.7, sy: 0.4, sz: 0.7, y: 3.0 });
+        // 冰尖碑
+        for (const sg of [-1, 1]) { box('#7c8088', 0.4, 0.3, 0.4, sg * 1.25, 0.45, 1.6); lit(G.oct, '#9fe8ff', { sx: 0.32, sy: 1.5, sz: 0.32, x: sg * 1.25, y: 1.3, z: 1.6 }); }
+        // 穹顶上积的雪，地上一圈冰晶
+        for (const [x, z] of [[-0.7, -0.4], [0.5, -0.7], [0.2, 0.5]]) add(G.hemi, SNOW, { sx: 0.7, sy: 0.12, sz: 0.5, x, y: 2.95 - Math.hypot(x, z) * 0.55, z, rz: -x * 0.4, rx: z * 0.4 });
+        for (let k = 0; k < 7; k++) { const a = 0.4 + k * 0.75; add(G.oct, '#bfeaff', { sx: 0.12, sy: 0.45, sz: 0.12, x: Math.cos(a) * 1.85, y: 0.35, z: -Math.abs(Math.sin(a)) * 1.85 + 0.1, rz: 0.3 * Math.sin(k) }); }
+        hi(() => { for (let k = 0; k < 10; k++) add(G.sph, RIV, { s: 0.04, x: -0.3 + (k % 5) * 0.15, y: k < 5 ? 0.45 : 1.05, z: 1.89 }); });
+      }
+      site(st >= 2 ? 3.3 : st >= 1 ? 1.6 : 0.8, 1.9, [-1.45, -1.45, Math.PI / 4], [['beam', 1.35, 1.6], ['stone', -1.5, 1.5], ['crate', 1.3, -1.6]]);
+      break;
+    }
+    case 'wbeacon': {
+      // 不灭灯塔：方石台 + 守塔人的小屋，一座红白相间、往上收的圆塔，塔顶一圈栏杆、一间玻璃灯室和一顶铜帽
+      box('#6f747c', 3.6, 0.3, 3.6, 0, 0.15, 0, { jit: 0.1 });
+      const r0 = 0.95, top = 6.2, rAt = y => r0 * (1 - 0.32 * Math.max(0, y - 0.3) / (top - 0.3));
+      const band = (y0, y1) => { const n = Math.max(1, Math.round((y1 - y0) / 0.55)); for (let i = 0; i < n; i++) { const a = y0 + (y1 - y0) * i / n, b = y0 + (y1 - y0) * (i + 1) / n, r = rAt((a + b) / 2); add(G.cyl16, Math.round(a / 0.55) % 2 ? '#c8463a' : '#e8e4dc', { sx: r * 2, sy: b - a, sz: r * 2, y: (a + b) / 2, jit: 0.04 }); } };
+      if (st >= 1) {
+        // 守塔人的小屋（塔身右前方），塔身下半截
+        box('#8e8478', 0.72, 0.85, 1.05, 1.55, 0.72, 0.95, { jit: 0.08 }); box('#5a3e2a', 0.8, 0.1, 1.12, 1.55, 1.2, 0.95);
+        add(G.cone4, '#4a3a2e', { sx: 0.68, sy: 0.4, sz: 1.0, x: 1.55, y: 1.45, z: 0.95, ry: Math.PI / 4 });
+        add(G.arch, DARK, { sx: 0.28, sy: 0.4, sz: 0.06, x: 1.55, y: 0.3, z: 1.48 });
+        lit(G.box, '#ffc070', { sx: 0.04, sy: 0.2, sz: 0.24, x: 1.18, y: 0.8, z: 0.95 });
+        band(0.3, st >= 2 ? top : 2.6);
+      }
+      if (st >= 2) for (let y = 1.2; y < top - 0.4; y += 1.3) { const a = (y * 1.7) % (Math.PI * 2), r = rAt(y); lit(G.box, '#ffc070', { sx: 0.14, sy: 0.24, sz: 0.06, x: Math.sin(a) * r, y, z: Math.cos(a) * r, ry: a }); }
+      if (done) {
+        const rt = rAt(top);
+        add(G.cyl16, '#5d6670', { sx: rt * 2 + 0.5, sy: 0.12, sz: rt * 2 + 0.5, y: top + 0.06 });
+        for (let k = 0; k < 16; k++) { const a = k / 16 * Math.PI * 2; box(IRON2, 0.03, 0.3, 0.03, Math.cos(a) * (rt + 0.22), top + 0.27, Math.sin(a) * (rt + 0.22)); }
+        add(G.torus16, IRON2, { s: (rt + 0.22) * 2, rx: Math.PI / 2, y: top + 0.42 });
+        // 灯室：玻璃（发光）+ 八根铁柱
+        lit(G.cyl8, '#ffe2a0', { sx: rt * 1.6, sy: 0.75, sz: rt * 1.6, y: top + 0.5 });
+        for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2; box(IRON2, 0.05, 0.8, 0.05, Math.cos(a) * rt * 0.8, top + 0.5, Math.sin(a) * rt * 0.8); }
+        add(G.cone8, CU, { sx: rt * 1.9, sy: 0.6, sz: rt * 1.9, y: top + 1.18 });
+        add(G.sph, BRASS, { s: 0.16, y: top + 1.55 });
+        box(IRON2, 0.03, 0.4, 0.03, 0, top + 1.8, 0);
+        // 塔门、门边的灯
+        add(G.arch, DARK, { sx: 0.4, sy: 0.55, sz: 0.1, y: 0.3, z: rAt(0.3) * 0.98 });
+        lit(G.box, '#ffc070', { s: 0.1, x: 0.32, y: 0.95, z: rAt(0.95) + 0.02 });
+        hi(() => { for (let y = 0.6; y < top - 0.3; y += 0.18) box(IRON2, 0.2, 0.02, 0.02, -rAt(y) * 0.72, y, -rAt(y) * 0.72, { ry: Math.PI / 4 }); });
+      }
+      site(st >= 2 ? 6.4 : st >= 1 ? 2.9 : 0.8, 1.05, [-1.5, -1.5, Math.PI / 4], [['beam', -1.3, 1.6], ['stone', -1.55, 0.2], ['barrel', 1.4, -1.5]]);
+      break;
+    }
+    case 'waurora': {
+      // 极光塔：六角黑石台，一根细高的尖塔，几圈霜晶环绕着塔身慢慢转，塔尖一颗大晶石
+      add(G.cyl6, '#4a4e58', { sx: 3.6, sy: 0.3, sz: 3.6, y: 0.15, jit: 0.1 });
+      add(G.cyl6, '#5a5f6a', { sx: 2.6, sy: 0.35, sz: 2.6, y: 0.47, jit: 0.08 });
+      for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2 + Math.PI / 6; lit(G.oct, '#7fe8ff', { sx: 0.16, sy: 0.5, sz: 0.16, x: Math.cos(a) * 1.55, y: 0.55, z: Math.sin(a) * 1.55 }); }
+      const H = 6.8, rAt = y => 0.62 * (1 - 0.78 * Math.max(0, y - 0.65) / H);
+      const spire = (y0, y1) => { const n = Math.max(1, Math.round((y1 - y0) / 0.6)); for (let i = 0; i < n; i++) { const a = y0 + (y1 - y0) * i / n, b = y0 + (y1 - y0) * (i + 1) / n, r = rAt((a + b) / 2); add(G.cyl6, i % 2 ? '#3e4450' : '#4a5260', { sx: r * 2, sy: b - a, sz: r * 2, y: (a + b) / 2, jit: 0.05 }); } };
+      if (st >= 1) {
+        spire(0.65, st >= 2 ? H : 2.6);
+        // 六根扶壁
+        for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2; seg('#5a5f6a', [Math.cos(a) * 1.15, 0.65, Math.sin(a) * 1.15], [Math.cos(a) * 0.45, 2.2, Math.sin(a) * 0.45], 0.14); }
+        add(G.arch, DARK, { sx: 0.42, sy: 0.55, sz: 0.4, y: 0.65, z: 0.55 });
+      }
+      if (st >= 2) {
+        // 塔身上一道道发光的霜晶纹
+        for (let y = 1.2; y < H - 0.5; y += 0.6) lit(G.torus16, '#7fe8ff', { s: rAt(y) * 2.04, sz: 0.5, rx: Math.PI / 2, y });
+      }
+      if (done) {
+        // 三圈霜晶环：一圈圈在转
+        [[2.2, 1.75, 0.35], [3.6, 1.35, -0.5], [4.9, 0.95, 0.7]].forEach(([y, r, sp], i) => {
+          const items = [[G.torus16, '#9fe8ff', { s: r * 2, sz: 0.9, rx: Math.PI / 2 }]];
+          for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2; items.push([G.oct, '#bff4ff', { sx: 0.14, sy: 0.32, sz: 0.14, x: Math.cos(a) * r, z: Math.sin(a) * r }]); }
+          for (let k = 0; k < 3; k++) { const a = k / 3 * Math.PI * 2 + i; items.push([G.box, '#6a7e90', { sx: r - rAt(y), sy: 0.03, sz: 0.03, x: Math.cos(a) * (r + rAt(y)) / 2, z: -Math.sin(a) * (r + rAt(y)) / 2, ry: a }]); }
+          mover('spin', [0, y, 0], items, { axis: 'y', speed: sp, always: true });
+        });
+        lit(G.oct, '#bff8ff', { sx: 0.6, sy: 1.3, sz: 0.6, y: H + 0.55 });
+        for (let k = 0; k < 4; k++) { const a = k / 4 * Math.PI * 2; add(G.oct, '#9fe8ff', { sx: 0.18, sy: 0.6, sz: 0.18, x: Math.cos(a) * 0.32, y: H + 0.15, z: Math.sin(a) * 0.32, rz: Math.cos(a) * 0.4, rx: -Math.sin(a) * 0.4 }); }
+        box(IRON2, 0.03, 0.8, 0.03, 0, H + 1.45, 0);
+        lit(G.cyl6, '#7fe8ff', { sx: 0.36, sy: 0.04, sz: 0.36, rx: Math.PI / 2, y: 1.15, z: 0.6 });
+      }
+      site(st >= 2 ? 6.6 : st >= 1 ? 2.9 : 1.0, 1.25, [-1.55, -1.55, Math.PI / 4], [['beam', 1.35, 1.65], ['stone', -1.6, 1.5], ['crate', 1.35, -1.65]]);
+      break;
+    }
+    case 'wterminal': {
+      // 铁路总站：拱顶的大站房，正面一扇大拱窗，中间一座钟楼；两条铁轨从站房里伸出来，一台小火车头停在轨道上
+      box('#6f747c', 3.8, 0.24, 3.8, 0, 0.12, 0, { jit: 0.1 });
+      // 两条铁轨：枕木 + 钢轨，从后往前穿过站房
+      const track = x => { for (let z = -1.8; z <= 1.8; z += 0.22) box('#5c3a22', 0.62, 0.05, 0.1, x, 0.27, z); for (const sg of [-1, 1]) box('#9aa3ad', 0.04, 0.05, 3.7, x + sg * 0.21, 0.32, 0); };
+      track(-0.7); track(0.7);
+      if (st >= 1) {
+        // 站台 + 两侧的砖墙（半截）
+        for (const sg of [-1, 1]) { box('#8a8e96', 0.55, 0.3, 3.4, sg * 1.4, 0.39, -0.1, { jit: 0.06 }); box('#7a3a2e', 0.3, st >= 2 ? 1.6 : 0.8, 3.0, sg * 1.62, 0.54 + (st >= 2 ? 0.8 : 0.4), -0.25, { jit: 0.08 }); }
+        box('#7a3a2e', 3.5, st >= 2 ? 1.6 : 0.8, 0.3, 0, 0.54 + (st >= 2 ? 0.8 : 0.4), -1.6, { jit: 0.08 });
+      }
+      if (st >= 2) {
+        // 拱顶（半个圆柱，沿 z 方向）+ 一道道铁肋
+        add(G.cyl16, '#4b4f58', { sx: 3.5, sy: 3.1, sz: 1.9, rx: Math.PI / 2, y: 2.14, z: -0.25, jit: 0.04 });
+        for (let z = -1.6; z <= 1.1; z += 0.45) add(G.torus16, IRON2, { sx: 3.55, sy: 1.95, sz: 0.6, y: 2.14, z });
+        // 正面的山墙：砖墙 + 大拱窗（亮）
+        box('#8a4a3a', 3.5, 1.0, 0.3, 0, 2.6, 1.2, { jit: 0.06 });
+        for (const sg of [-1, 1]) box('#8a4a3a', 0.7, 2.1, 0.3, sg * 1.4, 1.5, 1.2, { jit: 0.06 });
+        box('#c49a5c', 3.6, 0.12, 0.36, 0, 3.12, 1.2);
+      }
+      if (done) {
+        lit(G.arch, '#ffd890', { sx: 1.3, sy: 0.95, sz: 0.04, y: 1.65, z: 1.37 });
+        for (let k = -2; k <= 2; k++) box(IRON2, 0.03, 1.1, 0.04, k * 0.22, 2.15, 1.4);
+        box(IRON2, 1.3, 0.03, 0.04, 0, 2.15, 1.4);
+        // 钟楼
+        box('#8a4a3a', 0.8, 1.3, 0.8, 0, 3.75, 1.0, { jit: 0.05 });
+        lit(G.cyl16, '#f4ecd8', { sx: 0.6, sy: 0.04, sz: 0.6, rx: Math.PI / 2, y: 3.9, z: 1.41 });
+        add(G.torus16, BRASS, { s: 0.62, y: 3.9, z: 1.42 });
+        box(DARK, 0.03, 0.22, 0.02, 0, 3.98, 1.44); box(DARK, 0.16, 0.03, 0.02, 0.06, 3.9, 1.44);
+        add(G.cone4, '#3a3d45', { sx: 1.05, sy: 0.7, sz: 1.05, y: 4.75, z: 1.0, ry: Math.PI / 4 });
+        box(BRASS, 0.03, 0.5, 0.03, 0, 5.3, 1.0);
+        // 火车头（左边那条轨上，车头朝前）
+        const lx = -0.7, lz = 1.25;
+        add(G.cyl12, '#2e3a46', { sx: 0.46, sy: 0.9, sz: 0.46, rx: Math.PI / 2, x: lx, y: 0.72, z: lz });
+        add(G.cyl12, '#3a4652', { sx: 0.5, sy: 0.05, sz: 0.5, rx: Math.PI / 2, x: lx, y: 0.72, z: lz + 0.46 });
+        lit(G.cyl12, '#ffe0a0', { sx: 0.14, sy: 0.04, sz: 0.14, rx: Math.PI / 2, x: lx, y: 0.8, z: lz + 0.5 });
+        box('#2e3a46', 0.56, 0.62, 0.42, lx, 0.82, lz - 0.62); box('#c84a30', 0.6, 0.06, 0.46, lx, 1.15, lz - 0.62);
+        add(G.cyl8, '#2a2e34', { sx: 0.13, sy: 0.36, sz: 0.13, x: lx, y: 1.1, z: lz + 0.24 });
+        for (const sg of [-1, 1]) for (const zz of [lz + 0.25, lz - 0.05, lz - 0.55]) add(G.wheel, '#b03a2a', { s: 0.28, x: lx + sg * 0.21, y: 0.45, z: zz, ry: Math.PI / 2 });
+        box('#c84a30', 0.5, 0.06, 0.12, lx, 0.38, lz + 0.56);
+        // 站牌、路灯
+        for (const sg of [-1, 1]) { box(IRON2, 0.06, 1.1, 0.06, sg * 1.4, 1.1, 1.65); lit(G.box, '#ffd080', { s: 0.13, x: sg * 1.4, y: 1.7, z: 1.65 }); }
+        hi(() => { for (let z = -1.4; z <= 1.0; z += 0.5) for (const sg of [-1, 1]) lit(G.box, '#ffd890', { sx: 0.04, sy: 0.3, sz: 0.24, x: sg * 1.78, y: 1.5, z }); });
+      }
+      site(st >= 2 ? 3.6 : st >= 1 ? 1.6 : 0.8, 1.84, [0, -1.88, Math.PI / 2], [['beam', 1.2, 1.77], ['stone', -1.25, 1.75]], false);
+      break;
+    }
+    case 'wstarforge': {
+      // 星辰熔炉：三级的黑石台，一口粗大的铁熔炉（金箍），炉口冒紫色的火；几颗星核挂在弯臂上，绕着炉口慢慢转
+      add(G.cyl12, '#3e3a44', { sx: 3.7, sy: 0.3, sz: 3.7, y: 0.15, jit: 0.1 });
+      if (st >= 1) {
+        add(G.cyl12, '#4a4552', { sx: 3.2, sy: 0.3, sz: 3.2, y: 0.45, jit: 0.08 });
+        add(G.cyl12, '#56505e', { sx: 2.7, sy: 0.3, sz: 2.7, y: 0.75, jit: 0.08 });
+        for (let k = 0; k < 4; k++) box('#6a6474', 0.9, 0.1, 0.25, 0, 0.05 + k * 0.2, 1.75 - k * 0.24);
+      }
+      if (st >= 2) {
+        add(G.frust12, '#3a3640', { sx: 2.2, sy: 2.3, sz: 2.2, y: 2.05, rx: Math.PI, jit: 0.05 });
+        for (const y of [1.3, 2.0, 2.7]) add(G.torus16, BRASS, { s: 2.0 + (y - 1.3) * 0.2, sz: 1.3, rx: Math.PI / 2, y });
+        for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2; box('#2a2830', 0.12, 2.3, 0.12, Math.cos(a) * 0.98, 2.05, Math.sin(a) * 0.98, { ry: -a }); }
+        // 两边的风箱和烟囱
+        for (const sg of [-1, 1]) { box('#5c3a22', 0.5, 0.5, 0.8, sg * 1.45, 1.2, -0.5, { jit: 0.1 }); add(G.cyl12, '#2a2830', { sx: 0.28, sy: 2.6, sz: 0.28, x: sg * 1.2, y: 2.3, z: -1.25 }); }
+      }
+      if (done) {
+        // 炉口：金边，紫色的火
+        add(G.torus16, BRASS, { s: 2.3, sz: 1.6, rx: Math.PI / 2, y: 3.22 });
+        lit(G.cyl12, '#c060ff', { sx: 2.0, sy: 0.06, sz: 2.0, y: 3.2 });
+        // 炉门
+        add(G.arch, '#2a2830', { sx: 0.7, sy: 0.7, sz: 0.16, y: 0.9, z: 1.02 });
+        lit(G.arch, '#ff70d0', { sx: 0.56, sy: 0.56, sz: 0.06, y: 0.95, z: 1.08 });
+        // 星核：四颗，挂在弯臂上绕着转
+        const items = [];
+        for (let k = 0; k < 4; k++) { const a = k / 4 * Math.PI * 2, r = 1.55; items.push([G.box, BRASS, { sx: r - 1.0, sy: 0.05, sz: 0.05, x: Math.cos(a) * (r + 1.0) / 2, z: -Math.sin(a) * (r + 1.0) / 2, ry: a }]); items.push([G.sph2, '#e070ff', { s: 0.36, x: Math.cos(a) * r, y: 0.15, z: -Math.sin(a) * r }]); items.push([G.torus16, BRASS, { s: 0.48, x: Math.cos(a) * r, y: 0.15, z: -Math.sin(a) * r, ry: a }]); }
+        mover('spin', [0, 3.6, 0], items, { axis: 'y', speed: 0.45, always: true });
+        for (let k = 0; k < 4; k++) { const a = k / 4 * Math.PI * 2 + Math.PI / 4; lit(G.sph2, '#e070ff', { s: 0.2, x: Math.cos(a) * 1.3, y: 1.05, z: Math.sin(a) * 1.3 }); }
+        for (const sg of [-1, 1]) add(G.torus16, BRASS, { s: 0.36, rx: Math.PI / 2, x: sg * 1.2, y: 3.6, z: -1.25 });
+        hi(() => { for (let k = 0; k < 12; k++) { const a = k / 12 * Math.PI * 2; add(G.sph, BRASS, { s: 0.06, x: Math.cos(a) * 1.02, y: 2.0, z: Math.sin(a) * 1.02 }); } });
+      }
+      site(st >= 2 ? 3.6 : st >= 1 ? 1.4 : 0.6, 1.75, [-1.3, 1.1, -Math.PI / 4], [['beam', 1.35, 1.55], ['crate', 1.3, -1.6], ['barrel', -1.5, -1.45]]);
+      break;
+    }
+  }
+  if (done) { drift(-1.6, 1.6, 0.5, 0.3); drift(1.65, -1.5, 0.45, 0.3); }
+}
+
+// 1.1 城镇的房子：镇 → 木屋，城 → 石屋，大城 → 蒸汽公寓。占地和帐篷一样（2×2），门口多一盏路灯
+function townHouseGeo(t, lvl) {
+  const K = kit(t), { p, add, lit, box, hi, wall, roof, flatRoof, door, win, doorLamp, house, chimney, vpipe, pipe, logs, woodpile, shovel, barrel, crate, seg, drift } = K;
+  foundation(K, 2, t);
+  const big = 1 + Math.min(0.25, (lvl - 1) * 0.02);
+  // 路灯：铁杆、弯臂、带罩的灯（夜里亮）
+  const lamp = (x, z) => {
+    box(DARK, 0.06, 0.1, 0.06, x, 0.17, z); box('#3a3e46', 0.04, 1.0, 0.04, x, 0.7, z);
+    seg('#3a3e46', [x, 1.16, z], [x - 0.16, 1.2, z], 0.025);
+    box(DARK, 0.1, 0.03, 0.1, x - 0.18, 1.18, z); lit(G.box, '#ffd890', { sx: 0.07, sy: 0.09, sz: 0.07, x: x - 0.18, y: 1.12, z }); box(DARK, 0.08, 0.015, 0.08, x - 0.18, 1.07, z);
+    hi(() => { box(SNOW, 0.11, 0.025, 0.11, x - 0.18, 1.205, z); add(G.hemiLo, SNOW, { sx: 0.16, sy: 0.06, sz: 0.14, x, y: 0.12, z }); });
+  };
+  let h = 1.6;
+  if (t === 1) {
+    // 木屋：原木墙、人字顶、石头烟囱，门口一堆柴
+    const hh = 0.78 * big; h = hh + 0.8;
+    house(1.5, hh, 1.2, 0, -0.08, 'gable', '#8a5a34');
+    chimney(0.45, -0.38, 1.32 * big, '#6a6f78');
+    logs(-0.62, 0.6, 3, 0.35, 1.2); woodpile(0.3, 0.6, 0.3, 2);
+    lamp(0.86, 0.84);
+  } else if (t === 2) {
+    // 石屋：两层，石墙、厚瓦顶，楼上两扇窗，屋角一口雨水桶
+    const hh = 1.12 * big; h = hh + 0.8;
+    house(1.55, hh, 1.2, 0, -0.08, 'gable');
+    win(-0.36, 0.12 + hh * 0.87, 0.53); win(0.37, 0.12 + hh * 0.87, 0.53);
+    box(p.trim, 1.6, 0.05, 0.06, 0, 0.12 + hh * 0.745, 0.54);
+    chimney(-0.5, -0.4, 1.62 * big);
+    barrel(0.82, 0.3); lamp(0.86, 0.84);
+  } else {
+    // 蒸汽公寓：三层砖楼，平顶上一只水箱和冒汽的管子，二楼一道铁阳台，墙边一根铜管通上屋顶
+    const hh = 1.72 * big, z = -0.1, d = 1.3, w = 1.6, fz = z + d / 2; h = hh + 0.7;
+    wall(w, hh, d, 0, z, 0.12);
+    flatRoof(w, d, 0, 0.12 + hh, z);
+    door(-0.32, fz, 0.26, 0.44); doorLamp(-0.11, 0.54, fz);
+    for (let f = 0; f < 3; f++) for (const x of [-0.5, 0, 0.5]) { if (f === 0 && x < 0) continue; win(x, 0.12 + 0.3 + f * hh * 0.31, fz + 0.01, 0.17, 0.2); }
+    for (let f = 0; f < 3; f++) win(w / 2 + 0.01, 0.12 + 0.3 + f * hh * 0.31, z, 0.15, 0.18, true);
+    // 阳台
+    const by = 0.12 + 0.3 + hh * 0.31 - 0.14;
+    box(p.metal, 1.1, 0.04, 0.22, 0.15, by, fz + 0.11);
+    box(p.metal, 1.1, 0.03, 0.02, 0.15, by + 0.2, fz + 0.21);
+    for (let k = 0; k < 8; k++) box(p.metal, 0.015, 0.2, 0.015, -0.38 + k * 0.152, by + 0.1, fz + 0.21);
+    // 屋顶水箱、汽管
+    add(G.cyl12, '#6a6f78', { sx: 0.42, sy: 0.38, sz: 0.42, x: -0.38, y: 0.12 + hh + 0.33, z: z - 0.2 });
+    add(G.cone8, '#4a4e56', { sx: 0.46, sy: 0.14, sz: 0.46, x: -0.38, y: 0.12 + hh + 0.59, z: z - 0.2 });
+    for (const sg of [-1, 1]) box('#3a3e46', 0.04, 0.2, 0.04, -0.38 + sg * 0.15, 0.12 + hh + 0.12, z - 0.2);
+    vpipe(w / 2 + 0.06, z - 0.42, hh + 0.35, 0.12, 0.045, '#b87333');
+    add(G.cyl8, '#b87333', { sx: 0.1, sy: 0.08, sz: 0.1, x: w / 2 + 0.06, y: 0.12 + hh + 0.5, z: z - 0.42 });
+    lamp(0.92, 0.84);
+  }
+  hi(() => { drift(-0.85, -0.82, 0.3, 0.2); });
+  const out = K.done();
+  return { geo: out.geo, glow: out.glow, movers: out.movers, flame: null, flameY: 0, h };
+}
+
 // 返回 { geo, glow, movers, flame, flameY, h }：glow 是需要发光材质的部分；geo/glow 的 userData.hi 是拉近用的精细版
 export function buildingGeo(type, lvl, deep = false, opt = '') {
   if (type === 'sledshed') return sledShedGeo(lvl);
+  if (type === 'tent' && /^tw[123]$/.test(opt)) return townHouseGeo(+opt[2], lvl);
   const d = BLD[type];
   const s = d.size;
   const vt = visTier(type, lvl);
@@ -472,7 +834,7 @@ export function buildingGeo(type, lvl, deep = false, opt = '') {
   if (d.cat === 'deco' && type !== 'flowerhouse') {
     // 小摆设不铺整块地基，只有一圈踩实的雪
     groundPad(s * 0.75, parts);
-  } else if (type !== 'furnace' && !d.tower) foundation(K, s, vt);
+  } else if (type !== 'furnace' && !d.tower && !d.wonder) foundation(K, s, vt);
 
   switch (type) {
     case 'furnace': {
@@ -1493,6 +1855,9 @@ export function buildingGeo(type, lvl, deep = false, opt = '') {
       });
       break;
     }
+    case 'wcolossus': case 'wvault': case 'wbeacon': case 'waurora': case 'wterminal': case 'wstarforge':
+      wonderGeo(K, type, Math.max(0, Math.min(3, lvl - 1))); // lvl 当阶段用：1 刚圈工地 … 4 落成
+      break;
     case 'pyre': case 'skyfire': {
       // 烽火塔：八角石台 → 一圈圈砌上去的石塔（没砌完时围着脚手架和吊杆）→ 塔顶一口铁火盆。lvl 当阶段用：1 地基，2–5 塔身 1/4…满，6 点亮
       const stage = Math.min(6, lvl), f = stage >= 5 ? 1 : (stage - 1) / 4, sky = type === 'skyfire', on = stage >= 6;
@@ -1602,31 +1967,33 @@ export function buildingGeo(type, lvl, deep = false, opt = '') {
     default: house(1.2, 0.8, 1.0);
   }
   // 高层级：屋檐下一圈装饰条
-  if (vt >= 4 && type !== 'furnace' && type !== 'tower' && !d.tower) box(p.trim, s - 0.2, 0.05, 0.05, 0, 0.15, s / 2 - 0.12);
+  if (vt >= 4 && type !== 'furnace' && type !== 'tower' && !d.tower && !d.wonder) box(p.trim, s - 0.2, 0.05, 0.05, 0, 0.15, s / 2 - 0.12);
   let flame = null, flameY = 0;
   if (type === 'furnace') {
     const r = 1.08 + 0.025 * Math.min(lvl, 20), h = 1.15 + 0.075 * Math.min(lvl, 25);
     flameY = 0.32 + h + 0.26;
     flame = merge(furnaceFlame(r, lvl));
   }
+  if (type === 'wstarforge' && lvl >= 4) { flameY = 3.22; flame = merge(furnaceFlame(1.05, 22, STAR_TINT)); }
   if (d.tower && lvl >= 6) { const sky = type === 'skyfire', R0 = sky ? 1.45 : 1.05, FULL = sky ? 5.4 : 3.9, rt = R0 * 0.7; flameY = 0.42 + FULL + 0.5; flame = merge(furnaceFlame(rt * 0.85, sky ? 20 : 10)); }
   const out = K.done();
-  return { geo: out.geo, glow: out.glow, movers: out.movers, flame, flameY, h: type === 'furnace' || type === 'beacon' ? 3 : type === 'colossus' ? 2.8 : d.tower ? (type === 'skyfire' ? 6.5 : 5) : 1.5 };
+  return { geo: out.geo, glow: out.glow, movers: out.movers, flame, flameY, h: type === 'furnace' || type === 'beacon' ? 3 : type === 'colossus' ? 2.8 : d.tower ? (type === 'skyfire' ? 6.5 : 5) : d.wonder ? 5 : 1.5 };
 }
 
+const STAR_TINT = { '#ff6a18': '#b040f0', '#ff7a20': '#c050ff', '#ff8424': '#d060ff', '#ff9030': '#e070ff', '#ffc040': '#ff90e0', '#fff2b8': '#fff0ff', '#ffd070': '#f0b0ff' }; // 星辰熔炉的紫火
 // 熔炉的火焰：一簇歪斜的火舌，外红内黄，中心发白（原点在炭床上，便于动画缩放）
-function furnaceFlame(r, lvl) {
-  const out = [];
+function furnaceFlame(r, lvl, tint = null) {
+  const out = [], T = c => (tint && tint[c]) || c;
   const big = 1 + Math.min(lvl, 25) * 0.025;
   const tongues = [[0, 0, 1.25, 0.62, '#ff6a18'], [0.32, 0.18, 0.95, 0.42, '#ff7a20'], [-0.3, 0.22, 1.0, 0.44, '#ff6a18'], [0.1, -0.34, 0.9, 0.4, '#ff8424'], [-0.22, -0.26, 0.8, 0.36, '#ff7a20'], [0.38, -0.12, 0.7, 0.3, '#ff9030']];
   tongues.forEach(([x, z, hh, w, c], i) => {
     const H = hh * big * 0.78, Wd = w * r * 0.8;
-    out.push(P(G.cone5, c, { sx: Wd, sy: H, sz: Wd, x: x * r, y: H / 2, z: z * r, ry: i * 1.3, rz: -x * 0.35, rx: z * 0.35 }));
-    out.push(P(G.cone5, '#ffc040', { sx: Wd * 0.6, sy: H * 0.75, sz: Wd * 0.6, x: x * r * 0.9, y: H * 0.375, z: z * r * 0.9, ry: i * 1.3 + 0.6, rz: -x * 0.3, rx: z * 0.3 }));
+    out.push(P(G.cone5, T(c), { sx: Wd, sy: H, sz: Wd, x: x * r, y: H / 2, z: z * r, ry: i * 1.3, rz: -x * 0.35, rx: z * 0.35 }));
+    out.push(P(G.cone5, T('#ffc040'), { sx: Wd * 0.6, sy: H * 0.75, sz: Wd * 0.6, x: x * r * 0.9, y: H * 0.375, z: z * r * 0.9, ry: i * 1.3 + 0.6, rz: -x * 0.3, rx: z * 0.3 }));
   });
-  out.push(P(G.cone6, '#fff2b8', { sx: r * 0.3, sy: 0.6 * big, sz: r * 0.3, y: 0.3 * big }));
+  out.push(P(G.cone6, T('#fff2b8'), { sx: r * 0.3, sy: 0.6 * big, sz: r * 0.3, y: 0.3 * big }));
   // 飞起的火星
-  for (let k = 0; k < 5; k++) out.push(P(G.oct, '#ffd070', { s: 0.06 + (k % 2) * 0.03, x: Math.cos(k * 2.3) * r * 0.5, y: (1.05 + k * 0.2) * big, z: Math.sin(k * 2.3) * r * 0.5 }));
+  for (let k = 0; k < 5; k++) out.push(P(G.oct, T('#ffd070'), { s: 0.06 + (k % 2) * 0.03, x: Math.cos(k * 2.3) * r * 0.5, y: (1.05 + k * 0.2) * big, z: Math.sin(k * 2.3) * r * 0.5 }));
   return out;
 }
 

@@ -2,7 +2,7 @@
 import {
   RES, RES_KEYS, FUEL, FUEL_ORDER, GATE, GATE_EVERY, SPOTS, SPOT_KEYS, LANDMARKS, BAND_START,
   tierOfRow, baseTempOfRow, ETERNAL_STAGES, BLD, furnaceHeat, furnaceRadius, furnaceBurn,
-  SPECS, SPEC_MAX, specBonus, specTrainCost, EMBER_UPS, emberCost, RAIDERS, STORY, DAY_LEN, LAWS, LAW_CD, TECHS, TECH_GATE, ENDLESS, BOT, BOT_MODELS, CMDS, SITES, CHAPTERS, INFRA, LM_R, FAR_MARKS, DIFF, DIFF_KEYS, FOCUS, FOCUS_KEYS, FOCUS_LVL, FOCUS_CD, NORTH_RULES, RULE_FX, RICH_KINDS, CAMP_SPEC, CSPEC_FX, CSPEC_FX2, ALT, ALT_SWITCH, NORTH_HI, TITLES, FLAMES, FLAGS, FRAMES, NDECO, NORTH_TASK, NORTH_STORY, NORTH_END, TOWER_STEPS, TOWER_FX, FORK, QY, QY_KEYS,
+  SPECS, SPEC_MAX, specBonus, specTrainCost, EMBER_UPS, emberCost, RAIDERS, STORY, DAY_LEN, LAWS, LAW_CD, TECHS, TECH_GATE, ENDLESS, BOT, BOT_MODELS, CMDS, SITES, CHAPTERS, INFRA, LM_R, FAR_MARKS, DIFF, DIFF_KEYS, FOCUS, FOCUS_KEYS, FOCUS_LVL, FOCUS_CD, NORTH_RULES, RULE_FX, RICH_KINDS, CAMP_SPEC, CSPEC_FX, CSPEC_FX2, ALT, ALT_SWITCH, NORTH_HI, TITLES, FLAMES, FLAGS, FRAMES, NDECO, NORTH_TASK, NORTH_STORY, NORTH_END, TOWER_STEPS, TOWER_FX, FORK, QY, QY_KEYS, WONDERS, WONDER_KEYS,
 } from './data.js';
 import { W, H, BASE_H, setRows, rowsFor, northStop, northPicks, regenWorld, T_SNOW, T_ICE, getWorld, idx, inMap, hash3, mulberry32 } from './worldgen.js';
 import { journeyOf, journeyStep, mainCamp, outpostBlock, outpostKit, moveFuel, fuelUnits, stopOf, depotAuto, growNext, ruleNow, campRule, ruleSpan, ruleSpans, nsOf, SPINE, northN } from './journey.js';
@@ -13,6 +13,10 @@ import { netStep, autoRoad, roads, roadOn, ships, migrateNet } from './net.js';
 export * from './net.js';
 import { guildStep, shopHave } from './guild.js';
 import { forkStep, qyStep, qyAway, forkBonus, pickOf, loadPicks, bonusTxt } from './north.js';
+import { seasonStep, peakProd, tideNow, tideAt, tideGather, TIDE } from './tide.js';
+import { feedMul, wonderLock, wonderIn, wonderDem, wonderFeed, wonderDone, wonderProd, wonderCap, wonderWarm, wonderFuel, wonderRes, wonderHope, colossusScare, townBeds, townHope, townProd, townSpec, townStep, isWonder, wonderSpec } from './wonder.js';
+export * from './tide.js';
+export * from './wonder.js';
 export * from './guild.js';
 export * from './north.js';
 
@@ -287,7 +291,7 @@ function synergyOf(S, type, x, y, selfId) {
 export const SYN_PER = 0.12;
 
 // 供热圈半径：熔炉等级 + 蒸汽管道
-export function heatRadius(S, camp) { return furnaceRadius(getB(S, camp.furnace).lvl) + (camp.pipe || 0) + (firstLeg(S) ? 2 : 0) + ruleWarm(S, camp) + (towerLitAt(S, camp) ? TOWER_FX.warm : 0) + (cmdOn(S, 'shelter', camp) ? 2 : 0); }
+export function heatRadius(S, camp) { return furnaceRadius(getB(S, camp.furnace).lvl) + (camp.pipe || 0) + (firstLeg(S) ? 2 : 0) + ruleWarm(S, camp) + (towerLitAt(S, camp) ? TOWER_FX.warm : 0) + (cmdOn(S, 'shelter', camp) ? 2 : 0) + wonderWarm(S); }
 // 地貌规则改暖圈：地热谷 +3，富矿带 −2（只管这一站的主营地）
 // 暖圈变小的站（富矿带）：到站头两天照样给首程那 +2 格，抵掉 −2，先把营地铺开
 export const RICH_GRACE = 2 * DAY_LEN;
@@ -454,9 +458,9 @@ export const LVL_STEP = 0.15, UP_GROW = 1.1;
 export const levelMul = lvl => 1 + LVL_STEP * (lvl - 1);
 // 每 5 级（跨一层）多一个岗位：前 10 级升级让每个人做得更多，再往后主要省地方
 export function maxWorkers(type, lvl) { const d = BLD[type]; return d.w ? d.w + Math.floor((lvl - 1) / 5) : 0; }
-export function housingOf(b) { return BLD.tent.housing + 3 * (b.lvl - 1); }
+export function housingOf(b, S) { const n = BLD.tent.housing + 3 * (b.lvl - 1), c = S && getCamp(S, b.camp); return c && c.town ? Math.round(n * townBeds(c)) : n; } // 镇以上床位 +20%
 // 床位：帐篷总床位；出门侦察、探险的人床位给他们留着
-export function bedsOf(S, camp) { let n = 0; for (const b of S.buildings) if (b.camp === camp.id && b.type === 'tent') n += housingOf(b); return n; }
+export function bedsOf(S, camp) { let n = 0; for (const b of S.buildings) if (b.camp === camp.id && b.type === 'tent') n += housingOf(b, S); return n; }
 export function awayOf(S, camp) { let n = qyAway(S, camp); for (const s of S.scouts) if (s.camp === camp.id) n += s.n; return n; }
 export function freeBeds(S, camp) { return bedsOf(S, camp) - camp.people - awayOf(S, camp); }
 // 新来的人：有空床就住进来，没有就先在营地外的窝棚里等床位（不干活也不算人口，盖好帐篷自动住进来）
@@ -471,14 +475,14 @@ export function insulOf(b) { return BLD.tent.insul + 2 * (b.lvl - 1); }
 export function storeCap(S, camp) {
   let cap = 250 + 150 * getB(S, camp.furnace).lvl;
   for (const b of S.buildings) if (b.camp === camp.id && b.type === 'warehouse') cap += BLD.warehouse.store * Math.pow(b.lvl, 1.2);
-  return Math.round(cap * (1 + techSum(S, 'cap')));
+  return Math.round(cap * (1 + techSum(S, 'cap')) * wonderCap(S));
 }
 // 1.1 奇遇给的免费建筑（地热喷发 → 一座地热井，不看地貌）
 export const freeTok = (camp, type) => !!(camp && camp.freeB && camp.freeB[type] > 0);
 export const freeAny = (S, type) => S.camps.some(c => freeTok(c, type));
-export function unlocked(S, type) { const d = BLD[type]; return d.t <= S.known && (!d.shop || shopHave(S, type)) && (!d.gift || cosHave(S, 'deco', type)) && (!d.stage || journeyOf(S).stage >= d.stage) && (!d.rule || ruleNow(S) === d.rule || freeAny(S, type)) && (!d.tower || !towerLock(S, type)); }
+export function unlocked(S, type) { const d = BLD[type]; return d.t <= S.known && (!d.shop || shopHave(S, type)) && (!d.gift || cosHave(S, 'deco', type)) && (!d.stage || journeyOf(S).stage >= d.stage) && (!d.rule || ruleNow(S) === d.rule || freeAny(S, type)) && (!d.tower || !towerLock(S, type)) && (!d.wonder || !wonderLock(S, type)); }
 // 永恒之炉以北的新东西：走到那一程才解锁；北境地貌的建筑：只有那种地貌的站能建
-export const stageLock = (S, type) => { const d = BLD[type]; if (d.shop && !shopHave(S, type)) return `在北方商会用 ${d.shop} 银币买下图纸`; if (d.gift && !cosHave(S, 'deco', type)) { const a = giftFrom('deco', type); return `成就「${a && a.hid && !bookOf(S).a[a.id] ? '？？？' : a ? a.n : '？'}」解锁`; } if (d.rule && ruleNow(S) !== d.rule && !freeAny(S, type)) return `只有在「${NORTH_RULES[d.rule].n}」的站才能建`; if (d.tower && towerLock(S, type)) return towerLock(S, type); return d.stage && journeyOf(S).stage < d.stage ? `走到「${stopOf(S, d.stage).n}」才能建` : ''; };
+export const stageLock = (S, type) => { const d = BLD[type]; if (d.shop && !shopHave(S, type)) return `在北方商会用 ${d.shop} 银币买下图纸`; if (d.gift && !cosHave(S, 'deco', type)) { const a = giftFrom('deco', type); return `成就「${a && a.hid && !bookOf(S).a[a.id] ? '？？？' : a ? a.n : '？'}」解锁`; } if (d.rule && ruleNow(S) !== d.rule && !freeAny(S, type)) return `只有在「${NORTH_RULES[d.rule].n}」的站才能建`; if (d.tower && towerLock(S, type)) return towerLock(S, type); if (d.wonder && wonderLock(S, type)) return wonderLock(S, type); return d.stage && journeyOf(S).stage < d.stage ? `走到「${stopOf(S, d.stage).n}」才能建` : ''; };
 export const forecastOf = S => FORECAST * (journeyOf(S).stage >= 9 ? 2 : 1) * (ruleNow(S) === 'storm' ? 2 : 1); // 到了极光观测站，天气预报提前一倍；风暴走廊再早一倍
 // 加工厂不把基础建材吃光：锯木厂不会把木材全锯成木板、炼钢厂不会把铁锭用完——仓库里留两成（最多 300）给建造。
 // 只管前两层的建材；更高层的中间品本来就是为了往下加工，留料会卡住整条链
@@ -540,6 +544,7 @@ export function checkPlace(S, type, x, y, selfQ = 0, selfB = 0) {
   const cobj = getCamp(S, camp);
   if (d.rule && !freeTok(cobj, type) && (camp !== journeyOf(S).main || ruleNow(S) !== d.rule)) { res.reason = freeAny(S, type) ? `奇遇给的免费${d.n}只能建在「${S.camps.find(c => freeTok(c, type)).name}」` : `只能建在「${NORTH_RULES[d.rule].n}」这一站的主营地`; return res; }
   if (d.tower && camp !== journeyOf(S).main) { res.reason = `${d.n}只能建在这一站的主营地`; return res; }
+  if (d.wonder) { const o = wonderIn(S, camp); if (o && o.id !== selfB) { res.reason = `「${cobj.name}」已经有一座${BLD[o.type].n}了（一座营地最多一座奇观）`; return res; } }
   if (depotAuto(cobj)) { res.reason = `「${cobj.name}」是补给站，自己运转，不盖新房（要盖先「临时接手」）`; return res; }
   res.cost = buildCost(S, type, camp, y);
   res.dist = haulDistOf(S, camp, x, y, s, selfB || -1);
@@ -581,6 +586,7 @@ export function place(S, type, x, y) {
   const b = { id: S.nextId++, type, x, y, lvl: 1, workers: 0, camp: c.camp };
   S.buildings.push(b);
   dirty(S);
+  if (BLD[type].wonder) { b.wd = { ph: 0, p: 0 }; const sp = wonderSpec(type, 0); logMsg(S, `🏗️ ${BLD[type].n}的工地圈起来了。分三期施工，第一期「${sp.n}」：${sp.kinds.map(k => `${RES[k].n} ${sp.amt[k]}`).join('、')}，搬运工会一点点往里送，缺一种就停。`, 'story'); }
   if (BLD[type].tower) { b.tn = northN(journeyOf(S).stage); b.tw = { p: 0 }; const sp = towerSpec(S, b.tn); logMsg(S, `🗼 ${towerName(b.tn)}的地基立起来了。塔身要${sp.kinds.map(k => RES[k].n).join('、')}各 ${sp.rate}/分钟，一起喂满 ${sp.dur / 60} 分钟，缺一种就停。`, 'story'); }
   // 默认派满人
   b.workers = Math.min(maxWorkers(type, 1), Math.max(0, idleLabor(S, camp)));
@@ -681,6 +687,7 @@ export function upgrade(S, bid) {
   const camp = getCamp(S, b.camp);
   if (depotAuto(camp)) return { ok: false, reason: `「${camp.name}」是补给站，自己运转，不升级（要升先「临时接手」）` };
   if (BLD[b.type].tower) return { ok: false, reason: `${BLD[b.type].n}不用升级` };
+  if (BLD[b.type].wonder) return { ok: false, reason: '奇观不用升级' };
   const cost = upgradeCost(S, b);
   if (cost.starcore && journeyOf(S).stage < RES.starcore.stage) return { ok: false, reason: `熔炉 35 级以后要用星核：走到「${stopOf(S, RES.starcore.stage).n}」才挖得到` };
   for (const k in cost) if (RES[k].t > S.known) return { ok: false, reason: `需要「${RES[k].n}」——先往北侦察到它所在的纬度` };
@@ -699,6 +706,7 @@ export function demolish(S, bid) {
   const b = getB(S, bid);
   if (!b || b.type === 'furnace') return { ok: false };
   if (BLD[b.type].tower && (b.tw.lit || b.tw.p > 0)) return { ok: false, reason: '塔身已经开始建了，拆不得' };
+  if (BLD[b.type].wonder && b.wd && (b.wd.ph > 0 || b.wd.p > 0)) return { ok: false, reason: '奇观已经开工了，拆不得' };
   const camp = getCamp(S, b.camp);
   const d = BLD[b.type];
   for (const k in d.cost) camp.stock[k] = (camp.stock[k] || 0) + Math.floor(d.cost[k] * 0.5);
@@ -718,6 +726,7 @@ export function moveBlock(S, b) {
   if (b.type === 'furnace') return '熔炉不能挪';
   if (BLD[b.type].nomove) return `${BLD[b.type].n}不能挪`;
   if (BLD[b.type].tower && (b.tw.lit || b.tw.p > 0)) return '塔身已经开始建了，不能挪';
+  if (BLD[b.type].wonder && b.wd && (b.wd.ph > 0 || b.wd.p > 0)) return '奇观已经开工了，不能挪';
   if (depotAuto(getCamp(S, b.camp))) return '补给站自己运转，要挪先「临时接手」';
   return '';
 }
@@ -1095,7 +1104,8 @@ export function recipeOf(S, type) {
 export function campSpecOf(camp) { return camp && camp.spec && CAMP_SPEC[camp.spec] ? CAMP_SPEC[camp.spec] : null; }
 export function campSpecFx(S, b, camp) {
   const sp = campSpecOf(camp || getCamp(S, b.camp));
-  return sp && sp.b.includes(b.type) ? (techDone(S, 'specpro') ? CSPEC_FX2 : CSPEC_FX) : 0;
+  const c = camp || getCamp(S, b.camp);
+  return sp && sp.b.includes(b.type) ? (techDone(S, 'specpro') ? CSPEC_FX2 : CSPEC_FX) * townSpec(c) : 0;
 }
 // 按暖圈里的矿点定特产：哪种矿比平常多就是哪种（按每种矿的平常密度折算）；一处矿都没有，就看树、碎石、猎物
 const SPEC_ALIAS = { dead: 'tree' };
@@ -1139,6 +1149,9 @@ export function prodBonus(S, b, camp, syn, beltB) {
     ['无人工坊', techDone(S, 'autofac') && BLD[b.type].cat === 'make' ? 0.1 + 0.1 * ((R.c[camp.id] || {}).botFr || 0) : 0],
     ['律令', lawSum(S, 'prod')],
     ['鼓舞', buffOf(S, camp, 'prod')],
+    ['奇观', wonderProd(S, b)],
+    ['炉火鼎盛', peakProd(S, b)],
+    ['城', townProd(camp)],
   ].filter(p => Math.abs(p[1]) > 1e-9);
   let sum = 0; for (const p of parts) sum += p[1];
   return { sum: Math.max(-0.5, sum), parts };
@@ -1286,7 +1299,7 @@ function researchStep(S, dt) {
   const R = rt(S), T = techState(S);
   let rate = 0;
   for (const c of S.camps) rate += (R.c[c.id] || {}).rp || 0;
-  rate *= 1 + gBuff(S, 'res');
+  rate *= (1 + gBuff(S, 'res')) * wonderRes(S);
   R.rpRate = rate;
   if (T.cur && T.bank > 0) { T.prog += T.bank; T.bank = 0; } // 探险带回的图纸直接抵研究点数
   if (!T.cur || rate <= 0) { if (T.cur) researchDone(S, T, R); return; }
@@ -1337,6 +1350,8 @@ export function moodFactors(S, camp, cr) {
   { const dh = decoHope(S, camp); if (dh.raw > 0) hope.push(['装饰', dh.v]); }
   if (campRule(S, camp) === 'night') hope.push(['永夜的极光', RULE_FX.nightHope]);
   if (towerLitAt(S, camp)) hope.push(['烽火塔的光', TOWER_FX.hope]);
+  if (wonderHope(S)) hope.push(['极光塔', wonderHope(S)]);
+  if (townHope(camp)) hope.push(['住进了镇子', townHope(camp)]);
   { const F = focusOf(camp); if (F && F.hope) hope.push([`${F.n}营地`, F.hope]); if (F && F.disc) disc.push([`${F.n}营地`, F.disc]); }
   const glow = (camp.buffs || []).some(b => b.n === '庆典余温' && b.until > S.t);
   if (camp.fest) { hope.push(['篝火庆典', 18]); disc.push(['篝火庆典', -10]); }
@@ -1500,7 +1515,7 @@ export function step(S, dt) {
   raidsStep(S, dt);
   journeyStep(S, dt);
   R.chapT = (R.chapT || 0) + dt; if (R.chapT >= 1) { const cdt = R.chapT; R.chapT = 0; chapterStep(S); linesTick(S, cdt); farStep(S); gangsStep(S); }
-  R.qT = (R.qT || 0) + dt; if (R.qT >= 2) { R.qT = 0; queueStep(S); caravanStep(S); guildStep(S); forkStep(S); qyStep(S); }
+  R.qT = (R.qT || 0) + dt; if (R.qT >= 2) { R.qT = 0; queueStep(S); caravanStep(S); guildStep(S); forkStep(S); qyStep(S); townStep(S); seasonStep(S); }
   R.bookT = (R.bookT || 0) + dt; if (R.bookT >= 3) { R.bookT = 0; bookTick(S); }
   S.t += dt;
   histStep(S, dt);
@@ -1871,8 +1886,8 @@ function campStep(S, camp, dt, w) {
   const od = odActive(S, camp, w, fb), stall = camp.odCool > 0;
   const ev = w.ev && w.ev.on ? w.ev.ev : null, evPrep = !!ev && wxePrepped(S, camp, ev);
   const frozen = !!ev && ev.kind === 'ice' && !evPrep, coldNight = !!ev && ev.kind === 'cold';
-  const cRule = campRule(S, camp), cold = coldNow(S);
-  let fuelNeed = furnaceBurn(depotFireLvl(S, camp, fb)) * Math.max(0.3, 1 + buffOf(S, camp, 'fuel') + lawSum(S, 'fuel') + techSum(S, 'fuel')) * (od ? OD_FUEL : 1) * (coldNight ? WXE_FUEL : 1) * (cold ? coldFuel(S) : 1) * diffOf(S).fuel * (cRule === 'geo' ? RULE_FX.geoFuel : cRule === 'night' ? RULE_FX.nightFuel : 1) * cmdFuel(S, camp) / 60 * dt;
+  const cRule = campRule(S, camp), cold = coldNow(S), tide = tideNow(S);
+  let fuelNeed = furnaceBurn(depotFireLvl(S, camp, fb)) * Math.max(0.3, 1 + buffOf(S, camp, 'fuel') + lawSum(S, 'fuel') + techSum(S, 'fuel')) * (od ? OD_FUEL : 1) * (coldNight ? WXE_FUEL : 1) * Math.max(cold ? coldFuel(S) : 1, tide ? TIDE.fuel : 1) * diffOf(S).fuel * (cRule === 'geo' ? RULE_FX.geoFuel : cRule === 'night' ? RULE_FX.nightFuel : 1) * cmdFuel(S, camp) * wonderFuel(S) / 60 * dt;
   const fuelKeepU = dt > 0 ? fuelNeed / dt * 60 * FUEL_KEEP_MIN : 0; // 工厂和塔身不许动的那份燃料（按燃料份数算）
   let heaterHeat = 0;
   const heaters = bs.filter(b => b.type === 'heater');
@@ -1921,7 +1936,7 @@ function campStep(S, camp, dt, w) {
   if (camp.ovh < 70) camp.ovhWarn = false;
   // 极寒夜：燃料烧够了还冷三成五，烧不够冷得更多；封好门窗缝减半
   const evDrop = coldNight ? (8 + 2 * (tierOfRow(camp.y) - 1)) * diffOf(S).cold * (evPrep ? 0.5 : 1) * (0.35 + 0.65 * (1 - fueled)) : 0;
-  const drop = blizzDrop(S, camp, w) + evDrop + (cold ? COLD.drop : 0);
+  const drop = blizzDrop(S, camp, w) + evDrop + Math.max(cold ? COLD.drop : 0, tide ? tide.drop : 0); // 寒潮和永冬潮撞上：按冷的那个算
   cr.ev = ev ? { kind: ev.kind, prep: evPrep, drop: evDrop, frozen } : null;
   const temp = baseTempOfRow(camp.y) + heat - drop;
   camp.temp = temp;
@@ -1929,7 +1944,7 @@ function campStep(S, camp, dt, w) {
   // 住房与体感温度
   let housing = 0, insW = 0;
   const tInsul = techSum(S, 'insul');
-  for (const b of bs) if (b.type === 'tent') { const h = housingOf(b); housing += h; insW += h * ((insulOf(b) + tInsul) * (1 + specOf(S, b) * 0.5)); }
+  for (const b of bs) if (b.type === 'tent') { const h = housingOf(b, S); housing += h; insW += h * ((insulOf(b) + tInsul) * (1 + specOf(S, b) * 0.5)); }
   const ins = housing ? insW / housing : 0;
   const away = awayOf(S, camp);
   if (!camp.popFix) { // 旧存档：超出床位的人先去等床位
@@ -1961,6 +1976,7 @@ function campStep(S, camp, dt, w) {
   const recMul = 1 + lawSum(S, 'sickRec') + techSum(S, 'sickRec');
   sick += camp.people * (0.0025 * sevS + 0.01 * hung + lawSum(S, 'sickIn')) * (1 - WARD_GUARD * ward.guard) / 60 * dt;
   if (cold && sevS > 0.1 && camp.people > 0 && S.cold) (S.cold.hit || (S.cold.hit = {}))[camp.id] = 1; // 寒潮里有人冻着了
+  if (tide && sevS > 0.1 && camp.people > 0 && S.tide) (S.tide.hit || (S.tide.hit = {}))[camp.id] = 1;
   const treated = Math.min(sick, ward.beds);
   if (treated > 0) sick -= treated * WARD_REC * ward.care * recMul / 60 * dt;
   if (sevS === 0 && hung === 0) sick -= Math.max(0.05, Math.max(0, sick - treated) * 0.12) * recMul / 60 * dt;
@@ -2001,7 +2017,8 @@ function campStep(S, camp, dt, w) {
   const botG = mineU + gGen > 0 ? (mineU + gGen * botFr) / (mineU + gGen) : 0; // 采集岗位上自动机占几成（耐寒外壳用）
   cr.botFr = botFr; cr.botG = botG; cr.mineU = mineU; cr.mineIdle = Math.max(0, (camp.botM || 0) * pow - mineU);
   const blaze = cmdOn(S, 'blaze', camp) ? 2 : 1; // 熔炉狂燃
-  const coldSlow = cold ? (techDone(S, 'botshell') ? botG + (1 - botG) * coldGather(S) : coldGather(S)) : 1; // 耐寒外壳：岗位上的自动机寒潮里不减速
+  const gSlow = Math.min(cold ? coldGather(S) : 1, tide ? tideGather(S) : 1);
+  const coldSlow = cold || tide ? (techDone(S, 'botshell') ? botG + (1 - botG) * gSlow : gSlow) : 1; // 耐寒外壳：岗位上的自动机寒潮、永冬潮里不减速
 
   // 工程站：产出研究点数
   let rp = 0;
@@ -2053,11 +2070,12 @@ function campStep(S, camp, dt, w) {
     const bo = R.beltOut.get(b.id), bi = R.beltIn.get(b.id);
     let beltB = 0;
     if (bi && d.in) { const ks = Object.keys(d.in); for (const k of ks) if (bi[k]) beltB += BELT[bi[k]].bonus / ks.length; }
-    const mult = levelMul(b.lvl) * (1 + prodBonus(S, b, camp, syn, beltB).sum) * staff * (gth ? effG : workEff) * prodMul * blaze * (ev && ev.kind === 'ice' && gth ? WXE_ICE_GATHER : 1) * (cRule === 'night' && gth ? RULE_FX.nightOut : 1) * (cold && gth ? coldSlow : 1);
+    const mult = levelMul(b.lvl) * (1 + prodBonus(S, b, camp, syn, beltB).sum) * staff * (gth ? effG : workEff) * prodMul * blaze * (ev && ev.kind === 'ice' && gth ? WXE_ICE_GATHER : 1) * (cRule === 'night' && gth ? RULE_FX.nightOut : 1) * ((cold || tide) && gth ? coldSlow : 1);
     const br = R.b[b.id] || (R.b[b.id] = {});
     br.staff = staff;
     if (b.moveT > S.t) { br.act = 0; br.status = '在搬家'; br.haul = 0; br.rate = {}; br.inRate = {}; br.want = {}; br.dep = 0; continue; }
     if (b.hitT > S.t) { br.act = 0; br.status = '被陨石砸了，在修'; br.haul = 0; br.rate = {}; br.inRate = {}; br.want = {}; br.dep = 0; continue; }
+    if (b.frz > S.t) { br.act = 0; br.status = '冻住了'; br.haul = 0; br.rate = {}; br.inRate = {}; br.want = {}; br.dep = 0; continue; }
     if (b.altT > S.t) { br.act = 0; br.status = '在换配方'; br.haul = 0; br.rate = {}; br.inRate = {}; br.want = {}; br.dep = 0; continue; }
     if (mult <= 0) { br.act = 0; br.status = b.workers ? '没人干活' : '没有派人'; br.haul = 0; continue; }
     const dist = R.dist.get(b.id) || 1;
@@ -2078,6 +2096,14 @@ function campStep(S, camp, dt, w) {
     const sp = towerSpec(S, b.tn), feeding = b.tw.p < sp.dur;
     const dem = feeding ? sp.rate * sp.kinds.length / 60 * (2 * (R.dist.get(b.id) || 1) / speed + 1.5) / carry : 0;
     demand += dem; towers.push({ b, sp, dem });
+  }
+  // 1.1 奇观工地：同样靠搬运工往里送料
+  const wons = [];
+  for (const b of bs) {
+    if (!isWonder(b.type)) continue;
+    if (wonderDone(b)) { const br = R.b[b.id] || (R.b[b.id] = {}); br.status = '建成了'; br.act = 0; br.haul = 0; br.rate = {}; br.inRate = {}; br.want = {}; continue; }
+    const dem = wonderDem(S, b, (2 * (R.dist.get(b.id) || 1) / speed + 1.5) / carry);
+    demand += dem; wons.push({ b, dem });
   }
   const hf = demand > 0 ? Math.min(1, haulers / demand) : 1;
 
@@ -2144,7 +2170,8 @@ function campStep(S, camp, dt, w) {
   }
 
   { const offK = R.offline && R.histOff ? R.histOff.rate : 1; // 离线时塔身按离线收益的比例吃货、长进度
-    for (const t of towers) { towerFeed(S, t.b, t.sp, dt, hf, offK, st, R, t.dem, fuelKeepU); plans.push({ b: t.b, d: BLD[t.b.type], br: R.b[t.b.id], mult: 0, dem: t.dem }); } }
+    for (const t of towers) { towerFeed(S, t.b, t.sp, dt, hf, offK, st, R, t.dem, fuelKeepU); plans.push({ b: t.b, d: BLD[t.b.type], br: R.b[t.b.id], mult: 0, dem: t.dem }); }
+    for (const t of wons) { wonderFeed(S, t.b, dt, hf, offK, st, R, t.dem, fuelKeepU); plans.push({ b: t.b, d: BLD[t.b.type], br: R.b[t.b.id], mult: 0, dem: t.dem }); } }
   skillStep(S, camp, bs, dt);
   // 空闲的人会在营地附近拾柴、设陷阱（保证任何时候都能慢慢恢复）
   let stalled = 0;
@@ -3019,7 +3046,7 @@ function towerFeed(S, b, sp, dt, hf, offK, st, R, dem, fuelKeepU = 0) {
   br.rate = {}; br.inRate = {}; br.want = {}; br.haul = 0; br.act = 0; br.staff = 1;
   if (T.p >= sp.dur) { br.status = '塔身建好了，等点火'; return; }
   if (b.moveT > S.t) { br.status = '在搬家'; return; }
-  const f = Math.min(dt * hf * offK * (cmdOn(S, 'unity', getCamp(S, b.camp)) ? 3 : 1), sp.dur - T.p), need = sp.rate * f / 60;
+  const f = Math.min(dt * hf * offK * feedMul(S, getCamp(S, b.camp)), sp.dur - T.p), need = sp.rate * f / 60;
   let lim = 1, whyK = null;
   for (const k of sp.kinds) { const have = Math.max(0, (st[k] || 0) - fuelKeep(st, k, fuelKeepU)); if (have < need && have / need < lim) { lim = have / need; whyK = k; } }
   for (const k of sp.kinds) { st[k] = Math.max(0, (st[k] || 0) - need * lim); br.inRate[k] = sp.rate * hf * lim; br.want[k] = sp.rate * hf; }
@@ -3269,6 +3296,12 @@ function raidsStep(S, dt) {
       if (ns) { ns.raidW = (ns.raidW || 0) + 1; wolfSafe(S, camp, ns); }
       logMsg(S, `🗿 巨像守卫站了起来，${name}（强度 ${str}）一个都没能进「${camp.name}」。守卫要歇 ${Math.round((guard.cd - S.t) / 60)} 分钟。`, 'good');
       R.fx.push({ kind: 'raid', camp: camp.id, won: true, str, def: str, t: S.t, guard: guard.id });
+    } else if (def < str && colossusScare(S)) {
+      // 1.1 蒸汽巨像：每天替你吓退一次守不住的袭营
+      S.stats.raidsWon++; bumpMood(camp, 4, -2);
+      if (ns) { ns.raidW = (ns.raidW || 0) + 1; wolfSafe(S, camp, ns); }
+      logMsg(S, `🗿 蒸汽巨像拉响了汽笛，喷出一大团白汽，${name}（强度 ${str}）掉头就跑，「${camp.name}」毫发无伤。巨像今天不会再出手了。`, 'good');
+      R.fx.push({ kind: 'raid', camp: camp.id, won: true, str, def: str, t: S.t, scare: 1 });
     } else if (def >= str) {
       S.stats.raidsWon++;
       if (ns) { ns.raidW = (ns.raidW || 0) + 1; wolfSafe(S, camp, ns); }
@@ -3825,6 +3858,10 @@ export const SIGHTS = [
   { id: 'raid:遗迹守卫', n: '遗迹守卫', ic: '🐺', d: '残骸里醒过来的旧时代自动机，还在执行早就没有意义的命令。', how: '在星铁残骸以北守一次夜' },
   // 1.1 站点奇遇：走完一件记一件
   ...QY_KEYS.map(k => ({ id: 'qy:' + k, n: '奇遇·' + QY[k].n, ic: QY[k].ic, d: QY[k].d, how: '在北境的站上碰到这件奇遇，并走到结尾' })),
+  // 1.1 奇观、城镇
+  ...WONDER_KEYS.map(k => ({ id: 'w:' + k, n: WONDERS[k].n, ic: WONDERS[k].ic, d: BLD[k].desc, how: '建成这座奇观' })),
+  { id: 'town', n: '第一座镇子', ic: '🏘️', d: '帐篷换成了木屋，路边点起了路灯。', how: '研究「城镇规划」，把一座营地升成镇' },
+  { id: 'city', n: '大城', ic: '🏙️', d: '蒸汽公寓一栋挨一栋，街上的人比雪花还多。', how: '把一座营地升成大城' },
 ];
 const nBuilt = (S, f) => S.buildings.filter(f).length;
 const maxFurnace = S => Math.max(0, ...S.camps.map(c => (getB(S, c.furnace) || {}).lvl || 0));
@@ -3873,6 +3910,12 @@ export const ACH = [
   { id: 'qy1', v: 11, cat: '北境', n: '听过奇遇的人', d: '在北境走完一件奇遇', rw: 0, need: 1, cur: S => Object.keys(S.meta.qy || {}).length, gift: { title: 'tale' } },
   { id: 'qy12', v: 11, cat: '北境', n: '十二奇遇', d: '十二种奇遇都走完过', rw: 0, need: QY_KEYS.length, cur: S => Object.keys(S.meta.qy || {}).length, gift: { title: 'tales' } },
   { id: 'wolfking', v: 11, cat: '隐藏', hid: 1, n: '狼王', d: '在奇遇里打倒狼王', rw: 0, need: 1, cur: S => yes((S.meta.f13 || {}).wolfking), gift: { deco: 'wolfrug' } },
+  { id: 'wonder', v: 11, cat: '北境', n: '奇观建造者', d: '建成一座奇观', rw: 0, need: 1, cur: S => S.meta.wMax || 0, gift: { title: 'wonder' } },
+  { id: 'wonders3', v: 11, cat: '北境', n: '三奇观', d: '一程里建成三座奇观', rw: 0, need: 3, cur: S => S.meta.wMax || 0, gift: { title: 'wonders' } },
+  { id: 'mayor', v: 11, cat: '营地', n: '大城之主', d: '把一座营地一级级升成大城', rw: 0, need: 3, cur: S => S.meta.town || 0, gift: { title: 'mayor' } },
+  { id: 'peak', v: 11, cat: '产线', n: '炉火鼎盛', d: '一座营地的产线全稳在三星，炉火烧成金色', rw: 0, need: 1, cur: S => S.meta.peakN || 0, gift: { title: 'peak' } },
+  { id: 'tide5', v: 11, cat: '北境', n: '永冬守火人', d: '挺过永冬潮第 5 波（没人冻伤，霜巨兽没闯进来）', rw: 0, need: 5, cur: S => S.meta.tideBest || 0, gift: { title: 'tide5', flame: 'frost' } },
+  { id: 'tide10', v: 11, cat: '北境', n: '十潮不灭', d: '挺过永冬潮第 10 波', rw: 0, need: 10, cur: S => S.meta.tideBest || 0, gift: { title: 'tide10', flame: 'eternal' } },
   { id: 'rules', cat: '北境', n: '十种地貌', d: '十种北境地貌都走过一遍', rw: 0, need: 10, cur: S => rulesSeen(S), gift: { deco: 'bonearch' } },
   { id: 'tw1', cat: '烽火塔', n: '点灯人', d: '点亮第一座烽火塔', rw: 0, need: 1, cur: S => Math.max(S.meta.towerMax || 0, towersLit(S)), gift: { title: 'lamp', deco: 'pyremem' } },
   { id: 'tw5', cat: '烽火塔', n: '连成一线', d: '一程里点亮 5 座烽火塔', rw: 0, need: 5, cur: S => Math.max(S.meta.towerMax || 0, towersLit(S)), gift: { flag: 'flame' } },
@@ -3978,6 +4021,9 @@ export function bookTick(S) {
   if (S.stats.fests || S.camps.some(c => c.fest)) mk('s', 'fest');
   for (const n in st.raidKinds || {}) mk('s', 'raid:' + n);
   for (const k in S.meta.qy || {}) mk('s', 'qy:' + k);
+  for (const k in S.meta.wdone || {}) mk('s', 'w:' + k);
+  if ((S.meta.town || 0) >= 1) mk('s', 'town');
+  if ((S.meta.town || 0) >= 3) mk('s', 'city');
   // 成就：条件达成就记下，余烬只给一次
   let em = 0;
   for (const a of ACH) if (!B.a[a.id] && a.cur(S, B) >= a.need) { B.a[a.id] = S.meta.runs || 1; em += a.rw; add.push(['a', a.id]); }

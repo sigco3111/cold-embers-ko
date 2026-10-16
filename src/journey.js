@@ -10,6 +10,7 @@ import {
 } from './sim.js';
 import { trunkRoad, healNet } from './net.js';
 import { forkOf, pickFork, qyArrive, qyLeave } from './north.js';
+import { wonderTrip } from './wonder.js';
 
 // ---------- 一程一程的站 ----------
 // 0～6 是七个地标，7～12 是永恒之炉以北的六个远方地标，世界之脊（12）以北是北境，一站接一站没有尽头
@@ -226,7 +227,7 @@ export function tripPlan(S) {
   const need = addTo(addTo(addTo({}, goods), kit), supplies);
   const short = missing(main.stock, need);
   const fullCap = VEH_KEYS.reduce((a, v) => a + (fleet[v] || 0) * VEH[v].cap, 0);
-  const secs = tripSecs(len, !veh.sled && veh.tractor + veh.icebreaker > 0), speed = len / Math.max(1, secs);
+  const secs = tripSecs(len, !veh.sled && veh.tractor + veh.icebreaker > 0) / wonderTrip(S), speed = len / Math.max(1, secs); // 铁路总站：车队快 30%
   const roomOk = fullCap >= load;
   return {
     to: nx, len, steps, fl, camps, people, specs, goods, kit, supplies, need, veh, load, cap: fullCap, roomOk,
@@ -623,7 +624,7 @@ function arriveTents(S, camp) {
     clearFootprint(S, 'tent', best[0], best[1], camp.id);
     const b = { id: S.nextId++, type: 'tent', x: best[0], y: best[1], lvl: 1, workers: 0, camp: camp.id };
     S.buildings.push(b); dirty(S);
-    beds += housingOf(b); n++;
+    beds += housingOf(b, S); n++;
   }
   return n;
 }

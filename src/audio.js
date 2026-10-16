@@ -157,13 +157,14 @@ export class Sound {
     if (t >= this.nextNote) {
       const PENT = [62, 65, 67, 69, 72, 74, 77, 79];
       // 夜里旋律更稀疏、更低
-      const night = info.nf || 0;
-      if (Math.random() < 0.62 - night * 0.2) {
-        const m = PENT[Math.floor(Math.random() * (PENT.length - night * 3))];
+      const night = info.nf || 0, pk = info.peak || 0, td = Math.min(1, info.tide || 0);
+      // 炉火鼎盛：旋律更密、更亮，常常带一个往上走的回音；永冬潮：更稀、更低
+      if (Math.random() < 0.62 - night * 0.2 + pk * 0.25 - td * 0.2) {
+        const m = PENT[Math.min(PENT.length - 1, Math.floor(Math.random() * (PENT.length - night * 3 - td * 3)) + (pk && Math.random() < 0.4 ? 2 : 0))];
         this.bell(t + 0.02, m, 0.05 + Math.random() * 0.03);
-        if (Math.random() < 0.25) this.bell(t + 0.3, PENT[Math.max(0, PENT.indexOf(m) - 1)], 0.035);
+        if (Math.random() < 0.25 + pk * 0.3) this.bell(t + 0.3, PENT[pk ? Math.min(PENT.length - 1, PENT.indexOf(m) + 1) : Math.max(0, PENT.indexOf(m) - 1)], 0.035);
       }
-      this.nextNote = t + 1.3 + Math.random() * 2.6 + night * 1.2;
+      this.nextNote = t + (1.3 + Math.random() * 2.6) * (1 - pk * 0.4) + night * 1.2 + td * 1.5;
     }
   }
   pad(t, notes, D) {

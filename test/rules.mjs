@@ -30,7 +30,7 @@ const seed = +(process.env.SEED || 6061);
 
 // ---------- 一站一站往北走，在每站看规则生效 ----------
 const S = G.newRun(G.defaultMeta(), 0, seed), J = G.journeyOf(S);
-S.known = 7; J.stage = G.SPINE;
+S.known = 7; J.stage = G.SPINE; S.tide = { t0: 1e12 }; // 1.1 永冬潮别在量燃料的时候撞上
 const fill = () => { const m = G.mainCamp(S); m.people = Math.max(m.people, 90); for (const k of ['wood', 'stone', 'plank', 'food', 'coal', 'iron', 'steel', 'gear', 'seal', 'alloy', 'part', 'battery', 'core', 'engine', 'heart', 'starcore']) m.stock[k] = Math.max(m.stock[k] || 0, 20000); G.getB(S, m.furnace).lvl = Math.max(37, G.getB(S, m.furnace).lvl); };
 J.fleet.icebreaker = 10; J.fleet.tractor = 10; J.fleet.sled = 20;
 function travel() {

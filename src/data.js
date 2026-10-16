@@ -178,11 +178,26 @@ export const CMDS = {
 // 1.1 分岔北境：路的难度（目标 ×0.9 / ×1.0 / ×1.15）和对应的奖励倍数；好处三选一
 export const FORK = { diff: [0.9, 1, 1.15], rew: [0.75, 1, 1.5], dn: ['好走', '平常', '难走'], embers: 40, hardEmbers: 20 };
 export const FORK_BONUS = { embers: { n: '余烬', ic: '🔥' }, bp: { n: '一张奇观图纸', ic: '📜' }, spec: { n: '一位专家', ic: '🧑' } };
-// 1.1 奇观（第 10 步做全）：六种，图纸从研究和奇遇里拿
+// 1.1 奇观：4×4，三期施工，每期几种材料一起喂（像烽火塔身，喂满一期进下一期）。建成以后这一程一直有效，所有营地都算；
+// 每种一程只能建一座，一座营地最多一座。图纸从研究（奇观图纸·一/二）和北境的奇遇、分岔里拿
+export const WONDER_PH = [{ n: '打地基', dur: 720 }, { n: '起主体', dur: 1080 }, { n: '封顶', dur: 1200 }];
+export const WONDER_FX = { prod: 0.15, cap: 2, warm: 2, fuel: 0.85, res: 0.5, hope: 5, road: 1.5, trip: 1.3, star: 0.3 };
 export const WONDERS = {
-  wcolossus: { n: '蒸汽巨像', ic: '🗿', tech: 'wonder1' }, wvault: { n: '万年冰窖', ic: '🧊', tech: 'wonder1' }, wbeacon: { n: '不灭灯塔', ic: '🗼', tech: 'wonder1' },
-  waurora: { n: '极光塔', ic: '🌌', tech: 'wonder2' }, wterminal: { n: '铁路总站', ic: '🚉', tech: 'wonder2' }, wstarforge: { n: '星辰熔炉', ic: '✨', tech: 'wonder2' },
+  wcolossus: { n: '蒸汽巨像', ic: '🗿', tech: 'wonder1', d: '所有营地产量 +15%；每天替你吓退一次守不住的袭营', ph: [{ steel: 1200, gear: 800, stone: 1500 }, { engine: 500, alloy: 500, seal: 300 }, { part: 240, core: 120, heart: 40 }] },
+  wvault: { n: '万年冰窖', ic: '🧊', tech: 'wonder1', d: '所有营地仓储上限 ×2', ph: [{ stone: 2500, steel: 800, lime: 1000 }, { crystal: 1200, alloy: 500, seal: 400 }, { part: 200, battery: 400, core: 100 }] },
+  wbeacon: { n: '不灭灯塔', ic: '🗼', tech: 'wonder1', d: '所有营地暖圈 +2 格，熔炉燃料 −15%', ph: [{ stone: 2000, steel: 1000, gear: 500 }, { battery: 600, alloy: 400, engine: 300 }, { part: 200, core: 100, heart: 60 }] },
+  waurora: { n: '极光塔', ic: '🌌', tech: 'wonder2', d: '研究速度 +50%，所有营地希望 +5', ph: [{ steel: 1200, seal: 600, lime: 1000 }, { crystal: 1500, battery: 600, alloy: 500 }, { part: 300, core: 150, starcore: 40 }] },
+  wterminal: { n: '铁路总站', ic: '🚉', tech: 'wonder2', d: '物流网的路快 50%，北迁车队快 30%', ph: [{ steel: 2000, plank: 1500, gear: 800 }, { engine: 700, alloy: 500, seal: 500 }, { part: 300, core: 150, heart: 60 }] },
+  wstarforge: { n: '星辰熔炉', ic: '✨', tech: 'wonder2', d: '永恒炉件和星核的产量 +30%', ph: [{ steel: 1500, stone: 2000, coke: 1000 }, { alloy: 700, battery: 700, engine: 400 }, { part: 300, heart: 80, starcore: 60 }] },
 };
+// 1.1 城镇：研究「城镇规划」后，营地人够多、希望够高就能升级（一级一级升，升了不会降）
+export const TOWN = [
+  { n: '营地' },
+  { n: '镇', pop: 60, need: 50, d: '床位 +20%，希望 +3', beds: 0.2, hope: 3 },
+  { n: '城', pop: 120, need: 50, d: '烽火塔、奇观施工快 25%，产量 +5%', feed: 1.25, prod: 0.05 },
+  { n: '大城', pop: 180, need: 50, d: '特产加成再多 25%，每天一份市政礼包', spec: 1.25, gift: 1 },
+];
+export const TOWN_FEST = 30; // 升级典礼：大家放下活看烟花
 export const WONDER_KEYS = Object.keys(WONDERS);
 // 1.1 站点奇遇：北境每站一件（事情本身写在 north.js）
 export const QY = {
@@ -233,7 +248,7 @@ export const NORTH_END = [
   '最后一批货装上了雪橇。「{n}」会一直烧着，等后来的人。',
 ];
 // ---------- 第十三版：成就换来的装扮（只是好看：称号、炉火颜色、旗子、相框、北境装饰）----------
-export const TITLES = { tale: '听过奇遇的人', tales: '十二奇遇', ice: '破冰者', walker: '北境旅人', far: '极北之人', lamp: '点灯人', sky: '点燃天火的人', wolf: '狼口守夜人', storm: '风暴里的人', keeper: '守火人' };
+export const TITLES = { tale: '听过奇遇的人', tales: '十二奇遇', wonder: '奇观建造者', wonders: '三奇观', mayor: '大城之主', tide5: '永冬守火人', tide10: '十潮不灭', peak: '鼎盛之火', ice: '破冰者', walker: '北境旅人', far: '极北之人', lamp: '点灯人', sky: '点燃天火的人', wolf: '狼口守夜人', storm: '风暴里的人', keeper: '守火人' };
 // 炉火颜色：c = [火心, 火身, 火尖]；aurora 会慢慢变色
 export const FLAMES = {
   def: { n: '本色' },
@@ -242,6 +257,8 @@ export const FLAMES = {
   purple: { n: '星紫', c: ['#f8eaff', '#c58cff', '#7a3cff'] },
   green: { n: '极光绿', c: ['#efffef', '#6dffae', '#16c48a'] },
   aurora: { n: '极光', c: ['#effffa', '#7cf0ff', '#b07cff'], shift: 1 },
+  frost: { n: '霜白', c: ['#ffffff', '#d8ecff', '#8fb8e8'] },
+  eternal: { n: '永冬', c: ['#f4fbff', '#9fe6ff', '#4a5cff'], shift: 1 },
 };
 export const FLAGS = { def: { n: '本色' }, star: { n: '北极星' }, flame: { n: '火焰' }, wolf: { n: '狼头' }, compass: { n: '罗盘' } };
 export const FRAMES = { none: { n: '不加框' }, copper: { n: '铜框' }, film: { n: '胶片' }, map: { n: '旧地图' }, ruin: { n: '古城石框' } };
@@ -339,6 +356,13 @@ export const BLD = {
   lanterns: { n: '灯笼串', t: 1, size: 2, cat: 'deco', w: 0, hope: 2.5, gift: 1, desc: '两根木杆之间拉一串红灯笼，节日一样。装饰：希望 +2.5。', cost: { plank: 60, wood: 40 } },
   deerstatue: { n: '驯鹿雕像', t: 1, size: 1, cat: 'deco', w: 0, hope: 3, gift: 1, desc: '一头昂着头的驯鹿铜像，纪念一路拉车的伙伴。装饰：希望 +3。', cost: { stone: 120, iron: 40 } },
   wolfrug: { n: '狼王皮', t: 1, size: 1, cat: 'deco', w: 0, hope: 3, gift: 1, desc: '奇遇里打倒的狼王，皮毛绷在木架上，挂在熔炉边。孩子们路过都要摸一下。装饰：希望 +3。', cost: { plank: 40, stone: 30 } },
+  // 1.1 奇观：只在「建造 › 奇观」里选址，不在普通建筑列表里
+  wcolossus: { n: '蒸汽巨像', t: 7, size: 4, cat: 'wonder', w: 0, wonder: 1, desc: '一尊几层楼高的铁皮巨人，胸口烧着锅炉，关节里喷着白汽。站在营地边上，狼群远远看见就掉头。', cost: { stone: 600, plank: 400, steel: 300 } },
+  wvault: { n: '万年冰窖', t: 7, size: 4, cat: 'wonder', w: 0, wonder: 1, desc: '半埋在冻土里的穹顶冰窖，一扇包铁的大门，里面一排排架子望不到头。东西放进去，一万年也坏不了。', cost: { stone: 600, plank: 400, steel: 300 } },
+  wbeacon: { n: '不灭灯塔', t: 7, size: 4, cat: 'wonder', w: 0, wonder: 1, desc: '石头砌的高塔，塔顶一盏永远不灭的大灯，把热和光一起往四周送。', cost: { stone: 600, plank: 400, steel: 300 } },
+  waurora: { n: '极光塔', t: 7, size: 4, cat: 'wonder', w: 0, wonder: 1, desc: '细高的尖塔，几圈霜晶环绕着塔身慢慢转，把天上的极光引下来。', cost: { stone: 600, plank: 400, steel: 300 } },
+  wterminal: { n: '铁路总站', t: 7, size: 4, cat: 'wonder', w: 0, wonder: 1, desc: '拱顶的大站房，一面大钟，几条铁轨从这里伸向每座营地。', cost: { stone: 600, plank: 400, steel: 300 } },
+  wstarforge: { n: '星辰熔炉', t: 7, size: 4, cat: 'wonder', w: 0, wonder: 1, desc: '巨大的熔炉，几颗星核绕着炉口转，紫色的火光照亮半边天。', cost: { stone: 600, plank: 400, steel: 300 } },
   bonearch: { n: '巨兽骨拱门', t: 1, size: 2, cat: 'deco', w: 0, hope: 4, gift: 1, desc: '冻土里挖出来的两根巨兽长牙，搭成一道拱门，顶上架着它的头骨。装饰：希望 +4。', cost: { stone: 200, plank: 60 } },
   pyremem: { n: '烽火纪念碑', t: 1, size: 1, cat: 'deco', w: 0, hope: 3.5, gift: 1, desc: '一座小石碑，碑顶一盏长明的铁火盆，记着点亮过的每一座烽火塔。装饰：希望 +3.5。', cost: { stone: 300, steel: 60 } },
   skymem: { n: '天火纪念碑', t: 1, size: 2, cat: 'deco', w: 0, hope: 5, gift: 1, desc: '高高的方尖碑，顶上一团金色的火和一颗星晶，四角的火盆一直烧着。点燃天火的人才建得起。装饰：希望 +5。', cost: { stone: 500, steel: 150, alloy: 30 } },
@@ -351,7 +375,7 @@ export const BLD = {
   gfount:  { n: '冰晶喷泉', t: 1, size: 2, cat: 'deco', w: 0, hope: 4, shop: 3200, desc: '石砌的圆池，中间的水喷到半空就冻成了冰花，底下一盏暖灯照得发亮。装饰：希望 +4。', cost: { stone: 120, iron: 40, plank: 40 } },
 };
 export const BLD_KEYS = Object.keys(BLD);
-export const CATS = { core: '核心', live: '居住', gather: '采集', make: '加工', defense: '防御', deco: '装饰' };
+export const CATS = { core: '核心', live: '居住', gather: '采集', make: '加工', defense: '防御', deco: '装饰', wonder: '奇观' };
 
 // 熔炉参数
 export function furnaceHeat(lvl) { return 10 + 5 * lvl; }

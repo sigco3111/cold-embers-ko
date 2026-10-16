@@ -4,9 +4,10 @@
 import { RES, RES_KEYS, FUEL, furnaceBurn } from './data.js';
 import {
   getCamp, rt, storeCap, logMsg, up, techSum, relicSum, wxeAt, WXE_SLOW, getB, upgradeCost, canAfford, pay, missing, EAT,
-  keepOf, queueCost, fuelUnitsOf, dirty, dogsOf, trimWorkers, freeBeds, popRoom, MIN_PEOPLE, towerSpec, coldAt, coldFuel, techDone, cmdOn,
+  keepOf, queueCost, fuelUnitsOf, dirty, dogsOf, trimWorkers, freeBeds, popRoom, MIN_PEOPLE, towerSpec, coldAt, coldFuel, techDone, cmdOn, tideAt, TIDE,
 } from './sim.js';
 import { journeyOf, mainCamp, tripPlan, ruleNow, nsOf } from './journey.js';
+import { wonderRoad, wonderNeeds } from './wonder.js';
 
 export const ROAD = {
   sled: { n: '雪橇道', cap: 30, spd: 3 },
@@ -25,7 +26,7 @@ const TECH_NET = { thrift: ['wideroad', 0.7], tick: ['dispatch', 0.5], rail: ['r
 export function netMul(S, k) {
   const R = rt(S), m = R.netMul && R.netMul[k], tn = TECH_NET[k];
   const rush = (k === 'cap' ? 3 : k === 'spd' || k === 'rail' ? 2 : 1) !== 1 && cmdOn(S, 'rush') ? (k === 'cap' ? 3 : 2) : 1; // 紧急调度
-  return (m != null ? m : 1) * (tn && techDone(S, tn[0]) ? tn[1] : 1) * rush;
+  return (m != null ? m : 1) * (tn && techDone(S, tn[0]) ? tn[1] : 1) * rush * (k === 'spd' || k === 'rail' ? wonderRoad(S) : 1); // 铁路总站：路快 50%
 }
 // 一车最少装多少件：研究「调度站」后 5 件就发
 export const netBatch = S => (techDone(S, 'dispatch') ? 5 : NET_BATCH);
@@ -210,7 +211,12 @@ function queueNeeds(S, c) {
   return qn;
 }
 // 每座营地要留几分钟的燃料：平常半小时；寒潮报出来还没到时，留够寒潮那一天（按加倍以后的烧法）再多十分钟
-export function fuelKeepMin(S) { const c = coldAt(S); return c && !c.on && c.fc ? Math.max(30, 12 * coldFuel(S) + 10) : 30; }
+export function fuelKeepMin(S) {
+  const c = coldAt(S), z = tideAt(S); let m = 30;
+  if (c && !c.on && c.fc) m = Math.max(m, 12 * coldFuel(S) + 10);
+  if (z && !z.on && z.fc) m = Math.max(m, TIDE.len / 60 * TIDE.fuel + 10); // 永冬潮报出来了：留够一天半（按 2.5 倍烧）再多十分钟
+  return m;
+}
 const fuelU = (m) => { let u = 0; for (const k in FUEL) u += (m[k] || 0) * FUEL[k]; return u; };
 // 这个营地缺的：按七档排好，每档先用掉库存和在路上的货
 export function campGaps(S, c, inc = inbound(S, c.id)) {
@@ -226,12 +232,13 @@ export function campGaps(S, c, inc = inbound(S, c.id)) {
   // 1 保命：燃料、口粮不到 20 分钟就补到 30 分钟
   const burn = cr.burnPerMin || 0, units = fuelUnitsOf(st) + fuelU(inc);
   const fk = fuelKeepMin(S); // 寒潮报出来了：先补到能烧过寒潮那一天
-  if (burn > 0 && units < burn * (fk > 30 ? fk : 20)) out.push({ c: c.id, k: '@fuel', n: burn * fk - units, tier: 1, why: fk > 30 ? '备寒潮' : '燃料', main: isMain });
+  if (burn > 0 && units < burn * (fk > 30 ? fk : 20)) out.push({ c: c.id, k: '@fuel', n: burn * fk - units, tier: 1, why: fk > 30 ? (((z => z && !z.on && z.fc)(tideAt(S))) ? '备永冬潮' : '备寒潮') : '燃料', main: isMain });
   const eat = c.people * EAT;
   if (eat > 0 && avail.food < eat * 20) need('food', eat * 30, 1, '口粮');
   // 3 建造队列、排队的升级、排队的路
   const qn = queueNeeds(S, c);
   for (const k in qn) need(k, qn[k], 3, '建造队列');
+  { const wn = wonderNeeds(S, c.id); for (const k in wn) need(k, wn[k], 3, '奇观工地'); }
   // 5 产线缺料：建筑想用却拿不到的，补到十分钟的量
   for (const k of RES_KEYS) { const f = fl[k]; if (f && f.want - f.c > Math.max(0.05, f.want * 0.08)) need(k, f.want * 10, 5, '产线缺料'); }
   // 6 主营地的大事：熔炉下一级、北迁要带的货、塔身建好等点火的燃料
@@ -251,10 +258,10 @@ export function campSpare(S, c, lack = {}, manual = false) {
   const R = rt(S), cr = R.c[c.id] || {}, fl = cr.flow || {}, st = c.stock, cap = storeCap(S, c);
   const burn = cr.burnPerMin || furnaceBurn(getB(S, c.furnace).lvl);
   const out = { __fu: Math.max(0, fuelUnitsOf(st) - burn * fuelKeepMin(S)) };
-  const qn = manual ? {} : queueNeeds(S, c);
+  const qn = manual ? {} : queueNeeds(S, c), wn = manual ? {} : wonderNeeds(S, c.id);
   for (const k of RES_KEYS) {
     if (!manual && (lack[k] || (c.hold && c.hold[k]))) continue;
-    let res = manual ? 0 : Math.max(keepOf(c, k, cap), BASE_KS.includes(k) && RES[k].t <= S.known ? BASE_FILL : 0) + (fl[k] ? fl[k].c * 10 : 0) + (qn[k] || 0);
+    let res = manual ? 0 : Math.max(keepOf(c, k, cap), BASE_KS.includes(k) && RES[k].t <= S.known ? BASE_FILL : 0) + (fl[k] ? fl[k].c * 10 : 0) + (qn[k] || 0) + (wn[k] || 0);
     if (k === 'food') res += c.people * EAT * 30;
     const sp = (st[k] || 0) - res;
     if (sp >= 1) out[k] = sp;

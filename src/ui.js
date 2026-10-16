@@ -1,5 +1,5 @@
 // 界面：顶部状态、资源条、底部工具栏、面板、提示
-import { BRIEF, RES, RES_KEYS, BLD, BLD_KEYS, CATS, TIER_NAMES, LANDMARKS, FAR_MARKS, SPECS, SPEC_MAX, EMBER_UPS, emberCost, specTrainCost, specBonus, FUEL, furnaceRadius, furnaceHeat, furnaceBurn, baseTempOfRow, tierOfRow, ETERNAL_STAGES, GATE, GATE_EVERY, STORY, SPOTS, SPOT_KEYS, dayCycle, LAWS, TECHS, TECH_BR, SITES, CHAPTERS, INFRA, RAIDERS, DAY_LEN, DIFF, DIFF_KEYS, SLOTS, FOCUS, FOCUS_KEYS, FOCUS_LVL, NORTH_RULES, TOWER_FX, TITLES, FLAMES, FLAGS, FRAMES, NDECO, ALT_SWITCH, CAMP_SPEC, CSPEC_FX, CSPEC_FX2, BOT, BOT_MODELS, CMDS, QY, FORK, FORK_BONUS } from './data.js';
+import { BRIEF, RES, RES_KEYS, BLD, BLD_KEYS, CATS, TIER_NAMES, LANDMARKS, FAR_MARKS, SPECS, SPEC_MAX, EMBER_UPS, emberCost, specTrainCost, specBonus, FUEL, furnaceRadius, furnaceHeat, furnaceBurn, baseTempOfRow, tierOfRow, ETERNAL_STAGES, GATE, GATE_EVERY, STORY, SPOTS, SPOT_KEYS, dayCycle, LAWS, TECHS, TECH_BR, SITES, CHAPTERS, INFRA, RAIDERS, DAY_LEN, DIFF, DIFF_KEYS, SLOTS, FOCUS, FOCUS_KEYS, FOCUS_LVL, NORTH_RULES, TOWER_FX, TITLES, FLAMES, FLAGS, FRAMES, NDECO, ALT_SWITCH, CAMP_SPEC, CSPEC_FX, CSPEC_FX2, BOT, BOT_MODELS, CMDS, QY, FORK, FORK_BONUS, WONDERS, WONDER_KEYS, WONDER_PH, TOWN } from './data.js';
 import * as Sim from './sim.js';
 import { personOf, personState, campVoices } from './people.js';
 import { getWorld, idx, W, H } from './worldgen.js';
@@ -14,7 +14,7 @@ export const ICON = {
   furnace: '🔥', tent: '⛺', lumber: '🪓', nursery: '🌲', quarry: '⛏️', hunter: '🏹', sawmill: '🪚', kitchen: '🍲', warehouse: '📦', tower: '🗼', scout: '🚩', sledshed: '🛷', kennel: '🐕', workshop: '🔬', lamp: '🏮', flagpole: '🚩', infirmary: '🩺', statue: '🗽', flowerhouse: '🌷',
   coalmine: '⚫', ironmine: '🟤', smelter: '🏭', coker: '🧱', limequarry: '⬜', steelworks: '🏗️', gearworks: '⚙️', engineworks: '🚂', greenhouse: '🌱', heater: '♨️',
   shalepit: '🛢️', refinery: '⚗️', sealworks: '🔩', crystalmine: '💎', batteryworks: '🔋', alloyworks: '🧪', salvage: '🛸', partworks: '🧩', coreworks: '🤖', bay: '🦾', excavator: '🔶', forge: '⚒️',
-  beacon: '🔦', colossus: '🧌', starpit: '🔮', guildpost: '🏪', gbench: '🪑', glamp: '🏮', gsled: '🛷', gbell: '🔔', ggate: '⛩️', gfount: '⛲', wolfrug: '🐺',
+  beacon: '🔦', colossus: '🧌', starpit: '🔮', guildpost: '🏪', gbench: '🪑', glamp: '🏮', gsled: '🛷', gbell: '🔔', ggate: '⛩️', gfount: '⛲', wolfrug: '🐺', wcolossus: '🗿', wvault: '🧊', wbeacon: '🗼', waurora: '🌌', wterminal: '🚉', wstarforge: '✨',
 };
 export const RICON = {
   wood: '🪵', stone: '🪨', game: '🥩', plank: '🟫', food: '🍖', coal: '⚫', ore: '🟤', iron: '🔘', coke: '◼️', lime: '⬜', steel: '🔷', gear: '⚙️', engine: '🚂',
@@ -86,7 +86,7 @@ function techLayout(list) {
 const HUBS = {
   camp: { n: '营地', tabs: [['camp', '概况'], ['folk', '人手'], ['mood', '人心'], ['law', '律令']] },
   prod: { n: '生产', tabs: [['stock', '物资'], ['plines', '产线'], ['lines', '物流'], ['guild', '商会']] },
-  build: { n: '建造', tabs: [['build', '建筑'], ['bqueue', '队列'], ['plan', '规划']] },
+  build: { n: '建造', tabs: [['build', '建筑'], ['bqueue', '队列'], ['plan', '规划'], ['wonder', '奇观']] },
   research: { n: '研究', tabs: [['research', '研究']] },
   north: { n: '北行', def: 'migrate', tabs: [['scout', '地图与侦察'], ['migrate', '北迁'], ['towers', '烽火塔'], ['specs', '专家与余烬']] },
   menu: { n: '菜单', tabs: [['menu', '设置'], ['msave', '存档'], ['mcoll', '收藏'], ['mhelp', '帮助']] },
@@ -523,6 +523,12 @@ export class UI {
     { const cs = Sim.coldAt(S);
       if (cs && cs.on) A.push({ k: 'cold', ic: '🌨', lvl: 'bad', urgent: true, t: '寒潮中', cnt: fmtTime(cs.left), d: `还要 ${fmtTime(cs.left)}。熔炉烧 ${Sim.coldFuel(S)} 倍燃料，户外采集只剩 ${Math.round(Sim.coldGather(S) * 100)}%，气温低 ${Sim.COLD.drop}°。挺过去没人冻伤有奖励。`, act: 'wx', btn: '看看' });
       else if (cs && cs.fc) A.push({ k: 'cold', ic: '🌨', lvl: cs.inSec <= 300 ? 'warn' : 'info', urgent: cs.inSec <= 300, t: '寒潮要来了', cnt: fmtTime(cs.inSec), d: `${fmtTime(cs.inSec)} 后到，持续一整天。物流网在给每座营地补燃料${Sim.coldBliz(S, cs) ? '；这次还和暴风雪撞在一起' : ''}。`, act: 'wx', btn: '看看' }); }
+    { const z = Sim.tideAt(S);
+      if (z && z.on) {
+        const bv = Sim.beastView(S, z), bin = bv && !bv.done ? bv.in : null;
+        A.push({ k: 'tide', ic: '🌌', lvl: 'bad', urgent: true, t: `永冬潮第 ${z.n} 波`, cnt: fmtTime(z.left), d: bin != null && bin <= 600 ? `霜巨兽 ${fmtTime(Math.max(0, bin))} 后冲「${bv.name}」：强度 ${bv.str}，防御 ${bv.def}${bv.def >= bv.str ? '，守得住' : '，守不住'}。` : `还要 ${fmtTime(z.left)}。气温低 ${z.drop}°，熔炉烧 ${Sim.TIDE.fuel} 倍燃料。${bv && bv.done ? (bv.won ? '霜巨兽已经被打退了。' : '霜巨兽闯进来过，冻住的建筑过一阵会化开。') : '最后一夜霜巨兽会来。'}`, act: 'wx', btn: '看看' });
+      } else if (z && z.fc) A.push({ k: 'tide', ic: '🌌', lvl: z.inSec <= 600 ? 'warn' : 'info', urgent: z.inSec <= 600, t: `永冬潮第 ${z.n} 波要来了`, cnt: fmtTime(z.inSec), d: `${fmtTime(z.inSec)} 后到，持续一天半，气温再降 ${z.drop}°。物流网在给每座营地备燃料。`, act: 'wx', btn: '看看' }); }
+    for (const x of S.camps) { const o = x.pk && x.pk.out; if (o && !x.pk.on && S.t - o.t < 600) A.push({ k: 'peak' + x.id, ic: '🔥', lvl: 'warn', t: `「${x.name}」的炉火鼎盛熄了`, d: `${o.why}。补回三星水准，金色的火会再烧起来。`, act: o.r ? 'plan' : 'towngo', arg: o.r || x.id, btn: o.r ? '看产线' : '看营地' }); }
     { const e = Sim.wxeAt(S, S.t);
       if (e.ev && (e.on || e.inSec <= fc)) {
         const E = Sim.WXE[e.ev.kind], prep = Sim.wxePrepped(S, c, e.ev), need = Sim.wxeMatters(S, c, e.ev) && !prep;
@@ -539,6 +545,7 @@ export class UI {
     if (S.car) { const left = S.car.orders.filter(o => !o.done).length; if (left) A.push({ k: 'car', ic: '🛷', lvl: 'good', t: '雪橇商队扎营了', cnt: fmtTime(S.car.until - S.t), d: `在「${Sim.getCamp(S, S.car.camp)?.name || ''}」外面，还有 ${left} 张订单。`, act: 'car', btn: '看订单' }); }
     if (S.aurOpen != null) A.push({ k: 'aur', ic: '🌌', lvl: 'good', t: '极光夜', d: '大家一起看一会儿：所有营地希望 +4、余烬 +1。', act: 'aurora', btn: '一起看' });
     { const qv = Sim.qyView(S); if (qv) A.push({ k: 'qy', ic: qv.ic, lvl: 'good', t: `奇遇：${qv.n}`, d: qv.st ? '有了下文，等你拿主意。' : '北境的这一站碰上了一件事，等你拿主意。', act: 'qyopen', btn: '去看看' }); }
+    for (const c of S.camps) { const nx = Sim.townNext(c); if (nx && !Sim.townBlock(S, c)) A.push({ k: 'town' + c.id, ic: '🎆', lvl: 'good', t: `「${c.name}」可以升成${nx.n}了`, d: nx.d, act: 'towngo', arg: c.id, btn: '去看看' }); }
     { const F = Sim.forkOf(S); if (F && F.pick == null) A.push({ k: 'fork', ic: '🧭', lvl: 'info', t: '下一站有几条路可选', d: '地貌、碰上的事和好处都不一样。出发前选一条，不选就走第一条。', act: 'tb', arg: 'migrate', btn: '去选路' }); }
     { const chs = Sim.chapters(S); if (chs.some(x => x.done && !x.got)) A.push({ k: 'gift', ic: '🎁', lvl: 'good', t: '章节奖励可以领了', d: '这一章的任务做完了。', act: 'chapter', btn: '领奖励' }); }
     { const hp = Math.round(c.hope ?? 50), ds = Math.round(c.disc ?? 10);
@@ -558,8 +565,9 @@ export class UI {
   vitals(c, cr, fuelMin, fuelEta) {
     const S = this.S, V = this.vt, set = (k, b, l, cls) => { const v = V[k]; if (v.bh !== b) { v.bh = b; v.b.innerHTML = b; } if (v.lh !== l) { v.lh = l; v.l.innerHTML = l; } const cn = `vt hpl ${k} ${cls}`; if (v.e.className !== cn) v.e.className = cn; };
     const temp = Math.round(cr.tH ?? c.temp), w = Sim.weatherAt(S, S.t);
-    const cs = Sim.coldAt(S), con = cs && cs.on, cfc = cs && !cs.on && cs.fc;
-    const wl = w.blizzard ? `风雪 ${fmtTime(w.until - S.t)}` : con ? `寒潮 ${fmtTime(cs.left)}` : w.warn ? `${fmtTime(w.inSec)}来雪` : cfc ? `${fmtTime(cs.inSec)}寒潮` : '体感';
+    const cs = Sim.coldAt(S), z = Sim.tideAt(S), ton = z && z.on, tfc = z && !z.on && z.fc && z.inSec <= DAY_LEN;
+    const con = cs && cs.on || ton, cfc = cs && !cs.on && cs.fc || tfc;
+    const wl = w.blizzard ? `风雪 ${fmtTime(w.until - S.t)}` : ton ? `永冬 ${fmtTime(z.left)}` : cs && cs.on ? `寒潮 ${fmtTime(cs.left)}` : w.warn ? `${fmtTime(w.inSec)}来雪` : tfc ? `${fmtTime(z.inSec)}永冬` : cs && !cs.on && cs.fc ? `${fmtTime(cs.inSec)}寒潮` : '体感';
     set('tmp', `${temp}°`, wl, (temp < 0 || w.blizzard || con ? 'bad' : w.warn || cfc ? 'warn' : '') + (temp < 10 ? ' cold' : ' warm'));
     const hp = Math.round(c.hope ?? 50), ds = Math.round(c.disc ?? 10), mt = cr.mood || { hT: hp, dT: ds }, arr = (v, t) => t > v + 1 ? '▲' : t < v - 1 ? '▼' : '';
     const pl = c.wait > 0 && ds < 55 ? `<span class="neg">${c.wait} 人等床位</span>` : ds >= 55 ? `不满 ${ds}${arr(ds, mt.dT)}` : `希望 ${hp}${arr(hp, mt.hT)}`;
@@ -1050,7 +1058,7 @@ export class UI {
     let tabs = '<div class="tabs" data-sx="btabs">';
     for (let t = 1; t <= 7; t++) tabs += `<button class="tab ${t === this.buildTier ? 'on' : ''} ${t > S.known ? 'locked' : ''} ${t !== this.buildTier && this.newBld(t).length ? 'hasnew' : ''}" data-act="btier" data-arg="${t}">${t > S.known ? '🔒' : ''}${TIER_NAMES[t]}</button>`;
     tabs += '</div>';
-    const list = BLD_KEYS.filter(k => BLD[k].t === this.buildTier && k !== 'furnace' && (!(BLD[k].rule || BLD[k].tower) || Sim.unlocked(S, k) || Sim.countType(S, c.id, k))); // 北境地貌的建筑只在那种站里出现
+    const list = BLD_KEYS.filter(k => BLD[k].t === this.buildTier && k !== 'furnace' && !BLD[k].wonder && (!(BLD[k].rule || BLD[k].tower) || Sim.unlocked(S, k) || Sim.countType(S, c.id, k))); // 北境地貌的建筑只在那种站里出现
     if (this.buildTier === 1) list.push('furnace');
     const seen = this.seenB(), shown = [];
     let cards = '';
@@ -1135,11 +1143,28 @@ export class UI {
   p_weather(part) {
     const S = this.S, c = this.camp(), cr = Sim.rt(S).c[c.id] || {}, P = this.wxPlan(c, cr);
     const cs = Sim.coldAt(S), cold = cs && (cs.on || cs.fc);
-    if (part === 'title') return `${P.on ? '暴风雪中' : cs && cs.on ? '寒潮中' : '天气预报'} <small>${esc(c.name)}</small>`;
+    const z = Sim.tideAt(S), tide = z && (z.on || z.fc);
+    if (part === 'title') return `${P.on ? '暴风雪中' : z && z.on ? '永冬潮中' : cs && cs.on ? '寒潮中' : '天气预报'} <small>${esc(c.name)}</small>`;
     const e = Sim.wxeAt(S, S.t), evFirst = e.ev && (e.on || (!P.on && e.inSec < P.inSec && e.inSec <= Sim.forecastOf(S)));
     const evh = `<div class="sec">${e.on ? '眼下的天气' : '其他天气'}</div>` + this.wxeCard(c, cr);
     const ch = cs ? `<div class="sec">寒潮季</div>` + this.coldCard(c, cr, cs) : '';
-    return (cold ? ch : '') + (evFirst ? evh + '<div class="sec">暴风雪</div>' : '') + this.p_weatherBliz(c, cr, P) + (evFirst ? '' : evh) + (cold ? '' : ch);
+    const th = z ? `<div class="sec">永冬潮</div>` + this.tideCard(c, cr, z) : '';
+    return (tide ? th : '') + (cold ? ch : '') + (evFirst ? evh + '<div class="sec">暴风雪</div>' : '') + this.p_weatherBliz(c, cr, P) + (evFirst ? '' : evh) + (cold ? '' : ch) + (tide ? '' : th);
+  }
+  // 1.1 永冬潮：第几波、多久到、多冷、燃料够不够、霜巨兽打不打得过、挺过去有什么
+  tideCard(c, cr, z) {
+    const S = this.S, T = Sim.TIDE, C = Sim.tideOf(S) || {};
+    if (!z.on && !z.fc) return `<div class="row sub"><span>第 ${z.n} 波</span><span>大约 ${fmtTime(z.inSec)} 后（提前 ${Math.round(Sim.tideLead(S) / DAY_LEN)} 天报）</span></div>` + (C.end ? `<div class="row sub"><span>上一波</span><span>第 ${C.end} 波${(S.meta.tideBest || 0) >= C.end ? '挺过去了' : '没挺住'}</span></div>` : '');
+    const m = T.fuel, burn = cr.burnPerMin || 0, cold = Sim.coldNow(S), base = z.on ? burn / Math.max(m, cold ? Sim.coldFuel(S) : 1) : burn, need = base * m * (z.on ? z.left : T.len) / 60, have = cr.fuelUnits || 0;
+    const tIn = Math.round((cr.tH ?? c.temp) - (z.on ? 0 : z.drop)), tc = tIn >= 2 ? 'ok' : tIn >= -8 ? 'warn' : 'bad';
+    let h = `<div class="wxhero tide ${z.on ? 'on' : z.inSec <= 600 ? 'near' : ''}"><div class="wxi">🌌</div><div><b>${z.on ? `永冬潮第 ${z.n} 波，还剩 ${fmtTime(z.left)}` : `第 ${z.n} 波约 ${fmtTime(z.inSec)} 后到`}</b><small>持续一天半 · 气温 −${z.drop}° · 熔炉烧 ${m} 倍燃料 · 户外采集 ${Math.round(Sim.tideGather(S) * 100)}%${Sim.techDone(S, 'botshell') ? '（自动机不受影响）' : ''}</small></div></div>`;
+    h += `<div class="row"><span>屋里体感</span><span>${z.on ? '现在' : '潮里约'} <b class="${tc}">${tIn}°</b>${tIn >= 2 ? '，没人会冻着' : '，会有人冻伤：升级帐篷、造暖炉，或者让熔炉超载'}</span></div>`;
+    h += `<div class="row"><span>燃料</span><span>${z.on ? '剩下这段' : '这一波'}要烧约 ${fmt(need)} · 现在有 ${fmt(have)} ${have >= need ? '<b class="ok">✔ 够</b>' : '<b class="bad">✖ 不够</b>'}${z.on ? '' : '<small>（物流网在帮每座营地补）</small>'}</span></div>`;
+    const bv = Sim.beastView(S, z);
+    if (bv) h += `<div class="row"><span>霜巨兽</span><span>${bv.done ? (bv.won ? '<b class="ok">✔ 打退了</b>' : '<b class="bad">闯进来过</b>，冻住的建筑过一阵会化开') : `${bv.in > 0 ? fmtTime(bv.in) + '后' : '马上'}冲「${esc(bv.name)}」 · 强度 ${bv.str} · 防御 ${bv.def} ${bv.def >= bv.str ? '<b class="ok">✔ 守得住</b>' : Sim.colossusReady && Sim.colossusReady(S) && Sim.wonderOn(S, 'wcolossus') ? '<b class="warn">靠蒸汽巨像吓走</b>' : '<b class="bad">✖ 守不住</b>'}`}<br><small>守不住：几座建筑冻住 ${T.frz / 60} 分钟，几个人冻伤病倒，不会死人</small></span></div>`;
+    const best = S.meta.tideBest || 0;
+    h += `<div class="row sub"><span>挺过去</span><span>没人冻伤、霜巨兽没闯进来：余烬 +${T.embers * z.n}，每座营地希望 +${T.hope}${best < 5 ? '<br>挺过第 5 波：专属炉火「霜白」和称号「永冬守火人」' : best < 10 ? '<br>挺过第 10 波：专属炉火「永冬」和称号「十潮不灭」' : ''}</span></div>`;
+    return h;
   }
   // 1.1 寒潮：多久到、这一天要烧多少燃料、屋里会不会冻着、挺过去有什么
   coldCard(c, cr, cs) {
@@ -1321,15 +1346,16 @@ export class UI {
     const S = this.S, b = Sim.getB(S, this.panel.arg);
     if (!b) { this.close(); return ''; }
     const d = Sim.bdef(b), c = Sim.getCamp(S, b.camp), R = Sim.rt(S), br = R.b[b.id] || {}, cr = R.c[c.id] || {};
-    if (part === 'title') return d.tower ? `${Sim.towerName(b.tn)} <small>${esc(c.name)}</small>` : `${d.n}${this.skillStars(b)} <small>${b.lvl} 级 · ${esc(c.name)}</small>`;
+    if (part === 'title') return d.wonder ? `${d.n} <small>奇观 · ${esc(c.name)}</small>` : d.tower ? `${Sim.towerName(b.tn)} <small>${esc(c.name)}</small>` : `${d.n}${this.skillStars(b)} <small>${b.lvl} 级 · ${esc(c.name)}</small>`;
     let h = '';
-    const tc = this.thumb(b.type, b.lvl);
+    const tc = this.thumb(b.type, d.wonder ? 4 : b.lvl);
     h += `<div class="bhero"><div class="hpic">${tc ? `<i class="th ${tc}"></i>` : ICON[b.type]}</div><div>`;
-    if (br.status) h += `<div class="status ${['运转中', '研究中', '塔身在长', '塔身建好了，等点火'].includes(br.status) ? 'ok' : 'bad'}">${esc(br.status)}</div>`;
+    if (br.status) h += `<div class="status ${(['运转中', '研究中', '塔身在长', '塔身建好了，等点火', '建成了'].includes(br.status) || WONDER_PH.some(P => br.status === P.n + '中')) ? 'ok' : 'bad'}">${esc(br.status)}</div>`;
     h += `<div class="desc">${esc(d.desc)}</div></div></div>`;
     if (c.depot && b.type === 'furnace') h += this.depotHtml(c);
     else if (Sim.depotAuto(c)) h += `<button class="mlink" data-act="tb" data-arg="camp"><span>🏚️</span><span>「${esc(c.name)}」是补给站<small>自己运转，不升级。要改先在营地面板里「临时接手」</small></span><i>›</i></button>`;
     if (d.tower) return h + this.towerHtml(b, c, br);
+    if (d.wonder) return h + this.wonderHtml(b, c, br);
     if (b.type === 'workshop') { const T = S.tech || {}, ct = T.cur && Sim.techDef(S, T.cur); h += `<button class="mlink" data-act="tb" data-arg="research"><span>🔬</span><span>${ct ? `正在研究「${ct.n}」 ${Math.floor(T.prog / ct.pts * 100)}%` : '挑一项研究'}<small>这座工程站每分钟 ${fmt(br.rp || 0)} 点</small></span><i>›</i></button>`; }
     const mx = Sim.bMax(S, b);
     if (mx) {
@@ -1504,6 +1530,78 @@ export class UI {
     return h;
   }
 
+  // 1.1 奇观工地：三期进度、这一期每种料吃多少、缺什么
+  wonderHtml(b, c, br) {
+    const S = this.S, W = WONDERS[b.type], wd = b.wd || { ph: 0, p: 0 }, done = Sim.wonderDone(b);
+    let h = `<div class="twsteps">${WONDER_PH.map((P, i) => `<span class="${i < wd.ph ? 'ok' : i === wd.ph ? 'on' : ''}">${i < wd.ph ? '✓' : i + 1} ${P.n}</span>`).join('<i>›</i>')}</div>`;
+    h += `<div class="row nw"><span>效果</span><span>${esc(W.d)}<br><small>建成后这一程一直有效，所有营地都算</small></span></div>`;
+    if (!done) {
+      const sp = Sim.wonderSpec(b.type, wd.ph), mul = Sim.feedMul(S, c), left = 1 - wd.p / sp.dur;
+      h += `<div class="row"><span>${sp.n}</span><span>${Math.floor(wd.p / sp.dur * 100)}% <small>· 全部 ${Math.floor(Sim.wonderProg(b) * 100)}%${mul > 1 ? ` · 施工 ×${fmt(mul)}` : ''}</small></span></div><div class="mbar tw"><i style="width:${(wd.p / sp.dur * 100).toFixed(1)}%"></i></div>`;
+      for (const k of sp.kinds) {
+        const short = br.status === '缺' + RES[k].n, have = c.stock[k] || 0, pr = Sim.prodRate(S, k), r = sp.rate[k] * mul;
+        h += `<div class="row sub"><span>${RICON[k]} ${RES[k].n}</span><span>还要 ${fmt(sp.amt[k] * left)} · 每分钟 ${fmt(r)} · 库存 ${fmt(have)} · 现在产 ${fmt(pr)}/分${short ? ' <b class="warn">缺货，工地停着</b>' : pr < r && have < sp.amt[k] * left ? ' <b class="warn">产得比工地吃得慢</b>' : ''}</span></div>`;
+      }
+      h += `<div class="row sub"><span>搬运</span><span>${(br.dist || 0).toFixed(1)} 格 · 占用搬运工 ${fmt(br.haul || 0)}</span></div>`;
+      const nx = WONDER_PH.map((P, i) => i > wd.ph ? `${P.n}：${Object.entries(W.ph[i]).map(([k, v]) => `${RICON[k]}${fmt(v)}`).join(' ')}` : '').filter(Boolean);
+      if (nx.length) h += `<div class="row sub"><span>后面</span><span>${nx.join('<br>')}</span></div>`;
+      h += `<div class="hint">几种料都够量时工地才往前走，缺一种就停，但不会倒退。物流网会把这一期要的料往这儿送；城的施工快 25%，号令「万众一心」快 3 倍。</div>`;
+    } else {
+      const w = Sim.wonderList(S).find(x => x.w === b.type);
+      h += `<div class="row"><span>落成</span><span>${w ? fmtTime(S.t - w.t) + '前' : ''}</span></div>`;
+      if (b.type === 'wcolossus') h += `<div class="row sub"><span>今天</span><span>${Sim.colossusReady(S) ? '还能吓退一次袭营' : '已经出过手了，明天再来'}</span></div>`;
+      h += `<div class="hint">营地熄火走了，奇观照样立在这儿，效果一直都在。</div>`;
+    }
+    if (!Sim.moveBlock(S, b)) h += `<button class="btn wide" data-act="movebld" data-arg="${b.id}">↔ 挪位置 <small>开工之前还能挪</small></button>`;
+    if (!wd.ph && !wd.p) h += `<button class="btn wide ghost" data-act="demolish" data-arg="${b.id}">拆掉工地（返还一半材料）</button>`;
+    return h;
+  }
+  // 建造 › 奇观：六种奇观，有没有图纸、在哪儿建的、建到哪了
+  p_wonder(part) {
+    const S = this.S, c = this.camp();
+    if (part === 'title') return `奇观 <small>每种一程一座 · 一座营地最多一座</small>`;
+    let h = `<div class="hint">奇观分三期施工，搬运工一点点往工地送料；建成以后这一程一直有效，所有营地都算，营地熄火了也不丢。图纸来自研究「奇观图纸·一 / 二」，北境的分岔和奇遇也会送。</div>`;
+    const here = Sim.wonderIn(S, c.id);
+    let cards = '';
+    for (const k of WONDER_KEYS) {
+      const W = WONDERS[k], built = Sim.wonderList(S).find(x => x.w === k), b = S.buildings.find(x => x.type === k), have = Sim.bpHave(S, k);
+      const where = id => esc((Sim.getCamp(S, id) || { name: '已熄火的营地' }).name);
+      const st = built ? `✓ 已落成 · ${where(built.camp)}` : b ? `施工中 ${Math.floor(Sim.wonderProg(b) * 100)}% · ${where(b.camp)}` : have ? (here ? `这座营地已经有${BLD[here.type].n}了，换一座营地建` : '有图纸，可以选址') : `还没有图纸（${W.tech === 'wonder1' ? '奇观图纸·一' : '奇观图纸·二'}）`;
+      const act = b ? `data-act="openbld" data-arg="${b.id}"` : !built && have && !here ? `data-act="place" data-arg="${k}"` : '';
+      const tot = {}; for (const P of W.ph) for (const r in P) tot[r] = (tot[r] || 0) + P[r];
+      cards += `<div class="card ${!have && !built ? 'locked' : ''} ${built ? 'on' : ''}" ${act}>
+        <div class="ci pic">${this.ico(k, 4)}</div>
+        <div class="cb"><div class="cn">${W.n}</div><div class="cd">${esc(W.d)}</div>
+        <div class="cc">${esc(st)}</div>
+        ${!built ? `<div class="cio"><small>三期共要 </small>${Object.keys(tot).sort((a, b) => RES[a].t - RES[b].t).map(r => RICON[r] + fmt(tot[r])).join(' ')}</div>` : ''}</div></div>`;
+    }
+    return h + `<div class="cards">${cards}</div>`;
+  }
+  // 营地 › 概况：炉火鼎盛。这座营地的产线全稳在三星，产量 +25%，炉火变金色
+  peakHtml(c) {
+    const S = this.S, V = Sim.peakView(S, c);
+    if (!V.lines.length) return '';
+    const n3 = V.lines.filter(l => l.star >= 3 && (l.on || l.slow < Sim.PEAK.grace)).length;
+    let h = `<div class="sec">炉火鼎盛 <small>${V.on ? '<b class="ok">烧着</b>' : `${n3}/${V.lines.length} 条稳在三星`}</small></div>`;
+    h += `<div class="hint">${V.on ? `这座营地的产线全稳在三星：营地产量 +${Sim.PEAK.prod * 100}%，炉火烧成金色。哪条线掉出三星水准（速度低于目标超过 ${Sim.PEAK.grace} 秒），鼎盛就熄。` : `这座营地用到的产线（连上游）全都三星、速度都在目标以上${V.lines.length < V.need ? `，而且至少 ${V.need} 条` : ''}，就会炉火鼎盛：营地产量 +${Sim.PEAK.prod * 100}%，炉火变成金色。`}</div>`;
+    h += `<div class="pklines">${V.lines.map(l => { const ok = l.star >= 3 && (l.on || l.slow < Sim.PEAK.grace); return `<button class="pkl ${ok ? 'ok' : l.star >= 3 ? 'slow' : ''}" data-act="plan" data-arg="${l.r}">${RICON[l.r]} ${RES[l.r].n}<i>${'★'.repeat(l.star)}${'☆'.repeat(3 - l.star)}</i>${l.star >= 3 && !l.on ? '<small>速度不够</small>' : ''}</button>`; }).join('')}</div>`;
+    return h;
+  }
+  // 营地 › 概况：城镇。人够、希望够就能升一级（升了不会降）
+  townHtml(c) {
+    const S = this.S, t = Sim.townOf(c), nx = Sim.townNext(c), why = Sim.townBlock(S, c);
+    if (c.depot) return '';
+    let h = `<div class="sec">城镇 <small>现在是${TOWN[t].n}</small></div>`;
+    if (!t && !Sim.techDone(S, 'townplan')) return h + `<div class="hint">研究「城镇规划」以后，营地住满 ${TOWN[1].pop} 人、希望 ${TOWN[1].need} 以上就能升成镇：帐篷换成木屋，门口点起路灯，床位 +20%。</div>`;
+    h += `<div class="twsteps">${TOWN.map((T, i) => `<span class="${i <= t ? 'ok' : i === t + 1 ? 'on' : ''}">${i <= t ? '✓ ' : ''}${T.n}</span>`).join('<i>›</i>')}</div>`;
+    for (let i = 1; i <= t; i++) h += `<div class="row sub"><span>${TOWN[i].n}</span><span>${TOWN[i].d}</span></div>`;
+    if (nx) {
+      h += `<div class="row"><span>升成${nx.n}<br><small>${nx.d}</small></span><span>👥 ${c.people} / ${nx.pop}<br>希望 ${Math.round(c.hope ?? 50)} / ${nx.need}</span></div>`;
+      h += `<button class="btn wide tl ${why ? '' : 'go'}" data-act="townup" data-arg="${c.id}" ${why ? 'disabled' : ''}>升成${nx.n}${why ? `<small>${esc(why)}</small>` : '<small>办一场典礼，大家停工 30 秒看烟花</small>'}</button>`;
+    } else h += `<div class="hint">已经是大城了。每天会送来一份市政礼包。</div>`;
+    return h;
+  }
+
   // ---------- 物资总览：每种物资的进出、卡在哪一环 ----------
   reqWho(r) { return personOf({ k: 'r', i: r.id, camp: r.camp }); }
   // 人物委托：谁、想要什么、做到哪了、给什么
@@ -1651,11 +1749,13 @@ export class UI {
       const cr = Sim.rt(S).c[c.id] || {};
       const f = Sim.getB(S, c.furnace);
       h += `<div class="card ${c.id === S.active ? 'on' : ''}" data-act="campgo" data-arg="${c.id}"><div class="ci">🔥</div><div class="cb">
-        <div class="cn">${esc(c.name)} <small>熔炉 ${f.lvl} 级 · 纬度 ${Math.round(c.y)}</small>${Sim.campSpecOf(c) ? `<i class="spec-tag">特产·${Sim.campSpecOf(c).n}</i>` : ''}</div>
+        <div class="cn">${esc(c.name)} <small>熔炉 ${f.lvl} 级 · 纬度 ${Math.round(c.y)}</small>${Sim.campSpecOf(c) ? `<i class="spec-tag">特产·${Sim.campSpecOf(c).n}</i>` : ''}${c.town ? `<i class="spec-tag">${TOWN[Sim.townOf(c)].n}</i>` : ''}</div>
         <div class="cd">👥${c.people}/${cr.housing || 0} · 🌡${Math.round(cr.tH ?? 0)}° · 🍖${fmt(c.stock.food)}（${(cr.foodNet || 0) >= 0 ? '+' : ''}${fmt(cr.foodNet)}/分）· 🔥${cr.burnPerMin ? fmtTime(cr.fuelUnits / cr.burnPerMin * 60) : '—'} · 搬运 ${fmt(cr.haulers)}/${fmt(cr.demand)} · 防御 ${Sim.campDefense(S, c)}</div></div></div>`;
     }
     const c0 = this.camp();
     h += this.specHtml(c0);
+    h += this.townHtml(c0);
+    h += this.peakHtml(c0);
     if (!c0.depot) h += this.focusHtml(c0);
     h += this.infraHtml(c0);
     return h;
@@ -2825,6 +2925,8 @@ export class UI {
       case 'scoutcancel': g.scoutTarget = null; g.mode = null; break;
       case 'siteopt': { const [sid, i] = String(arg).split(':').map(Number); const msg = Sim.resolveSite(S, sid, i); this.closeModal(); if (msg) { this.toast(msg, 'story'); g.sfx('tap'); } if (this.panel && this.panel.kind === 'site') this.close(); break; }
       case 'site-decide': this.siteModal(); break;
+      case 'townup': { const r = res(Sim.townUp(S, +arg)); if (r.ok) { g.drainFx && g.drainFx(); this.renderPanel(true); } break; }
+      case 'towngo': { S.active = +arg; g.cancelModes(); this.open('camp'); break; }
       case 'qyopen': if (!this.qyModal()) { const w = Sim.qyWait(S); this.toast(w ? `奇遇「${QY[w.q.id].n}」还要 ${fmtTime(w.left)} 才有下文。` : '这件奇遇已经过去了。', 'info'); } break;
       case 'qyopt': { const q = S.qy, away0 = q && q.away; const r = res(Sim.qyChoose(S, +arg)); if (r.ok) { g.sfx('tap'); g.drainFx(); this.qyModal({ ic: QY[q.id].ic, n: QY[q.id].n, msg: r.msg, next: r.next, wait: r.wait, away: q.away && q.away !== away0 ? q.away : 0 }); if (this.panel) this.renderPanel(true); } break; }
       case 'forkpick': { const r = res(Sim.pickFork(S, +arg)); if (r.ok) { g.sfx('tap'); this.renderPanel(true); } break; }
