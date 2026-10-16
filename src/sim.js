@@ -47,7 +47,7 @@ export function newRun(meta, site = 0, seed) {
   const runSeed = seed != null ? seed : (Math.floor(Math.random() * 1e9) + 1);
   setRows(BASE_H);
   const S = {
-    v: VERSION, runSeed, t: 0, savedAt: Date.now(), site, nextId: 1,
+    v: VERSION, runSeed, t: 0, savedAt: Date.now(), site, nextId: 1, sk: 1,
     camps: [], buildings: [], belts: [], reqs: [], spots: {}, sap: {}, poiDone: {}, poiFound: {}, scouts: [], lines: [], roads: [], ships: [], sends: [], feeds: [],
     reveal: new Uint8Array(W * H), rows: BASE_H, discovered: [], founded: [], known: 1,
     eternal: { stage: 0, have: 0 }, specAt: {}, raidDone: -1,
@@ -1118,6 +1118,7 @@ export function prodBonus(S, b, camp, syn, beltB) {
     ['专家', Math.min(BONUS_CAP.spec, specOf(S, b))],
     ['专精', Math.min(BONUS_CAP.focus, focusProd(camp, b.type))],
     ['特产', campSpecFx(S, b, camp)],
+    ['熟练', skillBonus(b)],
     ['相邻、传送带', Math.min(BONUS_CAP.adj, SYN_PER * syn + beltB)],
     ['余烬', Math.min(BONUS_CAP.ember, EMBER_PROD * up(S, 'prod'))],
     ['遗物', Math.min(BONUS_CAP.relic, relicSum(S, 'prod'))],
@@ -1285,6 +1286,71 @@ function moodStep(S, camp, cr, dt) {
   if (camp.hope > 30) camp.hopeWarn = false;
 }
 
+// ---------- 1.1 熟练工：每座建筑自己攒经验，满员干 10/20/40/80/160 分钟升一级，每级产量 +6% ----------
+export const SKILL_CUM = [10, 30, 70, 150, 310], SKILL_PER = 0.06, SKILL_MAX = 5, SKILL_GRACE = 60;
+export const skillable = b => b.type !== 'furnace' && !!(BLD[b.type].out || b.type === 'workshop');
+export function skillLvl(b) { const x = (b && b.xp) || 0; let l = 0; while (l < SKILL_MAX && x >= SKILL_CUM[l] - 1e-9) l++; return l; }
+export const skillBonus = b => SKILL_PER * skillLvl(b);
+// 下一级还要满员干多少分钟（学徒制快一半）
+export function skillNext(S, b) { const l = skillLvl(b); return l >= SKILL_MAX ? null : { lvl: l + 1, min: (SKILL_CUM[l] - (b.xp || 0)) / (techDone(S, 'apprentice') ? 1.5 : 1) }; }
+function skillStep(S, camp, bs, dt) {
+  const R = rt(S), offK = R.offline && R.histOff ? R.histOff.rate : 1, appr = techDone(S, 'apprentice');
+  const scouting = S.scouts.some(x => x.camp === camp.id);
+  for (const b of bs) {
+    if (!skillable(b)) continue;
+    const mx = bMax(S, b), w = b.workers || 0, ref = Math.min(b.wRef || 0, mx); // 二星省下的那个岗位不算「被撤走」
+    // 撤了人：一分钟内补回来不算；侦察队带走的人等他们回来再说；过了一分钟还缺，按少了的比例掉（学徒制只掉一半）
+    if (w >= ref) { b.wRef = w; delete b.wDrop; }
+    else if (!scouting) {
+      if (b.wDrop == null) b.wDrop = S.t;
+      else if (S.t - b.wDrop >= SKILL_GRACE) { const f = ref ? w / ref : 1; b.xp = (b.xp || 0) * (appr ? 1 - (1 - f) / 2 : f); b.wRef = w; delete b.wDrop; }
+    }
+    if (!mx || !w || b.moveT > S.t) continue;
+    const l0 = skillLvl(b); if (l0 >= SKILL_MAX) continue;
+    b.xp = Math.min(SKILL_CUM[SKILL_MAX - 1], (b.xp || 0) + Math.min(1, w / mx) * dt / 60 * (appr ? 1.5 : 1) * offK);
+    const l1 = skillLvl(b);
+    if (l1 > l0 && !R.offline) R.fx.push({ kind: 'skill', b: b.id, lvl: l1 });
+  }
+}
+
+// ---------- 1.1 寒潮季：第三章起每 5 天来一次，一整天：熔炉烧双倍燃料、户外采集减半、气温再降 10° ----------
+export const COLD = { every: 5 * DAY_LEN, len: DAY_LEN, first: 2 * DAY_LEN, from: 2, fuel: 2, fuelCast: 1.7, gather: 0.5, gatherSuit: 0.7, drop: 10, hope: 5, embers: 5 };
+export const coldLead = S => DAY_LEN * (techDone(S, 'coldcast') ? 2 : 1);
+export const coldFuel = S => (techDone(S, 'coldcast') ? COLD.fuelCast : COLD.fuel);
+export const coldGather = S => (techDone(S, 'thermal') ? COLD.gatherSuit : COLD.gather);
+// 眼下或下一次寒潮：on 正在寒潮里；fc 已经报出来了
+export function coldAt(S, t = S.t) {
+  const C = S.cold; if (!C || C.t0 == null) return null;
+  const base = C.t0 + COLD.first;
+  let k = Math.max(0, Math.floor((t - base) / COLD.every)), start = base + k * COLD.every;
+  if (t >= start && t < start + COLD.len) return { on: true, k, start, end: start + COLD.len, left: start + COLD.len - t };
+  if (t >= start + COLD.len) { k++; start += COLD.every; }
+  return { on: false, k, start, end: start + COLD.len, inSec: start - t, fc: start - t <= coldLead(S) };
+}
+export const coldNow = S => { const c = coldAt(S); return !!(c && c.on); };
+// 这一次寒潮和暴风雪撞上没有
+export function coldBliz(S, c) { for (let t = c.start; t < c.end; t += 60) if (weatherAt(S, t).blizzard) return true; return false; }
+function coldStep(S) {
+  if (!S.cold && journeyOf(S).stage >= COLD.from) S.cold = { t0: S.t };
+  const c = coldAt(S); if (!c) return;
+  const C = S.cold;
+  if (c.on && C.on !== c.k) {
+    C.on = c.k; C.hit = {}; S.stats.cold = (S.stats.cold || 0) + 1;
+    logMsg(S, `🌨 寒潮来了！这一整天熔炉烧 ${coldFuel(S)} 倍燃料，户外采集只剩 ${Math.round(coldGather(S) * 100)}%，气温再降 ${COLD.drop}°。挺过去没人冻伤，希望和余烬都有奖励。`, 'bad', { act: 'wx', label: '看看' });
+  } else if (!c.on && c.fc && C.fc !== c.k) {
+    C.fc = c.k;
+    logMsg(S, `🌨 寒潮预报：约 ${Math.max(1, Math.round(c.inSec / 60))} 分钟后寒潮来袭，持续一整天（${DAY_LEN / 60} 分钟）：熔炉烧 ${coldFuel(S)} 倍燃料，户外采集减半，气温再降 ${COLD.drop}°。物流网会先给每座营地备足燃料。${coldBliz(S, c) ? '这次还和暴风雪撞在一起，燃料和熟食要多备。' : ''}`, 'warn', { act: 'wx', label: '看看' });
+  }
+  // 寒潮过去：没人冻伤的营地希望 +5；全都挺住了再给余烬
+  if (!c.on && C.on != null && C.on === c.k - 1 && C.done !== C.on) {
+    C.done = C.on;
+    const live = S.camps.filter(x => x.people > 0), hit = live.filter(x => (C.hit || {})[x.id]), ok = live.filter(x => !(C.hit || {})[x.id]);
+    for (const x of ok) bumpMood(x, COLD.hope, 0);
+    if (!hit.length) { S.meta.embers += COLD.embers; S.meta.emberTotal = (S.meta.emberTotal || 0) + COLD.embers; S.stats.coldOk = (S.stats.coldOk || 0) + 1; }
+    logMsg(S, !hit.length ? `🌨 寒潮过去了，一个人都没冻伤：每座营地希望 +${COLD.hope}，余烬 +${COLD.embers}。` : `🌨 寒潮过去了。${hit.map(x => `「${x.name}」`).join('')}有人冻伤了${ok.length ? `；别的营地都挺住了，希望 +${COLD.hope}` : ''}。下次早点备燃料、给帐篷升级保暖。`, hit.length ? 'warn' : 'good');
+  }
+}
+
 // ---------- 主循环 ----------
 export function step(S, dt) {
   const R = rebuild(S);
@@ -1328,6 +1394,7 @@ export function step(S, dt) {
   regrow(S, dt);
   oreStep(S, dt);
   ruleStep(S, dt, w);
+  coldStep(S);
   for (const camp of S.camps) campStep(S, camp, dt, w);
   rateStep(S, dt);
   holdStep(S, dt);
@@ -1709,8 +1776,8 @@ function campStep(S, camp, dt, w) {
   const od = odActive(S, camp, w, fb), stall = camp.odCool > 0;
   const ev = w.ev && w.ev.on ? w.ev.ev : null, evPrep = !!ev && wxePrepped(S, camp, ev);
   const frozen = !!ev && ev.kind === 'ice' && !evPrep, coldNight = !!ev && ev.kind === 'cold';
-  const cRule = campRule(S, camp);
-  let fuelNeed = furnaceBurn(depotFireLvl(S, camp, fb)) * Math.max(0.3, 1 + buffOf(S, camp, 'fuel') + lawSum(S, 'fuel') + techSum(S, 'fuel')) * (od ? OD_FUEL : 1) * (coldNight ? WXE_FUEL : 1) * diffOf(S).fuel * (cRule === 'geo' ? RULE_FX.geoFuel : cRule === 'night' ? RULE_FX.nightFuel : 1) / 60 * dt;
+  const cRule = campRule(S, camp), cold = coldNow(S);
+  let fuelNeed = furnaceBurn(depotFireLvl(S, camp, fb)) * Math.max(0.3, 1 + buffOf(S, camp, 'fuel') + lawSum(S, 'fuel') + techSum(S, 'fuel')) * (od ? OD_FUEL : 1) * (coldNight ? WXE_FUEL : 1) * (cold ? coldFuel(S) : 1) * diffOf(S).fuel * (cRule === 'geo' ? RULE_FX.geoFuel : cRule === 'night' ? RULE_FX.nightFuel : 1) / 60 * dt;
   const fuelKeepU = dt > 0 ? fuelNeed / dt * 60 * FUEL_KEEP_MIN : 0; // 工厂和塔身不许动的那份燃料（按燃料份数算）
   let heaterHeat = 0;
   const heaters = bs.filter(b => b.type === 'heater');
@@ -1759,7 +1826,7 @@ function campStep(S, camp, dt, w) {
   if (camp.ovh < 70) camp.ovhWarn = false;
   // 极寒夜：燃料烧够了还冷三成五，烧不够冷得更多；封好门窗缝减半
   const evDrop = coldNight ? (8 + 2 * (tierOfRow(camp.y) - 1)) * diffOf(S).cold * (evPrep ? 0.5 : 1) * (0.35 + 0.65 * (1 - fueled)) : 0;
-  const drop = blizzDrop(S, camp, w) + evDrop;
+  const drop = blizzDrop(S, camp, w) + evDrop + (cold ? COLD.drop : 0);
   cr.ev = ev ? { kind: ev.kind, prep: evPrep, drop: evDrop, frozen } : null;
   const temp = baseTempOfRow(camp.y) + heat - drop;
   camp.temp = temp;
@@ -1798,6 +1865,7 @@ function campStep(S, camp, dt, w) {
   const ward = wardOf(S, camp);
   const recMul = 1 + lawSum(S, 'sickRec') + techSum(S, 'sickRec');
   sick += camp.people * (0.0025 * sevS + 0.01 * hung + lawSum(S, 'sickIn')) * (1 - WARD_GUARD * ward.guard) / 60 * dt;
+  if (cold && sevS > 0.1 && camp.people > 0 && S.cold) (S.cold.hit || (S.cold.hit = {}))[camp.id] = 1; // 寒潮里有人冻着了
   const treated = Math.min(sick, ward.beds);
   if (treated > 0) sick -= treated * WARD_REC * ward.care * recMul / 60 * dt;
   if (sevS === 0 && hung === 0) sick -= Math.max(0.05, Math.max(0, sick - treated) * 0.12) * recMul / 60 * dt;
@@ -1835,7 +1903,7 @@ function campStep(S, camp, dt, w) {
   for (const b of bs) {
     if (b.type !== 'workshop') continue;
     const mx = maxWorkers(b.type, b.lvl), staff = mx ? Math.min(1, b.workers * lf / mx) : 0;
-    const r = BLD.workshop.research * (1 + 0.25 * (b.lvl - 1)) * staff * workEff * moodMul(camp) * (1 + specOf(S, b) + ((focusOf(camp) || {}).rp || 0) + campSpecFx(S, b, camp));
+    const r = BLD.workshop.research * (1 + 0.25 * (b.lvl - 1)) * staff * workEff * moodMul(camp) * (1 + specOf(S, b) + ((focusOf(camp) || {}).rp || 0) + campSpecFx(S, b, camp) + skillBonus(b));
     const br = R.b[b.id] || (R.b[b.id] = {});
     br.staff = staff; br.rp = r;
     const cur = S.tech && S.tech.cur;
@@ -1879,7 +1947,7 @@ function campStep(S, camp, dt, w) {
     const bo = R.beltOut.get(b.id), bi = R.beltIn.get(b.id);
     let beltB = 0;
     if (bi && d.in) { const ks = Object.keys(d.in); for (const k of ks) if (bi[k]) beltB += BELT[bi[k]].bonus / ks.length; }
-    const mult = levelMul(b.lvl) * (1 + prodBonus(S, b, camp, syn, beltB).sum) * staff * workEff * prodMul * (ev && ev.kind === 'ice' && BLD[b.type].cat === 'gather' ? WXE_ICE_GATHER : 1) * (cRule === 'night' && BLD[b.type].cat === 'gather' ? RULE_FX.nightOut : 1);
+    const mult = levelMul(b.lvl) * (1 + prodBonus(S, b, camp, syn, beltB).sum) * staff * workEff * prodMul * (ev && ev.kind === 'ice' && BLD[b.type].cat === 'gather' ? WXE_ICE_GATHER : 1) * (cRule === 'night' && BLD[b.type].cat === 'gather' ? RULE_FX.nightOut : 1) * (cold && BLD[b.type].cat === 'gather' ? coldGather(S) : 1);
     const br = R.b[b.id] || (R.b[b.id] = {});
     br.staff = staff;
     if (b.moveT > S.t) { br.act = 0; br.status = '在搬家'; br.haul = 0; br.rate = {}; br.inRate = {}; br.want = {}; br.dep = 0; continue; }
@@ -1970,6 +2038,7 @@ function campStep(S, camp, dt, w) {
 
   { const offK = R.offline && R.histOff ? R.histOff.rate : 1; // 离线时塔身按离线收益的比例吃货、长进度
     for (const t of towers) { towerFeed(S, t.b, t.sp, dt, hf, offK, st, R, t.dem, fuelKeepU); plans.push({ b: t.b, d: BLD[t.b.type], br: R.b[t.b.id], mult: 0, dem: t.dem }); } }
+  skillStep(S, camp, bs, dt);
   // 空闲的人会在营地附近拾柴、设陷阱（保证任何时候都能慢慢恢复）
   let stalled = 0;
   for (const p of plans) stalled += p.b.workers * lf * (1 - (p.br.avail != null ? p.br.avail : 1));
@@ -3258,6 +3327,9 @@ export function deserialize(str) {
   growNext(o); // 已经在世界之脊或北境：下一站要用的地图先接上
   if (!o.roads) migrateNet(o); // 1.1 以前的存档：运输线和补给站的路换成物流网
   migrateSpec(o);
+  // 1.1 以前的存档：在岗的建筑从熟练 1 级起；第三章以后的，读档后过一天开始报寒潮
+  if (!o.sk) { o.sk = 1; for (const b of o.buildings) if (skillable(b) && b.workers > 0 && b.xp == null) { b.xp = SKILL_CUM[0]; b.wRef = b.workers; } }
+  if (!o.cold && journeyOf(o).stage >= COLD.from) o.cold = { t0: o.t + Math.max(0, Math.min(OFF_CAP, (Date.now() - (o.savedAt || Date.now())) / 1000)) };
   return o;
 }
 // 1.1 以前的营地没有特产：北境的站按名字找回那一站的地貌，别的按暖圈里的矿点

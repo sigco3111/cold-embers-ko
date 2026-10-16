@@ -502,6 +502,9 @@ export class UI {
     else if (w.warn) A.push({ k: 'bliz', ic: '❄', lvl: 'warn', urgent: true, t: '暴风雪要来了', cnt: fmtTime(w.inSec), d: `${fmtTime(w.inSec)} 后到。多备燃料，必要时让熔炉超载。${od ? od + '。' : ''}`, act: 'wx', btn: '看备战' });
     else if (w.next <= fc) A.push({ k: 'blizfc', ic: '❄', lvl: 'info', t: '气象预报：暴风雪', cnt: fmtTime(w.next), d: `${fmtTime(w.next)} 后有暴风雪。${od ? od + '。' : ''}`, act: 'wx', btn: '看看' });
     else if (od) A.push({ k: 'od', ic: '🔥', lvl: cr.stall ? 'bad' : 'warn', t: od, d: '点开看炉温，别烧过头。', act: 'wx', btn: '看炉温' });
+    { const cs = Sim.coldAt(S);
+      if (cs && cs.on) A.push({ k: 'cold', ic: '🌨', lvl: 'bad', urgent: true, t: '寒潮中', cnt: fmtTime(cs.left), d: `还要 ${fmtTime(cs.left)}。熔炉烧 ${Sim.coldFuel(S)} 倍燃料，户外采集只剩 ${Math.round(Sim.coldGather(S) * 100)}%，气温低 ${Sim.COLD.drop}°。挺过去没人冻伤有奖励。`, act: 'wx', btn: '看看' });
+      else if (cs && cs.fc) A.push({ k: 'cold', ic: '🌨', lvl: cs.inSec <= 300 ? 'warn' : 'info', urgent: cs.inSec <= 300, t: '寒潮要来了', cnt: fmtTime(cs.inSec), d: `${fmtTime(cs.inSec)} 后到，持续一整天。物流网在给每座营地补燃料${Sim.coldBliz(S, cs) ? '；这次还和暴风雪撞在一起' : ''}。`, act: 'wx', btn: '看看' }); }
     { const e = Sim.wxeAt(S, S.t);
       if (e.ev && (e.on || e.inSec <= fc)) {
         const E = Sim.WXE[e.ev.kind], prep = Sim.wxePrepped(S, c, e.ev), need = Sim.wxeMatters(S, c, e.ev) && !prep;
@@ -535,8 +538,9 @@ export class UI {
   vitals(c, cr, fuelMin, fuelEta) {
     const S = this.S, V = this.vt, set = (k, b, l, cls) => { const v = V[k]; if (v.bh !== b) { v.bh = b; v.b.innerHTML = b; } if (v.lh !== l) { v.lh = l; v.l.innerHTML = l; } const cn = `vt hpl ${k} ${cls}`; if (v.e.className !== cn) v.e.className = cn; };
     const temp = Math.round(cr.tH ?? c.temp), w = Sim.weatherAt(S, S.t);
-    const wl = w.blizzard ? `风雪 ${fmtTime(w.until - S.t)}` : w.warn ? `${fmtTime(w.inSec)}来雪` : '体感';
-    set('tmp', `${temp}°`, wl, (temp < 0 || w.blizzard ? 'bad' : w.warn ? 'warn' : '') + (temp < 10 ? ' cold' : ' warm'));
+    const cs = Sim.coldAt(S), con = cs && cs.on, cfc = cs && !cs.on && cs.fc;
+    const wl = w.blizzard ? `风雪 ${fmtTime(w.until - S.t)}` : con ? `寒潮 ${fmtTime(cs.left)}` : w.warn ? `${fmtTime(w.inSec)}来雪` : cfc ? `${fmtTime(cs.inSec)}寒潮` : '体感';
+    set('tmp', `${temp}°`, wl, (temp < 0 || w.blizzard || con ? 'bad' : w.warn || cfc ? 'warn' : '') + (temp < 10 ? ' cold' : ' warm'));
     const hp = Math.round(c.hope ?? 50), ds = Math.round(c.disc ?? 10), mt = cr.mood || { hT: hp, dT: ds }, arr = (v, t) => t > v + 1 ? '▲' : t < v - 1 ? '▼' : '';
     const pl = c.wait > 0 && ds < 55 ? `<span class="neg">${c.wait} 人等床位</span>` : ds >= 55 ? `不满 ${ds}${arr(ds, mt.dT)}` : `希望 ${hp}${arr(hp, mt.hT)}`;
     set('ppl', `${c.people}${c.bots ? `<small>+${c.bots}🤖</small>` : ''}<small>/${cr.housing || 0}</small>`, pl, ds >= 70 ? 'bad' : ds >= 55 || hp <= 25 ? 'warn' : '');
@@ -1071,10 +1075,24 @@ export class UI {
   }
   p_weather(part) {
     const S = this.S, c = this.camp(), cr = Sim.rt(S).c[c.id] || {}, P = this.wxPlan(c, cr);
-    if (part === 'title') return `${P.on ? '暴风雪中' : '天气预报'} <small>${esc(c.name)}</small>`;
+    const cs = Sim.coldAt(S), cold = cs && (cs.on || cs.fc);
+    if (part === 'title') return `${P.on ? '暴风雪中' : cs && cs.on ? '寒潮中' : '天气预报'} <small>${esc(c.name)}</small>`;
     const e = Sim.wxeAt(S, S.t), evFirst = e.ev && (e.on || (!P.on && e.inSec < P.inSec && e.inSec <= Sim.forecastOf(S)));
     const evh = `<div class="sec">${e.on ? '眼下的天气' : '其他天气'}</div>` + this.wxeCard(c, cr);
-    return (evFirst ? evh + '<div class="sec">暴风雪</div>' : '') + this.p_weatherBliz(c, cr, P) + (evFirst ? '' : evh);
+    const ch = cs ? `<div class="sec">寒潮季</div>` + this.coldCard(c, cr, cs) : '';
+    return (cold ? ch : '') + (evFirst ? evh + '<div class="sec">暴风雪</div>' : '') + this.p_weatherBliz(c, cr, P) + (evFirst ? '' : evh) + (cold ? '' : ch);
+  }
+  // 1.1 寒潮：多久到、这一天要烧多少燃料、屋里会不会冻着、挺过去有什么
+  coldCard(c, cr, cs) {
+    const S = this.S, m = Sim.coldFuel(S), C = Sim.COLD;
+    if (!cs.on && !cs.fc) return `<div class="row sub"><span>下一次寒潮</span><span>大约 ${fmtTime(cs.inSec)} 后（提前 ${Math.round(Sim.coldLead(S) / DAY_LEN)} 天报）</span></div>`;
+    const burn = cr.burnPerMin || 0, base = cs.on ? burn / m : burn, need = base * m * (cs.on ? cs.left : C.len) / 60, have = cr.fuelUnits || 0;
+    const tIn = Math.round((cr.tH ?? c.temp) - (cs.on ? 0 : C.drop)), tc = tIn >= 2 ? 'ok' : tIn >= -8 ? 'warn' : 'bad';
+    let h = `<div class="wxhero ${cs.on ? 'on' : cs.inSec <= 300 ? 'near' : ''}"><div class="wxi">🌨</div><div><b>${cs.on ? `寒潮中，还剩 ${fmtTime(cs.left)}` : `约 ${fmtTime(cs.inSec)} 后寒潮来袭`}</b><small>持续一整天 · 熔炉烧 ${m} 倍燃料 · 户外采集 ${Math.round(Sim.coldGather(S) * 100)}% · 气温 −${C.drop}°${Sim.coldBliz(S, cs) ? ' · 和暴风雪撞在一起' : ''}</small></div></div>`;
+    h += `<div class="row"><span>屋里体感</span><span>${cs.on ? '现在' : '寒潮里约'} <b class="${tc}">${tIn}°</b>${tIn >= 2 ? '，没人会冻着' : '，会有人冻伤：升级帐篷、造暖炉，或者让熔炉超载'}</span></div>`;
+    h += `<div class="row"><span>燃料</span><span>${cs.on ? '剩下这段' : '这一天'}要烧约 ${fmt(need)} · 现在有 ${fmt(have)} ${have >= need ? '<b class="ok">✔ 够</b>' : '<b class="bad">✖ 不够</b>'}${cs.on ? '' : '<small>（物流网在帮每座营地补）</small>'}</span></div>`;
+    h += `<div class="row sub"><span>挺过去</span><span>哪座营地没人冻伤，那里希望 +${C.hope}；全都没人冻伤，再给余烬 +${C.embers}</span></div>`;
+    return h;
   }
   p_weatherBliz(c, cr, P) {
     const S = this.S;
@@ -1225,6 +1243,13 @@ export class UI {
     }
     return h;
   }
+  // 1.1 熟练工：名字旁边的小星（亮几颗是几级）
+  skillStars(b) { if (!Sim.skillable(b)) return ''; const l = Sim.skillLvl(b); return l ? ` <i class="skst" title="熟练 ${l} 级">${'✦'.repeat(l)}<span>${'✦'.repeat(Sim.SKILL_MAX - l)}</span></i>` : ''; }
+  skillRow(b) {
+    if (!Sim.skillable(b)) return '';
+    const S = this.S, l = Sim.skillLvl(b), nx = Sim.skillNext(S, b), pend = b.wDrop != null ? Math.max(0, Math.ceil(Sim.SKILL_GRACE - (S.t - b.wDrop))) : 0;
+    return `<div class="row sub"><span>熟练工</span><span>${l ? `${l} 级 · 产量 +${Math.round(l * Sim.SKILL_PER * 100)}%` : '还是生手'}${nx ? `<small>（满员再干 ${fmtTime(nx.min * 60)} 升 ${nx.lvl} 级）</small>` : '<small>（练到顶了）</small>'}${pend && (b.xp || 0) > 0 ? `<br><b class="warn">人手少了：${pend} 秒内补回来，熟练度不会掉</b>` : ''}</span></div>`;
+  }
   // 1.1 替代配方：两套配方并排，点哪套换哪套（换一次停工 20 秒）
   altHtml(b) {
     const S = this.S, alt = Sim.altDef(b.type), ok = Sim.altOk(S, b.type), sw = b.altT > S.t;
@@ -1237,7 +1262,7 @@ export class UI {
     const S = this.S, b = Sim.getB(S, this.panel.arg);
     if (!b) { this.close(); return ''; }
     const d = Sim.bdef(b), c = Sim.getCamp(S, b.camp), R = Sim.rt(S), br = R.b[b.id] || {}, cr = R.c[c.id] || {};
-    if (part === 'title') return d.tower ? `${Sim.towerName(b.tn)} <small>${esc(c.name)}</small>` : `${d.n} <small>${b.lvl} 级 · ${esc(c.name)}</small>`;
+    if (part === 'title') return d.tower ? `${Sim.towerName(b.tn)} <small>${esc(c.name)}</small>` : `${d.n}${this.skillStars(b)} <small>${b.lvl} 级 · ${esc(c.name)}</small>`;
     let h = '';
     const tc = this.thumb(b.type, b.lvl);
     h += `<div class="bhero"><div class="hpic">${tc ? `<i class="th ${tc}"></i>` : ICON[b.type]}</div><div>`;
@@ -1254,6 +1279,7 @@ export class UI {
       const same = b.type !== 'furnace' ? Sim.sameType(S, b) : [];
       if (same.length > 1) { const sf = Sim.staffOf(S, b); h += `<div class="row sub bulkr"><span>同类 ${same.length} 栋</span><span>共 ${sf.w}/${sf.mx} 人<button class="bulkb" data-act="bulkw" data-arg="${b.id}" ${sf.w >= sf.mx ? 'disabled' : ''}>${sf.w >= sf.mx ? '都满了' : '都派满'}</button></span></div>`; }
     }
+    h += this.skillRow(b);
     if (!d.out && Sim.campSpecFx(S, b, c) > 0) h += `<div class="row sub"><span>营地特产</span><span>${b.type === 'workshop' ? '研究' : b.type === 'tower' ? '威力' : '热量'} +${this.specPct()}%<small>（「${esc(c.name)}」的特产）</small></span></div>`;
     if (d.out) {
       const rate = br.rate || {};

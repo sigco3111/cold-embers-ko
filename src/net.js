@@ -4,7 +4,7 @@
 import { RES, RES_KEYS, FUEL, furnaceBurn } from './data.js';
 import {
   getCamp, rt, storeCap, logMsg, up, techSum, relicSum, wxeAt, WXE_SLOW, getB, upgradeCost, canAfford, pay, missing, EAT,
-  keepOf, queueCost, fuelUnitsOf, dirty, dogsOf, trimWorkers, freeBeds, popRoom, MIN_PEOPLE, towerSpec,
+  keepOf, queueCost, fuelUnitsOf, dirty, dogsOf, trimWorkers, freeBeds, popRoom, MIN_PEOPLE, towerSpec, coldAt, coldFuel,
 } from './sim.js';
 import { journeyOf, mainCamp, tripPlan, ruleNow, nsOf } from './journey.js';
 
@@ -204,6 +204,8 @@ function queueNeeds(S, c) {
   for (const r of roads(S)) if (r.pend && r.pend.cost && r.pend.by === c.id) add(r.pend.cost);
   return qn;
 }
+// 每座营地要留几分钟的燃料：平常半小时；寒潮报出来还没到时，留够寒潮那一天（按加倍以后的烧法）再多十分钟
+export function fuelKeepMin(S) { const c = coldAt(S); return c && !c.on && c.fc ? Math.max(30, 12 * coldFuel(S) + 10) : 30; }
 const fuelU = (m) => { let u = 0; for (const k in FUEL) u += (m[k] || 0) * FUEL[k]; return u; };
 // 这个营地缺的：按七档排好，每档先用掉库存和在路上的货
 export function campGaps(S, c, inc = inbound(S, c.id)) {
@@ -218,7 +220,8 @@ export function campGaps(S, c, inc = inbound(S, c.id)) {
   };
   // 1 保命：燃料、口粮不到 20 分钟就补到 30 分钟
   const burn = cr.burnPerMin || 0, units = fuelUnitsOf(st) + fuelU(inc);
-  if (burn > 0 && units < burn * 20) out.push({ c: c.id, k: '@fuel', n: burn * 30 - units, tier: 1, why: '燃料', main: isMain });
+  const fk = fuelKeepMin(S); // 寒潮报出来了：先补到能烧过寒潮那一天
+  if (burn > 0 && units < burn * (fk > 30 ? fk : 20)) out.push({ c: c.id, k: '@fuel', n: burn * fk - units, tier: 1, why: fk > 30 ? '备寒潮' : '燃料', main: isMain });
   const eat = c.people * EAT;
   if (eat > 0 && avail.food < eat * 20) need('food', eat * 30, 1, '口粮');
   // 3 建造队列、排队的升级、排队的路
@@ -242,7 +245,7 @@ export function campGaps(S, c, inc = inbound(S, c.id)) {
 export function campSpare(S, c, lack = {}, manual = false) {
   const R = rt(S), cr = R.c[c.id] || {}, fl = cr.flow || {}, st = c.stock, cap = storeCap(S, c);
   const burn = cr.burnPerMin || furnaceBurn(getB(S, c.furnace).lvl);
-  const out = { __fu: Math.max(0, fuelUnitsOf(st) - burn * 30) };
+  const out = { __fu: Math.max(0, fuelUnitsOf(st) - burn * fuelKeepMin(S)) };
   const qn = manual ? {} : queueNeeds(S, c);
   for (const k of RES_KEYS) {
     if (!manual && (lack[k] || (c.hold && c.hold[k]))) continue;
