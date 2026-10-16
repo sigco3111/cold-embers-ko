@@ -66,16 +66,21 @@ function costHtml(stock, cost, known = 99) {
 }
 
 // 研究树布局：列 = 前置深度；第一个子节点沿用父节点那一行，其余往下找空行
+// 研究树的一列（一条分支）：按纬度、再按前置的深度从上往下排；每条分支是两条链，左链的连线走左边，右链走右边
 function techLayout(list) {
-  const by = Object.fromEntries(list.map(t => [t.id, t])), depth = {};
+  const by = Object.fromEntries(list.map(t => [t.id, t])), depth = {}, side = {};
   const dep = t => depth[t.id] ?? (depth[t.id] = (t.req || []).filter(r => by[r]).reduce((m, r) => Math.max(m, dep(by[r]) + 1), 0));
   list.forEach(dep);
-  const kids = id => list.filter(t => (t.req || [])[0] === id);
-  const at = {}, used = new Set();
-  const put = (t, lane) => { while (used.has(lane + ':' + depth[t.id])) lane++; used.add(lane + ':' + depth[t.id]); at[t.id] = { col: depth[t.id], lane }; kids(t.id).forEach((k, i) => put(k, i ? lane + 1 : lane)); };
-  list.filter(t => !(t.req || []).some(r => by[r])).forEach(t => put(t, 0));
-  const vals = Object.values(at);
-  return { at, cols: Math.max(...vals.map(v => v.col)) + 1, lanes: Math.max(...vals.map(v => v.lane)) + 1 };
+  let roots = 0;
+  for (const t of list) {
+    const p = (t.req || []).find(r => by[r]);
+    if (!p) { side[t.id] = roots++ % 2; continue; }
+    const first = list.find(x => (x.req || []).includes(p));
+    side[t.id] = first === t ? side[p] : 1 - side[p];
+  }
+  const ord = [...list].sort((a, b) => a.t - b.t || depth[a.id] - depth[b.id] || list.indexOf(a) - list.indexOf(b));
+  const at = {}; ord.forEach((t, i) => { at[t.id] = { row: i, side: side[t.id] }; });
+  return { at, rows: ord.length };
 }
 // 底部五个分区（加上菜单、提醒）：每个分区几张页签，一张页签就是一种面板；def 是第一次打开时停在哪张
 const HUBS = {
@@ -635,9 +640,9 @@ export class UI {
     this.noteSync(A);
     document.body.classList.toggle('hint-on', !!(this.g.hints && this.g.hints.cur));
     // 底部分区上的小点
-    { const T = S.tech, ct = T && T.cur && TECHS.find(t => t.id === T.cur), tb = this.$('tbResearch');
+    { const T = S.tech, ct = T && T.cur && Sim.techDef(S, T.cur), tb = this.$('tbResearch');
       tb.style.setProperty('--p', ct ? Math.min(1, T.prog / ct.pts).toFixed(3) : 0); tb.classList.toggle('busy', !!ct);
-      tb.classList.toggle('dot', !ct && S.buildings.some(b => b.type === 'workshop') && TECHS.some(t => Sim.techCheck(S, t.id).ok)); }
+      tb.classList.toggle('dot', !ct && S.buildings.some(b => b.type === 'workshop') && (TECHS.some(t => Sim.techCheck(S, t.id).ok) || Sim.techCheck(S, 'endless').ok)); }
     this.$('tbBuild').classList.toggle('dot', this.newBld().length > 0);
     this.$('tbNorth').classList.toggle('dot', ['migrate', 'specs', 'scout'].some(k => this.tabDot(k)));
     this.$('tbCamp').classList.toggle('dot', this.tabDot('camp'));
@@ -1271,7 +1276,7 @@ export class UI {
     if (c.depot && b.type === 'furnace') h += this.depotHtml(c);
     else if (Sim.depotAuto(c)) h += `<button class="mlink" data-act="tb" data-arg="camp"><span>🏚️</span><span>「${esc(c.name)}」是补给站<small>自己运转，不升级。要改先在营地面板里「临时接手」</small></span><i>›</i></button>`;
     if (d.tower) return h + this.towerHtml(b, c, br);
-    if (b.type === 'workshop') { const T = S.tech || {}, ct = T.cur && TECHS.find(t => t.id === T.cur); h += `<button class="mlink" data-act="tb" data-arg="research"><span>🔬</span><span>${ct ? `正在研究「${ct.n}」 ${Math.floor(T.prog / ct.pts * 100)}%` : '挑一项研究'}<small>这座工程站每分钟 ${fmt(br.rp || 0)} 点</small></span><i>›</i></button>`; }
+    if (b.type === 'workshop') { const T = S.tech || {}, ct = T.cur && Sim.techDef(S, T.cur); h += `<button class="mlink" data-act="tb" data-arg="research"><span>🔬</span><span>${ct ? `正在研究「${ct.n}」 ${Math.floor(T.prog / ct.pts * 100)}%` : '挑一项研究'}<small>这座工程站每分钟 ${fmt(br.rp || 0)} 点</small></span><i>›</i></button>`; }
     const mx = Sim.bMax(S, b);
     if (mx) {
       h += `<div class="row"><span>${b.type === 'warehouse' ? '搬运工' : '工人'}</span><span class="stepper"><button data-act="w-" data-arg="${b.id}">−</button><b>${b.workers}/${mx}</b><button data-act="w+" data-arg="${b.id}">＋</button><button class="small" data-act="wmax" data-arg="${b.id}">满</button></span></div>`;
@@ -1718,54 +1723,62 @@ export class UI {
   }
 
   p_research(part) {
-    const S = this.S, c = this.camp(), R = Sim.rt(S), T = S.tech || { done: {}, cur: null, prog: 0 };
-    if (part === 'title') return `研究 <small>已完成 ${Object.keys(T.done).length}/${TECHS.length}</small>`;
+    const S = this.S, R = Sim.rt(S), T = S.tech || { done: {}, cur: null, prog: 0 }, nd = TECHS.filter(t => T.done[t.id]).length, EL = Sim.endlessLvl(S);
+    if (part === 'title') return `研究 <small>已完成 ${nd}/${TECHS.length}${EL ? ` · 无尽 ${EL} 级` : ''}</small>`;
     const shops = S.buildings.filter(b => b.type === 'workshop'), rate = R.rpRate || 0;
     let potential = 0; for (const b of shops) potential += (R.b[b.id] || {}).rp || 0;
     let h = '';
-    const ct = T.cur && TECHS.find(t => t.id === T.cur);
+    const ct = T.cur && Sim.techDef(S, T.cur);
     if (ct) {
       const left = ct.pts - T.prog;
       h += `<div class="tcur"><div class="tch"><span class="ti">${ct.ic}</span><div><b>${ct.n}</b><small>${ct.d}</small></div></div>
         <div class="mbar"><i style="width:${Math.min(100, T.prog / ct.pts * 100).toFixed(1)}%"></i></div>
         <div class="tcm"><span>${fmt(T.prog)} / ${ct.pts} 点 · ${rate > 0 ? `还要 ${fmtTime(left / rate * 60)}` : '<b class="neg">停住了：工程站里没人干活</b>'}</span><button class="small" data-act="techstop">停止（退回材料）</button></div></div>`;
-    } else h += `<div class="tcur idle"><b>现在没有在研究。</b><small>从下面挑一项开始；开始时先付材料，攒够研究点数就完成。</small></div>`;
+    } else h += `<div class="tcur idle"><b>现在没有在研究。</b><small>点下面的一项看详情，开始时先付材料，攒够研究点数就完成。</small></div>`;
     if (!shops.length) h += `<div class="issue warn"><span class="ii">🔬</span><span class="it"><b>还没有工程站</b><small>研究点数由工程站里的工程师产出</small></span><span class="ia"><button class="small go" data-act="place" data-arg="workshop">建工程站</button></span></div>`;
     else h += `<div class="row sub"><span>工程站</span><span>${shops.length} 座 · 每分钟 ${fmt(ct ? rate : potential)} 点${!ct ? '（开始研究后才派人）' : ''}</span></div>`;
     if (T.bank > 0.5) h += `<div class="row sub"><span>📜 探险带回的图纸</span><span>${fmt(T.bank)} 点 · 下一项研究开始时直接算进去</span></div>`;
-    // 研究树：每条分支从左往右按前置关系排开，点一个节点在下面展开详情
-    const sel = TECHS.find(t => t.id === this.techSel) || ct || TECHS.find(t => Sim.techCheck(S, t.id).ok) || TECHS.find(t => !Sim.techCheck(S, t.id).done) || TECHS[0];
-    for (let br = 0; br < TECH_BR.length; br++) {
-      const list = TECHS.filter(x => x.br === br), lay = techLayout(list);
-      const nDone = list.filter(t => T.done[t.id]).length;
-      h += `<div class="sec">${TECH_BR[br]} <small>${nDone}/${list.length}</small></div>`;
-      const LH = 86, hgt = lay.lanes * LH, X = n => ((n.col + 0.5) / lay.cols * 100).toFixed(2), Y = n => n.lane * LH + 30;
-      let lines = '';
-      for (const t of list) for (const r of t.req || []) {
-        const a = lay.at[r], b = lay.at[t.id]; if (!a) continue;
-        const x1 = +X(a), y1 = Y(a), x2 = +X(b), y2 = Y(b), xm = (x1 + x2) / 2;
-        lines += `<path class="${T.done[t.id] ? 'done' : T.done[r] ? 'open' : ''}" d="M${x1} ${y1}C${xm} ${y1} ${xm} ${y2} ${x2} ${y2}"/>`;
+    // 无尽研究
+    const all = Sim.allTechDone(S);
+    h += `<button class="rend ${all ? 'on' : ''} ${this.techSel === 'endless' ? 'sel' : ''}" data-act="techsel" data-arg="endless"><span class="ti">♾️</span><span><b>无尽研究${EL ? ` · 已 ${EL} 级` : ''}</b><small>${all ? `每一级所有生产 +2%，没有上限（现在 +${Math.round(EL * 2)}%）` : `五条分支全部研究完以后开放（还差 ${TECHS.length - nd} 项）`}</small></span><i>›</i></button>`;
+    // 研究树：五列，每列一条分支，从上往下按纬度排；连线连到前置
+    const cols = TECH_BR.map((n, br) => { const list = TECHS.filter(x => x.br === br); return { n, br, list, lay: techLayout(list), gate: Sim.techGateWhy(S, br) }; });
+    const RH = 84, H = Math.max(...cols.map(c => c.lay.rows)) * RH + 6, sel = this.techSelOf();
+    h += `<div class="rhd">${cols.map(c => `<span class="${c.gate ? 'lk' : ''}"><b>${c.n}</b><small>${c.gate ? '🔒 未开放' : `${c.list.filter(t => T.done[t.id]).length}/${c.list.length}`}</small></span>`).join('')}</div>`;
+    let lines = '', nodes = '';
+    cols.forEach((c, ci) => {
+      // 两条链左右错开一点：左链的节点偏左、右链偏右，同一条链上下直接连线，从另一条链分出来的画一道弯
+      const cx = (ci + 0.5) * 20, X = n => cx + (n.side ? 3 : -3), Y = n => n.row * RH + 22;
+      for (const t of c.list) for (const r of t.req || []) {
+        const a = c.lay.at[r], b = c.lay.at[t.id]; if (!a) continue;
+        const x0 = X(a), x1 = X(b), y0 = Y(a) + 45, y1 = Y(b) - 19;
+        lines += `<path class="${T.done[t.id] ? 'done' : T.done[r] ? 'open' : ''}" d="${x0 === x1 ? `M${x0} ${y0}L${x1} ${y1}` : `M${x0} ${y0}C${x0} ${y0 + 34} ${x1} ${y1 - 34} ${x1} ${y1}`}"/>`;
       }
-      h += `<div class="ttree" style="height:${hgt}px"><svg viewBox="0 0 100 ${hgt}" preserveAspectRatio="none" aria-hidden="true">${lines}</svg>`;
-      for (const t of list) {
-        const n = lay.at[t.id], ck = Sim.techCheck(S, t.id);
+      for (const t of c.list) {
+        const n = c.lay.at[t.id], ck = Sim.techCheck(S, t.id);
         const cls = ck.done ? 'done' : ck.cur ? 'cur' : ck.lock ? 'lock' : ck.ok ? 'ok' : 'soft';
         const pr = ck.cur ? Math.min(1, T.prog / t.pts) : 0;
-        h += `<button class="tnode ${cls}${sel === t ? ' sel' : ''}" data-act="techsel" data-arg="${t.id}" style="left:${X(n)}%;top:${Y(n) - 25}px;--p:${pr.toFixed(3)}"><span class="tn0">${t.ic}</span>${ck.done ? '<em class="tbadge">✓</em>' : ck.lock ? '<em class="tbadge lk">🔒</em>' : ''}<span class="tnl">${t.n}</span></button>`;
+        nodes += `<button class="tnode rn ${cls}${sel === t ? ' sel' : ''}${c.gate ? ' gate' : ''}" data-act="techsel" data-arg="${t.id}" style="left:${X(n).toFixed(2)}%;top:${Y(n) - 20}px;--p:${pr.toFixed(3)}"><span class="tn0">${t.ic}</span>${ck.done ? '<em class="tbadge">✓</em>' : ck.lock ? '<em class="tbadge lk">🔒</em>' : ''}${t.star ? '<em class="tstar">★</em>' : ''}<span class="tnl">${t.n}</span></button>`;
       }
-      h += `</div>`;
-      if (sel.br === br) {
-        const ck = Sim.techCheck(S, sel.id);
-        const act = ck.done ? '<span class="tdone">✓ 已完成</span>' : ck.cur ? '<span class="tdone cur">研究中</span>' : ck.lock ? `<span class="tlock">${esc(ck.reason)}</span>` : `<button class="btn ${ck.ok ? 'go' : ''}" data-act="tech" data-arg="${sel.id}">开始研究</button>`;
-        h += `<div class="tdet ${ck.done ? 'done' : ck.lock ? 'lock' : ''}" style="--ax:${X(lay.at[sel.id])}%"><div class="tdh"><span class="ti">${sel.ic}</span><div><b>${sel.n}</b><small>${sel.d}</small></div></div>`;
-        if (!ck.done) h += `<div class="tcost">${costHtml(c.stock, sel.cost, S.known)} <span class="cost">🔬${sel.pts}</span></div>`;
-        if (!ck.ok && !ck.done && !ck.cur && !ck.lock && ck.reason) h += `<small class="neg">${esc(ck.reason)}</small>`;
-        h += `<div class="tda">${act}</div></div>`;
-      }
-    }
-    h += `<div class="hint">研究对所有营地都生效；北迁到下一程时研究会清零。</div>`;
+    });
+    h += `<div class="ttree rtree" style="height:${H}px"><svg viewBox="0 0 100 ${H}" preserveAspectRatio="none" aria-hidden="true">${lines}</svg>${nodes}</div>`;
+    h += `<div class="hint">★ 是解锁新东西的研究。研究对所有营地都生效，北迁以后也一直有效。</div>`;
     return h;
   }
+  techSelOf() {
+    const S = this.S, T = S.tech || { done: {}, cur: null };
+    if (this.techSel === 'endless') return Sim.techDef(S, 'endless');
+    return TECHS.find(t => t.id === this.techSel) || (T.cur && T.cur !== 'endless' && TECHS.find(t => t.id === T.cur)) || TECHS.find(t => Sim.techCheck(S, t.id).ok) || TECHS.find(t => !Sim.techCheck(S, t.id).done && !Sim.techCheck(S, t.id).gate) || (Sim.allTechDone(S) ? Sim.techDef(S, 'endless') : TECHS[0]);
+  }
+  // 研究面板底部：选中那一项的详情和开始按钮
+  pf_research() {
+    const S = this.S, c = this.camp(), t = this.techSelOf(), ck = Sim.techCheck(S, t.id);
+    const act = ck.done ? '<span class="tdone">✓ 已完成</span>' : ck.cur ? '<span class="tdone cur">研究中</span>' : ck.lock ? '' : `<button class="btn ${ck.ok ? 'go' : ''}" data-act="tech" data-arg="${t.id}" ${ck.ok || ck.soft ? '' : 'disabled'}>开始研究</button>`;
+    const tag = t.br >= 0 ? `${TECH_BR[t.br]} · ${TIER_NAMES[t.t] || ''}` : '';
+    return `<div class="rdet ${ck.done ? 'done' : ck.lock ? 'lock' : ''}"><div class="tdh"><span class="ti">${t.ic}</span><b>${t.n}</b>${t.star ? '<i class="tstar2">★ 解锁</i>' : ''}${tag ? `<small class="rmeta">${tag}</small>` : ''}</div><small class="rd">${t.d}</small>
+      ${ck.done ? '' : `<div class="rfoot"><span class="tcost">${costHtml(c.stock, t.cost, S.known)} <span class="cost">🔬${t.pts}</span></span>${act}</div>`}${ck.lock || (ck.soft && !ck.ok) || ck.busy ? `<small class="${ck.lock ? 'tlock' : 'neg'}">${esc(ck.reason)}</small>` : ''}</div>`;
+  }
+
 
   // 北行 › 地图与侦察
   p_scout(part) {
@@ -2918,7 +2931,7 @@ export const HELP = `<h3>怎么玩</h3>
 <p><b>物流：</b>所有营地连成一张路网。每 10 秒每座营地算一次缺什么、多什么，多的装上雪橇顺着路送到缺的营地，路上能经过别的营地转运。先送保命的燃料口粮，再送排队的建筑要的料、产线缺的料、主营地升熔炉和北迁要的，最后给每座营地补到木材木板石料铁锭各 200。「生产 → 物流」里看每座营地运来、送出、还缺什么，升级道路（雪橇道、北行主干道、铁路），也能手动送一批、设长期供货、把某样货标成不外送。</p>
 <p><b>替代配方和营地特产：</b>有些加工厂能换一套配方（比如焦煤坊不用煤、改用木材），在建筑面板的「配方」里换，换一次停工 20 秒；研究「替代配方·一」「替代配方·二」后才能换。某样原料断了，老向导会提醒你换。每座营地建起来时就定了一样特产：北境的站看地貌，别处看暖圈里哪种矿多。特产的那几种建筑在这座营地里产量 +50%（研究「特产精工」后 +75%），营地面板里能看到。</p>
 <p><b>人心：</b>每个营地有「希望」和「不满」。吃不饱、太冷、有人死去会让人失望；住得好、有进展会让人振奋。希望高干活更快、来投奔的人更多；不满太高会有人离开。在「营地 → 律令」里签署营地律令，每条都有好处也有代价。</p>
-<p><b>研究：</b>建工程站，派工程师攒研究点数，解锁三条分支的 17 项改良。探险带回的图纸可以直接抵研究点数。</p>
+<p><b>研究：</b>建工程站，派工程师攒研究点数。五条分支共 45 项：生产、生存、物流一开始就有，自动化要侦察到遗迹金属纬度，北境要走到北境才开放；带 ★ 的会解锁新东西（替代配方、城镇、奇观、熔炉号令等）。全部研究完以后开放无尽研究，每一级所有生产 +2%。探险带回的图纸可以直接抵研究点数。</p>
 <p><b>探索：</b>迷雾里藏着废弃仓库、冻住的列车、观测站这样的地点。侦察队揭开后，从侦察营派 4 人的探险队去；带足补给更安全，到了还能做更多选择。</p>
 <p><b>章节：</b>每到一个新地标就开始新的一章，有自己的故事和三个任务，做完可以领奖励。点顶上的目标栏查看。</p>
 <p><b>产能主线：</b>每章的头一个任务是某样材料每分钟产多少。点目标栏的「规划」看这条线：每一环要几座建筑、几个人，现在卡在哪一环。产量稳住一阵，产线就升星，升星加产量；累计产量到了里程碑也有奖励。自己还能立几条支线。一条线搭好了，可以「复制这条线」整组搬到别处。老向导（左下角的便签）会一直指着下一步。</p>

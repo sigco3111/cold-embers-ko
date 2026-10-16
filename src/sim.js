@@ -2,7 +2,7 @@
 import {
   RES, RES_KEYS, FUEL, FUEL_ORDER, GATE, GATE_EVERY, SPOTS, SPOT_KEYS, LANDMARKS, BAND_START,
   tierOfRow, baseTempOfRow, ETERNAL_STAGES, BLD, furnaceHeat, furnaceRadius, furnaceBurn,
-  SPECS, SPEC_MAX, specBonus, specTrainCost, EMBER_UPS, emberCost, RAIDERS, STORY, DAY_LEN, LAWS, LAW_CD, TECHS, SITES, CHAPTERS, INFRA, LM_R, FAR_MARKS, DIFF, DIFF_KEYS, FOCUS, FOCUS_KEYS, FOCUS_LVL, FOCUS_CD, NORTH_RULES, RULE_FX, RICH_KINDS, CAMP_SPEC, CSPEC_FX, CSPEC_FX2, ALT, ALT_SWITCH, NORTH_HI, TITLES, FLAMES, FLAGS, FRAMES, NDECO, NORTH_TASK, NORTH_STORY, NORTH_END, TOWER_STEPS, TOWER_FX,
+  SPECS, SPEC_MAX, specBonus, specTrainCost, EMBER_UPS, emberCost, RAIDERS, STORY, DAY_LEN, LAWS, LAW_CD, TECHS, TECH_GATE, ENDLESS, SITES, CHAPTERS, INFRA, LM_R, FAR_MARKS, DIFF, DIFF_KEYS, FOCUS, FOCUS_KEYS, FOCUS_LVL, FOCUS_CD, NORTH_RULES, RULE_FX, RICH_KINDS, CAMP_SPEC, CSPEC_FX, CSPEC_FX2, ALT, ALT_SWITCH, NORTH_HI, TITLES, FLAMES, FLAGS, FRAMES, NDECO, NORTH_TASK, NORTH_STORY, NORTH_END, TOWER_STEPS, TOWER_FX,
 } from './data.js';
 import { W, H, BASE_H, setRows, rowsFor, northStop, T_SNOW, T_ICE, getWorld, idx, inMap, hash3, mulberry32 } from './worldgen.js';
 import { journeyOf, journeyStep, mainCamp, outpostBlock, outpostKit, moveFuel, fuelUnits, stopOf, depotAuto, growNext, ruleNow, campRule, ruleSpan, ruleSpans, nsOf, SPINE, northN } from './journey.js';
@@ -1124,6 +1124,8 @@ export function prodBonus(S, b, camp, syn, beltB) {
     ['相邻、传送带', Math.min(BONUS_CAP.adj, SYN_PER * syn + beltB)],
     ['余烬', Math.min(BONUS_CAP.ember, EMBER_PROD * up(S, 'prod'))],
     ['遗物', Math.min(BONUS_CAP.relic, relicSum(S, 'prod'))],
+    ['烽火余晖', techDone(S, 'afterglow') ? 0.03 * towersLit(S) : 0],
+    ['无尽研究', ENDLESS.prod * endlessLvl(S)],
     ['律令', lawSum(S, 'prod')],
     ['鼓舞', buffOf(S, camp, 'prod')],
   ].filter(p => Math.abs(p[1]) > 1e-9);
@@ -1163,33 +1165,50 @@ export function techDone(S, id) { return !!(S.tech && S.tech.done[id]); }
 export function techSum(S, k) { let v = 0; if (S.tech) for (const t of TECHS) if (S.tech.done[t.id] && t.fx[k]) v += t.fx[k]; return v; }
 function techBP(S, type) { let v = 0; if (S.tech) for (const t of TECHS) if (S.tech.done[t.id] && t.fx.bp && t.fx.bp[type]) v += t.fx.bp[type]; return v; }
 function techState(S) { return S.tech || (S.tech = { done: {}, cur: null, prog: 0 }); }
-// 能不能开始研究：已完成 / 正在研究 / 缺前置 / 没侦察到 / 缺材料
+// 无尽研究：五条分支都研究完以后开放，一级一级往上，每级所有生产 +2%
+export const endlessLvl = S => (S.tech && S.tech.endless) || 0;
+export const allTechDone = S => !!S.tech && TECHS.every(t => S.tech.done[t.id]);
+export function endlessDef(S) {
+  const L = endlessLvl(S), m = Math.pow(ENDLESS.mul, L), cost = {};
+  for (const k in ENDLESS.cost) cost[k] = Math.round(ENDLESS.cost[k] * m);
+  return { id: 'endless', br: -1, n: `无尽研究 · 第 ${L + 1} 级`, ic: '♾️', t: 0, pts: Math.round(ENDLESS.pts * m), cost, d: `所有生产 +${Math.round(ENDLESS.prod * 100)}%（现在 +${Math.round(L * ENDLESS.prod * 100)}%）`, fx: {} };
+}
+export const techDef = (S, id) => (id === 'endless' ? endlessDef(S) : TECHS.find(x => x.id === id));
+// 分支开没开：自动化要侦察到遗迹金属纬度，北境要走到北境
+export function techGateWhy(S, br) {
+  const g = TECH_GATE[br]; if (!g) return '';
+  if (g.known && S.known < g.known) return g.why;
+  if (g.north && journeyOf(S).stage <= SPINE) return g.why;
+  return '';
+}
+// 能不能开始研究：已完成 / 正在研究 / 分支没开 / 缺前置 / 没侦察到 / 缺材料
 export function techCheck(S, id) {
-  const t = TECHS.find(x => x.id === id), T = techState(S);
+  const t = techDef(S, id), T = techState(S);
   if (!t) return { ok: false, reason: '' };
-  if (T.done[id]) return { ok: false, done: true, reason: '已完成' };
+  if (id === 'endless' ? !allTechDone(S) : T.done[id]) return id === 'endless' ? { ok: false, lock: true, reason: '五条分支全部研究完以后开放' } : { ok: false, done: true, reason: '已完成' };
   if (T.cur === id) return { ok: false, cur: true, reason: '研究中' };
+  const gw = t.br >= 0 ? techGateWhy(S, t.br) : ''; if (gw) return { ok: false, lock: true, gate: true, reason: gw };
   const miss = (t.req || []).filter(r => !T.done[r]);
   if (miss.length) return { ok: false, lock: true, reason: '先研究「' + miss.map(r => TECHS.find(x => x.id === r).n).join('」「') + '」' };
   if (t.t > S.known) return { ok: false, lock: true, reason: `侦察到「${['', '篝火', '煤与铁', '钢与蒸汽', '油与铁路', '霜晶', '遗迹金属', '炉心'][t.t]}」纬度后才能研究` };
-  if (T.cur) return { ok: false, busy: true, reason: `正在研究「${TECHS.find(x => x.id === T.cur).n}」` };
+  if (T.cur) return { ok: false, busy: true, reason: `正在研究「${techDef(S, T.cur).n}」` };
   const camp = getCamp(S, S.active) || S.camps[0];
   if (!canAfford(camp.stock, t.cost)) return { ok: false, soft: true, reason: '缺：' + missing(camp.stock, t.cost).join('，') };
   return { ok: true };
 }
 export function startTech(S, id) {
   const ck = techCheck(S, id); if (!ck.ok) return ck;
-  const t = TECHS.find(x => x.id === id), T = techState(S), camp = getCamp(S, S.active) || S.camps[0];
-  pay(camp.stock, t.cost); T.cur = id; T.prog = 0; T.paidBy = camp.id;
+  const t = techDef(S, id), T = techState(S), camp = getCamp(S, S.active) || S.camps[0];
+  pay(camp.stock, t.cost); T.cur = id; T.prog = 0; T.paidBy = camp.id; T.paid = t.cost;
   logMsg(S, `工程站开始研究「${t.n}」。`);
   return { ok: true };
 }
 export function cancelTech(S) {
   const T = techState(S); if (!T.cur) return;
-  const t = TECHS.find(x => x.id === T.cur), camp = getCamp(S, T.paidBy) || S.camps[0];
-  for (const k in t.cost) camp.stock[k] = (camp.stock[k] || 0) + t.cost[k];
+  const t = techDef(S, T.cur), camp = getCamp(S, T.paidBy) || S.camps[0], cost = T.paid || t.cost;
+  for (const k in cost) camp.stock[k] = (camp.stock[k] || 0) + cost[k];
   logMsg(S, `停止研究「${t.n}」，材料退回了「${camp.name}」。`);
-  T.cur = null; T.prog = 0;
+  T.cur = null; T.prog = 0; delete T.paid;
 }
 // 研究点数：各营地工程站每分钟的贡献加起来
 function researchStep(S, dt) {
@@ -1203,11 +1222,13 @@ function researchStep(S, dt) {
   researchDone(S, T, R);
 }
 function researchDone(S, T, R) {
-  const t = TECHS.find(x => x.id === T.cur);
+  const t = T.cur && techDef(S, T.cur);
   if (t && T.prog >= t.pts) {
     T.bank = (T.bank || 0) + (T.prog - t.pts); // 多出来的点数留给下一项
-    T.done[t.id] = true; T.cur = null; T.prog = 0;
-    logMsg(S, `研究完成「${t.n}」：${t.d}。`, 'good');
+    if (t.id === 'endless') T.endless = endlessLvl(S) + 1; else T.done[t.id] = true;
+    T.cur = null; T.prog = 0; delete T.paid;
+    logMsg(S, t.id === 'endless' ? `无尽研究升到第 ${T.endless} 级：所有生产 +${Math.round(T.endless * ENDLESS.prod * 100)}%。` : `研究完成「${t.n}」：${t.d}。`, 'good');
+    if (t.id !== 'endless' && allTechDone(S)) logMsg(S, '五条分支的研究全部完成了！工程站开放了「无尽研究」：每一级所有生产 +2%，没有上限。', 'story', { act: 'tb', arg: 'research', label: '去看看' });
     R.fx.push({ kind: 'tech', id: t.id });
     dirty(S);
   }
@@ -2052,7 +2073,7 @@ function campStep(S, camp, dt, w) {
   st.stone = Math.min(cap, (st.stone || 0) + forage * 0.06);
   cr.forage = idle;
   // 吃饭
-  const eatMul = Math.max(0.3, 1 + lawSum(S, 'food')) * diffOf(S).eat;
+  const eatMul = Math.max(0.3, 1 + lawSum(S, 'food') + techSum(S, 'eat')) * diffOf(S).eat;
   const needFood = camp.people * EAT * eatMul / 60 * dt;
   let eaten = Math.min(st.food || 0, needFood);
   st.food = (st.food || 0) - eaten;

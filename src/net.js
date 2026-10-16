@@ -4,7 +4,7 @@
 import { RES, RES_KEYS, FUEL, furnaceBurn } from './data.js';
 import {
   getCamp, rt, storeCap, logMsg, up, techSum, relicSum, wxeAt, WXE_SLOW, getB, upgradeCost, canAfford, pay, missing, EAT,
-  keepOf, queueCost, fuelUnitsOf, dirty, dogsOf, trimWorkers, freeBeds, popRoom, MIN_PEOPLE, towerSpec, coldAt, coldFuel,
+  keepOf, queueCost, fuelUnitsOf, dirty, dogsOf, trimWorkers, freeBeds, popRoom, MIN_PEOPLE, towerSpec, coldAt, coldFuel, techDone,
 } from './sim.js';
 import { journeyOf, mainCamp, tripPlan, ruleNow, nsOf } from './journey.js';
 
@@ -21,10 +21,14 @@ export const TIER = ['', '保命', '手动送的', '建造队列', '长期供货
 const FUEL_SHIP = ['coke', 'coal', 'wood', 'battery']; // 补燃料时先送热值高又不太金贵的
 
 // 研究、号令、奇观以后往这里加：cap 运力倍数、spd 雪橇速度、rail 铁路速度、thrift 修路省料、tick 调度间隔
+const TECH_NET = { thrift: ['wideroad', 0.7], tick: ['dispatch', 0.5], rail: ['railsched', 1.5] };
 export function netMul(S, k) {
-  const R = rt(S), m = R.netMul && R.netMul[k];
-  return m != null ? m : 1;
+  const R = rt(S), m = R.netMul && R.netMul[k], tn = TECH_NET[k];
+  return (m != null ? m : 1) * (tn && techDone(S, tn[0]) ? tn[1] : 1);
 }
+// 一车最少装多少件：研究「调度站」后 5 件就发
+export const netBatch = S => (techDone(S, 'dispatch') ? 5 : NET_BATCH);
+let NB = NET_BATCH; // 这一轮调度一车最少装多少件
 
 // ---------- 路 ----------
 export function roads(S) { return S.roads || (S.roads = []); }
@@ -311,10 +315,11 @@ function fill(S, g, spare, bud, N, minB, onlyFrom) {
   return { left, jam, none: none && !jam };
 }
 function dispatch(S, win) {
+  NB = netBatch(S);
   const R = rt(S), N = R.net = { ...(R.net || {}), t: S.t, win, road: {}, short: {}, jam: {}, gaps: {} };
   // 每条路这一轮能运多少：慢路没用完的攒着，攒够一车十件就能发；新路一开始就能发一车；平均下来不会超过运力
   const bud = {}, B0 = R.netBud || {}, B1 = R.netBud = {};
-  for (const r of roads(S)) if (roadOn(r)) { const cap = roadCap(S, r); const w = cap * win / 60; bud[r.id] = Math.min(Math.max(NET_BATCH, w), (B0[r.id] ?? NET_BATCH) + w); N.road[r.id] = { cap, used: 0 }; }
+  for (const r of roads(S)) if (roadOn(r)) { const cap = roadCap(S, r); const w = cap * win / 60; bud[r.id] = Math.min(Math.max(NB, w), (B0[r.id] ?? NB) + w); N.road[r.id] = { cap, used: 0 }; }
   const inc = {}; for (const s of ships(S)) { const m = inc[s.to] || (inc[s.to] = {}); m[s.k] = (m[s.k] || 0) + s.n; }
   const G = [], lack = {};
   const lo = (L, k, t) => { L[k] = Math.min(L[k] ?? 99, t); };
@@ -325,7 +330,7 @@ function dispatch(S, win) {
   const m = mainCamp(S), dm = {};
   if (m) { const P = pathsTo(S, m.id, INF(S)); for (const id in P) dm[id] = P[id].t; }
   G.sort((a, b) => a.tier - b.tier || (b.main - a.main) || ((dm[a.c] ?? 1e9) - (dm[b.c] ?? 1e9)) || a.c - b.c);
-  const minOf = g => g.tier === 5 || g.tier === 7 ? NET_BATCH : Math.min(NET_BATCH, Math.max(1, Math.floor(g.n)));
+  const minOf = g => g.tier === 5 || g.tier === 7 ? NB : Math.min(NB, Math.max(1, Math.floor(g.n)));
   const note = (g, r) => { if (r.left < 1) return; const o = N.short[g.c] || (N.short[g.c] = {}); if (!o[g.k] || o[g.k].tier > g.tier) o[g.k] = { tier: g.tier, n: r.left, why: g.why, jam: r.jam, none: r.none }; };
   const run = g => {
     (N.gaps[g.c] || (N.gaps[g.c] = [])).push(g);
@@ -333,7 +338,7 @@ function dispatch(S, win) {
       let leftU = g.n, jam = false, none = true;
       for (const k of FUEL_SHIP) {
         if (leftU < 1 || RES[k].t > S.known) continue;
-        const r = fill(S, { ...g, k, n: leftU / FUEL[k] }, spare, bud, N, Math.max(1, Math.min(NET_BATCH, Math.floor(leftU / FUEL[k]))));
+        const r = fill(S, { ...g, k, n: leftU / FUEL[k] }, spare, bud, N, Math.max(1, Math.min(NB, Math.floor(leftU / FUEL[k]))));
         leftU = r.left * FUEL[k]; jam = jam || r.jam; none = none && r.none;
       }
       note(g, { left: leftU, jam, none }); // k 还是 '@fuel'：界面上写「燃料」
@@ -350,7 +355,7 @@ function dispatch(S, win) {
     while (pend.length) {
       const next = [];
       for (const p of pend) {
-        const minB = minOf(p.g), ch = Math.min(p.left, Math.max(minB, NET_BATCH));
+        const minB = minOf(p.g), ch = Math.min(p.left, Math.max(minB, NB));
         const r = fill(S, { ...p.g, n: ch }, spare, bud, N, minB), sent = ch - r.left;
         p.left -= sent; p.r = { ...r, left: p.left }; if (sent > 0) LS[key(p)] = S.t;
         if (sent > 0 && p.left >= minB) next.push(p);
@@ -371,7 +376,7 @@ function dispatch(S, win) {
     if (b.left < 0.5) continue;
     const fc = getCamp(S, b.from); if (!fc) continue;
     const sp = { [b.from]: campSpare(S, fc, {}, true) };
-    const r = fill(S, { c: b.to, k: b.k, n: b.left, tier: 2, src: 'manual', bid: b.id }, sp, bud, N, Math.min(NET_BATCH, Math.max(1, Math.floor(b.left))), b.from);
+    const r = fill(S, { c: b.to, k: b.k, n: b.left, tier: 2, src: 'manual', bid: b.id }, sp, bud, N, Math.min(NB, Math.max(1, Math.floor(b.left))), b.from);
     const sent = b.left - r.left; b.left = r.left;
     if (spare[b.from] && spare[b.from][b.k] != null) spare[b.from][b.k] -= sent;
     if (r.left >= 1) note({ c: b.to, k: b.k, tier: 2, why: '手动送的' }, r);
@@ -387,10 +392,10 @@ function dispatch(S, win) {
       f.owed -= moved; if (moved) trimWorkers(S, fc);
       continue;
     }
-    if (f.owed < Math.min(NET_BATCH, f.rate)) continue;
+    if (f.owed < Math.min(NB, f.rate)) continue;
     const sp = { [f.from]: campSpare(S, fc, {}, false) }; delete (sp[f.from].__hold);
     const hold = fc.hold && fc.hold[f.k]; if (hold) { const s2 = campSpare(S, { ...fc, hold: null }, {}, false); sp[f.from][f.k] = s2[f.k] || 0; }
-    const r = fill(S, { c: f.to, k: f.k, n: f.owed, tier: 4, src: 'feed' }, sp, bud, N, Math.min(NET_BATCH, f.owed), f.from);
+    const r = fill(S, { c: f.to, k: f.k, n: f.owed, tier: 4, src: 'feed' }, sp, bud, N, Math.min(NB, f.owed), f.from);
     f.owed = r.left;
     if (spare[f.from] && spare[f.from][f.k] != null) spare[f.from][f.k] = Math.min(spare[f.from][f.k], sp[f.from][f.k] || 0);
   }

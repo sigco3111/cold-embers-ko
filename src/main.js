@@ -3,7 +3,7 @@ import * as Sim from './sim.js';
 import { View } from './render.js';
 import { Sound } from './audio.js';
 import { UI, fmt, fmtTime, RICON, ICON } from './ui.js';
-import { BLD, RES, STORY, LANDMARKS, FAR_MARKS, dayCycle, SLOTS, SPOT_KEYS, SPOTS } from './data.js';
+import { BLD, RES, TECHS, STORY, LANDMARKS, FAR_MARKS, dayCycle, SLOTS, SPOT_KEYS, SPOTS } from './data.js';
 import { getWorld, idx, W, H } from './worldgen.js';
 import { iconize, injectIcons } from './icons.js';
 import { BigMap } from './bigmap.js';
@@ -915,4 +915,4 @@ class Game {
   }
 }
 
-window.addEventListener('DOMContentLoaded', () => { window.game = new Game(); window.__sim = Sim; window.__BLD = BLD; window.__dc = t => dayCycle(t).name; window.__world = () => getWorld(window.game.S.runSeed); window.__simstep = (n = 1) => { for (let i = 0; i < n; i++) Sim.step(window.game.S, 1); }; });
+window.addEventListener('DOMContentLoaded', () => { window.game = new Game(); window.__sim = Sim; window.__BLD = BLD; window.__TECHS = TECHS; window.__dc = t => dayCycle(t).name; window.__world = () => getWorld(window.game.S.runSeed); window.__simstep = (n = 1) => { for (let i = 0; i < n; i++) Sim.step(window.game.S, 1); }; });

@@ -413,7 +413,11 @@ export const LAWS = [
 export const LAW_CD = 180;
 
 // 研究：工程站产出研究点数，攒够就完成；开始研究时先付材料
-export const TECH_BR = ['生产', '生存', '后勤'];
+export const TECH_BR = ['生产', '生存', '物流', '自动化', '北境'];
+// 自动化、北境两条分支要走到那里才开放；★ 的是解锁新东西的研究
+export const TECH_GATE = { 3: { known: 6, why: '侦察到「遗迹金属」纬度后开放' }, 4: { north: true, why: '走到北境后开放' } };
+// 无尽研究：五条分支全部研究完以后，每一级所有生产 +2%，代价每级 ×1.25，没有上限
+export const ENDLESS = { pts: 800, cost: { alloy: 240, part: 120, core: 24 }, mul: 1.25, prod: 0.02 };
 export const TECHS = [
   { id: 'axe', br: 0, n: '钢口斧头', ic: '🪓', t: 1, pts: 12, cost: { wood: 120, stone: 40 }, d: '伐木场、采石场产量 +20%', fx: { bp: { lumber: 0.2, quarry: 0.2 } } },
   { id: 'smoke', br: 0, n: '熏肉架', ic: '🍖', t: 1, pts: 15, cost: { wood: 150, plank: 40 }, d: '猎人小屋、厨房产量 +20%', fx: { bp: { hunter: 0.2, kitchen: 0.2 } } },
@@ -426,12 +430,41 @@ export const TECHS = [
   { id: 'clinic', br: 1, n: '护理学', ic: '🩺', t: 2, pts: 35, cost: { plank: 150, iron: 40 }, d: '病人好得快一倍 · 希望 +3', req: ['felt'], fx: { sickRec: 1, hope: 3 } },
   { id: 'pipes', br: 1, n: '暖气管网', ic: '♨️', t: 3, pts: 70, cost: { steel: 80, gear: 30 }, d: '蒸汽暖炉热量 +40%', req: ['grate'], fx: { heater: 0.4 } },
   { id: 'glass', br: 1, n: '温室灯', ic: '🌱', t: 3, pts: 80, cost: { steel: 100, engine: 6 }, d: '蒸汽温室产量 +25%', req: ['pipes'], fx: { bp: { greenhouse: 0.25 } } },
-  { id: 'steamheat', br: 1, n: '蒸汽供暖', ic: '🏠', t: 4, pts: 140, cost: { steel: 200, seal: 60 }, d: '帐篷保暖再 +5°', req: ['pipes'], fx: { insul: 5 } },
+  { id: 'steamheat', br: 1, n: '蒸汽供暖', ic: '🏠', t: 4, pts: 140, cost: { steel: 200, seal: 60 }, d: '帐篷保暖再 +5°', req: ['glass'], fx: { insul: 5 } },
   { id: 'sled', br: 2, n: '轻便雪橇', ic: '🛷', t: 1, pts: 15, cost: { wood: 150, plank: 40 }, d: '搬运工走得快 15%', fx: { haul: 0.15 } },
   { id: 'shelf', br: 2, n: '货架', ic: '📦', t: 1, pts: 18, cost: { wood: 200, plank: 60 }, d: '仓储上限 +20%', req: ['sled'], fx: { cap: 0.2 } },
   { id: 'scope', br: 2, n: '望远镜', ic: '🔭', t: 2, pts: 30, cost: { plank: 120, iron: 40 }, d: '侦察队走得快 25%', req: ['sled'], fx: { scout: 0.25 } },
   { id: 'xbow', br: 2, n: '连弩', ic: '🏹', t: 2, pts: 40, cost: { plank: 100, iron: 80 }, d: '防御 +25%', req: ['shelf'], fx: { def: 0.25 } },
   { id: 'rail', br: 2, n: '铁轨扳道', ic: '🛤️', t: 4, pts: 120, cost: { steel: 200, engine: 10 }, d: '物流网所有路运力 +30%', req: ['xbow'], fx: { line: 0.3 } },
+  // ---- 1.1 新增 ----
+  { id: 'apprentice', br: 0, n: '学徒制', ic: '🎓', t: 2, pts: 40, cost: { plank: 140, iron: 50 }, d: '熟练工攒经验快 50%；人手被撤走时只掉一半的一半', req: ['smoke'], fx: {} },
+  { id: 'alt1', br: 0, n: '替代配方·一', ic: '📜', t: 2, pts: 45, cost: { plank: 160, iron: 70 }, d: '1–3 级工厂可以换用替代配方（建筑面板里切换）', req: ['apprentice'], fx: {}, star: 1 },
+  { id: 'specpro', br: 0, n: '特产精工', ic: '🏅', t: 3, pts: 85, cost: { steel: 110, gear: 40 }, d: '营地特产的加成 +50% → +75%', req: ['alt1'], fx: {} },
+  { id: 'alt2', br: 0, n: '替代配方·二', ic: '📜', t: 4, pts: 150, cost: { steel: 220, seal: 60 }, d: '4–7 级工厂也可以换用替代配方', req: ['specpro'], fx: {}, star: 1 },
+  { id: 'coldcast', br: 1, n: '寒潮预报', ic: '📡', t: 2, pts: 40, cost: { plank: 150, iron: 50 }, d: '寒潮提前 2 天预报；寒潮里熔炉燃料 ×2 → ×1.7', req: ['clinic'], fx: {} },
+  { id: 'canteen', br: 1, n: '集体食堂', ic: '🍲', t: 2, pts: 45, cost: { plank: 180, iron: 60 }, d: '所有营地口粮消耗 −10%', req: ['coldcast'], fx: { eat: -0.1 } },
+  { id: 'thermal', br: 1, n: '保温工装', ic: '🧥', t: 3, pts: 80, cost: { steel: 100, gear: 30 }, d: '寒潮里采集只慢三成（原来慢一半）', req: ['canteen'], fx: {} },
+  { id: 'townplan', br: 1, n: '城镇规划', ic: '🏘️', t: 4, pts: 160, cost: { steel: 220, seal: 70 }, d: '营地 60 人、希望 50 以上可以升级成「镇」，再往上是「城」「大城」', req: ['thermal'], fx: {}, star: 1 },
+  { id: 'wideroad', br: 2, n: '宽雪橇道', ic: '🛣️', t: 2, pts: 40, cost: { plank: 160, iron: 50 }, d: '修路、升级路省 30% 材料', req: ['scope'], fx: {} },
+  { id: 'guild', br: 2, n: '商会合同', ic: '🤝', t: 3, pts: 80, cost: { steel: 100, gear: 40 }, d: '北方商会每天的订单 3 → 5 张', req: ['wideroad'], fx: {}, star: 1 },
+  { id: 'dispatch', br: 2, n: '调度站', ic: '🗂️', t: 3, pts: 85, cost: { steel: 110, gear: 40 }, d: '物流网每 5 秒调度一次（原来 10 秒），一车最少 5 件就发', req: ['guild'], fx: {} },
+  { id: 'railsched', br: 2, n: '铁路调度', ic: '🚦', t: 4, pts: 140, cost: { steel: 220, engine: 12 }, d: '铁路上的雪橇每秒 8 → 12 格', req: ['rail'], fx: {} },
+  { id: 'postnet', br: 2, n: '驿站网', ic: '📮', t: 5, pts: 230, cost: { seal: 140, battery: 60 }, d: '物流网所有路运力再 +25%', req: ['railsched'], fx: { line: 0.25 } },
+  { id: 'botcal', br: 3, n: '自动机校准', ic: '🔧', t: 6, pts: 340, cost: { alloy: 150, part: 60 }, d: '每台自动机顶 2 个人（原来 1.5）', fx: {} },
+  { id: 'bothaul', br: 3, n: '搬运型自动机', ic: '🛷', t: 6, pts: 360, cost: { part: 100, core: 20 }, d: '自动机仓可以造搬运型：搬东西快一倍', req: ['botcal'], fx: {}, star: 1 },
+  { id: 'botmine', br: 3, n: '采掘型自动机', ic: '⛏️', t: 6, pts: 380, cost: { part: 110, core: 24 }, d: '自动机仓可以造采掘型：只做采集，产量 +30%', req: ['bothaul'], fx: {}, star: 1 },
+  { id: 'botshell', br: 3, n: '耐寒外壳', ic: '🛡️', t: 6, pts: 400, cost: { alloy: 200, core: 20 }, d: '自动机在寒潮、永冬潮里不减速', req: ['botcal'], fx: {} },
+  { id: 'botbay', br: 3, n: '仓位扩容', ic: '📦', t: 6, pts: 420, cost: { part: 140, battery: 120 }, d: '自动机仓每级多装 4 台（8 → 12）', req: ['botshell'], fx: {} },
+  { id: 'corerec', br: 3, n: '核心回收', ic: '♻️', t: 7, pts: 520, cost: { part: 180, core: 40 }, d: '拆掉自动机时退回核心', req: ['botmine'], fx: {}, star: 1 },
+  { id: 'autofac', br: 3, n: '无人工坊', ic: '🏭', t: 7, pts: 560, cost: { part: 200, core: 50 }, d: '加工厂产量 +10%；岗位全是自动机的再 +10%', req: ['botbay'], fx: {} },
+  { id: 'afterglow', br: 4, n: '烽火余晖', ic: '🗼', t: 7, pts: 480, cost: { alloy: 240, part: 80 }, d: '每点亮一座烽火塔，所有生产 +3%', fx: {} },
+  { id: 'fork3', br: 4, n: '三岔侦察', ic: '🧭', t: 7, pts: 500, cost: { part: 120, core: 24 }, d: '点亮烽火塔后，侦察队带回 3 条岔路（原来 2 条）', fx: {}, star: 1 },
+  { id: 'cmd1', br: 4, n: '熔炉号令·一', ic: '📯', t: 7, pts: 520, cost: { part: 150, core: 30 }, d: '解锁号令「熔炉狂燃」「紧急调度」', req: ['afterglow'], fx: {}, star: 1 },
+  { id: 'guide', br: 4, n: '奇遇向导', ic: '🗺️', t: 7, pts: 540, cost: { alloy: 260, battery: 160 }, d: '站点奇遇的每一步多一个选项', req: ['fork3'], fx: {} },
+  { id: 'wonder1', br: 4, n: '奇观图纸·一', ic: '🏛️', t: 7, pts: 600, cost: { alloy: 300, part: 120 }, d: '可以建奇观：蒸汽巨像、万年冰窖、不灭灯塔', req: ['cmd1'], fx: {}, star: 1 },
+  { id: 'wintprep', br: 4, n: '永冬准备', ic: '❄️', t: 7, pts: 600, cost: { alloy: 300, battery: 200 }, d: '永冬潮提前 4 天预报（原来 2 天）；霜巨兽 −20%', req: ['guide'], fx: {} },
+  { id: 'cmd2', br: 4, n: '熔炉号令·二', ic: '📯', t: 7, pts: 640, cost: { part: 200, core: 40 }, d: '解锁号令「万众一心」「炉火庇护」', req: ['wonder1'], fx: {}, star: 1 },
+  { id: 'wonder2', br: 4, n: '奇观图纸·二', ic: '🏛️', t: 7, pts: 720, cost: { alloy: 400, core: 50 }, d: '可以建奇观：极光塔、铁路总站、星辰熔炉', req: ['wintprep'], fx: {}, star: 1 },
 ];
 
 // 雾里的地点：侦察队揭开后，可以派探险队去，到了再决定怎么做
