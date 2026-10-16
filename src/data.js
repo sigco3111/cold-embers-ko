@@ -160,6 +160,21 @@ export const ALT = {
 };
 export const ALT_SWITCH = 20;
 // 1.1 北方商会：按物资的纬度带定底价（银币），每天上下浮动四成；同一天卖得越多越便宜，第二天恢复
+// 1.1 自动机：一台顶 1.5 个人（研究「自动机校准」后顶 2 个）；自动机仓每级装 8 台（「仓位扩容」后 12 台）
+// 三种型号：劳工型什么活都干；搬运型只当搬运工、一台顶两个；采掘型只干采集，产量 +30%
+export const BOT = { pow: 1.5, powCal: 2, haul: 2, mine: 0.3, bay: 8, bayPro: 12 };
+export const BOT_MODELS = {
+  labor: { n: '劳工型', ic: '🤖', d: '什么活都能干，一台顶 1.5 个人' },
+  haul: { n: '搬运型', ic: '🛷', d: '只搬东西：一台顶两个搬运工，拖着小雪橇跑', tech: 'bothaul' },
+  mine: { n: '采掘型', ic: '⛏️', d: '只干采集（伐木、采石、矿场、狩猎）：产量 +30%', tech: 'botmine' },
+};
+// 1.1 熔炉号令：只对当前营地（紧急调度管整个物流网）；离线时不会自己发
+export const CMDS = {
+  blaze: { n: '熔炉狂燃', ic: '🔥', d: '这座营地所有生产 ×2，熔炉燃料 ×3', len: 60, cd: 600, tech: 'cmd1' },
+  rush: { n: '紧急调度', ic: '📯', d: '整个物流网运力 ×3、雪橇快一倍', len: 90, cd: 480, tech: 'cmd1', net: true },
+  unity: { n: '万众一心', ic: '🤝', d: '烽火塔身、奇观施工快 3 倍；不满清零，号令期间不再涨', len: 120, cd: 900, tech: 'cmd2' },
+  shelter: { n: '炉火庇护', ic: '🛡️', d: '熔炉燃料 −50%，暖圈 +2 格', len: 180, cd: 1200, tech: 'cmd2' },
+};
 export const GUILD = { price: [0, 1, 3, 8, 15, 30, 60, 120], float: 0.4, depth: 300, orders: 3, ordersPro: 5, buyMul: 3, buyLim: [0, 300, 150, 80, 40, 20, 10, 5], emberDay: 20, emberCost: 40 };
 // 北境每站一章：两条产能目标从六种高级材料里轮着抽，加一条地貌任务，前十站各一座烽火塔
 export const NORTH_HI = ['part', 'battery', 'alloy', 'core', 'starcore', 'heart'];
@@ -273,7 +288,7 @@ export const BLD = {
   salvage:   { n: '残骸拆解站', t: 6, size: 2, cat: 'gather', w: 5, gather: ['star'], out: { star: 4 }, reach: 3, desc: '从古代残骸上拆下星铁。', cost: { steel: 300, alloy: 40 }, syn: ['partworks'] },
   partworks: { n: '构件工坊', t: 6, size: 2, cat: 'make', w: 5, in: { star: 3, alloy: 1 }, out: { part: 1.5 }, desc: '星铁与合金复原出古代构件。', cost: { seal: 120, alloy: 60 }, syn: ['salvage', 'coreworks'] },
   coreworks: { n: '自动机工坊', t: 6, size: 2, cat: 'make', w: 5, in: { part: 2, battery: 2 }, out: { core: 0.5 }, desc: '组装自动机核心。', cost: { alloy: 100, part: 30 }, syn: ['partworks', 'bay'] },
-  bay:       { n: '自动机仓', t: 6, size: 2, cat: 'live', w: 0, bots: 8, desc: '装入自动机核心，唤醒不吃饭、不怕冷的自动机工人（每个核心 2 台）。', cost: { alloy: 80, part: 40 } },
+  bay:       { n: '自动机仓', t: 6, size: 2, cat: 'live', w: 0, bots: 8, desc: '装入自动机核心，唤醒不吃饭、不怕冷、不生病的自动机（每个核心 2 台，一台顶 1.5 个人）。在仓里挑造哪一型。', cost: { alloy: 80, part: 40 } },
 
   excavator: { n: '炉心发掘场', t: 7, size: 2, cat: 'gather', w: 6, gather: ['shard'], out: { shard: 3 }, reach: 3, desc: '在永恒之炉周围发掘炉心碎片。', cost: { alloy: 200, part: 80 }, syn: ['forge'] },
   // 永恒之炉以北：走到对应的那一程才能建

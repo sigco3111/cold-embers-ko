@@ -36,6 +36,8 @@ function valueNoise(seed, x, y, scale) {
 }
 
 const cache = new Map();
+// 1.1 分岔北境：重新生成整张图（只有选过地貌的那一站周围会变，其余跟原来一模一样）
+export function regenWorld(seed) { cache.delete(seed); }
 export function getWorld(seed) {
   let w = cache.get(seed);
   if (!w || w.rows > H) { cache.clear(); w = genWorld(seed); cache.set(seed, w); }
@@ -45,6 +47,17 @@ export function getWorld(seed) {
 
 // ---------- 北境的站：位置、名字、地貌规则只由种子决定（还没生成到的段也能先算出来） ----------
 const NS = { seed: null, list: [], names: null, bag: [], rr: null };
+// 1.1 分岔北境：玩家给某一站选过的地貌（种子 → { 第几站: { rule, rich } }）。没选过的站照种子来
+const PICK = new Map();
+const applyPick = (seed, p) => {
+  const o = (PICK.get(seed) || {})[p.k], r = o ? o.rule : p.rule0, rich = o ? o.rich : p.rich0;
+  p.rule = r; if (r === 'rich' && rich) p.rich = rich; else delete p.rich;
+};
+export function northPicks(seed, picks) { PICK.set(seed, { ...(picks || {}) }); if (NS.seed === seed) for (const p of NS.list) applyPick(seed, p); }
+export function setNorthPick(seed, k, o) {
+  const P = PICK.get(seed) || {}; if (o) P[k] = { rule: o.rule, rich: o.rich }; else delete P[k]; PICK.set(seed, P);
+  if (NS.seed === seed && NS.list[k - 1]) applyPick(seed, NS.list[k - 1]);
+}
 export function northStop(seed, k) {
   if (!(k >= 1)) return null;
   if (NS.seed !== seed) {
@@ -64,14 +77,15 @@ export function northStop(seed, k) {
       if (!NS.bag.length) {
         const b = NORTH_RULE_KEYS.slice();
         for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(NS.rr() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; }
-        if (b[0] === prev.rule) b.push(b.shift());
+        if (b[0] === prev.rule0) b.push(b.shift());
         NS.bag = b;
       }
       rule = NS.bag.shift();
     }
     const mark = (n - 1) % NORTH_MARKS.length;
-    const p = { k: n, y: SPINE_ROW + NORTH_GAP * n + Math.round((hash3(n, 91, seed) - 0.5) * 10), x: 24 + Math.round((hash3(n, 92, seed) - 0.5) * 16), name: NS.names[(n - 1) % NS.names.length], rule, mark, r: NORTH_MARKS[mark].r };
-    if (rule === 'rich') p.rich = RICH_KINDS[Math.floor(hash3(n, 93, seed) * RICH_KINDS.length) % RICH_KINDS.length];
+    const p = { k: n, y: SPINE_ROW + NORTH_GAP * n + Math.round((hash3(n, 91, seed) - 0.5) * 10), x: 24 + Math.round((hash3(n, 92, seed) - 0.5) * 16), name: NS.names[(n - 1) % NS.names.length], rule, rule0: rule, mark, r: NORTH_MARKS[mark].r };
+    if (rule === 'rich') p.rich = p.rich0 = RICH_KINDS[Math.floor(hash3(n, 93, seed) * RICH_KINDS.length) % RICH_KINDS.length];
+    applyPick(seed, p);
     L.push(p);
   }
   return L[k - 1];

@@ -99,7 +99,10 @@ if (uDetail > 0.0) {
     this.torches = new THREE.InstancedMesh(new THREE.SphereGeometry(0.07, 6, 4), new THREE.MeshBasicMaterial({ color: '#ffb040', toneMapped: false }), 60); this.torches.count = 0; this.torches.frustumCulled = false;
     this.dogs = new THREE.InstancedMesh(M.dogGeo(), this.matStd, 200); this.dogs.count = 0; this.dogs.frustumCulled = false; this.dogs.castShadow = true;
     this.dogs.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(200 * 3).fill(1), 3);
-    this.scene.add(this.figs, this.figsD, this.crates, this.wolves, this.sleds, this.trains, this.bolts, this.torches, this.dogs);
+    // 1.1 自动机：铁皮小人和搬运型拖的小雪橇
+    this.botsM = new THREE.InstancedMesh(M.botGeo(), new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }), 400); this.botsM.count = 0; this.botsM.frustumCulled = false; this.botsM.castShadow = true;
+    this.botSleds = new THREE.InstancedMesh(M.botSledGeo(), this.matStd, 200); this.botSleds.count = 0; this.botSleds.frustumCulled = false; this.botSleds.castShadow = true;
+    this.scene.add(this.figs, this.figsD, this.crates, this.wolves, this.sleds, this.trains, this.bolts, this.torches, this.dogs, this.botsM, this.botSleds);
     this.initAnim();
     this.initCaravan();
 
@@ -2036,6 +2039,10 @@ void main() {
     const cx = c.tx, cz = -c.ty;
     this.camera.position.set(cx + Math.sin(c.yaw) * Math.cos(pitch) * c.dist, Math.sin(pitch) * c.dist, cz + Math.cos(c.yaw) * Math.cos(pitch) * c.dist);
     this.camera.lookAt(cx, 0, cz);
+    if (this.shakeT > 0) { // 号令吹响时镜头抖一下
+      this.shakeT = Math.max(0, this.shakeT - dt); const a = this.shakeT * 0.012 * c.dist;
+      this.camera.position.x += (Math.random() - 0.5) * a; this.camera.position.y += (Math.random() - 0.5) * a * 0.6; this.camera.position.z += (Math.random() - 0.5) * a;
+    }
     const so = this.sunOff || [26, 30, 12];
     this.sun.position.set(cx + so[0], so[1], cz + so[2]); // 低角度的冬日斜阳，影子拉长
     this.sun.target.position.set(cx, 0, cz);
@@ -2524,7 +2531,8 @@ void main() {
   // 会动的小人和动物：换上带动作的材质；小人另备一套拉近时用的精细模型
   initAnim() {
     const ma = this.matAnim = M.animMat(), md = this.matAnimD = M.animDepthMat();
-    for (const im of [this.figs, this.figsD, this.dogs, this.wolves]) { im.material = ma; im.customDepthMaterial = md; }
+    for (const im of [this.figs, this.figsD, this.dogs, this.wolves, this.botsM]) { im.material = ma; im.customDepthMaterial = md; }
+    M.animInst(this.botsM);
     this.figLod = { lo: [this.figs.geometry, this.figsD.geometry], hi: [M.figureGeo(true), M.figureDetailGeo(true)] };
     M.animInst(this.figs, [...this.figLod.lo, ...this.figLod.hi]); this.figsD.userData.anim = this.figs.userData.anim;
     M.animInst(this.dogs); M.animInst(this.wolves);
@@ -2631,6 +2639,21 @@ void main() {
       m.compose(v.set(x, lie ? -0.05 : Math.abs(Math.sin(bob)) * 0.06, -y), q, sc.set(1.25, lie ? 0.7 : 1.25, 1.25));
       this.dogs.setMatrixAt(nd, m); this.dogs.setColorAt(nd, DOGC[i % DOGC.length]); M.setAnim(this.dogs, nd, bob, 10, lie || !bob ? 0 : 0.65); nd++;
     };
+    // 自动机：和小人一样摆，套用人的动作
+    let nb = 0, nbs = 0; const botsM = this.botsM, bsl = this.botSleds;
+    const putBot = (x, y, ang, bob, mode, tool = 0) => {
+      if (nb >= 400) return false;
+      fs.center.set(x, 0.4, -y); if (!fr.intersectsSphere(fs)) return false;
+      e.set(0, ang, 0); q.setFromEuler(e);
+      m.compose(v.set(x, Math.abs(Math.sin(bob)) * (mode === 3 ? 0.01 : 0.035), -y), q, sc.set(1, 1, 1));
+      botsM.setMatrixAt(nb, m); M.setAnim(botsM, nb, bob || t * 1.3 + nb * 2.1, mode, tool); nb++; return true;
+    };
+    // 搬运型拖着的小雪橇，车斗里一箱货
+    const putBotSled = (x, y, ang, col) => {
+      if (nbs >= 200) return;
+      e.set(0, ang, 0); q.setFromEuler(e); m.compose(v.set(x, 0, -y), q, sc.set(1, 1, 1)); bsl.setMatrixAt(nbs++, m);
+      if (col && nc < MAXC) { m.compose(v.set(x, 0.14, -y), q, sc.set(0.75, 0.75, 0.75)); crates.setMatrixAt(nc, m); crates.setColorAt(nc, col); nc++; }
+    };
     const putCrate = (x, y, col) => {
       if (nc >= MAXC || !this._figOn) return;
       // 抱在胸前，两只手托着：跟着刚摆好的那个搬运工转身、上下颠
@@ -2651,11 +2674,12 @@ void main() {
       const act = br.act || 0;
       // 生产工：在建筑前面干活
       // 每个岗位有固定站位，人数变了别人不会跟着挪
-      const nw = Math.min(b.workers, 4);
+      const nw = Math.min(b.workers, 4), crb = R.c[b.camp] || {}, bsh = BLD[b.type].cat === 'gather' ? crb.botG || 0 : crb.botFr || 0;
       for (let i = 0; i < nw; i++) {
         const a = hash3(b.id, i, 1) * 6.28;
         const wob = act > 0.05 ? Math.sin(t * 0.6 + i * 2) * 0.25 : 0;
         const x = bx + Math.cos(a) * 0.12 + WSLOT[i] + wob, y = b.y - 0.35 - (i % 2) * 0.2;
+        if (bsh > 0 && hash3(b.id, i, 7) < bsh) { const [md, tl] = this.figAct({ k: 'w', b: b.id, i, camp: b.camp }, act > 0.05 ? t * 9 + i : 0); putBot(x, y, Math.sin(t + i) * 0.5, act > 0.05 ? t * 9 + i : 0, md, tl); continue; }
         putFig(x, y, Math.sin(t + i) * 0.5, COATS[(b.id + i) % COATS.length], act > 0.05 ? t * 9 + i : 0, { k: 'w', b: b.id, i, camp: b.camp });
       }
       // 搬运工：在仓储点和建筑之间来回
@@ -2667,7 +2691,7 @@ void main() {
         if (!best || bd < 0.5) continue;
         const d = BLD[b.type];
         const outK = d.out ? Object.keys(d.out)[0] : null, inK = d.in ? Object.keys(d.in)[0] : null;
-        const n = this.steady('h' + b.id, Math.max(1, Math.min(6, haul * 1.2)));
+        const n = this.steady('h' + b.id, Math.max(1, Math.min(6, haul * 1.2))), hb = (R.c[b.camp] || {}).haulBotFr || 0;
         const rt = this.routes && this.routes.get(b.id);
         const pts = rt ? rt.pts : [[best.x, best.y], [bx, b.y - 0.3]], cum = rt ? rt.cum : [0, bd], L = rt ? rt.len : bd, spd = 1.6;
         for (let i = 0; i < n; i++) {
@@ -2680,6 +2704,11 @@ void main() {
           const off = (i % 2 ? 0.14 : -0.14);
           const x = p0[0] + (p1[0] - p0[0]) * kk + uy * off, y = p0[1] + (p1[1] - p0[1]) * kk - ux * off;
           const ang = go ? Math.atan2(-ux, uy) : Math.atan2(ux, -uy); // 朝着走的方向（模型正面是 -z）
+          if (hb > 0 && hash3(b.id, i, 9) < hb) { // 搬运型自动机：拖着小雪橇
+            const dx = go ? ux : -ux, dy = go ? uy : -uy, rk = go ? inK : outK;
+            if (putBot(x, y, ang, t * 10 + i, 1)) putBotSled(x - dx * 0.3, y - dy * 0.3, ang, rk ? RESCOL[rk] : null);
+            continue;
+          }
           putFig(x, y, ang, COATS[(i * 3 + 1) % COATS.length], t * 10 + i, { k: 'h', b: b.id, i, camp: b.camp, res: go ? inK : outK, go });
           if (i % 2 === 0) putLamp(x, y, ang);
           const rk = go ? inK : outK;
@@ -2825,6 +2854,7 @@ void main() {
     this.dogs.count = nd; this.dogs.instanceMatrix.needsUpdate = true; if (nd) this.dogs.instanceColor.needsUpdate = true;
     this.trains.count = ntr; this.trains.instanceMatrix.needsUpdate = true;
     this._nf = nf; this._nc = nc;
+    botsM.count = nb; botsM.instanceMatrix.needsUpdate = true; bsl.count = nbs; bsl.instanceMatrix.needsUpdate = true;
     figs.count = nf; figs.instanceMatrix.needsUpdate = true; this.figsD.count = nf; this.figsD.instanceMatrix.needsUpdate = true; if (figs.instanceColor) figs.instanceColor.needsUpdate = true;
     crates.count = nc; crates.instanceMatrix.needsUpdate = true; if (crates.instanceColor) crates.instanceColor.needsUpdate = true;
   }

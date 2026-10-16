@@ -2719,6 +2719,48 @@ export function torchPostGeo() {
   ]);
 }
 export function torchFlameGeo() { return merge([P(G.cone5, '#ff7a22', { sx: 0.3, sy: 0.6, sz: 0.3, y: 0.28 }), P(G.cone5, '#ffb04a', { sx: 0.2, sy: 0.42, sz: 0.2, y: 0.22, ry: 0.6 }), P(G.cone5, '#fff0b0', { sx: 0.1, sy: 0.26, sz: 0.1, y: 0.15 })]); }
+// 1.1 自动机：铁皮小人，比人矮一点；关节和人一样，所以走路、干活的动作直接套用人的（上半身、两臂、两腿）
+// 胸口一块铜板，背后一只小锅炉带烟囱，脸上一道暖黄的眼缝，头顶一根天线
+export function botGeo() {
+  const IR = '#84909c', DK = '#3e4650', CU = '#c07a3a', BR = '#e0b058';
+  const parts = [];
+  for (const sg of [-1, 1]) {
+    const pt = sg < 0 ? 4 : 5, pv = legPiv(sg);
+    parts.push(PA(G.box, IR, { sx: 0.06, sy: 0.15, sz: 0.07, x: sg * 0.045, y: 0.095 }, pt, pv));
+    parts.push(PA(G.box, DK, { sx: 0.072, sy: 0.035, sz: 0.1, x: sg * 0.045, y: 0.018, z: -0.012 }, pt, pv));
+    parts.push(PA(G.cyl8, BR, { sx: 0.05, sy: 0.02, sz: 0.05, x: sg * 0.045, y: 0.1, rz: Math.PI / 2 }, pt, pv)); // 膝盖的铆钉
+  }
+  parts.push(PA(G.box, DK, { sx: 0.15, sy: 0.05, sz: 0.1, y: 0.185 }));
+  parts.push(PA(G.box, BR, { sx: 0.186, sy: 0.022, sz: 0.136, y: 0.222 }, 1)); // 黄铜腰箍
+  for (const sg of [-1, 1]) parts.push(PA(G.cyl8, BR, { sx: 0.035, sy: 0.012, sz: 0.035, x: sg * 0.062, y: 0.43, rz: Math.PI / 2 }, 1)); // 耳边的螺栓
+  parts.push(PA(G.box, IR, { sx: 0.18, sy: 0.16, sz: 0.13, y: 0.29 }, 1));
+  parts.push(PA(G.box, CU, { sx: 0.11, sy: 0.08, sz: 0.012, y: 0.3, z: -0.068 }, 1));
+  for (const sg of [-1, 1]) parts.push(PA(G.sph, BR, { s: 0.018, x: sg * 0.04, y: 0.33, z: -0.076 }, 1));
+  parts.push(PA(G.cyl8, CU, { sx: 0.085, sy: 0.13, sz: 0.085, y: 0.3, z: 0.085 }, 1));
+  parts.push(PA(G.cyl6, DK, { sx: 0.03, sy: 0.08, sz: 0.03, x: 0.025, y: 0.4, z: 0.09 }, 1));
+  parts.push(PA(G.box, IR, { sx: 0.12, sy: 0.095, sz: 0.105, y: 0.42 }, 1));
+  parts.push(PA(G.box, '#ffbe5a', { sx: 0.088, sy: 0.022, sz: 0.012, y: 0.425, z: -0.055 }, 1));
+  parts.push(PA(G.box, DK, { sx: 0.13, sy: 0.02, sz: 0.115, y: 0.47 }, 1));
+  parts.push(PA(G.cyl6, DK, { sx: 0.012, sy: 0.07, sz: 0.012, x: -0.035, y: 0.51 }, 1));
+  parts.push(PA(G.sph, '#ff8a3a', { s: 0.026, x: -0.035, y: 0.55 }, 1));
+  for (const sg of [-1, 1]) {
+    const pt = sg < 0 ? 2 : 3, pv = armPiv(sg);
+    parts.push(PA(G.sph, CU, { s: 0.056, x: sg * 0.1, y: 0.365 }, pt, pv)); // 铜肩甲
+    parts.push(PA(G.box, IR, { sx: 0.048, sy: 0.1, sz: 0.054, x: sg * 0.112, y: 0.315 }, pt, pv));
+    parts.push(PA(G.box, IR, { sx: 0.046, sy: 0.085, sz: 0.05, x: sg * 0.114, y: 0.24, z: -0.01, rx: 0.2 }, pt, pv));
+    parts.push(PA(G.box, DK, { sx: 0.052, sy: 0.04, sz: 0.052, x: sg * 0.112, y: 0.19, z: -0.024 }, pt, pv));
+  }
+  return merge(parts);
+}
+// 搬运型自动机拖的小雪橇：两根滑板、木板车斗，车头一根拉杆
+export function botSledGeo() {
+  const parts = [];
+  for (const sg of [-1, 1]) { parts.push(P(G.box, '#c8d0d8', { sx: 0.02, sy: 0.02, sz: 0.3, x: sg * 0.07, y: 0.012 })); parts.push(P(G.box, '#c8d0d8', { sx: 0.02, sy: 0.02, sz: 0.05, x: sg * 0.07, y: 0.03, z: -0.16, rx: -0.6 })); }
+  parts.push(P(G.box, '#8a6438', { sx: 0.17, sy: 0.03, sz: 0.27, y: 0.045 }));
+  for (const sg of [-1, 1]) parts.push(P(G.box, '#6a4a2a', { sx: 0.012, sy: 0.04, sz: 0.27, x: sg * 0.08, y: 0.075 }));
+  parts.push(P(G.box, '#4a3a2a', { sx: 0.012, sy: 0.012, sz: 0.18, y: 0.08, z: -0.22, rx: 0.35 }));
+  return merge(parts);
+}
 export function crateGeo() { return merge([P(G.box, '#ffffff', { s: 0.16 }), P(G.box, '#a8a8a8', { sx: 0.17, sy: 0.02, sz: 0.17 })]); }
 
 // ---------- 地标遗迹 ----------

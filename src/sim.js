@@ -2,7 +2,7 @@
 import {
   RES, RES_KEYS, FUEL, FUEL_ORDER, GATE, GATE_EVERY, SPOTS, SPOT_KEYS, LANDMARKS, BAND_START,
   tierOfRow, baseTempOfRow, ETERNAL_STAGES, BLD, furnaceHeat, furnaceRadius, furnaceBurn,
-  SPECS, SPEC_MAX, specBonus, specTrainCost, EMBER_UPS, emberCost, RAIDERS, STORY, DAY_LEN, LAWS, LAW_CD, TECHS, TECH_GATE, ENDLESS, SITES, CHAPTERS, INFRA, LM_R, FAR_MARKS, DIFF, DIFF_KEYS, FOCUS, FOCUS_KEYS, FOCUS_LVL, FOCUS_CD, NORTH_RULES, RULE_FX, RICH_KINDS, CAMP_SPEC, CSPEC_FX, CSPEC_FX2, ALT, ALT_SWITCH, NORTH_HI, TITLES, FLAMES, FLAGS, FRAMES, NDECO, NORTH_TASK, NORTH_STORY, NORTH_END, TOWER_STEPS, TOWER_FX,
+  SPECS, SPEC_MAX, specBonus, specTrainCost, EMBER_UPS, emberCost, RAIDERS, STORY, DAY_LEN, LAWS, LAW_CD, TECHS, TECH_GATE, ENDLESS, BOT, BOT_MODELS, CMDS, SITES, CHAPTERS, INFRA, LM_R, FAR_MARKS, DIFF, DIFF_KEYS, FOCUS, FOCUS_KEYS, FOCUS_LVL, FOCUS_CD, NORTH_RULES, RULE_FX, RICH_KINDS, CAMP_SPEC, CSPEC_FX, CSPEC_FX2, ALT, ALT_SWITCH, NORTH_HI, TITLES, FLAMES, FLAGS, FRAMES, NDECO, NORTH_TASK, NORTH_STORY, NORTH_END, TOWER_STEPS, TOWER_FX,
 } from './data.js';
 import { W, H, BASE_H, setRows, rowsFor, northStop, T_SNOW, T_ICE, getWorld, idx, inMap, hash3, mulberry32 } from './worldgen.js';
 import { journeyOf, journeyStep, mainCamp, outpostBlock, outpostKit, moveFuel, fuelUnits, stopOf, depotAuto, growNext, ruleNow, campRule, ruleSpan, ruleSpans, nsOf, SPINE, northN } from './journey.js';
@@ -49,7 +49,7 @@ export function newRun(meta, site = 0, seed) {
   const runSeed = seed != null ? seed : (Math.floor(Math.random() * 1e9) + 1);
   setRows(BASE_H);
   const S = {
-    v: VERSION, runSeed, t: 0, savedAt: Date.now(), site, nextId: 1, sk: 1,
+    v: VERSION, runSeed, t: 0, savedAt: Date.now(), site, nextId: 1, sk: 1, bt: 1,
     camps: [], buildings: [], belts: [], reqs: [], spots: {}, sap: {}, poiDone: {}, poiFound: {}, scouts: [], lines: [], roads: [], ships: [], sends: [], feeds: [],
     reveal: new Uint8Array(W * H), rows: BASE_H, discovered: [], founded: [], known: 1,
     eternal: { stage: 0, have: 0 }, specAt: {}, raidDone: -1,
@@ -284,7 +284,7 @@ function synergyOf(S, type, x, y, selfId) {
 export const SYN_PER = 0.12;
 
 // 供热圈半径：熔炉等级 + 蒸汽管道
-export function heatRadius(S, camp) { return furnaceRadius(getB(S, camp.furnace).lvl) + (camp.pipe || 0) + (firstLeg(S) ? 2 : 0) + ruleWarm(S, camp) + (towerLitAt(S, camp) ? TOWER_FX.warm : 0); }
+export function heatRadius(S, camp) { return furnaceRadius(getB(S, camp.furnace).lvl) + (camp.pipe || 0) + (firstLeg(S) ? 2 : 0) + ruleWarm(S, camp) + (towerLitAt(S, camp) ? TOWER_FX.warm : 0) + (cmdOn(S, 'shelter', camp) ? 2 : 0); }
 // 地貌规则改暖圈：地热谷 +3，富矿带 −2（只管这一站的主营地）
 // 暖圈变小的站（富矿带）：到站头两天照样给首程那 +2 格，抵掉 −2，先把营地铺开
 export const RICH_GRACE = 2 * DAY_LEN;
@@ -658,7 +658,7 @@ export function markFounded(S, camp) {
 export function arriveEmbers(S, i, first) { return Math.round((first ? 15 * i : 5) * (1 + relicSum(S, 'ember')) * diffOf(S).ember); }
 
 export function assignedWorkers(S, cid) { let n = 0; for (const b of S.buildings) if (b.camp === cid) n += b.workers; return n; }
-export function idleLabor(S, camp) { return camp.people + camp.bots - assignedWorkers(S, camp.id) - scoutsOut(S, camp.id); }
+export function idleLabor(S, camp) { return camp.people + botUnits(S, camp) - assignedWorkers(S, camp.id) - scoutsOut(S, camp.id); }
 function scoutsOut(S, cid) { return 0 * cid; } // 侦察队成员出发时已从人口中扣除
 export function setWorkers(S, bid, n) {
   const b = getB(S, bid); if (!b) return;
@@ -695,7 +695,9 @@ export function demolish(S, bid) {
   const d = BLD[b.type];
   for (const k in d.cost) camp.stock[k] = (camp.stock[k] || 0) + Math.floor(d.cost[k] * 0.5);
   for (const sid in S.specAt) if (S.specAt[sid] === bid) delete S.specAt[sid];
+  if (b.type === 'bay' && b.bots) { if (techDone(S, 'corerec')) { camp.stock.core = (camp.stock.core || 0) + Math.floor(b.bots / 2); logMsg(S, `拆掉自动机仓，${b.bots} 台自动机拆回了 ${Math.floor(b.bots / 2)} 个核心。`, 'info'); } b.bots = 0; }
   S.buildings = S.buildings.filter(x => x.id !== bid);
+  if (b.type === 'bay') { campBots(S, camp); trimWorkers(S, camp); }
   S.belts = (S.belts || []).filter(e => e.a !== bid && e.b !== bid);
   dirty(S);
   return { ok: true };
@@ -1126,6 +1128,7 @@ export function prodBonus(S, b, camp, syn, beltB) {
     ['遗物', Math.min(BONUS_CAP.relic, relicSum(S, 'prod'))],
     ['烽火余晖', techDone(S, 'afterglow') ? 0.03 * towersLit(S) : 0],
     ['无尽研究', ENDLESS.prod * endlessLvl(S)],
+    ['无人工坊', techDone(S, 'autofac') && BLD[b.type].cat === 'make' ? 0.1 + 0.1 * ((R.c[camp.id] || {}).botFr || 0) : 0],
     ['律令', lawSum(S, 'prod')],
     ['鼓舞', buffOf(S, camp, 'prod')],
   ].filter(p => Math.abs(p[1]) > 1e-9);
@@ -1181,6 +1184,66 @@ export function techGateWhy(S, br) {
   if (g.north && journeyOf(S).stage <= SPINE) return g.why;
   return '';
 }
+// ---------- 1.1 自动机 ----------
+export const botPow = S => (techDone(S, 'botcal') ? BOT.powCal : BOT.pow);
+export const bayCap = (S, b) => (techDone(S, 'botbay') ? BOT.bayPro : BOT.bay) * b.lvl;
+export const botModelOk = (S, m) => !!BOT_MODELS[m] && (!BOT_MODELS[m].tech || techDone(S, BOT_MODELS[m].tech));
+export const botModel = (S, b) => (botModelOk(S, b.model || 'labor') ? b.model || 'labor' : 'labor');
+// 营地里各型自动机有几台（按自动机仓算）
+export function campBots(S, camp, bs) {
+  let n = 0, h = 0, m = 0;
+  for (const b of bs || S.buildings.filter(x => x.camp === camp.id)) if (b.type === 'bay') { const k = b.bots || 0, md = botModel(S, b); n += k; if (md === 'haul') h += k; else if (md === 'mine') m += k; }
+  camp.bots = n; camp.botH = h; camp.botM = m;
+  return { n, h, m, l: n - h - m };
+}
+// 能派到岗位上的人手（劳工型、采掘型折成人头；搬运型不占岗位）
+export function botUnits(S, camp) { return Math.floor(((camp.bots || 0) - (camp.botH || 0)) * botPow(S)); }
+export function setBayModel(S, bid, m) {
+  const b = getB(S, bid); if (!b || b.type !== 'bay') return { ok: false, reason: '' };
+  if (!botModelOk(S, m)) return { ok: false, reason: `先研究「${TECHS.find(t => t.id === BOT_MODELS[m].tech).n}」` };
+  if ((b.model || 'labor') === m) return { ok: false, reason: '' };
+  b.model = m; const camp = getCamp(S, b.camp); campBots(S, camp); trimWorkers(S, camp); dirty(S);
+  if (b.bots) logMsg(S, `「${camp.name}」的自动机仓改造成${BOT_MODELS[m].n}：${b.bots} 台自动机换了装备。`, 'info');
+  return { ok: true };
+}
+// 核心回收：拆掉自动机退回核心（两台一个）
+export function scrapBots(S, bid, n) {
+  const b = getB(S, bid); if (!b || b.type !== 'bay') return { ok: false, reason: '' };
+  if (!techDone(S, 'corerec')) return { ok: false, reason: '先研究「核心回收」' };
+  n = Math.min(b.bots || 0, Math.floor(n / 2) * 2); if (n < 2) return { ok: false, reason: '仓里没有自动机' };
+  const camp = getCamp(S, b.camp); b.bots -= n; b.want = b.bots; camp.stock.core = (camp.stock.core || 0) + n / 2;
+  campBots(S, camp); trimWorkers(S, camp); dirty(S);
+  return { ok: true, n, cores: n / 2 };
+}
+
+export function bayRefill(S, bid) { const b = getB(S, bid); if (!b || b.type !== 'bay') return; delete b.want; dirty(S); }
+
+// ---------- 1.1 熔炉号令 ----------
+export const cmdOk = (S, id) => techDone(S, CMDS[id].tech);
+const cmdOf = (S, id) => (S.cmd || {})[id];
+export function cmdOn(S, id, camp) { const c = cmdOf(S, id); return !!c && c.until > S.t && (CMDS[id].net || !camp || c.camp === camp.id); }
+export const cmdLeft = (S, id) => { const c = cmdOf(S, id); return c ? Math.max(0, c.until - S.t) : 0; };
+export const cmdCd = (S, id) => { const c = cmdOf(S, id); return c ? Math.max(0, c.ready - S.t) : 0; };
+export function cmdFuel(S, camp) { return (cmdOn(S, 'blaze', camp) ? 3 : 1) * (cmdOn(S, 'shelter', camp) ? 0.5 : 1); }
+export function cmdCheck(S, id) {
+  const d = CMDS[id]; if (!d) return { ok: false, reason: '' };
+  if (!cmdOk(S, id)) return { ok: false, lock: true, reason: `先研究「${TECHS.find(t => t.id === d.tech).n}」` };
+  if (rt(S).offline) return { ok: false, reason: '离线时不发号令' };
+  if (cmdLeft(S, id) > 0) return { ok: false, on: true, reason: '号令正在生效' };
+  const cd = cmdCd(S, id); if (cd > 0) return { ok: false, cd, reason: `还要 ${Math.ceil(cd / 60)} 分钟才能再发` };
+  return { ok: true };
+}
+export function fireCmd(S, id, cid) {
+  const ck = cmdCheck(S, id); if (!ck.ok) return ck;
+  const d = CMDS[id], camp = getCamp(S, cid) || mainCamp(S);
+  (S.cmd || (S.cmd = {}))[id] = { camp: camp.id, until: S.t + d.len, ready: S.t + d.cd };
+  if (id === 'unity') camp.disc = 0;
+  logMsg(S, `📯 「${camp.name}」吹响号角：${d.n}！${d.d}（${d.len >= 120 ? d.len / 60 + ' 分钟' : d.len + ' 秒'}）。`, 'good');
+  rt(S).fx.push({ kind: 'cmd', id, camp: camp.id });
+  dirty(S);
+  return { ok: true };
+}
+
 // 能不能开始研究：已完成 / 正在研究 / 分支没开 / 缺前置 / 没侦察到 / 缺材料
 export function techCheck(S, id) {
   const t = techDef(S, id), T = techState(S);
@@ -1292,6 +1355,7 @@ function moodStep(S, camp, cr, dt) {
   const m = moodFactors(S, camp, cr), k = MOOD_RATE * dt / 60;
   camp.hope = clamp100(camp.hope + Math.max(-k, Math.min(k, m.hT - camp.hope)));
   camp.disc = clamp100(camp.disc + Math.max(-k, Math.min(k, m.dT - camp.disc)));
+  if (cmdOn(S, 'unity', camp)) camp.disc = 0; // 万众一心：号令期间不满不涨
   cr.mood = m;
   // 不满太高：有人趁夜离开（永不全灭）
   if (camp.disc >= LEAVE_AT && camp.people > LEAVE_MIN) {
@@ -1789,18 +1853,17 @@ function campStep(S, camp, dt, w) {
   const kitMul = 1 + lawSum(S, 'kitchen');
   if (cr.trade) for (const q in cr.trade) { cr.trade[q] *= Math.max(0, 1 - dt / 60); if (cr.trade[q] < 0.01) delete cr.trade[q]; } // 约等于每分钟兑换量
 
-  // 自动机仓：装入核心
+  // 自动机仓：装入核心，每个仓造自己挑的那一型
   let botCap = 0;
-  for (const b of bs) if (b.type === 'bay') botCap += BLD.bay.bots * b.lvl;
-  while (camp.bots + 2 <= botCap && (st.core || 0) >= 1) { st.core -= 1; camp.bots += 2; }
-  camp.bots = Math.min(camp.bots, botCap);
+  for (const b of bs) if (b.type === 'bay') { const cap = bayCap(S, b), fill = Math.min(cap, b.want ?? cap); b.bots = Math.min(b.bots || 0, cap); botCap += cap; while (b.bots + 2 <= fill && (st.core || 0) >= 1) { st.core -= 1; b.bots += 2; } }
+  campBots(S, camp, bs);
 
   // 燃料：熔炉 + 暖炉
   const od = odActive(S, camp, w, fb), stall = camp.odCool > 0;
   const ev = w.ev && w.ev.on ? w.ev.ev : null, evPrep = !!ev && wxePrepped(S, camp, ev);
   const frozen = !!ev && ev.kind === 'ice' && !evPrep, coldNight = !!ev && ev.kind === 'cold';
   const cRule = campRule(S, camp), cold = coldNow(S);
-  let fuelNeed = furnaceBurn(depotFireLvl(S, camp, fb)) * Math.max(0.3, 1 + buffOf(S, camp, 'fuel') + lawSum(S, 'fuel') + techSum(S, 'fuel')) * (od ? OD_FUEL : 1) * (coldNight ? WXE_FUEL : 1) * (cold ? coldFuel(S) : 1) * diffOf(S).fuel * (cRule === 'geo' ? RULE_FX.geoFuel : cRule === 'night' ? RULE_FX.nightFuel : 1) / 60 * dt;
+  let fuelNeed = furnaceBurn(depotFireLvl(S, camp, fb)) * Math.max(0.3, 1 + buffOf(S, camp, 'fuel') + lawSum(S, 'fuel') + techSum(S, 'fuel')) * (od ? OD_FUEL : 1) * (coldNight ? WXE_FUEL : 1) * (cold ? coldFuel(S) : 1) * diffOf(S).fuel * (cRule === 'geo' ? RULE_FX.geoFuel : cRule === 'night' ? RULE_FX.nightFuel : 1) * cmdFuel(S, camp) / 60 * dt;
   const fuelKeepU = dt > 0 ? fuelNeed / dt * 60 * FUEL_KEEP_MIN : 0; // 工厂和塔身不许动的那份燃料（按燃料份数算）
   let heaterHeat = 0;
   const heaters = bs.filter(b => b.type === 'heater');
@@ -1915,11 +1978,21 @@ function campStep(S, camp, dt, w) {
   if (sickN === 0) camp.sickWarn = false;
 
   // 人手
-  const labor = camp.people - sickN + camp.bots;
-  let assigned = 0;
-  for (const b of bs) assigned += b.workers;
-  const lf = assigned > 0 ? Math.min(1, labor / assigned) : 1;
-  const workEff = labor ? (camp.people * humanEff + camp.bots) / labor : humanEff;
+  // 劳工型自动机和人一起算人手（一台顶 1.5 个）；采掘型只补采集的岗位，干得比人快三成
+  const pow = botPow(S), bL = (camp.bots || 0) - (camp.botH || 0) - (camp.botM || 0);
+  const labor = camp.people - sickN + bL * pow;
+  let assigned = 0, gAss = 0;
+  for (const b of bs) { assigned += b.workers; if (BLD[b.type].cat === 'gather') gAss += b.workers; }
+  const mineU = Math.min(gAss, (camp.botM || 0) * pow), genAss = assigned - mineU;
+  const lf = genAss > 0 ? Math.min(1, labor / genAss) : 1;
+  const workEff = labor ? (camp.people * humanEff + bL * pow) / labor : humanEff;
+  const botFr = labor > 0 ? bL * pow / labor : 0, gGen = (gAss - mineU) * lf;
+  const lfG = gAss > 0 ? (mineU + gGen) / gAss : lf;
+  const effG = mineU + gGen > 0 ? (mineU * (1 + BOT.mine) + gGen * workEff) / (mineU + gGen) : workEff;
+  const botG = mineU + gGen > 0 ? (mineU + gGen * botFr) / (mineU + gGen) : 0; // 采集岗位上自动机占几成（耐寒外壳用）
+  cr.botFr = botFr; cr.botG = botG; cr.mineU = mineU; cr.mineIdle = Math.max(0, (camp.botM || 0) * pow - mineU);
+  const blaze = cmdOn(S, 'blaze', camp) ? 2 : 1; // 熔炉狂燃
+  const coldSlow = cold ? (techDone(S, 'botshell') ? botG + (1 - botG) * coldGather(S) : coldGather(S)) : 1; // 耐寒外壳：岗位上的自动机寒潮里不减速
 
   // 工程站：产出研究点数
   let rp = 0;
@@ -1952,8 +2025,9 @@ function campStep(S, camp, dt, w) {
   }
   cr.dogs = dogs; cr.dogFood = dogFood; cr.dogWant = dogWant;
   // 搬运工
-  let haulers = 2;
+  let haulers = 2 + (camp.botH || 0) * BOT.haul * pow / BOT.pow; // 搬运型自动机一台顶两个搬运工
   for (const b of bs) if (b.type === 'warehouse') haulers += b.workers * lf * (1 + specOf(S, b));
+  cr.haulBotFr = haulers > 0 ? (camp.botH || 0) * BOT.haul * pow / BOT.pow / haulers : 0;
   const carry = 2 + 0.4 * (fb.lvl - 1);
   const road = camp.road || 0;
   const speed = HAUL_SPEED * (1 + 0.12 * up(S, 'haul') + techSum(S, 'haul') + relicSum(S, 'haul') + 0.2 * road) * (w.blizzard && road < 3 ? 0.6 : 1) * (ev && ev.kind === 'crack' && !evPrep && campIce(S, camp) > 0 ? WXE_CRACK : 1);
@@ -1964,13 +2038,13 @@ function campStep(S, camp, dt, w) {
   for (const b of bs) {
     const d = bdef(b);
     if (!d.out) continue;
-    const mx = bMax(S, b);
-    const staff = mx ? Math.min(1, b.workers * lf / mx) : 1;
+    const mx = bMax(S, b), gth = BLD[b.type].cat === 'gather';
+    const staff = mx ? Math.min(1, b.workers * (gth ? lfG : lf) / mx) : 1;
     const syn = R.adj.get(b.id) || 0;
     const bo = R.beltOut.get(b.id), bi = R.beltIn.get(b.id);
     let beltB = 0;
     if (bi && d.in) { const ks = Object.keys(d.in); for (const k of ks) if (bi[k]) beltB += BELT[bi[k]].bonus / ks.length; }
-    const mult = levelMul(b.lvl) * (1 + prodBonus(S, b, camp, syn, beltB).sum) * staff * workEff * prodMul * (ev && ev.kind === 'ice' && BLD[b.type].cat === 'gather' ? WXE_ICE_GATHER : 1) * (cRule === 'night' && BLD[b.type].cat === 'gather' ? RULE_FX.nightOut : 1) * (cold && BLD[b.type].cat === 'gather' ? coldGather(S) : 1);
+    const mult = levelMul(b.lvl) * (1 + prodBonus(S, b, camp, syn, beltB).sum) * staff * (gth ? effG : workEff) * prodMul * blaze * (ev && ev.kind === 'ice' && gth ? WXE_ICE_GATHER : 1) * (cRule === 'night' && gth ? RULE_FX.nightOut : 1) * (cold && gth ? coldSlow : 1);
     const br = R.b[b.id] || (R.b[b.id] = {});
     br.staff = staff;
     if (b.moveT > S.t) { br.act = 0; br.status = '在搬家'; br.haul = 0; br.rate = {}; br.inRate = {}; br.want = {}; br.dep = 0; continue; }
@@ -2046,7 +2120,8 @@ function campStep(S, camp, dt, w) {
       (R.made || (R.made = {}))[k] = (R.made[k] || 0) + amt;
       if (d.gather) depleteSpots(S, b, amt * spotShare);
     }
-    br.act = Math.min(1, br.staff * workEff * hf * lim);
+    const wE = BLD[b.type].cat === 'gather' ? effG : workEff;
+    br.act = Math.min(1, br.staff * Math.min(1, wE) * hf * lim);
     br.rate = {}; for (const k in d.out) br.rate[k] = d.out[k] * p.mult * hf * lim * (k === 'food' ? kitMul : 1);
     br.dep = d.gather ? d.out[Object.keys(d.out)[0]] * p.mult * hf * lim * spotShare : 0; // 每分钟从资源点上挖走多少
     br.inRate = {}; if (d.in) for (const k in d.in) br.inRate[k] = d.in[k] * p.mult * hf * lim;
@@ -2054,7 +2129,7 @@ function campStep(S, camp, dt, w) {
     br.want = {}; if (d.in) for (const k in d.in) br.want[k] = k === whyK && (why.startsWith('缺') || why === KEEP_WHY || why === FUEL_KEEP_WHY) ? d.in[k] * p.mult * hf * Math.max(0, Math.min(1, gLim, room)) : br.inRate[k];
     br.haul = p.dem * hf * lim;
     br.dist = p.dist;
-    br.status = lim < 0.05 ? why : hf < 0.7 ? '搬运工不够' : lim < 0.95 ? why : br.staff < 0.99 ? '人手不足' : workEff < 0.9 ? '太冷，干活慢' : '运转中';
+    br.status = lim < 0.05 ? why : hf < 0.7 ? '搬运工不够' : lim < 0.95 ? why : br.staff < 0.99 ? '人手不足' : wE < 0.9 ? '太冷，干活慢' : '运转中';
     br.deep = deepX > 0;
     if (lim < 0.05 && why.startsWith('缺')) { if (br.stop0 == null) br.stop0 = S.t; } else br.stop0 = null; // 缺料停了多久（老向导提替代配方用）
   }
@@ -2169,7 +2244,7 @@ function tradeOverflow(S, camp, k, over, cap, cr, d) {
 }
 export function fuelUnitsOf(st) { let u = 0; for (const f in FUEL) u += (st[f] || 0) * FUEL[f]; return u; }
 export function trimWorkers(S, camp) {
-  let over = assignedWorkers(S, camp.id) - (camp.people + camp.bots);
+  let over = assignedWorkers(S, camp.id) - (camp.people + botUnits(S, camp));
   if (over <= 0) return;
   const bs = S.buildings.filter(b => b.camp === camp.id && b.workers > 0).sort((a, b) => autoPr(b.type) - autoPr(a.type));
   for (const b of bs) { if (over <= 0) break; const k = Math.min(b.workers, over); b.workers -= k; over -= k; }
@@ -2931,7 +3006,7 @@ function towerFeed(S, b, sp, dt, hf, offK, st, R, dem, fuelKeepU = 0) {
   br.rate = {}; br.inRate = {}; br.want = {}; br.haul = 0; br.act = 0; br.staff = 1;
   if (T.p >= sp.dur) { br.status = '塔身建好了，等点火'; return; }
   if (b.moveT > S.t) { br.status = '在搬家'; return; }
-  const f = Math.min(dt * hf * offK, sp.dur - T.p), need = sp.rate * f / 60;
+  const f = Math.min(dt * hf * offK * (cmdOn(S, 'unity', getCamp(S, b.camp)) ? 3 : 1), sp.dur - T.p), need = sp.rate * f / 60;
   let lim = 1, whyK = null;
   for (const k of sp.kinds) { const have = Math.max(0, (st[k] || 0) - fuelKeep(st, k, fuelKeepU)); if (have < need && have / need < lim) { lim = have / need; whyK = k; } }
   for (const k of sp.kinds) { st[k] = Math.max(0, (st[k] || 0) - need * lim); br.inRate[k] = sp.rate * hf * lim; br.want[k] = sp.rate * hf; }
@@ -3351,6 +3426,8 @@ export function deserialize(str) {
   if (!o.roads) migrateNet(o); // 1.1 以前的存档：运输线和补给站的路换成物流网
   migrateSpec(o);
   // 1.1 以前的存档：在岗的建筑从熟练 1 级起；第三章以后的，读档后过一天开始报寒潮
+  // 1.1 自动机按仓算：老存档营地里的自动机装回各个仓，都是劳工型
+  if (!o.bt) { o.bt = 1; for (const c of o.camps) { let left = c.bots || 0; for (const b of o.buildings) if (b.camp === c.id && b.type === 'bay' && left > 0) { const k = Math.min(left, BOT.bay * b.lvl); b.bots = k; left -= k; } } }
   if (!o.sk) { o.sk = 1; for (const b of o.buildings) if (skillable(b) && b.workers > 0 && b.xp == null) { b.xp = SKILL_CUM[0]; b.wRef = b.workers; } }
   if (!o.cold && journeyOf(o).stage >= COLD.from) o.cold = { t0: o.t + Math.max(0, Math.min(OFF_CAP, (Date.now() - (o.savedAt || Date.now())) / 1000)) };
   return o;

@@ -4,7 +4,7 @@
 import { RES, RES_KEYS, FUEL, furnaceBurn } from './data.js';
 import {
   getCamp, rt, storeCap, logMsg, up, techSum, relicSum, wxeAt, WXE_SLOW, getB, upgradeCost, canAfford, pay, missing, EAT,
-  keepOf, queueCost, fuelUnitsOf, dirty, dogsOf, trimWorkers, freeBeds, popRoom, MIN_PEOPLE, towerSpec, coldAt, coldFuel, techDone,
+  keepOf, queueCost, fuelUnitsOf, dirty, dogsOf, trimWorkers, freeBeds, popRoom, MIN_PEOPLE, towerSpec, coldAt, coldFuel, techDone, cmdOn,
 } from './sim.js';
 import { journeyOf, mainCamp, tripPlan, ruleNow, nsOf } from './journey.js';
 
@@ -24,7 +24,8 @@ const FUEL_SHIP = ['coke', 'coal', 'wood', 'battery']; // 补燃料时先送热�
 const TECH_NET = { thrift: ['wideroad', 0.7], tick: ['dispatch', 0.5], rail: ['railsched', 1.5] };
 export function netMul(S, k) {
   const R = rt(S), m = R.netMul && R.netMul[k], tn = TECH_NET[k];
-  return (m != null ? m : 1) * (tn && techDone(S, tn[0]) ? tn[1] : 1);
+  const rush = (k === 'cap' ? 3 : k === 'spd' || k === 'rail' ? 2 : 1) !== 1 && cmdOn(S, 'rush') ? (k === 'cap' ? 3 : 2) : 1; // 紧急调度
+  return (m != null ? m : 1) * (tn && techDone(S, tn[0]) ? tn[1] : 1) * rush;
 }
 // 一车最少装多少件：研究「调度站」后 5 件就发
 export const netBatch = S => (techDone(S, 'dispatch') ? 5 : NET_BATCH);

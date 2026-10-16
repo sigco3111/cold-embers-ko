@@ -1,5 +1,5 @@
 // 界面：顶部状态、资源条、底部工具栏、面板、提示
-import { BRIEF, RES, RES_KEYS, BLD, BLD_KEYS, CATS, TIER_NAMES, LANDMARKS, FAR_MARKS, SPECS, SPEC_MAX, EMBER_UPS, emberCost, specTrainCost, specBonus, FUEL, furnaceRadius, furnaceHeat, furnaceBurn, baseTempOfRow, tierOfRow, ETERNAL_STAGES, GATE, GATE_EVERY, STORY, SPOTS, SPOT_KEYS, dayCycle, LAWS, TECHS, TECH_BR, SITES, CHAPTERS, INFRA, RAIDERS, DAY_LEN, DIFF, DIFF_KEYS, SLOTS, FOCUS, FOCUS_KEYS, FOCUS_LVL, NORTH_RULES, TOWER_FX, TITLES, FLAMES, FLAGS, FRAMES, NDECO, ALT_SWITCH, CAMP_SPEC, CSPEC_FX, CSPEC_FX2 } from './data.js';
+import { BRIEF, RES, RES_KEYS, BLD, BLD_KEYS, CATS, TIER_NAMES, LANDMARKS, FAR_MARKS, SPECS, SPEC_MAX, EMBER_UPS, emberCost, specTrainCost, specBonus, FUEL, furnaceRadius, furnaceHeat, furnaceBurn, baseTempOfRow, tierOfRow, ETERNAL_STAGES, GATE, GATE_EVERY, STORY, SPOTS, SPOT_KEYS, dayCycle, LAWS, TECHS, TECH_BR, SITES, CHAPTERS, INFRA, RAIDERS, DAY_LEN, DIFF, DIFF_KEYS, SLOTS, FOCUS, FOCUS_KEYS, FOCUS_LVL, NORTH_RULES, TOWER_FX, TITLES, FLAMES, FLAGS, FRAMES, NDECO, ALT_SWITCH, CAMP_SPEC, CSPEC_FX, CSPEC_FX2, BOT, BOT_MODELS, CMDS } from './data.js';
 import * as Sim from './sim.js';
 import { personOf, personState, campVoices } from './people.js';
 import { getWorld, idx, W, H } from './worldgen.js';
@@ -548,7 +548,7 @@ export class UI {
     set('tmp', `${temp}°`, wl, (temp < 0 || w.blizzard || con ? 'bad' : w.warn || cfc ? 'warn' : '') + (temp < 10 ? ' cold' : ' warm'));
     const hp = Math.round(c.hope ?? 50), ds = Math.round(c.disc ?? 10), mt = cr.mood || { hT: hp, dT: ds }, arr = (v, t) => t > v + 1 ? '▲' : t < v - 1 ? '▼' : '';
     const pl = c.wait > 0 && ds < 55 ? `<span class="neg">${c.wait} 人等床位</span>` : ds >= 55 ? `不满 ${ds}${arr(ds, mt.dT)}` : `希望 ${hp}${arr(hp, mt.hT)}`;
-    set('ppl', `${c.people}${c.bots ? `<small>+${c.bots}🤖</small>` : ''}<small>/${cr.housing || 0}</small>`, pl, ds >= 70 ? 'bad' : ds >= 55 || hp <= 25 ? 'warn' : '');
+    set('ppl', `${c.people}<small>/${cr.housing || 0}</small>`, pl, ds >= 70 ? 'bad' : ds >= 55 || hp <= 25 ? 'warn' : '');
     const ok = fuelEta === Infinity && fuelMin < 6000, show = Math.min(6001, fuelEta === Infinity ? fuelMin : fuelEta);
     const fv = fuelMin > 6000 ? '充足' : ok ? '够烧' : show >= 60 ? `${Math.floor(show / 60)}时${show < 600 && Math.floor(show % 60) ? Math.floor(show % 60) + '分' : ''}` : `${Math.max(0, Math.floor(show))}分`;
     set('fuel', fv, fuelMin > 6000 || ok ? '燃料够烧' : '燃料还能烧', fuelEta < 30 ? 'bad' : fuelEta < 90 ? 'warn' : '');
@@ -556,7 +556,7 @@ export class UI {
     const fn = cr.foodNet || 0, fm = fn < 0 ? (c.stock.food || 0) / -fn : Infinity;
     set('food', fmt(this.rolled('food', c.stock.food)), `<span class="${fn < -0.05 ? 'neg' : fn > 0.05 ? 'pos' : ''}">${fn >= 0 ? '+' : ''}${fmt(fn)}/分</span>`, fm < 10 ? 'bad' : fm < 30 ? 'warn' : '');
     V.tmp.e.title = `住在屋里的体感温度${w.blizzard ? ' · 暴风雪还有 ' + fmtTime(w.until - S.t) : w.warn ? ' · 暴风雪 ' + fmtTime(w.inSec) + ' 后到' : ''}（点开熔炉）`;
-    V.ppl.e.title = `人口 / 床位 · 希望 ${hp} · 不满 ${ds}${c.wait > 0 ? ` · ${c.wait} 人在等床位` : ''}`;
+    V.ppl.e.title = `人口 / 床位 · 希望 ${hp} · 不满 ${ds}${c.wait > 0 ? ` · ${c.wait} 人在等床位` : ''}${c.bots ? ` · 自动机 ${c.bots} 台` : ''}`;
     V.fuel.e.title = ok ? `燃料进得比烧得快（库存够烧 ${fmtTime(fuelMin * 60)}）` : `燃料还能烧 ${fmtTime(show * 60)}`;
     V.food.e.title = '熟食库存 · 每分钟净变化';
   }
@@ -608,6 +608,7 @@ export class UI {
   noteLater() { const n = this.noteCur; if (!n) return; this.noteZz = { key: n.key, until: performance.now() + 180000 }; this.noteT = 0; this.noteSync(this.alertsNow); }
   hud() {
     const S = this.S, c = this.camp(), cr = Sim.rt(S).c[c.id] || {};
+    this.cmdBar(c);
     this.watchStock(c, cr);
     this.watchLevels();
     const fuelMin = cr.burnPerMin ? cr.fuelUnits / cr.burnPerMin : 0, fuelEta = Sim.fuelLeft(cr); // 库存够烧多久；算上进账还能撑多久（跟得上就是 Infinity）
@@ -646,6 +647,44 @@ export class UI {
     this.$('tbBuild').classList.toggle('dot', this.newBld().length > 0);
     this.$('tbNorth').classList.toggle('dot', ['migrate', 'specs', 'scout'].some(k => this.tabDot(k)));
     this.$('tbCamp').classList.toggle('dot', this.tabDot('camp'));
+  }
+  // 熔炉号令：右下角一排圆按钮，外圈是冷却/生效的进度；点一下弹出说明和「发令」
+  cmdBar(c) {
+    const S = this.S, el = this.$('cmdbar'); if (!el) return;
+    const ids = Object.keys(CMDS).filter(id => Sim.cmdOk(S, id));
+    let h = '';
+    for (const id of ids) {
+      const d = CMDS[id], on = Sim.cmdOn(S, id, d.net ? null : c), left = Sim.cmdLeft(S, id), cd = Sim.cmdCd(S, id);
+      const st = on ? 'on' : left > 0 ? 'away' : cd > 0 ? 'cd' : 'ready', p = on ? left / d.len : cd > 0 ? 1 - cd / d.cd : 1;
+      const tx = on ? fmtTime(left) : cd > 0 ? fmtTime(cd) : '';
+      h += `<button class="cmdb ${st}${this.cmdSel === id ? ' sel' : ''}" data-act="cmdsel" data-arg="${id}" style="--p:${p.toFixed(3)}" title="${d.n}" aria-label="${d.n}"><span>${d.ic}</span>${tx ? `<i>${tx}</i>` : ''}</button>`;
+    }
+    if (this.cmdSel && ids.includes(this.cmdSel)) {
+      const id = this.cmdSel, d = CMDS[id], ck = Sim.cmdCheck(S, id), left = Sim.cmdLeft(S, id), other = left > 0 && !d.net && (S.cmd[id].camp !== c.id);
+      const len = d.len >= 120 ? `${d.len / 60} 分钟` : `${d.len} 秒`;
+      h += `<div class="cmdpop"><b>${d.ic} ${d.n}</b><small>${d.d}</small><small class="cm">${d.net ? '整个物流网' : `只管「${esc(c.name)}」`} · 持续 ${len} · 冷却 ${d.cd / 60} 分钟</small>${other ? `<small class="cm warn">正在「${esc(Sim.getCamp(S, S.cmd[id].camp).name)}」生效</small>` : ''}<div class="cpb"><button class="small" data-act="cmdsel" data-arg="">收起</button><button class="small ${ck.ok ? 'go' : ''}" data-act="cmdfire" data-arg="${id}" ${ck.ok ? '' : 'disabled'}>${ck.ok ? '📯 发令' : ck.on ? '生效中' : ck.cd ? fmtTime(ck.cd) + ' 后可发' : esc(ck.reason)}</button></div></div>`;
+    }
+    if (h !== this.cmdH) { this.cmdH = h; el.innerHTML = iconize(h); }
+    document.body.classList.toggle('cmd-on', ids.length > 0);
+  }
+  // 自动机仓：几台、哪一型、核心、拆回核心
+  bayHtml(b, c) {
+    const S = this.S, cap = Sim.bayCap(S, b), md = Sim.botModel(S, b), cr = Sim.rt(S).c[c.id] || {}, pow = Sim.botPow(S), n = b.bots || 0;
+    let h = `<div class="row"><span>自动机</span><span><b>${n}</b>/${cap} 台 · ${BOT_MODELS[md].n}${b.want != null && b.want < cap ? ` · 空着 ${cap - b.want} 个位子` : ''}</span></div>`;
+    h += `<div class="row sub"><span>自动机核心</span><span>库存 ${fmt(c.stock.core || 0)} 个 · 有空位就自动装（一个核心 2 台）</span></div>`;
+    h += `<div class="sec">型号 <small>这个仓里的自动机改成哪一型</small></div><div class="achips">`;
+    for (const m in BOT_MODELS) {
+      const d = BOT_MODELS[m], okm = Sim.botModelOk(S, m);
+      h += `<button class="achip ${m === md ? 'on' : ''}" data-act="baymod" data-arg="${b.id}:${m}" ${okm && m !== md ? '' : 'disabled'}><b>${d.ic} ${d.n}</b><small>${okm ? (m === 'labor' ? `什么活都能干，一台顶 ${pow} 个人` : m === 'haul' ? `只搬东西：一台顶 ${fmt(BOT.haul * pow / BOT.pow)} 个搬运工` : '只干采集：产量 +30%') : `研究「${TECHS.find(t => t.id === d.tech).n}」后可选`}</small></button>`;
+    }
+    h += `</div>`;
+    const cb = Sim.campBots(S, c);
+    h += `<div class="row sub"><span>全营地</span><span>劳工 ${cb.l} · 搬运 ${cb.h} · 采掘 ${cb.m} 台</span></div>`;
+    if (md === 'mine' && (cr.mineIdle || 0) >= 1) h += `<div class="hint warn">采掘型有 ${Math.floor(cr.mineIdle)} 个人手的活没处干：营地里的采集岗位不够。多建采集建筑，或者把这个仓改成劳工型。</div>`;
+    if (Sim.techDone(S, 'corerec')) {
+      h += `<div class="row"><span>核心回收</span><span style="flex:none;display:flex;gap:6px">${n >= 2 ? `<button class="small" data-act="bayscrap" data-arg="${b.id}:2">拆 2 台</button><button class="small" data-act="bayscrap" data-arg="${b.id}:${n}">全拆</button>` : ''}${b.want != null ? `<button class="small go" data-act="bayfill" data-arg="${b.id}">重新装满</button>` : ''}</span></div><div class="hint">拆下来的自动机两台退一个核心；拆过以后这个仓不再自动装，点「重新装满」恢复。</div>`;
+    }
+    return h;
   }
   // 页签上的小点：这一页有事等你
   tabDot(k) {
@@ -1355,7 +1394,7 @@ export class UI {
     if (b.type === 'tower') h += `<div class="row"><span>威力</span><span>${Math.round(Sim.towerPower(b.lvl))}</span></div>`;
     if (b.type === 'sledshed') h += this.shedHtml(b, c);
     if (b.type === 'heater') h += `<div class="row"><span>加温</span><span>+${Math.round(BLD.heater.heat * (1 + 0.5 * (b.lvl - 1)))}° · 烧煤 ${fmt(BLD.heater.burn * b.lvl)}/分</span></div>`;
-    if (b.type === 'bay') h += `<div class="row"><span>自动机</span><span>${c.bots}/${cr.botCap || 0} 台（库存核心会自动装入）</span></div>`;
+    if (b.type === 'bay') h += this.bayHtml(b, c);
     if (b.type === 'kennel') {
       const n = Sim.kennelDogs(b.lvl), br = Sim.rt(S).b[b.id] || {}, all = Sim.dogsOf(S, c.id);
       h += `<div class="row"><span>雪橇犬</span><span>${Math.round(br.dogs || 0)}/${n} 只能拉雪橇 · ${b.workers ? `吃生肉 ${fmt(n * BLD.kennel.feed)}/分${(br.fed ?? 1) < 0.95 ? ' <b class="warn">没喂饱</b>' : ''}` : '没人看：狗放出去自己找吃的了'}</span></div>`;
@@ -1620,7 +1659,10 @@ export class UI {
   p_folk(part) {
     const S = this.S, c0 = this.camp(), cr0 = Sim.rt(S).c[c0.id] || {}, R = Sim.rt(S);
     if (part === 'title') return `人手 <small>${esc(c0.name)}</small>`;
+    const bay0 = c0.bots ? S.buildings.find(b => b.camp === c0.id && b.type === 'bay') : null;
+    const botRow = c0.bots ? `<div class="row"><span>自动机 ${c0.bots} 台<br><small>劳工 ${c0.bots - (c0.botH || 0) - (c0.botM || 0)} · 搬运 ${c0.botH || 0} · 采掘 ${c0.botM || 0}。一台顶 ${Sim.botPow(S)} 个人，不吃饭、不怕冷。</small></span>${bay0 ? `<span style="flex:none"><button style="white-space:nowrap" class="small" data-act="openbld" data-arg="${bay0.id}">换型号</button></span>` : ''}</div>` : '';
     let h = `<div class="folk"><span><b>${c0.people}</b>人</span><span><b>${Math.max(0, Sim.idleLabor(S, c0))}</b>空闲</span><span><b>${Math.min(c0.people, cr0.housing || 0)}</b>住帐篷</span><span class="${c0.people > (cr0.housing || 0) ? 'bad' : ''}"><b>${Math.max(0, c0.people - (cr0.housing || 0))}</b>露宿</span>${c0.wait > 0 ? `<span class="bad"><b>${c0.wait}</b>等床位</span>` : ''}${cr0.sick ? `<span class="bad"><b>${cr0.sick}</b>生病</span>` : ''}${(cr0.hunger || 0) > 0.05 ? `<span class="bad"><b>${Math.round(cr0.hunger * 100)}%</b>挨饿</span>` : ''}</div>`;
+    h += botRow;
     h += `<div class="row"><span>自动派人<br><small>新来的人自动去缺人的建筑（吃饭、取暖优先）。手动减过人的建筑不会被塞人。</small></span><span style="flex:none"><button style="white-space:nowrap" class="small ${c0.auto === false ? '' : 'go'}" data-act="auto" data-arg="${c0.id}">${c0.auto === false ? '已关闭' : '已开启'}</button></span></div>`;
     // 按建筑种类：几座、几个人 / 最多几个人、有几座停着
     const by = new Map();
@@ -2783,6 +2825,11 @@ export class UI {
       case 'roadrail': { const r = res(Sim.railRoad(S, +arg, S.active)); if (r.ok) { this.toast(r.queued ? r.reason : '改成铁路了。', r.queued ? 'info' : 'good'); g.sfx('build'); } break; }
       case 'roadx': Sim.cancelRoad(S, +arg); break;
       case 'gpg': this.gPg = arg; g.sfx('tap'); break;
+      case 'cmdsel': this.cmdSel = arg || null; this.cmdH = null; g.sfx('tap'); this.cmdBar(this.camp()); return;
+      case 'cmdfire': { const r = res(Sim.fireCmd(S, arg, S.active)); if (r.ok) { this.cmdSel = null; g.drainFx(); } this.cmdH = null; this.cmdBar(this.camp()); return; }
+      case 'baymod': { const [id, m] = arg.split(':'); const r = res(Sim.setBayModel(S, +id, m)); if (r.ok) { this.toast(`改成${BOT_MODELS[m].n}了。`, 'good'); g.sfx('build'); } break; }
+      case 'bayscrap': { const [id, n] = arg.split(':'); const r = res(Sim.scrapBots(S, +id, +n)); if (r.ok) { this.toast(`拆了 ${r.n} 台自动机，退回 ${r.cores} 个核心。`, 'info'); g.sfx('tap'); } break; }
+      case 'bayfill': Sim.bayRefill(S, +arg); g.sfx('tap'); break;
       case 'guild': g.cancelModes(); this.open('guild'); break;
       case 'gsell': { const [k, n] = String(arg).split(':'); const r = res(Sim.guildSell(S, S.active, k, +n)); if (r.ok) { this.toast(`卖了 ${fmt(r.n)} ${RES[k].n}，得银币 ${fmt(r.silver)}。`, 'good'); g.sfx('coin'); } break; }
       case 'gbuy': { const [k, n] = String(arg).split(':'); const r = res(Sim.guildBuy(S, S.active, k, +n)); if (r.ok) { this.toast(`买了 ${fmt(r.n)} ${RES[k].n}，花银币 ${fmt(r.silver)}。`, 'info'); g.sfx('coin'); } break; }

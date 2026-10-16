@@ -362,6 +362,7 @@ class Game {
       else if (f.kind === 'odstall') { if (!quiet) { this.sfx('lose'); const c = Sim.getCamp(this.S, f.camp); if (c) this.view.burst('dust', c.x, c.y, 30, 1.2, 2.5); } }
       else if (f.kind === 'star' || f.kind === 'mile') { if (!quiet) { this.sfx('win'); const c = Sim.mainCamp(this.S); if (c) this.fireworks(c.x, c.y, f.kind === 'star' ? 3 + f.star * 2 : 4); if (f.kind === 'star' && f.star >= 3 && !this.S.meta.alb3) { this.S.meta.alb3 = 1; this.albumShot(`${RES[f.r] ? RES[f.r].n : ''}产线三星`, 2200); } } }
       else if (f.kind === 'depart') { if (!quiet) this.sfx('horn'); }
+      else if (f.kind === 'cmd') { if (!quiet) { this.sfx('horn'); const c = Sim.getCamp(this.S, f.camp); if (c) { this.view.shakeT = 0.7; this.view.burst('spark', c.x, c.y, 40, 0.6, 2.2); this.view.burst('dust', c.x, c.y, 16, 1.2, 1.2); this.view.ringFx && this.view.ringFx(c.x, c.y, f.id === 'shelter' ? 4 : 3); } } }
       else if (f.kind === 'road') { if (!quiet) { if (this.speed > 1) this.setSpeed(1); if (!document.getElementById('modal').classList.contains('show') && !this.titleOn && this.ui.roadModal()) this.sfx('event'); } }
       else if (f.kind === 'douse') { if (!quiet) { this.view.burst('dust', f.x, f.y, 40, 2, 1.5); this.view.ringFx && this.view.ringFx(f.x, f.y, 3); } }
       else if (f.kind === 'veh') { if (!quiet) { this.sfx('build'); const b = Sim.getB(this.S, f.b); if (b) { const h = BLD[b.type].size / 2; this.view.burst('dust', b.x + h, b.y + h, 18, 0.8, 1); this.view.ringFx && this.view.ringFx(b.x + h, b.y + h, 1.2); } } }
