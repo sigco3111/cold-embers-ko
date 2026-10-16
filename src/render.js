@@ -1836,16 +1836,17 @@ void main() {
     const X = this.wxk || { ice: 0, cold: 0 }, wi = X.ice, wc = X.cold, wt = X.tide || 0;
     if (wi > 0.001) bc.lerp(C.t.setRGB(0.56, 0.66, 0.76).lerp(C.night, nf * 0.8), wi * 0.45);
     if (wc > 0.001) bc.lerp(C.t.setRGB(0.04, 0.08, 0.2), wc * 0.4 * nf);
-    if (wt > 0.001) bc.lerp(C.t.setRGB(0.62, 0.72, 0.9).lerp(C.night, nf * 0.75), wt * 0.4); // 永冬潮：天地发青，白天也像隔着一层冰
+    if (wt > 0.001) bc.lerp(C.t.setRGB(0.6, 0.72, 0.92).lerp(C.night, nf * 0.7), wt * 0.55); // 永冬潮：天地发青，白天也像隔着一层冰
     this.scene.fog.color.copy(bc);
     this.hemi.color.copy(C.skyD).lerp(C.skyN, nf); this.hemi.groundColor.copy(C.gndD).lerp(C.gndN, nf);
     if (wc > 0.001) this.hemi.color.lerp(C.t.setRGB(0.5, 0.66, 1), wc * 0.35);
-    if (wt > 0.001) this.hemi.color.lerp(C.t.setRGB(0.6, 0.74, 1), wt * 0.4);
+    if (wt > 0.001) this.hemi.color.lerp(C.t.setRGB(0.55, 0.72, 1), wt * 0.55);
     if (wi > 0.001) this.hemi.color.lerp(C.t.setRGB(0.75, 0.85, 0.95), wi * 0.3);
     if (au > 0.001) this.hemi.color.lerp(C.t.setRGB(0.35, 1, 0.72), au * 0.45);
     this.hemi.intensity = (1.1 - nf * 0.62) * (1 - bz * 0.27) * (1 + au * 0.22 + ic * 0.12);
     this.sun.color.copy(C.sunD).lerp(C.moon, nf).lerp(C.sunK, Math.min(1, dw * 0.85));
-    this.sun.intensity = (1.55 - nf * 1.2 - dw * 0.3) * (1 - bz * 0.6) * (1 - ic * 0.45) * (1 - wi * 0.5);
+    this.sun.intensity = (1.55 - nf * 1.2 - dw * 0.3) * (1 - bz * 0.6) * (1 - ic * 0.45) * (1 - wi * 0.5) * (1 - wt * 0.3);
+    if (wt > 0.001) this.sun.color.lerp(C.t.setRGB(0.75, 0.85, 1), wt * 0.6);
     // 太阳白天从东往西划过，夜里月亮慢慢摆回来，影子跟着转
     const p = dc.p, az = p < 0.56 ? -0.9 + 1.8 * p / 0.56 : 0.9 - 1.8 * (p - 0.56) / 0.44;
     this.sunOff = [Math.cos(az * 0.9) * 26 + 2, 30 - Math.abs(az) * 11, Math.sin(az * 0.9) * 22 + 6];
@@ -2237,7 +2238,7 @@ void main() {
       const tier = tierOfRow(c.y);
       const col = new THREE.Color(fx.gang != null ? '#5a4030' : tier >= 6 ? '#8a70b0' : tier >= 5 ? '#c0e0f0' : tier >= 3 ? '#6a4a3a' : '#7d828c');
       if (fx.beast) { // 1.1 霜巨兽：一头冰蓝的巨狼，后面跟着几只小的
-        const bc = new THREE.Color('#cfe6ff');
+        const bc = new THREE.Color('#5f7fa8');
         this.raids.push({ camp: c.id, t0: this.time, won: fx.won, col: bc, beast: 1, wolves: Array.from({ length: 5 }, (_, i) => ({ a: base + (i / 5 - 0.5) * 0.9, r0: r + (i ? 2 + Math.random() * 2 : 1), s: i ? 1.1 : 4.2, die: fx.won ? (i ? 4 + Math.random() * 4 : 9) : 99 })), lastShot: 0 });
         return;
       }
@@ -2385,8 +2386,8 @@ void main() {
         const b = Sim.getB(S, bid), fz = !!(b && b.frz > S.t);
         if (fz && !e.ice) {
           const s = BLD[e.type].size;
-          e.ice = new THREE.Mesh(this.iceGeo ||= new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0), this.iceMat ||= new THREE.MeshStandardMaterial({ color: '#cfe8ff', emissive: '#4a7ab0', emissiveIntensity: 0.25, transparent: true, opacity: 0.5, roughness: 0.12, metalness: 0.1, depthWrite: false }));
-          e.ice.scale.set(s * 0.96, Math.min(4, (e.h || 1.6) * 1.08), s * 0.96); e.g.add(e.ice);
+          e.ice = new THREE.Mesh(this.iceGeo ||= new THREE.IcosahedronGeometry(0.5, 1).translate(0, 0.22, 0), this.iceMat ||= new THREE.MeshStandardMaterial({ color: '#d6efff', emissive: '#5a90c8', emissiveIntensity: 0.3, transparent: true, opacity: 0.55, roughness: 0.1, metalness: 0.15, flatShading: true, depthWrite: false }));
+          e.ice.scale.set(s * 1.12, Math.min(4.5, (e.h || 1.6) * 1.5), s * 1.12); e.ice.rotation.y = bid * 1.7; e.g.add(e.ice);
         } else if (!fz && e.ice) { e.g.remove(e.ice); e.ice = null; this.burst('dust', e.g.position.x, -e.g.position.z, 10, 0.6); }
       }
       if (e.cons > 0) {
