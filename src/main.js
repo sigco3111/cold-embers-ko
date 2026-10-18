@@ -13,6 +13,7 @@ import { albumAdd, toJpeg } from './album.js';
 import { downloadsApi, saveFile, pickTextFile, stamp } from './files.js';
 import { Hints, WHATS_NEW, whatsNewHtml } from './hints.js';
 import { Backups, BK_EVERY, bkInfo } from './backup.js';
+import { Theme } from './theme.js';
 
 const KEY = 'hanjin-beixing-v1';
 // 三个存档位：1 号沿用原来的存档键，老存档直接就在 1 号位
@@ -24,6 +25,7 @@ class Game {
     this.canvas = document.getElementById('c');
     this.view = new View(this.canvas);
     injectIcons();
+    this.theme = new Theme(this); // 1.2 冷暖两套：先定好配色再画界面
     this.ui = new UI(this);
     this.bigmap = new BigMap(this);
     this.chainmap = new ChainMap(this);
@@ -46,6 +48,7 @@ class Game {
     this.acc = 0; this.saveT = 0; this.uiT = 0; this.badgeT = 0; this.bootT = performance.now();
     this.bk = new Backups(KEY);
     this.load();
+    this.theme.apply(this.theme.want(), false); // 读完存档按眼下的天气定一次，不用淡入
     if (this.brokenSave) this.bk.list(this.slot).then(L => { // 存档坏了但备份还在：问要不要退回去
       if (!L.length) return;
       this.modalOrLater(`<h2>存档读不出来了</h2><p>存档位 ${this.slot} 里的存档坏了，读不出来，可能是浏览器存储出了问题。</p><p>自动备份还在：最近一份是 <b>${this.ui.agoText(L[0].at)}</b> 存的（${this.ui.bkLine(L[0])}）。退回去就能接着玩。</p>`, [{ t: '查看备份', a: 'backups', cls: 'go' }, { t: '从头开始', a: 'close-modal' }]);
@@ -307,6 +310,7 @@ class Game {
     this.view.frame(dt);
     this.ui.floats(this.paused ? 0 : dt * this.speed); this.ui.juice();
     this.hints.tick(dt);
+    this.theme.tick(dt);
     this.watchPerf(realGap);
     this.sndT = (this.sndT || 0) + dt;
     if (this.sndT > 0.25 || !this.sndInfo) { this.sndT = 0; this.sndInfo = this.view.audioInfo(); }

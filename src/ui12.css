@@ -1,0 +1,311 @@
+/* ==================== 1.2 霜铁点灯：拟物化 + 冷暖两套 ====================
+   这一层接在所有旧样式后面。
+   一、两套色板：<html data-theme="cold|warm">，变量都以 --u- 开头（和样图里的一样）。
+   二、暖色的纸面：面板正文、弹窗里把旧样式写死的颜色换成深棕字、奶白纸、棕线（打包时 themeize.mjs 换成了 --w 族变量）。
+   三、拟物零件：铁板 / 木板、嵌板、纸、旋钮、按钮、页签……各个界面在后面分段写。 */
+
+/* ---------- 一、两套色板 ---------- */
+:root[data-theme=cold]{
+--u-fg:#e3ebf2;--u-fg2:#9aaebf;--u-hud-fg:#e6eef5;--u-hud-fg2:#9db1c3;--u-inset-fg:#eaf2f8;--u-inset-fg2:#8fa4b6;
+--u-good:#7fe0b0;--u-good-d:#1d6b4a;--u-warn:#ffc35c;--u-warn-d:#8a5a0a;--u-bad:#ff6b57;--u-bad-d:#7a1c10;--u-lamp-off:#2a333d;--u-lamp-bd:#05080b;
+--u-good-t:#86e3b6;--u-warn-t:#ffc768;--u-bad-t:#ff8a77;
+--u-rivet:radial-gradient(circle at 4px 4px,#eef4fa 0 .8px,#a7b6c4 1.6px,#55636f 2.7px,#151b21 3.4px,transparent 3.9px);
+--u-edge:radial-gradient(ellipse 8px 6px at 50% 100%,rgba(246,251,255,.98) 72%,rgba(246,251,255,0) 76%) 0 2px/15px 8px repeat-x,radial-gradient(ellipse 13px 7px at 50% 100%,rgba(228,240,250,.96) 72%,rgba(228,240,250,0) 76%) 6px 0/26px 10px repeat-x;
+--u-edge-f:drop-shadow(0 1.5px 1px rgba(4,12,22,.45));--u-ice-d:block;
+--u-tag-bg:linear-gradient(180deg,#5b3420,#3a1f12);--u-tag-fg:#ffc590;--u-tag-bd:#1a0c05;--u-tag-sh:inset 0 1px 0 rgba(255,200,150,.25);
+--u-badge:radial-gradient(circle at 40% 35%,#ff8a6a,#d8331f 60%,#8f160b);--u-badge-fg:#fff;--u-badge-ring:#10161d;
+--u-key-bg:linear-gradient(180deg,#3d4955,#27313b);--u-key-fg:#d9e4ee;--u-key-bd:#0b0f14;
+--u-glass:linear-gradient(90deg,rgba(220,235,250,.18),rgba(220,235,250,.42) 40%,rgba(220,235,250,.12));--u-glass-sh:inset 0 0 0 1px rgba(5,10,15,.7),0 0 0 1px rgba(190,215,240,.18);
+--u-tube-bg:linear-gradient(180deg,#04070a,#121921);--u-tube-sh:inset 0 1px 3px rgba(0,0,0,.85),0 1px 0 rgba(190,215,240,.14),0 0 0 1px #04070a;
+--u-tube-fill:linear-gradient(180deg,#ffd29a,#ff8a2b 45%,#c4520f);--u-tube-glow:0 0 10px rgba(255,138,43,.7);
+--u-g-b1:#e4edf5;--u-g-b2:#45525e;--u-g-rim:#070b0f;--u-g-f1:#1f2934;--u-g-f2:#0a0f14;--u-g-tick:#cad9e6;--u-g-zone:#ff5a3c;--u-g-needle:#ff8a2b;--u-g-hub:#c9d4de;
+--u-knob:radial-gradient(circle at 50% 30%,#5c6b79,#36414c 55%,#222a33);--u-knob-bd:#06090c;--u-knob-fg:#e4edf5;
+--u-knob-sh:inset 0 1px 0 rgba(225,238,250,.4),inset 0 -2px 3px rgba(0,0,0,.4),0 0 0 3px #1b2229,0 0 0 4px rgba(190,215,240,.25),0 5px 10px rgba(4,8,12,.5);
+--u-knob-fire:radial-gradient(circle at 50% 32%,#ffbf7a,#ff8a2b 45%,#a84210 85%);--u-knob-fire-fg:#2b0f02;
+--u-knob-fire-sh:inset 0 1px 0 rgba(255,235,200,.7),0 0 0 3px #1b2229,0 0 0 4px rgba(255,160,90,.5),0 0 18px rgba(255,138,43,.6);
+--u-btn:linear-gradient(180deg,#56646f,#38434e 55%,#2c353f);--u-btn-bd:#070a0e;--u-btn-fg:#eef4f9;
+--u-btn-sh:inset 0 1px 0 rgba(225,238,250,.35),inset 0 -2px 0 rgba(0,0,0,.3),0 2px 0 #070a0e,0 4px 8px rgba(0,0,0,.35);--u-btn-ts:0 -1px 0 rgba(0,0,0,.6);
+--u-go:radial-gradient(ellipse 120% 90% at 50% 20%,#ffc488,#ff8a2b 50%,#c0500f);--u-go-bd:#3d1503;--u-go-fg:#2a0e02;
+--u-go-sh:inset 0 1px 0 rgba(255,240,210,.75),inset 0 -2px 0 rgba(110,35,0,.45),0 2px 0 #2a0e02,0 0 16px rgba(255,138,43,.5);--u-go-ts:0 1px 0 rgba(255,225,190,.55);
+--u-plq:linear-gradient(180deg,#617486,#41505f 48%,#323e4b 52%,#3d4b59);--u-plq-bd:#070a0e;--u-plq-fg:#f3f8fc;--u-plq-fg2:#b9c9d7;
+--u-plq-sh:inset 0 1px 0 rgba(235,245,255,.45),inset 0 -1px 0 rgba(0,0,0,.4),0 2px 4px rgba(0,0,0,.45);--u-plq-ts:0 -1px 0 rgba(0,0,0,.6);--u-screw:radial-gradient(circle at 40% 35%,#e7eef4,#7d8b98 55%,#2a333c);
+--u-tabs-bg:linear-gradient(180deg,#0b1015,#131a21);--u-tabs-bd:1px solid #05080b;--u-tabs-sh:inset 0 2px 4px rgba(0,0,0,.7),0 1px 0 rgba(190,215,240,.12);--u-tabs-r:7px;
+--u-tab:transparent;--u-tab-fg:#8ea3b5;--u-tab-sh:none;--u-tab-r:5px;
+--u-tab-on:linear-gradient(180deg,#4e5c69,#36414c);--u-tab-on-fg:#f6fafd;--u-tab-on-sh:inset 0 1px 0 rgba(225,238,250,.35),0 2px 4px rgba(0,0,0,.55);
+--u-tab-mark:#ff8a2b;--u-tab-mark-sh:0 0 8px rgba(255,138,43,.9);
+--u-card:linear-gradient(180deg,rgba(150,185,215,.07),rgba(150,185,215,.02));--u-card-bd:rgba(0,0,0,.6);--u-card-sh:inset 0 1px 0 rgba(200,225,250,.1),0 1px 0 rgba(200,225,250,.06);
+--u-rule-a:rgba(0,0,0,.55);--u-rule-b:rgba(190,215,240,.09);--u-sec-fg:#b8cada;--u-zebra:rgba(150,185,215,.035);
+--u-tb-fg:#93a7b9;--u-tb-on:#ffd2a6;--u-well:linear-gradient(180deg,#0e141a,#182029);--u-well-sh:inset 0 2px 3px rgba(0,0,0,.7),0 1px 0 rgba(190,215,240,.12);
+--u-well-on:linear-gradient(180deg,#3c2a1d,#2a1b11);--u-well-on-sh:inset 0 2px 3px rgba(0,0,0,.6),0 1px 0 rgba(255,170,100,.25),0 0 10px rgba(255,138,43,.35);
+--u-valve-ring:repeating-conic-gradient(#7d8b98 0 9deg,#3a4550 9deg 18deg);--u-valve-ring-sh:0 0 0 2px #0a0e12,0 0 0 4px rgba(190,215,240,.22),0 8px 16px rgba(0,0,0,.55);
+--u-valve:radial-gradient(circle at 50% 34%,#ffd09a,#ff8a2b 42%,#b4470d 78%,#5d1f05);--u-valve-fg:#2a0e02;--u-valve-sh:inset 0 2px 2px rgba(255,240,215,.7),inset 0 -3px 4px rgba(80,20,0,.55),0 0 0 2px #0a0e12,0 0 22px rgba(255,138,43,.65);
+--u-medal-ring:radial-gradient(circle at 50% 30%,#dfe8f0,#6c7a87 60%,#2a333c);--u-medal:radial-gradient(circle at 50% 30%,#2c3742,#141a21);--u-medal-fg:#ffc58e;
+--u-slip:linear-gradient(180deg,#dfe8ef,#c9d6e1);--u-slip-fg:#1d2833;--u-slip-fg2:#4e5f6e;--u-slip-sh:0 3px 8px rgba(4,10,18,.45),inset 0 0 0 1px rgba(255,255,255,.5);
+--u-ct:linear-gradient(180deg,#2d3844,#1b232c);--u-ct-bd:#06090c;--u-ct-fg:#f1f6fa;--u-ct-fg2:#ffbf86;--u-ct-sh:inset 0 1px 0 rgba(210,230,250,.3),0 3px 8px rgba(0,0,0,.45),0 0 14px rgba(255,138,43,.25);
+--u-vig:radial-gradient(ellipse 125% 95% at 50% 46%,rgba(0,0,0,0) 58%,rgba(198,222,244,.35) 80%,rgba(236,246,255,.78) 100%),linear-gradient(180deg,rgba(40,70,110,.10),rgba(40,70,110,.10));
+--u-dim:rgba(6,12,20,.42);
+--u-handle:linear-gradient(180deg,#8796a3,#4a5763);--u-handle-sh:inset 0 1px 0 rgba(255,255,255,.4),0 1px 2px rgba(0,0,0,.6);
+--u-tip:linear-gradient(180deg,#26313c,#19212a);--u-tip-bd:#06090c;--u-tip-fg:#e8f0f6;--u-tip-fg2:#9aaebf;--u-tip-sh:inset 0 1px 0 rgba(210,230,250,.22),0 10px 24px rgba(0,0,0,.55);--u-tip-arrow:#26313c;
+--u-mm-ring:conic-gradient(from 0deg,#cfd9e2,#5a6672,#cfd9e2,#5a6672,#cfd9e2);--u-mm-sh:0 0 0 2px #0a0e12,0 8px 18px rgba(0,0,0,.5);
+--u-sw-bg:linear-gradient(180deg,#0b1015,#141b22);--u-sw-sh:inset 0 2px 3px rgba(0,0,0,.7),0 1px 0 rgba(190,215,240,.12);--u-sw-fg:#8ea3b5;
+--u-sw-on:linear-gradient(180deg,#ffc488,#ff8a2b 55%,#c0500f);--u-sw-on-fg:#2a0e02;--u-sw-on-sh:inset 0 1px 0 rgba(255,240,210,.7),0 0 10px rgba(255,138,43,.6);
+--u-plate-bg:linear-gradient(180deg,rgba(210,230,250,.07),rgba(210,230,250,0) 38%,rgba(0,0,0,.12)),repeating-linear-gradient(90deg,rgba(255,255,255,.022) 0 1px,rgba(0,0,0,.03) 1px 3px,rgba(255,255,255,0) 3px 5px),linear-gradient(180deg,#323e4b,#1d252e);
+--u-plate-bd:1px solid #06090c;
+--u-plate-r:7px;
+--u-plate-sh:inset 0 1px 0 rgba(210,230,250,.28),inset 0 -2px 0 rgba(0,0,0,.35),inset 1px 0 0 rgba(210,230,250,.06),inset -1px 0 0 rgba(0,0,0,.25),0 6px 16px rgba(3,7,12,.5);
+--u-paper-bg:linear-gradient(180deg,rgba(150,185,215,.05),rgba(150,185,215,0) 120px),linear-gradient(180deg,#1b232c,#151b22);
+--u-paper-sh:inset 0 2px 5px rgba(0,0,0,.6),inset 0 0 0 1px rgba(0,0,0,.6);
+--u-inset-bg:linear-gradient(180deg,#0d1319,#151d26);
+--u-inset-bd:1px solid #04070a;
+--u-inset-r:5px;
+--u-inset-sh:inset 0 2px 4px rgba(0,0,0,.75),0 1px 0 rgba(190,215,240,.14);
+}
+:root[data-theme=warm]{
+--u-fg:#3a2716;--u-fg2:#7a5c3e;--u-hud-fg:#fbebcb;--u-hud-fg2:#e2c79c;--u-inset-fg:#3a2716;--u-inset-fg2:#80613f;
+--u-good:#8fd36a;--u-good-d:#2f5f16;--u-warn:#ffc34a;--u-warn-d:#8a5506;--u-bad:#ff6f4f;--u-bad-d:#7a1a0c;--u-lamp-off:#5a3a20;--u-lamp-bd:#2a1608;
+--u-good-t:#3f7020;--u-warn-t:#a8600c;--u-bad-t:#a52a16;
+--u-rivet:radial-gradient(circle at 4px 4px,#fff6d4 0 .8px,#e2b65a 1.6px,#8a5f1f 2.7px,#3a2408 3.4px,transparent 3.9px);
+--u-edge:linear-gradient(180deg,#fbe7ad,#d7a94f 45%,#8e631f) 0 4px/100% 4px no-repeat;
+--u-edge-f:drop-shadow(0 1px 1px rgba(40,20,5,.45));--u-ice-d:none;
+--u-tag-bg:linear-gradient(180deg,#9a3a26,#6e2618);--u-tag-fg:#fbe2bd;--u-tag-bd:#3a1308;--u-tag-sh:inset 0 1px 0 rgba(255,210,170,.35);
+--u-badge:radial-gradient(circle at 40% 35%,#c4472f,#8e2a18 65%,#5e1a0d);--u-badge-fg:#fff1d8;--u-badge-ring:#f3dfb4;
+--u-key-bg:linear-gradient(180deg,#fbf2dc,#e5d1a7);--u-key-fg:#4a2f16;--u-key-bd:#8a6a3a;
+--u-glass:linear-gradient(90deg,rgba(255,255,255,.35),rgba(255,255,255,.75) 40%,rgba(255,255,255,.3));--u-glass-sh:inset 0 0 0 1px rgba(110,74,23,.55),0 0 0 1.5px #c99a41;
+--u-tube-bg:linear-gradient(180deg,#e9d8b2,#f6ead0);--u-tube-sh:inset 0 1px 3px rgba(90,55,20,.45),0 0 0 1.5px #c99a41,0 0 0 2.5px #7a5419;
+--u-tube-fill:linear-gradient(180deg,#ffd27a,#e58a2c 50%,#b05a17);--u-tube-glow:none;
+--u-g-b1:#fff0bf;--u-g-b2:#8a5f1f;--u-g-rim:#4a2f12;--u-g-f1:#fffaf0;--u-g-f2:#ead9b5;--u-g-tick:#3a2716;--u-g-zone:#b8321c;--u-g-needle:#a8281a;--u-g-hub:#7a5419;
+--u-knob:radial-gradient(circle at 50% 30%,#fff0bf,#d8a94f 45%,#9a6a22 80%);--u-knob-bd:#4a2f12;--u-knob-fg:#3b2408;
+--u-knob-sh:inset 0 1px 0 rgba(255,250,225,.85),inset 0 -2px 3px rgba(90,55,20,.4),0 0 0 3px #5a361d,0 0 0 4px #2a1709,0 5px 10px rgba(30,15,5,.45);
+--u-knob-fire:radial-gradient(circle at 50% 32%,#ffd08a,#e8792a 48%,#a5401a 85%);--u-knob-fire-fg:#3a1204;
+--u-knob-fire-sh:inset 0 1px 0 rgba(255,240,210,.8),0 0 0 3px #5a361d,0 0 0 4px #2a1709,0 0 18px rgba(255,160,80,.55);
+--u-btn:linear-gradient(180deg,#fbe7ad,#e2b65a 45%,#b88633 55%,#d9ad55);--u-btn-bd:#5e3f12;--u-btn-fg:#3b2408;
+--u-btn-sh:inset 0 1px 0 rgba(255,250,225,.85),inset 0 -2px 0 rgba(90,55,20,.3),0 2px 0 #5e3f12,0 4px 7px rgba(40,20,5,.3);--u-btn-ts:0 1px 0 rgba(255,245,215,.6);
+--u-go:radial-gradient(ellipse 120% 90% at 50% 20%,#e9875a,#c4502a 52%,#8e3218);--u-go-bd:#4a1708;--u-go-fg:#fff3e0;
+--u-go-sh:inset 0 1px 0 rgba(255,215,180,.6),inset 0 -2px 0 rgba(70,15,5,.45),0 0 0 2px #d9ad55,0 0 0 3px #6e4a17,0 3px 0 3px rgba(60,25,8,.0),0 4px 8px rgba(40,20,5,.35);--u-go-ts:0 -1px 0 rgba(60,15,5,.55);
+--u-plq:linear-gradient(180deg,#fff0bf,#e2b65a 42%,#b88633 52%,#d9ad55 70%,#f2d48a);--u-plq-bd:#5e3f12;--u-plq-fg:#3b2408;--u-plq-fg2:#6e4a1f;
+--u-plq-sh:inset 0 1px 0 rgba(255,250,225,.85),inset 0 -1px 0 rgba(90,55,20,.35),0 2px 4px rgba(40,20,5,.4);--u-plq-ts:0 1px 0 rgba(255,245,215,.6);--u-screw:radial-gradient(circle at 40% 35%,#fff3cc,#a57a32 55%,#4a2f12);
+--u-tabs-bg:transparent;--u-tabs-bd:0;--u-tabs-sh:inset 0 -2px 0 #8a5f1f;--u-tabs-r:0;
+--u-tab:linear-gradient(180deg,#8f3a28,#6b2719);--u-tab-fg:#f7dcc0;--u-tab-sh:inset 0 0 0 1px #3a1308,inset 0 0 0 3px rgba(0,0,0,0),inset 0 1px 0 rgba(255,200,160,.25);--u-tab-r:7px 7px 0 0;
+--u-tab-on:linear-gradient(180deg,#fbf3e0,#f3e6c8);--u-tab-on-fg:#3a2716;--u-tab-on-sh:inset 0 0 0 1px #b59056,0 -2px 4px rgba(40,20,5,.2);
+--u-tab-mark:#c4502a;--u-tab-mark-sh:none;
+--u-card:linear-gradient(180deg,rgba(255,252,242,.75),rgba(255,248,232,.55));--u-card-bd:rgba(122,84,25,.45);--u-card-sh:inset 0 0 0 3px rgba(255,252,242,.6),inset 0 0 0 4px rgba(122,84,25,.2),0 1px 2px rgba(90,55,20,.18);
+--u-rule-a:rgba(122,84,25,.28);--u-rule-b:rgba(255,252,240,.7);--u-sec-fg:#6e4a1f;--u-zebra:rgba(122,84,25,.05);
+--u-tb-fg:#e8cfa6;--u-tb-on:#fff2d6;--u-well:linear-gradient(180deg,#3a2213,#4c2e18);--u-well-sh:inset 0 2px 3px rgba(20,8,2,.65),0 1px 0 rgba(255,220,170,.2);
+--u-well-on:linear-gradient(180deg,#fbe7ad,#d9ad55);--u-well-on-fg:#4a2a0e;--u-well-on-sh:inset 0 1px 0 rgba(255,250,225,.8),0 0 0 1px #5e3f12,0 0 12px rgba(255,200,110,.45);
+--u-valve-ring:repeating-conic-gradient(#e2b65a 0 9deg,#8a5f1f 9deg 18deg);--u-valve-ring-sh:0 0 0 2px #2a1709,0 0 0 4px #6b4428,0 8px 16px rgba(30,15,5,.5);
+--u-valve:radial-gradient(circle at 50% 34%,#ffd89a,#e8792a 45%,#a5401a 80%,#5a1d08);--u-valve-fg:#3a1204;--u-valve-sh:inset 0 2px 2px rgba(255,240,215,.75),inset 0 -3px 4px rgba(80,20,0,.5),0 0 0 2px #2a1709,0 0 20px rgba(255,170,90,.55);
+--u-medal-ring:radial-gradient(circle at 50% 30%,#fff0bf,#c99a41 55%,#6e4a17);--u-medal:radial-gradient(circle at 50% 30%,#fbf3e0,#e6d2a9);--u-medal-fg:#6b2719;
+--u-slip:linear-gradient(180deg,#fbf3e0,#f0e1bf);--u-slip-fg:#3a2716;--u-slip-fg2:#7a5c3e;--u-slip-sh:0 3px 8px rgba(40,20,5,.35),inset 0 0 0 1px rgba(122,84,25,.25);
+--u-ct:linear-gradient(180deg,#fff0bf,#e2b65a 45%,#b88633 55%,#d9ad55);--u-ct-bd:#5e3f12;--u-ct-fg:#3b2408;--u-ct-fg2:#7a2a18;--u-ct-sh:inset 0 1px 0 rgba(255,250,225,.85),0 3px 8px rgba(40,20,5,.4),0 0 16px rgba(255,190,100,.35);
+--u-vig:radial-gradient(ellipse 120% 95% at 50% 50%,rgba(0,0,0,0) 55%,rgba(90,45,12,.22) 82%,rgba(60,28,8,.45) 100%),linear-gradient(180deg,rgba(255,170,90,.07),rgba(255,170,90,.07));
+--u-dim:rgba(40,20,6,.38);
+--u-handle:linear-gradient(180deg,#fbe7ad,#b88633);--u-handle-sh:inset 0 1px 0 rgba(255,250,225,.8),0 1px 2px rgba(40,20,5,.5);
+--u-tip:linear-gradient(180deg,#fbf3e0,#f0e1bf);--u-tip-bd:#8a6a3a;--u-tip-fg:#3a2716;--u-tip-fg2:#7a5c3e;--u-tip-sh:0 10px 24px rgba(40,20,5,.4),inset 0 0 0 3px rgba(255,252,242,.6);--u-tip-arrow:#fbf3e0;
+--u-mm-ring:conic-gradient(from 0deg,#fff0bf,#a57a32,#fff0bf,#a57a32,#fff0bf);--u-mm-sh:0 0 0 2px #2a1709,0 8px 18px rgba(30,15,5,.45);
+--u-sw-bg:linear-gradient(180deg,#3a2213,#4c2e18);--u-sw-sh:inset 0 2px 3px rgba(20,8,2,.65),0 1px 0 rgba(255,220,170,.2);--u-sw-fg:#e8cfa6;
+--u-sw-on:linear-gradient(180deg,#fbe7ad,#d9ad55);--u-sw-on-fg:#3b2408;--u-sw-on-sh:inset 0 1px 0 rgba(255,250,225,.8),0 0 10px rgba(255,200,110,.45);
+--u-plate-bg:linear-gradient(180deg,rgba(255,225,180,.14),rgba(255,225,180,0) 30%,rgba(0,0,0,.14)),radial-gradient(ellipse 40px 9px at 22% 38%,rgba(40,18,6,.22),rgba(40,18,6,0) 70%),radial-gradient(ellipse 30px 7px at 71% 64%,rgba(40,18,6,.18),rgba(40,18,6,0) 70%),repeating-linear-gradient(178.5deg,rgba(40,18,6,0) 0 5px,rgba(40,18,6,.14) 5px 6px,rgba(255,215,165,.05) 6px 10px,rgba(40,18,6,.07) 10px 12px),linear-gradient(180deg,#7d4f2c,#5a361d);
+--u-plate-bd:1px solid #2a1709;
+--u-plate-r:7px;
+--u-plate-sh:inset 0 1px 0 rgba(255,220,170,.3),inset 0 -2px 0 rgba(0,0,0,.28),0 0 0 1px rgba(201,154,65,.0),0 6px 16px rgba(30,15,5,.45);
+--u-paper-bg:radial-gradient(ellipse 90% 60% at 50% 0%,#fdf7e8,rgba(253,247,232,0) 70%),linear-gradient(180deg,#f5e9cf,#ead8b2);
+--u-paper-sh:inset 0 0 0 1px #b59056,inset 0 0 18px rgba(150,100,40,.18);
+--u-inset-bg:linear-gradient(180deg,#fbf3e0,#eedfbe);
+--u-inset-bd:1px solid #6e4a17;
+--u-inset-r:5px;
+--u-inset-sh:inset 0 1px 3px rgba(90,55,20,.35),0 0 0 2px #c99a41,0 0 0 3px #5e3f12,0 2px 3px 3px rgba(30,15,5,.25);
+}
+
+/* ---------- 二、暖色的纸面 ---------- */
+/* 旧样式里写死的颜色分成这些族：t 字（1 主 2 次，r o y g b p 是红橙黄绿蓝紫的字），b 深底（0 最深），
+   B/m 深色的彩底（不透明 / 半透明），sh 暗影叠层，hl 浅色叠层，ln 浅色细线，bd 深色边，ts 字影。值是 r,g,b */
+:root[data-theme=warm] :is(#sheet .pbody,#sheet .pfoot,#sheet .pfbar,#modal .mbox,.u-paper){
+  --wt1:58,39,22;--wt2:122,92,62;--wtr:165,42,22;--wto:150,64,20;--wty:150,92,10;--wtg:63,112,32;--wtb:45,90,133;--wtp:110,60,140;
+  --wb0:241,227,196;--wb1:248,239,219;--wb2:252,246,232;
+  --wBr:246,214,200;--wBo:248,222,196;--wBy:246,232,192;--wBg:222,236,200;--wBb:214,228,238;--wBp:232,220,240;
+  --wmr:214,96,64;--wmo:225,130,60;--wmy:214,160,60;--wmg:110,160,70;--wmb:90,130,170;--wmp:140,100,170;
+  --wsh:110,74,30;--whl:122,84,25;--wln:122,84,25;--wbd:181,144,86;--wts:255,248,230;
+  /* 旧的命名变量 */
+  --a-text:#3a2716;--a-text2:#7a5c3e;--text:#3a2716;--muted:#7a5c3e;--a-good:#3f7020;--a-bad:#a52a16;
+  --line:rgba(122,84,25,.22);--a-line:rgba(122,84,25,.3);--a-hi:rgba(255,252,240,.6);
+  --a-card:rgba(255,252,242,.72);--a-panel:#f3e6c8;--a-bg:rgba(245,233,207,.96);--a-bar:#e9d8b2;--iron:#efe0bd;--iron2:#f6ecd6;--iron3:#e4cf9f;
+  --good:#3f7020;--bad:#a52a16;--warn:#a8600c;--frost:#2d5a85;--frost-lo:#5f7f9d;
+  --wc-brass-hi:#5a3412;--wc-brass:#7a5a2a;--wc-brass-lo:#8a6a3a;--wc-ember-hi:#9a4a10;--wc-ember:#a8520f;--wc-ember-lo:#8a3510;--wc-a-ember2:#a8520f;--wc-a-ember:#a04a10;--wc-frost:#2d5a85;
+  color:#3a2716;
+}
+
+/* ---------- 换配色：界面先淡下去，换好再亮回来 ---------- */
+body.th-dip :is(#top,#side,#toolbar,#cmdbar,#sheet,#note,#noteMini,#toasts,#placebar,#modal,#hint,#pausebar,#labels){opacity:.08;transition:opacity .55s ease}
+body.th-up :is(#top,#side,#toolbar,#cmdbar,#sheet,#note,#noteMini,#toasts,#placebar,#modal,#hint,#pausebar,#labels){transition:opacity .7s ease}
+@media (prefers-reduced-motion:reduce){body.th-dip :is(#top,#side,#toolbar,#cmdbar,#sheet,#note,#noteMini,#toasts,#placebar,#modal,#hint,#pausebar,#labels){transition:none}}
+
+/* ---------- 三、拟物零件 ---------- */
+:root{--num:'Barlow Condensed',-apple-system,"PingFang SC","Noto Sans SC",sans-serif}
+/* 铁板 / 木板 */
+.u-plate,#top .r1,#goal,#toolbar,#sheet,#placebar,#cmdbar .cmdp{background:var(--u-plate-bg);border:var(--u-plate-bd);border-radius:var(--u-plate-r);box-shadow:var(--u-plate-sh);color:var(--u-hud-fg)}
+/* 四角铆钉 */
+.u-rivets::before,#top .r1::before,#goal::before{content:"";position:absolute;inset:4px;pointer-events:none;z-index:1;background:var(--u-rivet) left top/8px 8px no-repeat,var(--u-rivet) right top/8px 8px no-repeat,var(--u-rivet) left bottom/8px 8px no-repeat,var(--u-rivet) right bottom/8px 8px no-repeat}
+/* 上沿积雪（冷）/ 黄铜包边（暖） */
+.u-frost::after,#top .r1::after,#toolbar::after{content:"";position:absolute;left:8px;right:8px;top:-6px;height:10px;pointer-events:none;z-index:2;background:var(--u-edge);filter:var(--u-edge-f)}
+/* 嵌板 */
+.u-inset{background:var(--u-inset-bg);border:var(--u-inset-bd);border-radius:var(--u-inset-r);box-shadow:var(--u-inset-sh);color:var(--u-inset-fg)}
+/* 旋钮 */
+.u-knob{background:var(--u-knob);border:1px solid var(--u-knob-bd);color:var(--u-knob-fg);box-shadow:var(--u-knob-sh)}
+/* 小铭牌 */
+.u-plaque{background:var(--u-plq);border:1px solid var(--u-plq-bd);color:var(--u-plq-fg);box-shadow:var(--u-plq-sh);text-shadow:var(--u-plq-ts);border-radius:4px}
+/* 红底页签小牌（章节、新玩法） */
+.u-tag{display:inline-flex;align-items:center;height:18px;padding:0 6px;font-size:11px;letter-spacing:.06em;border-radius:3px;background:var(--u-tag-bg);color:var(--u-tag-fg);border:1px solid var(--u-tag-bd);box-shadow:var(--u-tag-sh);white-space:nowrap}
+/* 指示灯 */
+.u-lamp{display:inline-block;width:9px;height:9px;border-radius:50%;flex:none;--lc:var(--u-lamp-off);--lcd:var(--u-lamp-off);background:radial-gradient(circle at 35% 32%,#fff 0 1px,var(--lc) 2.5px,var(--lcd) 5px);box-shadow:0 0 0 1px var(--u-lamp-bd),0 0 7px var(--lc)}
+.u-lamp.g{--lc:var(--u-good);--lcd:var(--u-good-d)}.u-lamp.y{--lc:var(--u-warn);--lcd:var(--u-warn-d)}.u-lamp.r{--lc:var(--u-bad);--lcd:var(--u-bad-d)}.u-lamp.w{--lc:#e8eef3;--lcd:#7d8b98}
+/* 玻璃进度管 */
+.u-tube{position:relative;height:10px;border-radius:6px;background:var(--u-tube-bg);box-shadow:var(--u-tube-sh);overflow:hidden}
+.u-tube>i{position:absolute;left:0;top:0;bottom:0;border-radius:6px;background:var(--u-tube-fill);box-shadow:var(--u-tube-glow)}
+.u-tube::after{content:"";position:absolute;left:4px;right:4px;top:1.5px;height:3px;border-radius:2px;background:linear-gradient(180deg,rgba(255,255,255,.45),rgba(255,255,255,0))}
+/* 数字角标 */
+.u-badge{position:absolute;min-width:18px;height:18px;padding:0 4px;border-radius:9px;font:700 11px/18px var(--num);font-style:normal;text-align:center;background:var(--u-badge);color:var(--u-badge-fg);box-shadow:0 0 0 1.5px var(--u-badge-ring),0 2px 3px rgba(0,0,0,.35)}
+/* 键帽 */
+.u-key{display:inline-flex;align-items:center;justify-content:center;min-width:17px;height:17px;padding:0 3px;border-radius:3px;font:600 11px/1 var(--num);background:var(--u-key-bg);color:var(--u-key-fg);border:1px solid var(--u-key-bd);box-shadow:0 1.5px 0 var(--u-key-bd)}
+
+/* ---------- 按钮 ---------- */
+.btn,button.small,.seg .btn{background:var(--u-btn);border:1px solid var(--u-btn-bd);color:var(--u-btn-fg);box-shadow:var(--u-btn-sh);text-shadow:var(--u-btn-ts);border-radius:6px}
+.btn{min-height:40px;padding:9px 14px;font-weight:700;letter-spacing:.04em}
+.btn:hover,button.small:hover{filter:brightness(1.07)}
+.btn:active,button.small:active{transform:translateY(1px);box-shadow:var(--u-btn-sh),inset 0 2px 4px rgba(0,0,0,.25)}
+.btn.go,button.small.go{background:var(--u-go);border-color:var(--u-go-bd);color:var(--u-go-fg);box-shadow:var(--u-go-sh);text-shadow:var(--u-go-ts)}
+.btn.go:hover,button.small.go:hover{background:var(--u-go);filter:brightness(1.06)}
+.btn.bad{background:linear-gradient(180deg,#b5492f,#7a2616);border-color:#3a0f08;color:#fff3ea;text-shadow:0 -1px 0 rgba(0,0,0,.4);box-shadow:inset 0 1px 0 rgba(255,200,170,.35),0 2px 0 #3a0f08}
+.btn.ghost,button.small.ghost{background:transparent;border:1px solid var(--u-btn-bd);color:inherit;opacity:.85;box-shadow:none;text-shadow:none}
+.btn[disabled],.btn.off,button.small[disabled]{filter:grayscale(.6);opacity:.5}
+button.small{padding:6px 11px;border-radius:5px;font-size:12.5px;font-weight:600}
+/* 几选一：凹进去的槽，选中的那格亮起来（和设计稿里的速度开关一样） */
+.seg{gap:3px;padding:3px;border-radius:8px;background:var(--u-sw-bg);box-shadow:var(--u-sw-sh)}
+.seg .btn{opacity:1;background:transparent;border-color:transparent;box-shadow:none;color:var(--u-sw-fg);text-shadow:none;border-radius:5px}
+.seg .btn small{color:inherit;opacity:.7}
+.seg .btn:disabled{opacity:.4}
+.seg .btn.on{background:var(--u-sw-on);color:var(--u-sw-on-fg);box-shadow:var(--u-sw-on-sh);border-color:transparent}
+
+/* 开关：嵌在板里的拨杆 */
+.tgl{background:var(--u-card);border:1px solid var(--u-card-bd);box-shadow:var(--u-card-sh);border-radius:6px}
+.tgl .sw{background:var(--u-sw-bg);border:0;box-shadow:var(--u-sw-sh)}
+.tgl .sw::after{background:var(--u-knob);box-shadow:0 1px 2px rgba(0,0,0,.45)}
+.tgl.on{border-color:var(--u-card-bd)}.tgl.on .sw{background:var(--u-go);box-shadow:var(--u-sw-sh)}
+
+/* 进度条换成玻璃管 */
+.bar{height:10px;border:0;border-radius:6px;background:var(--u-tube-bg);box-shadow:var(--u-tube-sh);overflow:hidden;position:relative}
+.bar i{border-radius:6px;background:var(--u-tube-fill);box-shadow:var(--u-tube-glow)}
+.bar::after{content:"";position:absolute;left:4px;right:4px;top:1.5px;height:3px;border-radius:2px;background:linear-gradient(180deg,rgba(255,255,255,.4),rgba(255,255,255,0));pointer-events:none}
+
+/* ---------- 面板（手机从下往上拉，电脑在侧边或居中） ---------- */
+#sheet{scrollbar-color:var(--u-handle-c,#5a6672) transparent}
+@media (orientation:portrait),(max-width:760px){#sheet{border-radius:16px 16px 0 0;border-bottom:0}}
+.phead{background:transparent;border-bottom:0;box-shadow:none;padding:16px 12px 8px}
+.phead::after{content:none}
+@media (orientation:portrait),(max-width:760px){.phead::before{content:"";position:absolute;left:50%;top:6px;width:54px;height:6px;margin-left:-27px;border-radius:3px;background:var(--u-handle);box-shadow:var(--u-handle-sh)}}
+/* 标题做成一块小铭牌，两边各一颗螺丝 */
+.phead>b{flex:0 1 auto;margin-right:auto;position:relative;align-items:center;height:40px;padding:0 22px;background:var(--u-plq);border:1px solid var(--u-plq-bd);border-radius:4px;box-shadow:var(--u-plq-sh);color:var(--u-plq-fg);text-shadow:var(--u-plq-ts);font:900 18px var(--serif);letter-spacing:.14em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.phead>b::before,.phead>b::after{content:"";position:absolute;top:50%;width:7px;height:7px;margin-top:-3.5px;border-radius:50%;background:var(--u-screw);box-shadow:0 1px 0 rgba(255,255,255,.2)}
+.phead>b::before{left:7px}.phead>b::after{right:7px}
+.phead>b small{color:var(--u-plq-fg2);font:500 12px var(--sans);letter-spacing:.06em}
+.phead .x,.phead .bk{width:38px;height:38px;border-radius:50%;background:var(--u-knob);border:1px solid var(--u-knob-bd);color:var(--u-knob-fg);box-shadow:var(--u-knob-sh);font-weight:700}
+.phead .x:hover,.phead .bk:hover{background:var(--u-knob);filter:brightness(1.08)}
+/* 页签：冷是嵌进铁板的一条槽，暖是红色的夹子页签 */
+.ptabs{gap:4px;margin:10px -2px 0;padding:4px;background:var(--u-tabs-bg);border:var(--u-tabs-bd);box-shadow:var(--u-tabs-sh);border-radius:var(--u-tabs-r)}
+.ptabs button{height:36px;padding:0;border:0;margin:0;border-radius:var(--u-tab-r);background:var(--u-tab);color:var(--u-tab-fg);box-shadow:var(--u-tab-sh);font:500 13.5px var(--sans);letter-spacing:.08em;text-shadow:none}
+.ptabs button:hover{color:var(--u-tab-on-fg);filter:brightness(1.08)}
+.ptabs button.on{background:var(--u-tab-on);color:var(--u-tab-on-fg);font-weight:700;box-shadow:var(--u-tab-on-sh);border:0;text-shadow:none}
+.ptabs button.on::after{content:"";position:absolute;left:32%;right:32%;bottom:4px;height:2px;border-radius:1px;background:var(--u-tab-mark);box-shadow:var(--u-tab-mark-sh)}
+.ptabs .tdot{top:5px;right:8px;width:8px;height:8px;background:radial-gradient(circle at 40% 35%,#fff3c4,#ffb84a 55%,#c4700f);box-shadow:0 0 6px #ffb84a}
+/* 正文是一张纸（冷：深色嵌板；暖：奶白纸），左右留出铁板边 */
+.pbody{margin:0 10px;padding:12px 12px 18px;border-radius:8px 8px 0 0;background:var(--u-paper-bg);box-shadow:var(--u-paper-sh);color:var(--u-fg);min-height:120px}
+.pfbar{background:var(--u-plate-bg);border-top:0;box-shadow:0 -6px 12px -6px rgba(0,0,0,.45);padding:10px 12px calc(10px + env(safe-area-inset-bottom))}
+.pfoot{background:transparent;border-top:1px solid var(--u-rule-a);box-shadow:0 -1px 0 var(--u-rule-b);margin:12px -12px -18px;padding:10px 12px}
+.sec{font:700 14px var(--serif);letter-spacing:.12em;color:var(--u-sec-fg);margin:16px 0 8px}
+.sec::after{height:0;background:none;border-top:1px solid var(--u-rule-a);border-bottom:1px solid var(--u-rule-b)}
+.row{border-bottom:1px solid var(--u-rule-a);box-shadow:0 1px 0 var(--u-rule-b)}
+.card,.mlink,.issue,.ncard,.achip,.dchip,.ghero,.lrow{background:var(--u-card);border:1px solid var(--u-card-bd);box-shadow:var(--u-card-sh);border-radius:6px}
+.card.on,.mlink.book,.achip.on,.dchip.on,.ncard.on{border-color:var(--u-tab-mark);box-shadow:var(--u-card-sh),0 0 0 1px var(--u-tab-mark)}
+.issue.bad{border-left:3px solid var(--u-bad);background:linear-gradient(90deg,rgba(255,107,87,.16),transparent 70%),var(--u-card)}
+.issue.warn{border-left:3px solid var(--u-warn);background:linear-gradient(90deg,rgba(255,195,92,.14),transparent 70%),var(--u-card)}
+.issue.ok{border-left:3px solid var(--u-good)}
+.tab{background:var(--u-btn);border:1px solid var(--u-btn-bd);color:var(--u-btn-fg);box-shadow:var(--u-btn-sh);border-radius:5px}
+.tab.on{background:var(--u-sw-on);color:var(--u-sw-on-fg);border-color:var(--u-go-bd);box-shadow:var(--u-sw-on-sh);font-family:var(--sans)}
+
+/* ---------- 弹窗：一张纸，四周一圈铁框 / 铜框 ---------- */
+.mbox{background:var(--u-paper-bg)!important;color:var(--u-fg);border:0;border-radius:10px;box-shadow:var(--u-paper-sh),0 0 0 5px var(--u-mbox-frame,#3a4652),0 0 0 6px var(--u-knob-bd),0 18px 44px rgba(0,0,0,.6)}
+.mbox h2{font-family:var(--serif);font-weight:900;letter-spacing:.08em;color:var(--u-fg)}
+.mbox h2::after{height:0;background:none;border-top:1px solid var(--u-rule-a);border-bottom:1px solid var(--u-rule-b)}
+.mbox h3{color:var(--u-fg)}
+:root[data-theme=warm]{--u-mbox-frame:#7d4f2c}
+
+/* ---------- 顶栏（手机：两排；第一排一整块板，嵌着营地铭牌和四格仪表） ---------- */
+#top{padding:calc(env(safe-area-inset-top) + 10px) 8px 0;gap:10px}
+#top .r1{position:relative;height:58px;padding:7px 6px;gap:4px;pointer-events:auto}
+#top .r2{height:58px;gap:8px}
+#campName{position:relative;z-index:2;max-width:none;width:84px;padding:0 7px;flex-direction:column;align-items:flex-start;justify-content:center;gap:1px;background:var(--u-plq);border:1px solid var(--u-plq-bd);border-radius:4px;box-shadow:var(--u-plq-sh);color:var(--u-plq-fg);text-shadow:var(--u-plq-ts);font:900 13.5px var(--serif)}
+#campName .cn{max-width:100%;color:inherit;font:inherit}
+#campName .cv{position:absolute;right:4px;top:8px;width:12px;height:12px;color:var(--u-plq-fg2)}
+#campName .csub{font:500 10px var(--sans);letter-spacing:.06em;color:var(--u-plq-fg2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;text-shadow:none}
+#vitals{position:relative;z-index:2;gap:4px;grid-template-columns:58fr 58fr 90fr 56fr}
+.vt,.vt.fuel,.vt.warn{flex-direction:row;align-items:center;gap:4px;padding:0 5px;background:var(--u-inset-bg);border:var(--u-inset-bd);border-radius:var(--u-inset-r);box-shadow:var(--u-inset-sh);color:var(--u-inset-fg)}
+.vt .vv .svg{display:none}
+.vt .vtx{display:flex;flex-direction:column;justify-content:center;min-width:0;line-height:1.05}
+.vt b,.vt.fuel b,.vt.cold b{font:600 17px var(--num);color:var(--u-inset-fg);letter-spacing:0}
+.vt b small{font-size:11px;color:var(--u-inset-fg2)}
+.vt .vl{font-size:10px;color:var(--u-inset-fg2);margin-top:1px}
+.vt.fuel b{font:700 12.5px var(--sans)}
+.vt .vf{display:none}
+.vt.warn{box-shadow:var(--u-inset-sh),0 0 0 1.5px var(--u-warn)}.vt.warn .vl{color:var(--u-warn-t)}
+.vt.bad{background:var(--u-inset-bg);box-shadow:var(--u-inset-sh),0 0 0 2px var(--u-bad),0 0 12px var(--u-bad)}.vt.bad b,.vt.bad .vl{color:var(--u-bad-t)}
+.vt .vl.pos,.vt .vl .pos{color:var(--u-good-t)}.vt .vl.neg,.vt .vl .neg{color:var(--u-bad-t)}
+/* 温度计 */
+.vt .thermo{position:relative;width:9px;height:30px;flex:none;border-radius:5px;margin-bottom:3px;background:var(--u-glass);box-shadow:var(--u-glass-sh)}
+.vt .thermo>i{position:absolute;left:2.5px;right:2.5px;bottom:5px;height:calc(var(--h,.5)*22px);border-radius:2px;background:linear-gradient(90deg,#ff7a4a,#e8432a)}
+.vt .thermo::after{content:"";position:absolute;left:-2px;bottom:-4px;width:13px;height:13px;border-radius:50%;background:radial-gradient(circle at 38% 35%,#ffb08a 0 1.5px,#e8432a 3px,#9a1d10 6.5px);box-shadow:var(--u-glass-sh)}
+.vt.cold .thermo>i,.vt.cold .thermo::after{filter:hue-rotate(185deg) saturate(.7)}
+/* 燃料表盘：指针随燃料转，低位一段红区 */
+.vt .gauge{position:relative;width:24px;height:24px;flex:none;border-radius:50%;background:radial-gradient(circle,var(--u-g-f1) 0 9px,var(--u-g-f2) 10px,var(--u-g-rim) 10.5px 11px,var(--u-g-b2) 11.5px,var(--u-g-b1) 12px)}
+.vt .gauge::before{content:"";position:absolute;inset:2.5px;border-radius:50%;background:conic-gradient(from 225deg,var(--u-g-zone) 0 40deg,transparent 40deg 270deg,transparent 0);-webkit-mask:radial-gradient(circle,transparent 7px,#000 7.5px);mask:radial-gradient(circle,transparent 7px,#000 7.5px)}
+.vt .gauge>i{position:absolute;left:50%;top:50%;width:1.8px;height:9px;margin-left:-.9px;margin-top:-8px;border-radius:1px;background:var(--u-g-needle);transform-origin:50% 8px;transform:rotate(calc(-135deg + var(--f,.5)*270deg))}
+.vt .gauge::after{content:"";position:absolute;left:50%;top:50%;width:4px;height:4px;margin:-2px;border-radius:50%;background:var(--u-g-hub)}
+/* 目标牌 */
+#goal{position:relative;padding:8px 12px 9px;gap:7px}
+#goal .gtag{font:600 11px var(--serif);height:18px;line-height:16px;padding:0 6px;border-radius:3px;background:var(--u-tag-bg);color:var(--u-tag-fg);border:1px solid var(--u-tag-bd);box-shadow:var(--u-tag-sh)}
+#goal .gt{font:700 14px var(--serif);color:var(--u-hud-fg)}
+#goal .gr{display:flex;align-items:center;gap:4px;font:600 12px var(--num);color:var(--u-hud-fg2)}
+#goal .gr::before{content:"";width:9px;height:9px;border-radius:50%;background:radial-gradient(circle at 35% 32%,#fff 0 1px,var(--u-good) 2.5px,var(--u-good-d) 5px);box-shadow:0 0 0 1px var(--u-lamp-bd),0 0 7px var(--u-good)}
+#goal .gbar{height:10px;border-radius:6px;background:var(--u-tube-bg);box-shadow:var(--u-tube-sh);position:relative;overflow:hidden}
+#goal .gbar i{border-radius:6px;background:var(--u-tube-fill);box-shadow:var(--u-tube-glow)}
+#goal .gbar::after{content:"";position:absolute;left:4px;right:4px;top:1.5px;height:3px;border-radius:2px;background:linear-gradient(180deg,rgba(255,255,255,.45),rgba(255,255,255,0))}
+#goal .gplan{color:var(--u-btn-fg);background:var(--u-btn);border:1px solid var(--u-btn-bd);box-shadow:var(--u-btn-sh);text-shadow:var(--u-btn-ts);border-radius:4px;font-weight:600}
+#goal .gift{background:var(--u-go);color:var(--u-go-fg);box-shadow:var(--u-go-sh);border-radius:4px}
+/* 提醒铃：方旋钮 */
+#bellBtn{width:58px;border-radius:12px;background:var(--u-knob);border:1px solid var(--u-knob-bd);color:var(--u-knob-fg);box-shadow:var(--u-knob-sh)}
+#bellBtn .bn{top:-5px;right:-5px;background:var(--u-badge);color:var(--u-badge-fg);box-shadow:0 0 0 1.5px var(--u-badge-ring),0 2px 3px rgba(0,0,0,.35);font-family:var(--num)}
+#bellBtn.hot{box-shadow:var(--u-knob-sh),0 0 14px var(--u-bad)}#bellBtn.hot .bn{background:var(--u-badge)}
+#bellBtn.dot::after{top:-3px;right:-3px;box-shadow:0 0 0 1.5px var(--u-badge-ring)}
+
+/* ---------- 右侧四个圆旋钮 ---------- */
+#side{right:14px;gap:14px}
+#side button,#side #speedBtn.on{background:var(--u-knob);border:1px solid var(--u-knob-bd);color:var(--u-knob-fg);box-shadow:var(--u-knob-sh)}
+#side #speedBtn i{font:700 11px/11px var(--num)}
+body.paused #side #speedBtn{background:var(--u-knob-fire);color:var(--u-knob-fire-fg);box-shadow:var(--u-knob-fire-sh)}
+#side #homeBtn{background:var(--u-knob-fire);color:var(--u-knob-fire-fg);border-color:var(--u-knob-bd);box-shadow:var(--u-knob-fire-sh);animation:none}
+#side #menuBtn.dot::after{background:var(--u-badge);box-shadow:0 0 0 1.5px var(--u-badge-ring)}
+
+/* ---------- 底栏：五个入口，中间是火色阀门 ---------- */
+#toolbar{height:calc(86px + env(safe-area-inset-bottom));padding:0 8px env(safe-area-inset-bottom);border-radius:14px 14px 0 0;border-bottom:0}
+#toolbar::before{content:none}
+#toolbar button{color:var(--u-tb-fg);font-size:12px;letter-spacing:.08em;padding-bottom:9px}
+#toolbar button:hover{color:var(--u-tb-on)}
+#toolbar button>span{width:38px;height:30px;border-radius:7px;align-items:center;justify-content:center;background:var(--u-well);box-shadow:var(--u-well-sh)}
+#toolbar button .svg{width:20px;height:20px}
+#toolbar button.on{color:var(--u-tb-on)}
+#toolbar button.on>span{background:var(--u-well-on);box-shadow:var(--u-well-on-sh);color:var(--u-well-on-fg,currentColor)}
+#toolbar button.on::before{content:none}
+#toolbar button.main{color:var(--u-tb-on)}
+#toolbar button.main>span{top:-34px;left:50%;margin-left:-37px;width:74px;height:74px;padding:6px;border:0;border-radius:50%;background:var(--u-valve-ring);box-shadow:var(--u-valve-ring-sh)}
+#toolbar button.main>span::before{content:"";position:absolute;inset:6px;border-radius:50%;background:var(--u-valve);box-shadow:var(--u-valve-sh)}
+#toolbar button.main .svg{position:relative;width:28px;height:28px;color:var(--u-valve-fg)}
+#toolbar button.dot::after{top:12px;left:calc(50% + 12px);width:10px;height:10px;background:radial-gradient(circle at 40% 35%,#fff3c4,#ffb84a 55%,#c4700f);box-shadow:0 0 0 2px rgba(0,0,0,.35),0 0 8px #ffb84a}
+#toolbar button.main.dot::after{top:-30px;left:calc(50% + 22px)}

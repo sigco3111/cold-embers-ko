@@ -9,6 +9,7 @@ import { drawFlag, drawFrame } from './cosmetic.js';
 import { albumList, AlbumView, ALBUM_MAX } from './album.js';
 import { VERSION_NAME, changelogHtml } from './changelog.js';
 import { BK_WHY } from './backup.js';
+import { THEMES } from './theme.js';
 
 export const ICON = {
   furnace: '🔥', tent: '⛺', lumber: '🪓', nursery: '🌲', quarry: '⛏️', hunter: '🏹', sawmill: '🪚', kitchen: '🍲', warehouse: '📦', tower: '🗼', scout: '🚩', sledshed: '🛷', kennel: '🐕', workshop: '🔬', lamp: '🏮', flagpole: '🚩', infirmary: '🩺', statue: '🗽', flowerhouse: '🌷',
@@ -124,7 +125,8 @@ export class UI {
     document.body.addEventListener('change', e => this.onChange(e));
     this.labels = this.$('labels');
     // 顶栏四格：搭一次，之后只改里面的字
-    this.$('vitals').innerHTML = ['tmp', 'ppl', 'fuel', 'food'].map(k => `<button class="vt hpl ${k}" data-act="vt" data-arg="${k}" aria-label="${VT_N[k]}"><span class="vv"><svg class="svg" viewBox="0 0 24 24" aria-hidden="true">${VT_IC[k]}</svg><b></b></span><span class="vl"></span>${k === 'fuel' ? '<span class="vf"><i></i></span>' : ''}</button>`).join('');
+    // 1.2：温度格带一支温度计，燃料格带一块小表盘
+    this.$('vitals').innerHTML = ['tmp', 'ppl', 'fuel', 'food'].map(k => `<button class="vt hpl ${k}" data-act="vt" data-arg="${k}" aria-label="${VT_N[k]}">${k === 'tmp' ? '<span class="thermo"><i></i></span>' : k === 'fuel' ? '<span class="gauge"><i></i></span>' : ''}<span class="vtx"><span class="vv"><svg class="svg" viewBox="0 0 24 24" aria-hidden="true">${VT_IC[k]}</svg><b></b></span><span class="vl"></span></span>${k === 'fuel' ? '<span class="vf"><i></i></span>' : ''}</button>`).join('');
     this.vt = Object.fromEntries(['tmp', 'ppl', 'fuel', 'food'].map(k => { const e = this.$('vitals').querySelector('.vt.' + k); return [k, { e, b: e.querySelector('b'), l: e.querySelector('.vl'), f: e.querySelector('.vf i') }]; }));
     // 便签每 1.5 秒可能重画，用 pointerdown 接点击
     this.$('note').addEventListener('pointerdown', e => {
@@ -575,7 +577,8 @@ export class UI {
     const ok = fuelEta === Infinity && fuelMin < 6000, show = Math.min(6001, fuelEta === Infinity ? fuelMin : fuelEta);
     const fv = fuelMin > 6000 ? '充足' : ok ? '够烧' : show >= 60 ? `${Math.floor(show / 60)}时${show < 600 && Math.floor(show % 60) ? Math.floor(show % 60) + '分' : ''}` : `${Math.max(0, Math.floor(show))}分`;
     set('fuel', fv, fuelMin > 6000 || ok ? '燃料够烧' : '燃料还能烧', fuelEta < 30 ? 'bad' : fuelEta < 90 ? 'warn' : '');
-    V.fuel.f.style.setProperty('--f', Math.min(1, fuelMin / 240).toFixed(2));
+    V.fuel.f.style.setProperty('--f', Math.min(1, fuelMin / 240).toFixed(2)); V.fuel.e.style.setProperty('--f', Math.min(1, fuelMin / 240).toFixed(2));
+    V.tmp.e.style.setProperty('--h', Math.max(0.06, Math.min(1, (temp + 30) / 90)).toFixed(2));
     const fn = cr.foodNet || 0, fm = fn < 0 ? (c.stock.food || 0) / -fn : Infinity;
     set('food', fmt(this.rolled('food', c.stock.food)), `<span class="${fn < -0.05 ? 'neg' : fn > 0.05 ? 'pos' : ''}">${fn >= 0 ? '+' : ''}${fmt(fn)}/分</span>`, fm < 10 ? 'bad' : fm < 30 ? 'warn' : '');
     V.tmp.e.title = `住在屋里的体感温度${w.blizzard ? ' · 暴风雪还有 ' + fmtTime(w.until - S.t) : w.warn ? ' · 暴风雪 ' + fmtTime(w.inSec) + ' 后到' : ''}（点开熔炉）`;
@@ -640,6 +643,7 @@ export class UI {
       if (sky.icefog > 0.2 && !was.i) Sim.logMsg(S, '🌫️ 起冰雾了，空气里闪着细小的冰晶。远处看不太清，不影响干活。');
       was.i = sky.icefog > 0.2; }
     const cn = this.$('campName'), ct = c.name; if (cn.firstChild.textContent !== ct) cn.firstChild.textContent = ct;
+    { const fb = Sim.getB(S, c.furnace), m = Sim.mainCamp(S), sub = `${c.depot ? '补给站' : m && m.id === c.id ? '主营地' : '营地'}${fb ? ' · ' + fb.lvl + ' 级' : ''}`, se = cn.querySelector('.csub'); if (se && se.textContent !== sub) se.textContent = sub; }
     cn.classList.toggle('one', S.camps.length < 2); cn.title = S.camps.length > 1 ? '点一下换到下一座营地' : '营地概况';
     this.vitals(c, cr, fuelMin, fuelEta);
     this.$('menuBtn').classList.toggle('dot', !!(S.meta.book && S.meta.book.fresh && S.meta.book.fresh.length));
@@ -2527,6 +2531,8 @@ export class UI {
     const g = this.g;
     const tg = (k, on, ic, n, d) => `<button class="tgl ${on ? 'on' : ''}" data-act="snd" data-arg="${k}"><span class="ti">${ic}</span><span class="tt">${n}<small>${d}</small></span><i class="sw"></i></button>`;
     let h = `<div class="sec">声音与画面</div><div class="tgls">${tg('sfx', g.audio.sfxOn, '🔊', '音效', '风声、炉火、敲打')}${tg('music', g.audio.musicOn, '🎵', '音乐', '低沉的旋律和铃声')}<button class="tgl ${this.floatOn !== false ? 'on' : ''}" data-act="floats"><span class="ti">✨</span><span class="tt">产出飘字<small>建筑上方冒出「+5 🪵」</small></span><i class="sw"></i></button><button class="tgl ${S.meta.hintOff ? '' : 'on'}" data-act="hintsw"><span class="ti">📜</span><span class="tt">新玩法提示<small>某样玩法第一次用得上时说一句</small></span><i class="sw"></i></button><button class="tgl ${g.sugOn ? 'on' : ''}" data-act="sugsw"><span class="ti">⭐</span><span class="tt">推荐位置<small>摆放建筑时地上标出 3 处好位置</small></span><i class="sw"></i></button></div>`;
+    h += `<div class="mlab">界面配色<small>跟着天气：暴风雪和寒潮时冷，平时暖</small></div>`;
+    h += `<div class="seg">${THEMES.map(([k, n, d]) => `<button class="btn ${g.theme.pref === k ? 'on' : ''}" data-act="theme" data-arg="${k}">${n}<small>${d}</small></button>`).join('')}</div>`;
     h += `<div class="mlab">画质<small>卡顿时会自动降一档</small></div>`;
     h += `<div class="seg">${[['low', '流畅', '无阴影'], ['high', '标准', '推荐'], ['ultra', '极致', '细节更多']].map(([k, n, d]) => `<button class="btn ${g.quality === k ? 'on' : ''}" data-act="quality" data-arg="${k}">${n}<small>${d}</small></button>`).join('')}</div>`;
     h += `<div class="sec">玩法</div><div class="row"><span>难度 <b>${Sim.diffOf(S).ic}${Sim.diffOf(S).n}</b><br><small>随时可以改</small></span><span style="flex:none"><button class="small" data-act="diff">改难度</button></span></div>`;
@@ -3043,6 +3049,7 @@ export class UI {
       case 'copy': { const t = document.getElementById('exportBox'); t.select(); const manual = () => { try { document.execCommand('copy'); } catch (e) {} this.toast('已选中，如未复制请长按手动复制', 'warn'); }; try { navigator.clipboard.writeText(t.value).then(() => this.toast('已复制', 'good'), manual); } catch (e) { manual(); } break; }
       case 'snd': g.audio.unlock(); g.audio.toggle(arg); this.renderPanel(true); break;
       case 'quality': g.setQuality(arg); this.renderPanel(true); break;
+      case 'theme': g.theme.set(arg); this.renderPanel(true); break;
       case 'wipe': this.newRunModal(g.slot); break;
       case 'wipe-yes': g.wipe(); break;
       case 'start': this.closeModal(); break;
