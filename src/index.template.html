@@ -1177,16 +1177,16 @@ button.small.ghost{border-color:rgba(170,200,230,.22);color:var(--a-text2)}
 <div id="side">
   <button id="menuBtn" data-act="hub" data-arg="menu" title="菜单" aria-label="菜单"><svg class="hic" aria-hidden="true"><use href="#c-ui_menu"/></svg></button>
   <button id="speedBtn" data-act="speed" title="加速（点一下换倍速，按住暂停）" aria-label="速度"><svg class="hic sp" aria-hidden="true"><use href="#c-ui_speed"/></svg><svg class="hic ps" aria-hidden="true"><use href="#c-ui_pause"/></svg><i>1×</i></button>
-  <button id="mapBtn" data-act="bigmap" title="北行地图（M）" aria-label="北行地图"><svg class="hic" aria-hidden="true"><use href="#c-ui_map"/></svg></button>
-  <button id="homeBtn" title="回到炉火（空格）" aria-label="回到炉火"><svg class="hic" aria-hidden="true"><use href="#c-ui_home"/></svg></button>
+  <button id="mapBtn" data-act="bigmap" title="北行地图（M）" aria-label="北行地图"><svg class="hic" aria-hidden="true"><use href="#c-ui_map"/></svg><span class="pl">北行地图<kbd>M</kbd></span></button>
+  <button id="homeBtn" title="回到炉火（空格）" aria-label="回到炉火"><svg class="hic" aria-hidden="true"><use href="#c-ui_home"/></svg><span class="pl">回到炉火<kbd>空格</kbd></span></button>
 </div>
 <div id="cmdbar"></div>
 <div id="toolbar">
-  <button id="tbCamp" data-act="hub" data-arg="camp"><span><svg class="hic" aria-hidden="true"><use href="#c-hub_camp"/></svg></span>营地</button>
-  <button id="tbProd" data-act="hub" data-arg="prod"><span><svg class="hic" aria-hidden="true"><use href="#c-hub_prod"/></svg></span>生产</button>
-  <button id="tbBuild" class="main" data-act="hub" data-arg="build"><span><svg class="hic" aria-hidden="true"><use href="#c-hub_build"/></svg></span>建造</button>
-  <button id="tbResearch" data-act="hub" data-arg="research"><span><svg class="hic" aria-hidden="true"><use href="#c-hub_research"/></svg></span>研究<i class="tbp"></i></button>
-  <button id="tbNorth" data-act="hub" data-arg="north"><span><svg class="hic" aria-hidden="true"><use href="#c-hub_north"/></svg></span>北行</button>
+  <button id="tbCamp" data-act="hub" data-arg="camp"><span><svg class="hic" aria-hidden="true"><use href="#c-hub_camp"/></svg></span><em class="tl">营地<kbd class="pk">1</kbd></em></button>
+  <button id="tbProd" data-act="hub" data-arg="prod"><span><svg class="hic" aria-hidden="true"><use href="#c-hub_prod"/></svg></span><em class="tl">生产<kbd class="pk">2</kbd></em></button>
+  <button id="tbBuild" class="main" data-act="hub" data-arg="build"><span><svg class="hic" aria-hidden="true"><use href="#c-hub_build"/></svg></span><em class="tl">建造<kbd class="pk">3</kbd></em></button>
+  <button id="tbResearch" data-act="hub" data-arg="research"><span><svg class="hic" aria-hidden="true"><use href="#c-hub_research"/></svg></span><em class="tl">研究<kbd class="pk">4</kbd></em><i class="tbp"></i></button>
+  <button id="tbNorth" data-act="hub" data-arg="north"><span><svg class="hic" aria-hidden="true"><use href="#c-hub_north"/></svg></span><em class="tl">北行<kbd class="pk">5</kbd></em></button>
 </div>
 <div id="placebar">
   <div class="pic" id="placePic"></div><div><div class="nm" id="placeName"></div><div class="pc" id="placeCost"></div></div>

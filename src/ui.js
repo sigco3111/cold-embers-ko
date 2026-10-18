@@ -10,6 +10,7 @@ import { albumList, AlbumView, ALBUM_MAX } from './album.js';
 import { VERSION_NAME, changelogHtml } from './changelog.js';
 import { BK_WHY } from './backup.js';
 import { THEMES } from './theme.js';
+import { ZOOMS } from './pc.js';
 
 export const ICON = {
   furnace: '🔥', tent: '⛺', lumber: '🪓', nursery: '🌲', quarry: '⛏️', hunter: '🏹', sawmill: '🪚', kitchen: '🍲', warehouse: '📦', tower: '🗼', scout: '🚩', sledshed: '🛷', kennel: '🐕', workshop: '🔬', lamp: '🏮', flagpole: '🚩', infirmary: '🩺', statue: '🗽', flowerhouse: '🌷',
@@ -126,7 +127,7 @@ export class UI {
     this.labels = this.$('labels');
     // 顶栏四格：搭一次，之后只改里面的字
     // 1.2：温度格带一支温度计，燃料格带一块小表盘
-    this.$('vitals').innerHTML = ['tmp', 'ppl', 'fuel', 'food'].map(k => `<button class="vt hpl ${k}" data-act="vt" data-arg="${k}" aria-label="${VT_N[k]}">${k === 'tmp' ? '<span class="thermo"><i></i></span>' : k === 'fuel' ? '<span class="gauge"><i></i></span>' : ''}<span class="vtx"><span class="vv"><svg class="svg" viewBox="0 0 24 24" aria-hidden="true">${VT_IC[k]}</svg><b></b></span><span class="vl"></span></span>${k === 'fuel' ? '<span class="vf"><i></i></span>' : ''}</button>`).join('');
+    this.$('vitals').innerHTML = ['tmp', 'ppl', 'fuel', 'food'].map(k => `<button class="vt hpl ${k}" data-act="vt" data-arg="${k}" aria-label="${VT_N[k]}"><svg class="hic vic" aria-hidden="true"><use href="#c-vt_${{ tmp: 'temp', ppl: 'people', fuel: 'fuel', food: 'food' }[k]}"/></svg>${k === 'tmp' ? '<span class="thermo"><i></i></span>' : k === 'fuel' ? '<span class="gauge"><i></i></span>' : ''}<span class="vtx"><span class="vv"><svg class="svg" viewBox="0 0 24 24" aria-hidden="true">${VT_IC[k]}</svg><b></b></span><span class="vl"></span></span>${k === 'fuel' ? '<span class="vf"><i></i></span>' : ''}</button>`).join('');
     this.vt = Object.fromEntries(['tmp', 'ppl', 'fuel', 'food'].map(k => { const e = this.$('vitals').querySelector('.vt.' + k); return [k, { e, b: e.querySelector('b'), l: e.querySelector('.vl'), f: e.querySelector('.vf i') }]; }));
     // 便签每 1.5 秒可能重画，用 pointerdown 接点击
     this.$('note').addEventListener('pointerdown', e => {
@@ -590,10 +591,11 @@ export class UI {
     V.tmp.e.style.setProperty('--h', Math.max(0.06, Math.min(1, (temp + 30) / 90)).toFixed(2));
     const fn = cr.foodNet || 0, fm = fn < 0 ? (c.stock.food || 0) / -fn : Infinity;
     set('food', fmt(this.rolled('food', c.stock.food)), `<span class="${fn < -0.05 ? 'neg' : fn > 0.05 ? 'pos' : ''}">${fn >= 0 ? '+' : ''}${fmt(fn)}/分</span>`, fm < 10 ? 'bad' : fm < 30 ? 'warn' : '');
-    V.tmp.e.title = `住在屋里的体感温度${w.blizzard ? ' · 暴风雪还有 ' + fmtTime(w.until - S.t) : w.warn ? ' · 暴风雪 ' + fmtTime(w.inSec) + ' 后到' : ''}（点开熔炉）`;
-    V.ppl.e.title = `人口 / 床位 · 希望 ${hp} · 不满 ${ds}${c.wait > 0 ? ` · ${c.wait} 人在等床位` : ''}${c.bots ? ` · 自动机 ${c.bots} 台` : ''}`;
-    V.fuel.e.title = ok ? `燃料进得比烧得快（库存够烧 ${fmtTime(fuelMin * 60)}）` : `燃料还能烧 ${fmtTime(show * 60)}`;
-    V.food.e.title = '熟食库存 · 每分钟净变化';
+    V.tmp.e.dataset.tt = `住在屋里的体感温度${w.blizzard ? ' · 暴风雪还有 ' + fmtTime(w.until - S.t) : w.warn ? ' · 暴风雪 ' + fmtTime(w.inSec) + ' 后到' : ''}（点开熔炉）`;
+    V.ppl.e.dataset.tt = `人口 / 床位 · 希望 ${hp} · 不满 ${ds}${c.wait > 0 ? ` · ${c.wait} 人在等床位` : ''}${c.bots ? ` · 自动机 ${c.bots} 台` : ''}`;
+    V.fuel.e.dataset.tt = ok ? `燃料进得比烧得快（库存够烧 ${fmtTime(fuelMin * 60)}）` : `燃料还能烧 ${fmtTime(show * 60)}`;
+    V.food.e.dataset.tt = '熟食库存 · 每分钟净变化';
+    { const pc = document.body.classList.contains('pc'); for (const k in V) { const e = V[k].e; e.dataset.tip = 'vt:' + k; const t = pc ? '' : e.dataset.tt; if (e.title !== t) e.title = t; } }
   }
   // 顶部目标：章节牌子 + 这一步做什么 + 进度条；旁边的小按钮是规划 / 跟着看 / 拿主意
   goalSync() {
@@ -603,7 +605,7 @@ export class UI {
     let p = cur ? cur.tasks.filter(t => t.ok).length / Math.max(1, cur.tasks.length) : 0, right = cur ? `${cur.tasks.filter(t => t.ok).length}/${cur.tasks.length}` : '';
     if (tr && tr.phase === 'go') { p = tr.d / tr.len; right = `${Math.round(p * 100)}%`; }
     else if (rg && goal.startsWith(RES[rg.r].n)) { const r = Sim.prodRate(S, rg.r); p = Math.min(1, r / rg.n); }
-    const chip = tr && tr.road ? '<i class="gplan" data-act="roadopen">拿主意</i>' : tr && tr.phase === 'go' ? `<i class="gplan" data-act="followtrip">${this.g.view.followTrip ? '不跟了' : '跟着看'}</i>` : '<i class="gplan" data-act="plan">规划</i>';
+    const chip = tr && tr.road ? '<i class="gplan" data-act="roadopen">拿主意</i>' : tr && tr.phase === 'go' ? `<i class="gplan" data-act="followtrip">${this.g.view.followTrip ? '不跟了' : '跟着看'}</i>` : '<i class="gplan" data-act="plan">规划<kbd class="pk">J</kbd></i>';
     const tag = cur ? cur.ch.n.split(' · ')[0] : '目标';
     let title = goal || (cur ? cur.ch.n.split(' · ')[1] : ''), hold = '';
     { const i = title.indexOf(' · 稳住 '); if (i > 0) { hold = title.slice(i + 3).replace('/', ' / '); title = title.slice(0, i); } } // 稳住的计时放到进度管右边
@@ -695,8 +697,9 @@ export class UI {
       const d = CMDS[id], on = Sim.cmdOn(S, id, d.net ? null : c), left = Sim.cmdLeft(S, id), cd = Sim.cmdCd(S, id);
       const st = on ? 'on' : left > 0 ? 'away' : cd > 0 ? 'cd' : 'ready', p = on ? left / d.len : cd > 0 ? 1 - cd / d.cd : 1;
       const tx = on ? fmtTime(left) : cd > 0 ? fmtTime(cd) : '';
-      h += `<button class="cmdb ${st}${this.cmdSel === id ? ' sel' : ''}" data-act="cmdsel" data-arg="${id}" style="--p:${p.toFixed(3)}" title="${d.n}" aria-label="${d.n}"><span>${this.cIco('cmd_' + id, d.ic)}</span>${tx ? `<i>${tx}</i>` : ''}</button>`;
+      h += `<button class="cmdb ${st}${this.cmdSel === id ? ' sel' : ''}" data-act="cmdsel" data-arg="${id}" style="--p:${p.toFixed(3)}" title="${d.n}" aria-label="${d.n}"><span>${this.cIco('cmd_' + id, d.ic)}</span>${tx ? `<i>${tx}</i>` : '<i class="rdy">可用</i>'}<em class="cl">${d.n}</em></button>`;
     }
+    if (h) h = `<div class="cmdh"><b>熔炉号令</b><small>短时间爆发</small></div>` + h;
     if (this.cmdSel && ids.includes(this.cmdSel)) {
       const id = this.cmdSel, d = CMDS[id], ck = Sim.cmdCheck(S, id), left = Sim.cmdLeft(S, id), other = left > 0 && !d.net && (S.cmd[id].camp !== c.id);
       const len = d.len >= 120 ? `${d.len / 60} 分钟` : `${d.len} 秒`;
@@ -992,7 +995,8 @@ export class UI {
     // 返回：从一个面板里点开另一个不同分区的面板时记下来；换页签、从地图上点开都不记
     this.back = this.fromSheet && prev && !sameHub && prev.kind !== kind ? { kind: prev.kind, arg: prev.arg } : sameHub ? this.back : null;
     this.fromSheet = false;
-    this.panel = { kind, arg }; this.lastHtml = ''; this.renderPanel(true);
+    if (this.g.pc && this.g.pc.bOpen) this.g.pc.closeBuild(); // 电脑版：开窗口时收起建造横条
+    this.panel = { kind, arg }; this.sheetMode(); this.lastHtml = ''; this.renderPanel(true);
     clearTimeout(this.outT); if (this.sheet.classList.contains('out')) this.sheet.classList.remove('out', 'show');
     void this.sheet.offsetWidth; this.sheet.classList.add('show'); document.body.classList.add('sheet-open'); this.sheet.scrollTop = 0;
     this.hubBar();
@@ -1005,7 +1009,7 @@ export class UI {
   close() {
     if (this.panel && this.panel.kind === 'build') this.markBuildSeen();
     const was = this.panel; this.panel = null; this.g.view.select(null);
-    document.body.classList.remove('sheet-open');
+    document.body.classList.remove('sheet-open', 'big-open');
     // 收起时滑出去再藏（期间又打开别的面板就作罢）
     if (was && this.sheet.classList.contains('show')) { this.sheet.classList.add('out'); clearTimeout(this.outT); this.outT = setTimeout(() => { if (!this.panel) this.sheet.classList.remove('show'); this.sheet.classList.remove('out'); }, 160); }
     else this.sheet.classList.remove('show');
@@ -1013,10 +1017,11 @@ export class UI {
     this.syncInset();
   }
   // 底部分区：现在开着的那个亮起来
-  hubBar() { const h = this.panel && KIND_HUB[this.panel.kind]; for (const b of this.$('toolbar').children) b.classList.toggle('on', !!h && b.dataset.arg === h); }
+  hubBar() { const h = this.panel && KIND_HUB[this.panel.kind] || (this.g.pc && this.g.pc.bOpen ? 'build' : null); for (const b of this.$('toolbar').children) b.classList.toggle('on', !!h && b.dataset.arg === h); }
   hubTabs(h) { return HUBS[h].tabs.filter(([k]) => this['p_' + k]); }
   // 点底部的分区：开着的就收起；没开就打开上次看的那一页
   openHub(h) {
+    if (h === 'build' && this.g.pc && this.g.pc.on) { this.g.pc.toggleBuild(); return; } // 电脑版：建造是底部横条
     if (this.panel && KIND_HUB[this.panel.kind] === h) { this.close(); return; }
     this.g.cancelModes();
     const tabs = this.hubTabs(h), last = (this.hubLast || {})[h];
@@ -1024,11 +1029,17 @@ export class UI {
     this.open(tabs.some(t => t[0] === last) ? last : HUBS[h].def || tabs[0][0]);
   }
   // 面板挡住的那块不算画面：PC 右侧面板把画面中心往左挪，手机底部面板把它往上挪
-  pcSheet() { return matchMedia('(orientation:landscape) and (min-width:761px)').matches; }
+  pcSheet() { return matchMedia('(orientation:landscape) and (min-width:761px)').matches && !(this.g.pc && this.g.pc.on); }
+  // 电脑版：大多数面板在屏幕中间开大窗口，点地图上的东西开的在左下小信息窗
+  sheetMode() {
+    const pc = !!(this.g.pc && this.g.pc.on), k = this.panel && this.panel.kind, insp = pc && !!k && this.g.pc.isInsp(k), big = pc && !!k && !insp;
+    this.sheet.classList.toggle('big', big); this.sheet.classList.toggle('insp', insp);
+    document.body.classList.toggle('big-open', big);
+  }
   syncInset() {
     const open = !!this.panel && this.sheet.classList.contains('show');
     let x = 0, y = 0;
-    if (open) { if (this.pcSheet()) x = (this.sheet.offsetWidth + 20) / 2; else y = Math.max(0, Math.min(this.sheet.offsetHeight, innerHeight * 0.6) - 80) / 2; }
+    if (open && !(this.g.pc && this.g.pc.on)) { if (this.pcSheet()) x = (this.sheet.offsetWidth + 20) / 2; else y = Math.max(0, Math.min(this.sheet.offsetHeight, innerHeight * 0.6) - 80) / 2; }
     this.g.view.setInset(x, y);
   }
   // 打开某个东西的面板时，它要是会被面板挡住，就把镜头移过去
@@ -1036,7 +1047,8 @@ export class UI {
     const v = this.g.view, p = v.project(wx, wy, 0.6), c = v.inset || [0, 0], t = v.insetT || [0, 0];
     if (!p.on) { v.focus(wx, wy); return; }
     const nx = p.x - (t[0] - c[0]), ny = p.y - (t[1] - c[1]);
-    if (this.pcSheet()) { if (nx > innerWidth - this.sheet.offsetWidth - 70 || nx < 40) v.focus(wx, wy); }
+    if (this.g.pc && this.g.pc.on) { if (nx < 430 && ny > innerHeight - 560 || nx > innerWidth - 40 || ny < 80 || ny > innerHeight - 40) v.focus(wx, wy); }
+    else if (this.pcSheet()) { if (nx > innerWidth - this.sheet.offsetWidth - 70 || nx < 40) v.focus(wx, wy); }
     else if (ny > innerHeight - this.sheet.offsetHeight - 50 || ny < 150) v.focus(wx, wy);
   }
   renderPanel(force) {
@@ -1051,7 +1063,7 @@ export class UI {
     const ff = this['pf_' + tk], ft = ff ? ff.call(this) : ''; // 面板底部固定的主按钮（有就放）
     const ttl = f.call(this, 'title'); if (!this.panel || this.panel.kind !== tk) return; // 面板自己关掉了（排队的建筑刚开工、目标没了）
     const body = f.call(this, 'body'); if (!this.panel || this.panel.kind !== tk) return;
-    const html = `<div class="phead ${tb ? 'tabbed' : ''}">${bk}<b>${ttl}</b><button class="x" data-act="close">✕</button>${tb}</div><div class="pbody">${body}</div>${ft ? `<div class="pfbar">${ft}</div>` : ''}`;
+    const html = `<div class="phead ${tb ? 'tabbed' : ''}">${bk}<b>${ttl}</b><span class="pesc">按 <kbd>Esc</kbd> 或右键关上</span><button class="x" data-act="close">✕</button>${tb}</div><div class="pbody">${body}</div>${ft ? `<div class="pfbar">${ft}</div>` : ''}`;
     if (html === this.lastHtml) return;
     this.lastHtml = html;
     const st = this.sheet.scrollTop, sx = {};
@@ -1684,12 +1696,13 @@ export class UI {
     // 卡住的排最上面；顺畅就只在库存下面写一行
     const real = issues.filter(i => i.sev < 9);
     let h = real.length ? `<div class="sec">卡住了 · ${real.length}</div>` + issues.slice(0, 6).map(i => i.html).join('') : issues.map(i => i.html).join('');
-    h += `<div class="sec">库存 <small>数字下面是每分钟净变化</small></div>`; let tier = 0;
+    const pins = this.g.pc && this.g.pc.on ? this.g.pc.pinList() : null; // 电脑版：每格右上角一枚图钉，钉住的显示在顶栏
+    h += `<div class="sec">库存 <small>数字下面是每分钟净变化${pins ? ' · 点图钉钉到顶栏（最多 5 样）' : ''}</small></div>`; let tier = 0;
     for (const r of ri) {
       const tt = RES[r.k].t;
       if (tt !== tier) { h += (tier ? '</div>' : '') + `<div class="stier">${TIER_NAMES[tt]}</div><div class="rgrid">`; tier = tt; }
       const nc = r.net < -0.05 ? 'neg' : r.net > 0.05 ? 'pos' : '';
-      h += `<button class="rgc ${r.short ? 'short' : r.full ? 'full' : ''}" data-act="curve" data-arg="${r.k}" style="--f:${(r.fr * 100).toFixed(1)}%" title="${RES[r.k].n}：产 ${fmt(r.f.p)} · 用 ${fmt(r.f.c)} / 分钟（点一下看曲线）"><span class="ri">${RICON[r.k]}</span><span class="rn">${RES[r.k].n}${r.short ? '<em>缺</em>' : r.full ? '<em>满</em>' : ''}</span><b>${fmt(r.have)}</b><small class="${nc}">${r.act ? (r.net >= 0 ? '+' : '') + fmt(r.net) : '—'}</small><i></i></button>`;
+      h += `<button class="rgc ${r.short ? 'short' : r.full ? 'full' : ''}" data-act="curve" data-arg="${r.k}" style="--f:${(r.fr * 100).toFixed(1)}%" title="${RES[r.k].n}：产 ${fmt(r.f.p)} · 用 ${fmt(r.f.c)} / 分钟（点一下看曲线）">${pins ? `<span class="rpin ${pins.includes(r.k) ? 'on' : ''}" data-act="pin" data-arg="${r.k}" title="${pins.includes(r.k) ? '从顶栏取下' : '钉到顶栏'}">${ico('i', 'pin')}</span>` : ''}<span class="ri">${RICON[r.k]}</span><span class="rn">${RES[r.k].n}${r.short ? '<em>缺</em>' : r.full ? '<em>满</em>' : ''}</span><b>${fmt(r.have)}</b><small class="${nc}">${r.act ? (r.net >= 0 ? '+' : '') + fmt(r.net) : '—'}</small><i></i></button>`;
     }
     if (tier) h += '</div>';
     if (!real.length) h += `<div class="issue ok"><span class="ii">✓</span><span class="it"><b>生产很顺畅</b><small>没有缺料、停工或缺人</small></span></div>`;
@@ -1899,6 +1912,7 @@ export class UI {
   p_research(part) {
     const S = this.S, R = Sim.rt(S), T = S.tech || { done: {}, cur: null, prog: 0 }, nd = TECHS.filter(t => T.done[t.id]).length, EL = Sim.endlessLvl(S);
     if (part === 'title') return `研究 <small>已完成 ${nd}/${TECHS.length}${EL ? ` · 无尽 ${EL} 级` : ''}</small>`;
+    if (this.g.pc && this.g.pc.on) return this.researchPC();
     const shops = S.buildings.filter(b => b.type === 'workshop'), rate = R.rpRate || 0;
     let potential = 0; for (const b of shops) potential += (R.b[b.id] || {}).rp || 0;
     let h = '';
@@ -1944,8 +1958,49 @@ export class UI {
     if (this.techSel === 'endless') return Sim.techDef(S, 'endless');
     return TECHS.find(t => t.id === this.techSel) || (T.cur && T.cur !== 'endless' && TECHS.find(t => t.id === T.cur)) || TECHS.find(t => Sim.techCheck(S, t.id).ok) || TECHS.find(t => !Sim.techCheck(S, t.id).done && !Sim.techCheck(S, t.id).gate) || (Sim.allTechDone(S) ? Sim.techDef(S, 'endless') : TECHS[0]);
   }
+  // 电脑版的研究窗口：左边五条分支各一行（按纬度从左往右），右边是选中那一项的详情和按钮
+  researchPC() {
+    const S = this.S, R = Sim.rt(S), T = S.tech || { done: {}, cur: null, prog: 0 }, c = this.camp();
+    const shops = S.buildings.filter(b => b.type === 'workshop'), rate = R.rpRate || 0;
+    let potential = 0; for (const b of shops) potential += (R.b[b.id] || {}).rp || 0;
+    const ct = T.cur && Sim.techDef(S, T.cur), sel = this.techSelOf();
+    let L = `<div class="rph"><span>${shops.length ? `${shops.length} 座工程站 · 每分钟 ${fmt(ct ? rate : potential)} 点${ct ? '' : '（开始研究后才派人）'}` : '还没有工程站'}</span><span class="rleg"><i class="lg done"></i>已完成<i class="lg ok"></i>可以研究<i class="lg lk"></i>还没开放</span></div>`;
+    if (ct) L += `<div class="rpcur"><span class="ti">${this.rIco(ct)}</span><b>正在研究：${ct.n}</b><div class="u-tube"><i style="width:${Math.min(100, T.prog / ct.pts * 100).toFixed(1)}%"></i></div><small>${rate > 0 ? `还要 ${fmtTime((ct.pts - T.prog) / rate * 60)}` : '<b class="neg">停住了：工程站里没人干活</b>'}</small><button class="small" data-act="techstop">停止（退回材料）</button></div>`;
+    if (!shops.length) L += `<div class="issue warn"><span class="ii">🔬</span><span class="it"><b>还没有工程站</b><small>研究点数由工程站里的工程师产出</small></span><span class="ia"><button class="small go" data-act="place" data-arg="workshop">建工程站</button></span></div>`;
+    if (T.bank > 0.5) L += `<div class="row sub"><span>📜 探险带回的图纸</span><span>${fmt(T.bank)} 点 · 下一项研究开始时直接算进去</span></div>`;
+    TECH_BR.forEach((n, br) => {
+      const list = TECHS.filter(x => x.br === br), lay = techLayout(list), gate = Sim.techGateWhy(S, br);
+      const ord = [...list].sort((a, b) => lay.at[a.id].row - lay.at[b.id].row);
+      L += `<div class="rrow ${gate ? 'gate' : ''}"><div class="rbr"><b>${n}</b><small>${gate ? esc(gate.replace(/^侦察到「(.+)」纬度后开放$/, '$1纬度开放')) : `${list.filter(x => T.done[x.id]).length}/${list.length}`}</small></div><div class="rnodes">`;
+      for (const x of ord) {
+        const ck = Sim.techCheck(S, x.id), cls = ck.done ? 'done' : ck.cur ? 'cur' : ck.lock ? 'lock' : ck.ok ? 'ok' : 'soft';
+        L += `<button class="rpn ${cls}${sel === x ? ' sel' : ''}" data-act="techsel" data-arg="${x.id}" title="${esc(x.n)}"><span class="rpi">${this.rIco(x)}${ck.done ? `<em class="rpb ok">${ico('i', 'check')}</em>` : ck.cur ? `<em class="rpb cur">${ico('i', 'hourglass')}</em>` : ck.lock ? `<em class="rpb lk">${ico('i', 'lock')}</em>` : ''}${x.star ? '<em class="rps">★</em>' : ''}</span><span class="rpl">${x.n}</span></button>`;
+      }
+      L += '</div></div>';
+    });
+    const all = Sim.allTechDone(S), EL = Sim.endlessLvl(S);
+    L += `<button class="rend ${all ? 'on' : ''} ${this.techSel === 'endless' ? 'sel' : ''}" data-act="techsel" data-arg="endless"><span class="ti">♾️</span><span><b>无尽研究${EL ? ` · 已 ${EL} 级` : ''}</b><small>${all ? `每一级所有生产 +2%，没有上限（现在 +${Math.round(EL * 2)}%）` : `五条分支全部研究完以后开放，还差 ${TECHS.length - TECHS.filter(x => T.done[x.id]).length} 项`}</small></span><i>›</i></button>`;
+    // 右边：选中的那一项
+    const t = sel, ck = Sim.techCheck(S, t.id), cls = ck.done ? 'done' : ck.cur ? 'cur' : ck.lock ? 'lock' : ck.ok ? 'ok' : 'soft';
+    const tags = [t.br >= 0 ? TECH_BR[t.br] : '', TIER_NAMES[t.t] || '', t.star ? '★ 解锁新东西' : ''].filter(Boolean).map(s => `<span class="u-tag">${s}</span>`).join('');
+    const reqs = (t.req || []).map(r => { const q = TECHS.find(x => x.id === r); return q ? `<span class="${T.done[r] ? 'pos' : 'neg'}">${this.rIco(q)}${q.n}${T.done[r] ? ' ✓' : ''}</span>` : ''; }).join(' ');
+    let D = `<div class="rpd ${cls}"><span class="rpbig">${this.rIco(t)}</span><b class="rpn2">${t.n}</b>${tags ? `<div class="rptags">${tags}</div>` : ''}<p>${t.d}</p>`;
+    if (!ck.done) {
+      D += `<div class="rpkv"><span>材料</span><span>${costHtml(c.stock, t.cost, S.known) || '不要材料'}</span></div>`;
+      D += `<div class="rpkv"><span>研究点</span><span><b>🔬 ${t.pts}</b>${rate || potential ? ` <small>约 ${fmtTime(t.pts / (rate || potential) * 60)}</small>` : ''}</span></div>`;
+    }
+    if (reqs) D += `<div class="rpkv"><span>前置</span><span>${reqs}</span></div>`;
+    D += '<div class="rpsp"></div>';
+    if (ck.done) D += '<div class="tdone">✓ 已完成</div>';
+    else if (ck.cur) D += `<div class="tdone cur">研究中 · ${Math.round(T.prog / t.pts * 100)}%</div><button class="btn wide" data-act="techstop">停止（退回材料）</button>`;
+    else if (!ck.lock) D += `<button class="btn wide ${ck.ok ? 'go' : ''}" data-act="tech" data-arg="${t.id}" ${ck.ok || ck.soft ? '' : 'disabled'}>开始研究</button>`;
+    if (ck.lock || (ck.soft && !ck.ok) || ck.busy) D += `<small class="rpwhy ${ck.lock ? 'tlock' : 'neg'}">${esc(ck.reason)}</small>`;
+    D += '</div>';
+    return `<div class="rpc"><div class="rpl0">${L}</div>${D}</div>`;
+  }
   // 研究面板底部：选中那一项的详情和开始按钮
   pf_research() {
+    if (this.g.pc && this.g.pc.on) return ''; // 电脑版：详情在窗口右边
     const S = this.S, c = this.camp(), t = this.techSelOf(), ck = Sim.techCheck(S, t.id);
     const act = ck.done ? '<span class="tdone">✓ 已完成</span>' : ck.cur ? '<span class="tdone cur">研究中</span>' : ck.lock ? '' : `<button class="btn ${ck.ok ? 'go' : ''}" data-act="tech" data-arg="${t.id}" ${ck.ok || ck.soft ? '' : 'disabled'}>开始研究</button>`;
     const tag = t.br >= 0 ? `${TECH_BR[t.br]} · ${TIER_NAMES[t.t] || ''}` : '';
@@ -2544,6 +2599,10 @@ export class UI {
     let h = `<div class="sec">声音与画面</div><div class="tgls">${tg('sfx', g.audio.sfxOn, '🔊', '音效', '风声、炉火、敲打')}${tg('music', g.audio.musicOn, '🎵', '音乐', '低沉的旋律和铃声')}<button class="tgl ${this.floatOn !== false ? 'on' : ''}" data-act="floats"><span class="ti">✨</span><span class="tt">产出飘字<small>建筑上方冒出「+5 🪵」</small></span><i class="sw"></i></button><button class="tgl ${S.meta.hintOff ? '' : 'on'}" data-act="hintsw"><span class="ti">📜</span><span class="tt">新玩法提示<small>某样玩法第一次用得上时说一句</small></span><i class="sw"></i></button><button class="tgl ${g.sugOn ? 'on' : ''}" data-act="sugsw"><span class="ti">⭐</span><span class="tt">推荐位置<small>摆放建筑时地上标出 3 处好位置</small></span><i class="sw"></i></button></div>`;
     h += `<div class="mlab">界面配色<small>跟着天气：暴风雪和寒潮时冷，平时暖</small></div>`;
     h += `<div class="seg">${THEMES.map(([k, n, d]) => `<button class="btn ${g.theme.pref === k ? 'on' : ''}" data-act="theme" data-arg="${k}">${n}<small>${d}</small></button>`).join('')}</div>`;
+    if (g.pc && g.pc.on) { // 电脑版才有：界面大小
+      h += `<div class="mlab">界面大小<small>自动：1080p 是 100%，2K 及以上 125%</small></div>`;
+      h += `<div class="seg">${ZOOMS.map(([k, n, d]) => `<button class="btn ${g.pc.zp === k ? 'on' : ''}" data-act="uiscale" data-arg="${k}">${n}${d ? `<small>${d}</small>` : ''}</button>`).join('')}</div>`;
+    }
     h += `<div class="mlab">画质<small>卡顿时会自动降一档</small></div>`;
     h += `<div class="seg">${[['low', '流畅', '无阴影'], ['high', '标准', '推荐'], ['ultra', '极致', '细节更多']].map(([k, n, d]) => `<button class="btn ${g.quality === k ? 'on' : ''}" data-act="quality" data-arg="${k}">${n}<small>${d}</small></button>`).join('')}</div>`;
     h += `<div class="sec">玩法</div><div class="row"><span>难度 <b>${Sim.diffOf(S).ic}${Sim.diffOf(S).n}</b><br><small>随时可以改</small></span><span style="flex:none"><button class="small" data-act="diff">改难度</button></span></div>`;
@@ -2580,7 +2639,7 @@ export class UI {
   // 菜单 › 帮助：玩法说明、更新日志、按键
   p_mhelp(part) {
     if (part === 'title') return `帮助 <small>${VERSION_NAME}</small>`;
-    const keys = [['空格', '回到炉火'], ['B', '建造'], ['M', '北行地图'], ['C', '生产链'], ['G', '数据曲线'], ['K', '收集册'], ['H', '拍照'], ['P', '暂停'], ['F', '换倍速'], ['+ / −', '拉近 / 拉远'], ['Q / E', '转镜头'], ['WASD', '移动镜头']];
+    const keys = [['1 – 5', '营地 · 生产 · 建造 · 研究 · 北行'], ['Esc / 右键', '关上窗口'], ['J', '规划'], ['空格', '回到炉火'], ['B', '建造'], ['M', '北行地图'], ['C', '生产链'], ['G', '数据曲线'], ['K', '收集册'], ['H', '拍照'], ['P', '暂停'], ['F', '换倍速'], ['+ / −', '拉近 / 拉远'], ['Q / E', '转镜头'], ['WASD', '移动镜头']];
     return `<button class="mlink" data-act="changelog"><span>📜</span><span>更新日志<small>${VERSION_NAME} · 每一版加了什么</small></span><i>›</i></button>
       <div class="helpin">${HELP}</div>
       <div class="sec">电脑上的按键</div><div class="keys">${keys.map(([k, n]) => `<span><kbd>${k}</kbd>${n}</span>`).join('')}</div>
@@ -3061,6 +3120,8 @@ export class UI {
       case 'snd': g.audio.unlock(); g.audio.toggle(arg); this.renderPanel(true); break;
       case 'quality': g.setQuality(arg); this.renderPanel(true); break;
       case 'theme': g.theme.set(arg); this.renderPanel(true); break;
+      case 'uiscale': g.pc.setZoom(arg); this.renderPanel(true); break;
+      case 'pin': g.pc.togglePin(arg); this.renderPanel(true); break;
       case 'wipe': this.newRunModal(g.slot); break;
       case 'wipe-yes': g.wipe(); break;
       case 'start': this.closeModal(); break;

@@ -14,6 +14,7 @@ import { downloadsApi, saveFile, pickTextFile, stamp } from './files.js';
 import { Hints, WHATS_NEW, whatsNewHtml } from './hints.js';
 import { Backups, BK_EVERY, bkInfo } from './backup.js';
 import { Theme } from './theme.js';
+import { PC } from './pc.js';
 
 const KEY = 'hanjin-beixing-v1';
 // 三个存档位：1 号沿用原来的存档键，老存档直接就在 1 号位
@@ -26,7 +27,7 @@ class Game {
     this.view = new View(this.canvas);
     injectIcons();
     this.theme = new Theme(this); // 1.2 冷暖两套：先定好配色再画界面
-    this.ui = new UI(this);
+    this.ui = new UI(this); this.pc = new PC(this);
     this.bigmap = new BigMap(this);
     this.chainmap = new ChainMap(this);
     this.photo = new Photo(this);
@@ -311,6 +312,7 @@ class Game {
     this.ui.floats(this.paused ? 0 : dt * this.speed); this.ui.juice();
     this.hints.tick(dt);
     this.theme.tick(dt);
+    this.pc.tick(dt);
     this.watchPerf(realGap);
     this.sndT = (this.sndT || 0) + dt;
     if (this.sndT > 0.25 || !this.sndInfo) { this.sndT = 0; this.sndInfo = this.view.audioInfo(); }
@@ -869,6 +871,7 @@ class Game {
       if (ptrs.size < 2) lastPinch = null;
       if (!p || ptrs.size) return;
       if (downAt && moved < 8 && p.b === 2 && this.mode === 'place') { this.cancelModes(); dragGhost = false; rowDrag = false; return; }
+      if (downAt && moved < 8 && p.b === 2 && this.pc.rightClick()) return; // 电脑版：右键在空处单击关窗口
       // 鼠标拖完一排：松开就建（拖回原处只剩一栋时按单击处理）
       if (rowDrag && moved >= 8 && this.place && p.type === 'mouse') {
         rowDrag = false;
@@ -894,6 +897,7 @@ class Game {
         else if (k === 'enter') this.photo.shoot();
         return;
       }
+      if (this.pc.key(k)) return; // 电脑版：1–5 分区、J 规划、Esc 收建造横条
       if (k === 'w' || k === 'arrowup') v.pan(0, step);
       else if (k === 's' || k === 'arrowdown') v.pan(0, -step);
       else if (k === 'a' || k === 'arrowleft') v.pan(step, 0);
@@ -902,7 +906,7 @@ class Game {
       else if (k === 'e') v.rotate(-0.3);
       else if (k === 'escape') { if (this.bigmap.open) { this.bigmap.hide(); return; } if (this.chainmap.open) { this.chainmap.hide(); return; } this.cancelModes(); this.ui.close(); }
       else if (k === 'enter' && this.mode === 'place') this.confirmPlace();
-      else if (k === 'b') this.ui.open('build');
+      else if (k === 'b') this.pc.on ? this.ui.openHub('build') : this.ui.open('build');
       else if (k === 'm') { if (this.chainmap.open) this.chainmap.hide(); this.bigmap.toggle(); }
       else if (k === 'c') this.chainmap.toggle();
       else if (k === 'h') this.photo.on ? this.photo.close() : this.photo.open();
