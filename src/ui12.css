@@ -327,3 +327,25 @@ body.paused #side #speedBtn{background:var(--u-knob-fire);color:var(--u-knob-fir
 #toolbar button .hic{width:28px;height:28px}
 #toolbar button.main .hic{position:relative;width:36px;height:36px}
 #side #speedBtn .ps{display:none}body.paused #side #speedBtn .ps{display:block}body.paused #side #speedBtn .sp{display:none}
+/* 快捷键小字只在电脑版显示 */
+.kh{display:none}body.pc .kh{display:inline}
+/* 目标条：进度管右边是「稳住 0:41 / 3:00」 */
+#goal .gb2{display:flex;align-items:center;gap:8px}
+#goal .gb2 .gbar{flex:1;min-width:0}
+#goal .ghold{flex:none;font:600 11px var(--num);letter-spacing:.02em;color:var(--u-hud-fg2);white-space:nowrap}
+/* 建造卡上「已有 N」：两套都用小铭牌 */
+.chave{background:var(--u-tag-bg)!important;color:var(--u-tag-fg)!important;border:1px solid var(--u-tag-bd);box-shadow:var(--u-tag-sh)!important;border-radius:4px!important}
+.chave::before{color:inherit!important;opacity:.75}
+/* 窄屏（360 一档）：顶栏挤一挤 */
+@media (max-width:374px){
+  #top .r1{gap:3px;padding-left:5px;padding-right:5px}
+  #campName{width:72px;padding:0 5px}
+  #campName .cn{font-size:12.5px}
+  #campName .csub .ck{display:none}
+  #vitals{gap:3px;grid-template-columns:56fr 52fr 84fr 54fr}
+  .vt b,.vt.fuel b,.vt.cold b{font-size:15px}
+  .vt.fuel b{font-size:12px}
+  .vt .vl{font-size:9.5px}
+  .vt .gauge{transform:scale(.88);margin-right:-2px}
+  .vt .thermo{margin-right:-1px}
+}

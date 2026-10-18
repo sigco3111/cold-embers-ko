@@ -581,11 +581,11 @@ export class UI {
     const wl = w.blizzard ? `风雪 ${fmtTime(w.until - S.t)}` : ton ? `永冬 ${fmtTime(z.left)}` : cs && cs.on ? `寒潮 ${fmtTime(cs.left)}` : w.warn ? `${fmtTime(w.inSec)}来雪` : tfc ? `${fmtTime(z.inSec)}永冬` : cs && !cs.on && cs.fc ? `${fmtTime(cs.inSec)}寒潮` : '体感';
     set('tmp', `${temp}°`, wl, (temp < 0 || w.blizzard || con ? 'bad' : w.warn || cfc ? 'warn' : '') + (temp < 10 ? ' cold' : ' warm'));
     const hp = Math.round(c.hope ?? 50), ds = Math.round(c.disc ?? 10), mt = cr.mood || { hT: hp, dT: ds }, arr = (v, t) => t > v + 1 ? '▲' : t < v - 1 ? '▼' : '';
-    const pl = c.wait > 0 && ds < 55 ? `<span class="neg">${c.wait} 人等床位</span>` : ds >= 55 ? `不满 ${ds}${arr(ds, mt.dT)}` : `希望 ${hp}${arr(hp, mt.hT)}`;
+    const pl = c.wait > 0 && ds < 55 ? `<span class="neg">缺 ${c.wait} 床</span>` : ds >= 55 ? `不满 ${ds}${arr(ds, mt.dT)}` : `希望 ${hp}${arr(hp, mt.hT)}`;
     set('ppl', `${c.people}<small>/${cr.housing || 0}</small>`, pl, ds >= 70 ? 'bad' : ds >= 55 || hp <= 25 ? 'warn' : '');
     const ok = fuelEta === Infinity && fuelMin < 6000, show = Math.min(6001, fuelEta === Infinity ? fuelMin : fuelEta);
     const fv = fuelMin > 6000 ? '充足' : ok ? '够烧' : show >= 60 ? `${Math.floor(show / 60)}时${show < 600 && Math.floor(show % 60) ? Math.floor(show % 60) + '分' : ''}` : `${Math.max(0, Math.floor(show))}分`;
-    set('fuel', fv, fuelMin > 6000 || ok ? '燃料够烧' : '燃料还能烧', fuelEta < 30 ? 'bad' : fuelEta < 90 ? 'warn' : '');
+    set('fuel', fv, fuelMin > 6000 || ok ? '燃料' : '还能烧', fuelEta < 30 ? 'bad' : fuelEta < 90 ? 'warn' : '');
     V.fuel.f.style.setProperty('--f', Math.min(1, fuelMin / 240).toFixed(2)); V.fuel.e.style.setProperty('--f', Math.min(1, fuelMin / 240).toFixed(2));
     V.tmp.e.style.setProperty('--h', Math.max(0.06, Math.min(1, (temp + 30) / 90)).toFixed(2));
     const fn = cr.foodNet || 0, fm = fn < 0 ? (c.stock.food || 0) / -fn : Infinity;
@@ -604,11 +604,13 @@ export class UI {
     if (tr && tr.phase === 'go') { p = tr.d / tr.len; right = `${Math.round(p * 100)}%`; }
     else if (rg && goal.startsWith(RES[rg.r].n)) { const r = Sim.prodRate(S, rg.r); p = Math.min(1, r / rg.n); }
     const chip = tr && tr.road ? '<i class="gplan" data-act="roadopen">拿主意</i>' : tr && tr.phase === 'go' ? `<i class="gplan" data-act="followtrip">${this.g.view.followTrip ? '不跟了' : '跟着看'}</i>` : '<i class="gplan" data-act="plan">规划</i>';
-    const tag = cur ? cur.ch.n.split(' · ')[0] : '目标', title = goal || (cur ? cur.ch.n.split(' · ')[1] : '');
-    const key = [tag, title, right, gift, chip, (p * 50 | 0)].join('|');
+    const tag = cur ? cur.ch.n.split(' · ')[0] : '目标';
+    let title = goal || (cur ? cur.ch.n.split(' · ')[1] : ''), hold = '';
+    { const i = title.indexOf(' · 稳住 '); if (i > 0) { hold = title.slice(i + 3).replace('/', ' / '); title = title.slice(0, i); } } // 稳住的计时放到进度管右边
+    const key = [tag, title, hold, right, gift, chip, (p * 50 | 0)].join('|');
     if (ge.dataset.t === key) return;
     ge.dataset.t = key; ge.dataset.act = 'chapter';
-    ge.innerHTML = iconize(title ? `<div class="gh"><span class="gtag">${esc(tag)}</span><span class="gt">${esc(title)}</span>${gift ? '<i class="gift">🎁 领奖励</i>' : right ? `<span class="gr">${right}</span>` : ''}${chip}</div><div class="gbar"><i style="--p:${p.toFixed(3)}"></i></div>` : '');
+    ge.innerHTML = iconize(title ? `<div class="gh"><span class="gtag">${esc(tag)}</span><span class="gt">${esc(title)}</span>${gift ? '<i class="gift">🎁 领奖励</i>' : right ? `<span class="gr">${right}</span>` : ''}${chip}</div><div class="gb2"><div class="gbar"><i style="--p:${p.toFixed(3)}"></i></div>${hold ? `<span class="ghold">${hold}</span>` : ''}</div>` : '');
     ge.classList.toggle('gift', gift);
     ge.style.visibility = title ? '' : 'hidden';
     ge.title = '点开看这一章的任务';
@@ -652,7 +654,7 @@ export class UI {
       if (sky.icefog > 0.2 && !was.i) Sim.logMsg(S, '🌫️ 起冰雾了，空气里闪着细小的冰晶。远处看不太清，不影响干活。');
       was.i = sky.icefog > 0.2; }
     const cn = this.$('campName'), ct = c.name; if (cn.firstChild.textContent !== ct) cn.firstChild.textContent = ct;
-    { const fb = Sim.getB(S, c.furnace), m = Sim.mainCamp(S), sub = `${c.depot ? '补给站' : m && m.id === c.id ? '主营地' : '营地'}${fb ? ' · ' + fb.lvl + ' 级' : ''}`, se = cn.querySelector('.csub'); if (se && se.textContent !== sub) se.textContent = sub; }
+    { const fb = Sim.getB(S, c.furnace), m = Sim.mainCamp(S), sub = `<span class="ck">${c.depot ? '补给站' : m && m.id === c.id ? '主营地' : '营地'}${fb ? ' · ' : ''}</span>${fb ? fb.lvl + ' 级' : ''}`, se = cn.querySelector('.csub'); if (se && se.dataset.h !== sub) { se.dataset.h = sub; se.innerHTML = sub; } }
     cn.classList.toggle('one', S.camps.length < 2); cn.title = S.camps.length > 1 ? '点一下换到下一座营地' : '营地概况';
     this.vitals(c, cr, fuelMin, fuelEta);
     this.$('menuBtn').classList.toggle('dot', !!(S.meta.book && S.meta.book.fresh && S.meta.book.fresh.length));
@@ -1957,7 +1959,7 @@ export class UI {
     const S = this.S, c = this.camp();
     if (part === 'title') return '地图与侦察';
     const sl = Sim.scoutSlots(S, c.id);
-    let h = `<button class="mlink" data-act="bigmap"><span>🗺️</span><span>北行地图<small>${esc(northRec(S) || '一路的地标、营地和还没探的地方')}（M）</small></span><i>›</i></button>`;
+    let h = `<button class="mlink" data-act="bigmap"><span>🗺️</span><span>北行地图<small>${esc(northRec(S) || '一路的地标、营地和还没探的地方')}<span class="kh">（M）</span></small></span><i>›</i></button>`;
     if (!sl.n) h += `<div class="hint">「${esc(c.name)}」还没有侦察营。在「建造 → 篝火」里建一座。</div>`;
     else {
       h += `<div class="row"><span>侦察队</span><span>${sl.used}/${sl.n} 在外 · 最远 ${Sim.scoutRange(S, c.id)} 格 · 每队 3 人</span></div>`;
@@ -2571,8 +2573,8 @@ export class UI {
     { const B = Sim.bookOf(S), got = Sim.ACH.filter(x => B.a[x.id]).length, nf = B.fresh.filter(f => f.startsWith('a:')).length;
       h += `<div class="mrow2"><button class="mlink" data-act="ach"><span>🏆</span><span>成就${nf ? `<b class="mnew">${nf} 新</b>` : ''}<small>${got}/${Sim.ACH.length} · 按类别看进度和奖励</small></span><i>›</i></button><button class="mlink" data-act="dress"><span>🎨</span><span>装扮<small>称号、炉火、旗子、相框</small></span><i>›</i></button></div>`; }
     if (!this.album) this.loadAlbum();
-    h += `<div class="mrow2"><button class="mlink" data-act="photo"><span>📷</span><span>拍照模式<small>藏起界面，换时辰、滤镜、相框，拍一张（H）</small></span><i>›</i></button><button class="mlink" data-act="album"><span>📔</span><span>相册<small>${this.album ? `${this.album.length} 张 · ` : ''}一路上自动拍的和你收进来的</small></span><i>›</i></button></div>`;
-    h += `<button class="mlink" data-act="curve"><span>📈</span><span>数据曲线<small>人口、心情、温度，物资的储量和产量怎么变的（G）</small></span><i>›</i></button>`;
+    h += `<div class="mrow2"><button class="mlink" data-act="photo"><span>📷</span><span>拍照模式<small>藏起界面，换时辰、滤镜、相框，拍一张<span class="kh">（H）</span></small></span><i>›</i></button><button class="mlink" data-act="album"><span>📔</span><span>相册<small>${this.album ? `${this.album.length} 张 · ` : ''}一路上自动拍的和你收进来的</small></span><i>›</i></button></div>`;
+    h += `<button class="mlink" data-act="curve"><span>📈</span><span>数据曲线<small>人口、心情、温度，物资的储量和产量怎么变的<span class="kh">（G）</span></small></span><i>›</i></button>`;
     return h;
   }
   // 菜单 › 帮助：玩法说明、更新日志、按键
@@ -3152,7 +3154,7 @@ export const HELP = `<h3>怎么玩</h3>
 <p><b>生产链：</b>按 C 看整条生产链哪里卡住，按 G 看数据曲线。加工建筑挨着上下游时可以接传送带（之后升级成蒸汽轨道），直接供料、少用搬运工。矿快挖空时可以打深井，侦察营也能勘探新矿脉。</p>
 <p><b>营地生活：</b>人多了以后可以在熔炉面板办篝火庆典；路灯、旗杆、雕像、花窖这些装饰能加希望；有人生病就建医务所。营地里的人偶尔会托你办点事（委托），做完有谢礼。熔炉到 5 级可以给营地选专精。犬舍养的雪橇犬让侦察队跑得更快，连着的路也运得更多。</p>
 <p><b>天气与掠夺者：</b>除了暴风雪，还有冰风暴（暖炉和管道会冻住）、极寒夜（多烧燃料）、冰湖开裂（绕路），都会提前预报，在右上角的提醒铃里花点材料准备。北边有掠夺者营地，侦察到以后它们会来索贡：交贡、做买卖，或者靠箭塔顶回去，打退两次他们就走了。</p>
-<p><b>收集册：</b>建过的建筑、见过的物资和风物、达成的成就都记在收集册里（K）。</p>
+<p><b>收集册：</b>建过的建筑、见过的物资和风物、达成的成就都记在收集册里<span class="kh">（K）</span>。</p>
 <p><b>成就与装扮：</b>「菜单 → 收藏」里的「成就」按北境、烽火塔、产线、生存、营地分类，带进度条，还有几个隐藏的。「旅程」类的老成就给余烬；新成就给称号、炉火颜色、营旗图案、相框和八种北境装饰，在「装扮」里换上，北迁以后也留着。相册会在抵达新一站、点亮烽火塔、产线第一次三星和点燃天火时自动拍一张。</p>
 <p><b>北迁：</b>出发前要做到四件事：路探到了、这一章做完、主营地熔炉够级、车队备好了（在雪橇棚造雪橇和蒸汽拖车，之后还有破冰车）。在「北行 → 北迁」挑带多少人和货，后面的营地选留守（变成补给站，自己运转，多出来的货由物流网运走；车队走过的路变成北行主干道）还是熄火（换余烬，人跟上来）。路上会碰到事，车上带的货能多给一条路。到了以后挑一块平地放下新熔炉，那里就是新的主营地。余烬在「北行 → 专家与余烬」里换永久强化。</p>
 <p><b>北境：</b>翻过世界之脊还能一直往北走，地图往北一段段长出来。北境每一站有一种地貌，只在车队停着的那一站生效：平坦雪原、地热谷（暖、省燃料，能建地热井）、富矿带（矿多但冷）、永夜（极光多、希望好涨，干活慢一点）、狼群领地（袭营多、战利品也多）、冰湖群（能建冰钓屋）、古城遗址（拆遗迹换古代构件）、风暴走廊（暴风雪多，预报更早）、陨石雨（陨坑出星核，偶尔砸停建筑）、冻土无林（没有活树，只有枯木堆）。每站两个产能目标和一项地貌任务，目标一站比一站高；熔炉门槛停在世界之脊那一级。第一次走到某个站号给一点余烬，菜单和地图上记着最远纪录。</p>
