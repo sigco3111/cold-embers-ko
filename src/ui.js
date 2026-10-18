@@ -3,7 +3,7 @@ import { BRIEF, RES, RES_KEYS, BLD, BLD_KEYS, CATS, TIER_NAMES, LANDMARKS, FAR_M
 import * as Sim from './sim.js';
 import { personOf, personState, campVoices } from './people.js';
 import { getWorld, idx, W, H } from './worldgen.js';
-import { iconize } from './icons.js';
+import { iconize, ico, has12 } from './icons.js';
 import { chartHtml, chartHover, chartLeave, CV_COL, fmtV, dayLabel } from './curves.js';
 import { drawFlag, drawFrame } from './cosmetic.js';
 import { albumList, AlbumView, ALBUM_MAX } from './album.js';
@@ -179,7 +179,16 @@ export class UI {
     }
     return cls;
   }
-  ico(type, lvl = 1) { const c = this.thumb(type, lvl); return c ? `<i class="th ${c}"></i>` : ICON[type]; }
+  // 建筑图标：1.2 起用新画的图（各级同一张），没有新图才用 3D 缩略图，再没有用旧 emoji
+  pic(type, lvl = 1) {
+    if (has12('b', type)) return `<i class="th i2b">${ico('b', type)}</i>`;
+    const c = this.thumb(type, lvl); return c ? `<i class="th ${c}"></i>` : iconize(ICON[type] || '');
+  }
+  ico(type, lvl = 1) { return this.pic(type, lvl); }
+  rIco(t) { return has12('r', t.id) ? ico('r', t.id) : t.ic; }        // 研究
+  cIco(k, fb) { return has12('c', k) ? ico('c', k) : fb; }           // 指令、律令、专精、城镇、专家……
+  qyIco(id, fb) { return this.cIco('qy_' + id, fb); }                // 奇遇
+  fIco(k, D) { return has12('c', 'focus_' + k) ? `<i class="fch f2">${ico('c', 'focus_' + k)}</i>` : `<i class="fch" style="background:${D.col}">${D.ch}</i>`; } // 专精
   get S() { return this.g.S; }
   camp() { return Sim.getCamp(this.S, this.S.active) || this.S.camps[0]; }
 
@@ -472,11 +481,11 @@ export class UI {
   qyModal(res) {
     const S = this.S, m = this.$('modal');
     if (res) {
-      m.innerHTML = iconize(`<div class="mbox ev qy"><div class="evtag">北境 · 奇遇</div><h2>${res.ic} ${esc(res.n)}</h2><p class="story">${esc(res.msg)}</p>${res.next ? `<p class="hint">${res.wait > 5 ? `过 ${fmtTime(res.wait)} 还有下文${res.away ? `，派出去的 ${res.away} 个人那时回来` : ''}。` : '马上还有下文。'}</p>` : '<p class="hint">这件奇遇走完了，记进了收集册。</p>'}<div class="mbtns"><button class="btn go" data-act="${res.next && res.wait <= 5 ? 'qyopen' : 'close-modal'}">${res.next && res.wait <= 5 ? '接着看' : '知道了'}</button></div></div>`);
+      m.innerHTML = iconize(`<div class="mbox ev qy"><div class="evtag">北境 · 奇遇</div><h2>${this.qyIco(res.id, res.ic)} ${esc(res.n)}</h2><p class="story">${esc(res.msg)}</p>${res.next ? `<p class="hint">${res.wait > 5 ? `过 ${fmtTime(res.wait)} 还有下文${res.away ? `，派出去的 ${res.away} 个人那时回来` : ''}。` : '马上还有下文。'}</p>` : '<p class="hint">这件奇遇走完了，记进了收集册。</p>'}<div class="mbtns"><button class="btn go" data-act="${res.next && res.wait <= 5 ? 'qyopen' : 'close-modal'}">${res.next && res.wait <= 5 ? '接着看' : '知道了'}</button></div></div>`);
       m.classList.add('show'); return true;
     }
     const v = Sim.qyView(S); if (!v) return false;
-    m.innerHTML = iconize(`<div class="mbox ev qy"><div class="evtag">北境 · 奇遇 · ${esc(v.camp)}${v.st ? ' · 下文' : ''}</div><h2>${v.ic} ${esc(v.n)}</h2><p class="story">${esc(v.text)}</p><div class="evopts">${v.opts.map((o, i) => `<button class="evopt ${o.ok ? '' : 'no'}" ${o.ok ? `data-act="qyopt" data-arg="${i}"` : 'disabled'}><b>${o.g ? '🧭 ' : ''}${esc(o.t)}</b><small>${esc(o.d)}${o.ok ? '' : ` · ${esc(o.why)}`}</small></button>`).join('')}</div><div class="mbtns"><button class="btn ghost" data-act="close-modal">稍后再说</button></div></div>`);
+    m.innerHTML = iconize(`<div class="mbox ev qy"><div class="evtag">北境 · 奇遇 · ${esc(v.camp)}${v.st ? ' · 下文' : ''}</div><h2>${this.qyIco(v.id, v.ic)} ${esc(v.n)}</h2><p class="story">${esc(v.text)}</p><div class="evopts">${v.opts.map((o, i) => `<button class="evopt ${o.ok ? '' : 'no'}" ${o.ok ? `data-act="qyopt" data-arg="${i}"` : 'disabled'}><b>${o.g ? '🧭 ' : ''}${esc(o.t)}</b><small>${esc(o.d)}${o.ok ? '' : ` · ${esc(o.why)}`}</small></button>`).join('')}</div><div class="mbtns"><button class="btn ghost" data-act="close-modal">稍后再说</button></div></div>`);
     m.classList.add('show');
     return true;
   }
@@ -684,12 +693,12 @@ export class UI {
       const d = CMDS[id], on = Sim.cmdOn(S, id, d.net ? null : c), left = Sim.cmdLeft(S, id), cd = Sim.cmdCd(S, id);
       const st = on ? 'on' : left > 0 ? 'away' : cd > 0 ? 'cd' : 'ready', p = on ? left / d.len : cd > 0 ? 1 - cd / d.cd : 1;
       const tx = on ? fmtTime(left) : cd > 0 ? fmtTime(cd) : '';
-      h += `<button class="cmdb ${st}${this.cmdSel === id ? ' sel' : ''}" data-act="cmdsel" data-arg="${id}" style="--p:${p.toFixed(3)}" title="${d.n}" aria-label="${d.n}"><span>${d.ic}</span>${tx ? `<i>${tx}</i>` : ''}</button>`;
+      h += `<button class="cmdb ${st}${this.cmdSel === id ? ' sel' : ''}" data-act="cmdsel" data-arg="${id}" style="--p:${p.toFixed(3)}" title="${d.n}" aria-label="${d.n}"><span>${this.cIco('cmd_' + id, d.ic)}</span>${tx ? `<i>${tx}</i>` : ''}</button>`;
     }
     if (this.cmdSel && ids.includes(this.cmdSel)) {
       const id = this.cmdSel, d = CMDS[id], ck = Sim.cmdCheck(S, id), left = Sim.cmdLeft(S, id), other = left > 0 && !d.net && (S.cmd[id].camp !== c.id);
       const len = d.len >= 120 ? `${d.len / 60} 分钟` : `${d.len} 秒`;
-      h += `<div class="cmdpop"><b>${d.ic} ${d.n}</b><small>${d.d}</small><small class="cm">${d.net ? '整个物流网' : `只管「${esc(c.name)}」`} · 持续 ${len} · 冷却 ${d.cd / 60} 分钟</small>${other ? `<small class="cm warn">正在「${esc(Sim.getCamp(S, S.cmd[id].camp).name)}」生效</small>` : ''}<div class="cpb"><button class="small" data-act="cmdsel" data-arg="">收起</button><button class="small ${ck.ok ? 'go' : ''}" data-act="cmdfire" data-arg="${id}" ${ck.ok ? '' : 'disabled'}>${ck.ok ? '📯 发令' : ck.on ? '生效中' : ck.cd ? fmtTime(ck.cd) + ' 后可发' : esc(ck.reason)}</button></div></div>`;
+      h += `<div class="cmdpop"><b>${this.cIco('cmd_' + id, d.ic)} ${d.n}</b><small>${d.d}</small><small class="cm">${d.net ? '整个物流网' : `只管「${esc(c.name)}」`} · 持续 ${len} · 冷却 ${d.cd / 60} 分钟</small>${other ? `<small class="cm warn">正在「${esc(Sim.getCamp(S, S.cmd[id].camp).name)}」生效</small>` : ''}<div class="cpb"><button class="small" data-act="cmdsel" data-arg="">收起</button><button class="small ${ck.ok ? 'go' : ''}" data-act="cmdfire" data-arg="${id}" ${ck.ok ? '' : 'disabled'}>${ck.ok ? '📯 发令' : ck.on ? '生效中' : ck.cd ? fmtTime(ck.cd) + ' 后可发' : esc(ck.reason)}</button></div></div>`;
     }
     if (h !== this.cmdH) { this.cmdH = h; el.innerHTML = iconize(h); }
     document.body.classList.toggle('cmd-on', ids.length > 0);
@@ -1299,8 +1308,8 @@ export class UI {
     if (part === 'title') return `排队中：${d.n} <small>${esc(c.name)}</small>`;
     const mine = S.queue.filter(x => x.camp === q.camp), n = mine.indexOf(q) + 1;
     const miss = Object.keys(cost).filter(k => (c.stock[k] || 0) < cost[k]);
-    const tc = this.thumb(q.type, 1);
-    let h = `<div class="bhero"><div class="hpic">${tc ? `<i class="th ${tc}"></i>` : ICON[q.type]}</div><div><div class="status warn">等材料</div><div class="desc">${esc(d.desc)}</div></div></div>`;
+    const pic = this.pic(q.type, 1);
+    let h = `<div class="bhero"><div class="hpic">${pic}</div><div><div class="status warn">等材料</div><div class="desc">${esc(d.desc)}</div></div></div>`;
     h += `<div class="row"><span>需要</span><span>${costHtml(c.stock, cost, S.known)}</span></div>`;
     h += `<div class="row"><span>还缺</span><span>${miss.length ? miss.map(k => `${RICON[k]}${fmt(cost[k] - (c.stock[k] || 0))}`).join(' ') : '齐了，马上开工'}</span></div>`;
     for (const k of miss) { const w = this.netWait(c, k); if (w) h += `<div class="row sub"><span>${RICON[k]}${RES[k].n}</span><span>${w}</span></div>`; }
@@ -1354,8 +1363,8 @@ export class UI {
     const d = Sim.bdef(b), c = Sim.getCamp(S, b.camp), R = Sim.rt(S), br = R.b[b.id] || {}, cr = R.c[c.id] || {};
     if (part === 'title') return d.wonder ? `${d.n} <small>奇观 · ${esc(c.name)}</small>` : d.tower ? `${Sim.towerName(b.tn)} <small>${esc(c.name)}</small>` : `${d.n}${this.skillStars(b)} <small>${b.lvl} 级 · ${esc(c.name)}</small>`;
     let h = '';
-    const tc = this.thumb(b.type, d.wonder ? 4 : b.lvl);
-    h += `<div class="bhero"><div class="hpic">${tc ? `<i class="th ${tc}"></i>` : ICON[b.type]}</div><div>`;
+    const pic = this.pic(b.type, d.wonder ? 4 : b.lvl);
+    h += `<div class="bhero"><div class="hpic">${pic}</div><div>`;
     if (br.status) h += `<div class="status ${(['运转中', '研究中', '塔身在长', '塔身建好了，等点火', '建成了'].includes(br.status) || WONDER_PH.some(P => br.status === P.n + '中')) ? 'ok' : 'bad'}">${esc(br.status)}</div>`;
     h += `<div class="desc">${esc(d.desc)}</div></div></div>`;
     if (c.depot && b.type === 'furnace') h += this.depotHtml(c);
@@ -1599,7 +1608,7 @@ export class UI {
     if (c.depot) return '';
     let h = `<div class="sec">城镇 <small>现在是${TOWN[t].n}</small></div>`;
     if (!t && !Sim.techDone(S, 'townplan')) return h + `<div class="hint">研究「城镇规划」以后，营地住满 ${TOWN[1].pop} 人、希望 ${TOWN[1].need} 以上就能升成镇：帐篷换成木屋，门口点起路灯，床位 +20%。</div>`;
-    h += `<div class="twsteps">${TOWN.map((T, i) => `<span class="${i <= t ? 'ok' : i === t + 1 ? 'on' : ''}">${i <= t ? '✓ ' : ''}${T.n}</span>`).join('<i>›</i>')}</div>`;
+    h += `<div class="twsteps">${TOWN.map((T, i) => `<span class="${i <= t ? 'ok' : i === t + 1 ? 'on' : ''}">${this.cIco('town_' + i, i <= t ? '✓ ' : '')}${T.n}</span>`).join('<i>›</i>')}</div>`;
     for (let i = 1; i <= t; i++) h += `<div class="row sub"><span>${TOWN[i].n}</span><span>${TOWN[i].d}</span></div>`;
     if (nx) {
       h += `<div class="row"><span>升成${nx.n}<br><small>${nx.d}</small></span><span>👥 ${c.people} / ${nx.pop}<br>希望 ${Math.round(c.hope ?? 50)} / ${nx.need}</span></div>`;
@@ -1825,7 +1834,7 @@ export class UI {
     let h = `<div class="sec">营地专精 <small>${esc(c.name)}</small></div>`;
     if (f.lvl < FOCUS_LVL) return h + `<div class="hint">熔炉升到 ${FOCUS_LVL} 级后，可以给这座营地定一个方向：矿业、农垦、工坊或要塞。</div>`;
     h += `<div class="focus">${FOCUS_KEYS.map(k => { const D = FOCUS[k], on = c.focus === k, why = Sim.focusBlock(S, c, k);
-      return `<button class="fcard ${on ? 'on' : ''} ${why && !on ? 'wait' : ''}" ${!on && !why ? `data-act="focus" data-arg="${c.id}:${k}"` : ''}><i class="fch" style="background:${D.col}">${D.ch}</i><span><b>${D.n}${on ? '<em>现在</em>' : ''}</b><small>${D.d}</small><small class="fbad">${D.bad}</small></span></button>`; }).join('')}</div>`;
+      return `<button class="fcard ${on ? 'on' : ''} ${why && !on ? 'wait' : ''}" ${!on && !why ? `data-act="focus" data-arg="${c.id}:${k}"` : ''}>${this.fIco(k, D)}<span><b>${D.n}${on ? '<em>现在</em>' : ''}</b><small>${D.d}</small><small class="fbad">${D.bad}</small></span></button>`; }).join('')}</div>`;
     h += `<div class="hint">${!c.focus ? '选一个方向：强一样、弱一样。之后每次更换要隔 30 分钟。' : left > 0 ? `换专精还要等 ${Math.ceil(left / 60)} 分钟。` : '想换方向随时可以换，换完 30 分钟内不能再换。'}</div>`;
     return h;
   }
@@ -1877,7 +1886,7 @@ export class UI {
     let h = `<div class="laws">`;
     for (const l of LAWS) {
       const on = Sim.lawOn(S, l.id), wait = Sim.lawWait(S, l.id);
-      h += `<div class="law ${on ? 'on' : ''}"><div class="lh"><span class="li">${l.ic}</span><b>${l.n}</b>${on ? '<span class="lon">生效中</span>' : ''}
+      h += `<div class="law ${on ? 'on' : ''}"><div class="lh"><span class="li">${this.cIco('law_' + l.id, l.ic)}</span><b>${l.n}</b>${on ? '<span class="lon">生效中</span>' : ''}
         <button class="small ${wait > 0 ? '' : on ? '' : 'go'}" data-act="law" data-arg="${l.id}" ${wait > 0 ? 'disabled' : ''}>${wait > 0 ? fmtTime(wait) + ' 后可改' : on ? '废除' : '签署'}</button></div>
         <div class="ld">${l.d}</div><div class="lfx"><span class="g">${l.good}</span><span class="b">${l.bad}</span></div></div>`;
     }
@@ -1894,7 +1903,7 @@ export class UI {
     const ct = T.cur && Sim.techDef(S, T.cur);
     if (ct) {
       const left = ct.pts - T.prog;
-      h += `<div class="tcur"><div class="tch"><span class="ti">${ct.ic}</span><div><b>${ct.n}</b><small>${ct.d}</small></div></div>
+      h += `<div class="tcur"><div class="tch"><span class="ti">${this.rIco(ct)}</span><div><b>${ct.n}</b><small>${ct.d}</small></div></div>
         <div class="mbar"><i style="width:${Math.min(100, T.prog / ct.pts * 100).toFixed(1)}%"></i></div>
         <div class="tcm"><span>${fmt(T.prog)} / ${ct.pts} 点 · ${rate > 0 ? `还要 ${fmtTime(left / rate * 60)}` : '<b class="neg">停住了：工程站里没人干活</b>'}</span><button class="small" data-act="techstop">停止（退回材料）</button></div></div>`;
     } else h += `<div class="tcur idle"><b>现在没有在研究。</b><small>点下面的一项看详情，开始时先付材料，攒够研究点数就完成。</small></div>`;
@@ -1921,7 +1930,7 @@ export class UI {
         const n = c.lay.at[t.id], ck = Sim.techCheck(S, t.id);
         const cls = ck.done ? 'done' : ck.cur ? 'cur' : ck.lock ? 'lock' : ck.ok ? 'ok' : 'soft';
         const pr = ck.cur ? Math.min(1, T.prog / t.pts) : 0;
-        nodes += `<button class="tnode rn ${cls}${sel === t ? ' sel' : ''}${c.gate ? ' gate' : ''}" data-act="techsel" data-arg="${t.id}" style="left:${X(n).toFixed(2)}%;top:${Y(n) - 20}px;--p:${pr.toFixed(3)}"><span class="tn0">${t.ic}</span>${ck.done ? '<em class="tbadge">✓</em>' : ck.lock ? '<em class="tbadge lk">🔒</em>' : ''}${t.star ? '<em class="tstar">★</em>' : ''}<span class="tnl">${t.n}</span></button>`;
+        nodes += `<button class="tnode rn ${cls}${sel === t ? ' sel' : ''}${c.gate ? ' gate' : ''}" data-act="techsel" data-arg="${t.id}" style="left:${X(n).toFixed(2)}%;top:${Y(n) - 20}px;--p:${pr.toFixed(3)}"><span class="tn0">${this.rIco(t)}</span>${ck.done ? '<em class="tbadge">✓</em>' : ck.lock ? '<em class="tbadge lk">🔒</em>' : ''}${t.star ? '<em class="tstar">★</em>' : ''}<span class="tnl">${t.n}</span></button>`;
       }
     });
     h += `<div class="ttree rtree" style="height:${H}px"><svg viewBox="0 0 100 ${H}" preserveAspectRatio="none" aria-hidden="true">${lines}</svg>${nodes}</div>`;
@@ -1938,7 +1947,7 @@ export class UI {
     const S = this.S, c = this.camp(), t = this.techSelOf(), ck = Sim.techCheck(S, t.id);
     const act = ck.done ? '<span class="tdone">✓ 已完成</span>' : ck.cur ? '<span class="tdone cur">研究中</span>' : ck.lock ? '' : `<button class="btn ${ck.ok ? 'go' : ''}" data-act="tech" data-arg="${t.id}" ${ck.ok || ck.soft ? '' : 'disabled'}>开始研究</button>`;
     const tag = t.br >= 0 ? `${TECH_BR[t.br]} · ${TIER_NAMES[t.t] || ''}` : '';
-    return `<div class="rdet ${ck.done ? 'done' : ck.lock ? 'lock' : ''}"><div class="tdh"><span class="ti">${t.ic}</span><b>${t.n}</b>${t.star ? '<i class="tstar2">★ 解锁</i>' : ''}${tag ? `<small class="rmeta">${tag}</small>` : ''}</div><small class="rd">${t.d}</small>
+    return `<div class="rdet ${ck.done ? 'done' : ck.lock ? 'lock' : ''}"><div class="tdh"><span class="ti">${this.rIco(t)}</span><b>${t.n}</b>${t.star ? '<i class="tstar2">★ 解锁</i>' : ''}${tag ? `<small class="rmeta">${tag}</small>` : ''}</div><small class="rd">${t.d}</small>
       ${ck.done ? '' : `<div class="rfoot"><span class="tcost">${costHtml(c.stock, t.cost, S.known)} <span class="cost">🔬${t.pts}</span></span>${act}</div>`}${ck.lock || (ck.soft && !ck.ok) || ck.busy ? `<small class="${ck.lock ? 'tlock' : 'neg'}">${esc(ck.reason)}</small>` : ''}</div>`;
   }
 
@@ -2160,7 +2169,7 @@ export class UI {
       const m = S.meta.specs[sp.id];
       const at = S.specAt[sp.id] && Sim.getB(S, S.specAt[sp.id]);
       const cost = specTrainCost(m.lvl);
-      h += `<div class="card"><div class="ci">🧑‍🔧</div><div class="cb"><div class="cn">${sp.n} <small>${sp.role} · ${m.lvl} 级</small></div>
+      h += `<div class="card"><div class="ci">${this.cIco('spec_' + sp.id, '🧑‍🔧')}</div><div class="cb"><div class="cn">${sp.n} <small>${sp.role} · ${m.lvl} 级</small></div>
         <div class="cd">${esc(sp.story)}<br>对口：${sp.aff.map(t => BLD[t].n).join('、')}（+${Math.round(specBonus(m.lvl, true) * 100)}%，别处 +${Math.round(specBonus(m.lvl, false) * 100)}%）</div>
         <div class="cc">${at ? `在「${BLD[at.type].n}」(${esc(Sim.getCamp(S, at.camp).name)}) <button class="small" data-act="spot" data-arg="${at.id}">看看</button> <button class="small" data-act="unspec" data-arg="${sp.id}">请走</button>` : `<button class="small" data-act="autospec" data-arg="${sp.id}">安排到对口建筑</button>`}
         · ${m.lvl >= SPEC_MAX ? '已经练到顶了' : `培养 ${costHtml(c.stock, cost, S.known)} <button class="small" data-act="train" data-arg="${sp.id}">培养</button>`}</div></div></div>`;
@@ -2402,7 +2411,7 @@ export class UI {
       return h;
     }
     if (tab === 'p') {
-      for (const sp of SPECS) h += card(B.p[sp.id], '🧑‍🔧', sp.n, `${sp.role}${B.p[sp.id] ? '' : sp.row == null ? ' · 盖好医务所后会来投奔' : ` · 纬度 ${sp.row} 一带`}`, B.p[sp.id] ? sp.story : '', sp.id);
+      for (const sp of SPECS) h += card(B.p[sp.id], this.cIco('spec_' + sp.id, '🧑‍🔧'), sp.n, `${sp.role}${B.p[sp.id] ? '' : sp.row == null ? ' · 盖好医务所后会来投奔' : ` · 纬度 ${sp.row} 一带`}`, B.p[sp.id] ? sp.story : '', sp.id);
       return h;
     }
     if (tab === 's') {
@@ -2444,7 +2453,7 @@ export class UI {
       h += `<div class="row mgood"><span>${RICON[k]} ${RES[k].n}<small>库里 ${fmt(have)}${need > have ? ' · <b class="miss">不够</b>' : ''}</small></span><span class="stepper"><button data-act="mgood" data-arg="${k}:${-st}">−</button><b>${fmt(n)}</b><button data-act="mgood" data-arg="${k}:${st}">＋</button></span></div>`;
     }
     const extra = RES_KEYS.filter(k => !keys.includes(k) && (main.stock[k] || 0) >= 10 && RES[k].t <= S.known);
-    if (extra.length) h += `<div class="row sub"><span>再带一样</span><span><select data-act="mgoodadd"><option value="">挑一样…</option>${extra.map(k => `<option value="${k}">${RICON[k]} ${RES[k].n}（库里 ${fmt(main.stock[k])}）</option>`).join('')}</select></span></div>`;
+    if (extra.length) h += `<div class="row sub"><span>再带一样</span><span><select data-act="mgoodadd"><option value="">挑一样…</option>${extra.map(k => `<option value="${k}">${RES[k].n}（库里 ${fmt(main.stock[k])}）</option>`).join('')}</select></span></div>`;
     const sup = Object.keys(P.supplies).map(k => `${RICON[k]}${fmt(P.supplies[k])}`).join(' '), kit = Object.keys(P.kit).map(k => `${RICON[k]}${fmt(P.kit[k])}`).join(' ');
     h += `<div class="row sub"><span>路上吃的烧的</span><span>${sup}（自动算）</span></div>`;
     h += `<div class="row sub"><span>点新熔炉</span><span>${kit}（自动算）</span></div>`;
@@ -2478,7 +2487,7 @@ export class UI {
         const rl = NORTH_RULES[o.rule], on = F.pick === i, q = QY[o.qy];
         h += `<div class="fko ${on ? 'on' : ''}"><div class="fkh"><b>${rl.ic} ${esc(rl.n)}${o.rich ? `<small>${esc(RES[SPOTS[o.rich].res].n)}</small>` : ''}</b><i class="fkd d${o.d}">${FORK.dn[o.d]}</i></div>`
           + `<div class="fkr"><span class="good">好：${esc(rl.good)}</span><span class="bad">坏：${esc(rl.bad)}</span></div>`
-          + `<div class="fkg"><span>特产<b>${esc(Sim.forkSpec(o))}</b></span><span>奇遇<b>${q.ic} ${esc(q.n)}</b></span><span>好处<b>${esc(Sim.bonusTxt(o.bonus, o.d))}</b></span><span>目标<b>×${FORK.diff[o.d]}</b></span></div>`
+          + `<div class="fkg"><span>特产<b>${esc(Sim.forkSpec(o))}</b></span><span>奇遇<b>${this.qyIco(o.qy, q.ic)} ${esc(q.n)}</b></span><span>好处<b>${esc(Sim.bonusTxt(o.bonus, o.d))}</b></span><span>目标<b>×${FORK.diff[o.d]}</b></span></div>`
           + (on ? '<div class="fkon">✓ 走这条</div>' : `<button class="small" data-act="forkpick" data-arg="${i}">选这条${F.pick == null && i === 0 ? '（不选就走它）' : ''}</button>`) + '</div>';
       });
       h += `</div><div class="hint">下一站的位置不变，选了哪条，那一片地就照它重新生成。难走的路目标高一成半，奖励 ×${FORK.rew[2]}；好走的目标低一成，奖励 ×${FORK.rew[0]}。出发前都能改。</div>`;
@@ -2488,7 +2497,7 @@ export class UI {
     const q = Sim.qyOf(S);
     if (q) {
       const Q = QY[q.id], w = Sim.qyWait(S);
-      h += `<div class="row"><span>${Q.ic} 这一站的奇遇<small>${esc(Q.n)}</small></span>${q.done ? `<span>${q.miss ? '错过了' : '走完了'}</span>` : w ? `<span>${q.away ? `${q.away} 人在外面，` : ''}${fmtTime(w.left)} 后${q.st ? '有下文' : '出现'}</span>` : '<button class="small go" data-act="qyopen">拿主意</button>'}</div>`;
+      h += `<div class="row"><span>${this.qyIco(q.id, Q.ic)} 这一站的奇遇<small>${esc(Q.n)}</small></span>${q.done ? `<span>${q.miss ? '错过了' : '走完了'}</span>` : w ? `<span>${q.away ? `${q.away} 人在外面，` : ''}${fmtTime(w.left)} 后${q.st ? '有下文' : '出现'}</span>` : '<button class="small go" data-act="qyopen">拿主意</button>'}</div>`;
     }
     return h;
   }
@@ -2853,7 +2862,7 @@ export class UI {
       case 'curve': { const st = this.cvState(); st.cid = this.camp().id; if (arg) { st.tab = 'res'; this.cvSelect(arg); } this.g.cancelModes(); this.open('curve'); break; }
       case 'photo': this.g.photo.open(); break;
       case 'focus': { const [cid, k] = arg.split(':'), c = Sim.getCamp(S, +cid), D = FOCUS[k];
-        this.modal(`<h3><i class="fch" style="background:${D.col}">${D.ch}</i> ${c.focus ? '改成' : '定为'}${D.n}营地？</h3><p>${D.d}</p><p class="nrwarn">代价：${D.bad}。</p><p class="hint">定下来以后 30 分钟内不能再换。</p>`, [{ t: '就这么定', a: 'focus-yes', arg, cls: 'go' }, { t: '再想想', a: 'close-modal' }]); break; }
+        this.modal(`<h3>${this.fIco(k, D)} ${c.focus ? '改成' : '定为'}${D.n}营地？</h3><p>${D.d}</p><p class="nrwarn">代价：${D.bad}。</p><p class="hint">定下来以后 30 分钟内不能再换。</p>`, [{ t: '就这么定', a: 'focus-yes', arg, cls: 'go' }, { t: '再想想', a: 'close-modal' }]); break; }
       case 'focus-yes': { const [cid, k] = arg.split(':'), r = Sim.setFocus(S, +cid, k); this.closeModal(); if (!r.ok) this.toast(r.reason, 'warn'); else g.sfx('win'); this.renderPanel(true); break; }
       case 'cvtab': this.cvState().tab = arg; this.renderPanel(true); break;
       case 'cvrange': this.cvState().range = arg; this.renderPanel(true); break;
@@ -2936,7 +2945,7 @@ export class UI {
       case 'townup': { const r = res(Sim.townUp(S, +arg)); if (r.ok) { g.drainFx && g.drainFx(); this.renderPanel(true); } break; }
       case 'towngo': { S.active = +arg; g.cancelModes(); this.open('camp'); break; }
       case 'qyopen': if (!this.qyModal()) { const w = Sim.qyWait(S); this.toast(w ? `奇遇「${QY[w.q.id].n}」还要 ${fmtTime(w.left)} 才有下文。` : '这件奇遇已经过去了。', 'info'); } break;
-      case 'qyopt': { const q = S.qy, away0 = q && q.away; const r = res(Sim.qyChoose(S, +arg)); if (r.ok) { g.sfx('tap'); g.drainFx(); this.qyModal({ ic: QY[q.id].ic, n: QY[q.id].n, msg: r.msg, next: r.next, wait: r.wait, away: q.away && q.away !== away0 ? q.away : 0 }); if (this.panel) this.renderPanel(true); } break; }
+      case 'qyopt': { const q = S.qy, away0 = q && q.away; const r = res(Sim.qyChoose(S, +arg)); if (r.ok) { g.sfx('tap'); g.drainFx(); this.qyModal({ id: q.id, ic: QY[q.id].ic, n: QY[q.id].n, msg: r.msg, next: r.next, wait: r.wait, away: q.away && q.away !== away0 ? q.away : 0 }); if (this.panel) this.renderPanel(true); } break; }
       case 'forkpick': { const r = res(Sim.pickFork(S, +arg)); if (r.ok) { g.sfx('tap'); this.renderPanel(true); } break; }
       case 'title-go': g.leaveTitle(); break;
       case 'hintsw': S.meta.hintOff = !S.meta.hintOff; if (S.meta.hintOff) g.hints.hide(); this.renderPanel(true); break;

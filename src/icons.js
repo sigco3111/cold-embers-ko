@@ -1,6 +1,7 @@
 // 统一图标：低多边形小图标，取代系统 emoji（各平台显示一致，和画面的低多边形风格一样）
 // 代码里照旧写 emoji，渲染前由 iconize() 把正文里的 emoji 换成 <svg><use>；属性和 <option> 里的保持原样
 import { LINE, LTINT } from './lineicons.js';
+import { SPRITE12_Z, KEYS12 } from './icons12.js';
 const f2 = v => +v.toFixed(2);
 const reg = (n, cx, cy, r, rot = -90) => Array.from({ length: n }, (_, i) => { const a = (rot + i * 360 / n) * Math.PI / 180; return `${f2(cx + r * Math.cos(a))},${f2(cy + r * Math.sin(a))}`; }).join(' ');
 const star = (n, cx, cy, r1, r2, rot = -90) => Array.from({ length: n * 2 }, (_, i) => { const r = i % 2 ? r2 : r1, a = (rot + i * 180 / n) * Math.PI / 180; return `${f2(cx + r * Math.cos(a))},${f2(cy + r * Math.sin(a))}`; }).join(' ');
@@ -152,17 +153,27 @@ const MAP = {
   '🪵': 'wood', '🪨': 'stone', '🥩': 'game', '🟫': 'plank', '🍖': 'food', '⚫': 'coal', '🟤': 'ore', '🔘': 'iron', '◼': 'coke', '⬜': 'lime', '🔷': 'steel', '⚙': 'gear', '🚂': 'engine',
   '🛢': 'shale', '🖤': 'tar', '🔩': 'seal', '💎': 'crystal', '🔋': 'battery', '🧪': 'alloy', '🌠': 'star', '🧩': 'part', '🤖': 'core', '🔶': 'shard', '🌟': 'heart', '👥': 'people',
   '🔥': 'fire', '❄': 'snow', '🐺': 'wolf', '🌌': 'aurora', '🌫': 'fog', '✨': 'sparkle', '📦': 'crate', '🎁': 'gift', '📖': 'book', '📍': 'pin', '🚩': 'flag', '🏁': 'flag2',
-  '🛷': 'sled', '👷': 'worker', '⛏': 'pick', '💢': 'anger', '👉': 'point', '⛺': 'tent', '🔬': 'flask', '⚗': 'flask', '🧭': 'compass', '🆘': 'sos', '⬆': 'up', '⬇': 'down', '🔭': 'scope',
+  '🛷': 'sled', '👷': 'worker', '⛏': 'pick', '💢': 'anger', '👉': 'point', '⛺': 'tent', '🔬': 'flask', '⚗': 'flask', '🧭': 'compass', '🆘': 'warn', '⬆': 'up', '⬇': 'down', '🔭': 'scope',
   '🛤': 'road', '♨': 'pipe', '🌡': 'thermo', '🕯': 'candle', '❔': 'ask', '📜': 'scroll', '🧑‍🔧': 'spec', '🧑': 'person', '🔧': 'wrench', '🔊': 'sound', '🎵': 'music', '💾': 'save',
   '📤': 'export', '📥': 'import', '📏': 'ruler', '🎒': 'pack', '✅': 'check', '☀': 'sun', '🌇': 'dusk', '🌅': 'dawn', '🌙': 'moon', '⏱': 'timer', '🥣': 'bowl', '⚖': 'scales',
   '🩹': 'bandage', '🛡': 'shield', '🧶': 'yarn', '🩺': 'stetho', '🏠': 'house', '🏚': 'ruin', '🗿': 'shrine', '🎈': 'airship', '🔮': 'starcore', '🔦': 'beacon', '🧌': 'giant', '🛳': 'icebreaker',
   '🪓': 'axe', '🏹': 'bow', '🪚': 'saw', '🍲': 'pot', '🗼': 'tower', '🧱': 'brick', '🏗': 'tower', '🛸': 'star', '🦾': 'core', '⚒': 'hammer', '🏭': 'factory', '🌱': 'sprout', '🌲': 'fir', '🦌': 'deer', '🐕': 'wolf', '☄': 'meteor', '🔒': 'lock', '🗑': 'trash', '↩': 'undo', '🕒': 'timer', '📂': 'import', '🔄': 'flag2', '❗': 'bang', '🏮': 'lamp', '🏴': 'flagb', '🗽': 'statue', '🌷': 'flower',
   '⏳': 'hourglass', '🏆': 'trophy', '🏺': 'vase', '⚠': 'warn', '🔗': 'link', '📈': 'chart', '⚔': 'swords', '🎨': 'palette', '📷': 'camera', '🧊': 'ice', '💧': 'drop', '🎉': 'party', '🤝': 'hands',
+  // 1.2：以前没有图标的 emoji，用新画的研究、建筑、奇遇图标
+  '🎓': 'r-apprentice', '🏅': 'r-specpro', '📡': 'r-coldcast', '🧥': 'r-thermal', '🏘': 'c-town_1', '🏙': 'c-town_3', '🛣': 'r-wideroad', '🗂': 'r-dispatch', '🚦': 'r-railsched',
+  '📮': 'r-postnet', '♻': 'r-corerec', '📯': 'r-cmd1', '♾': 'r-endless', '🎆': 'party', '📸': 'camera', '🏪': 'b-guildpost', '🔔': 'c-ui_bell', '🚉': 'b-wterminal',
+  '🪑': 'b-gbench', '⛩': 'b-ggate', '⛲': 'b-gfount', '🐋': 'c-qy_whale', '🚢': 'c-qy_wreck', '🧓': 'c-qy_hermit', '🌀': 'c-qy_stormeye',
   '🌨': 'snowcloud', '🗺': 'map', '💡': 'bulb', '🎖': 'medal', '🖼': 'frame', '⭐': 'star5', '📔': 'album', '🏛': 'temple', '🏔': 'mountain', '🎣': 'fishing', '🌪': 'tornado', '🌤': 'cloudsun', '⛓': 'chain', '🪙': 'silver',
 };
 const KEYS = Object.keys(MAP).sort((a, b) => b.length - a.length);
 const RE = new RegExp('(?:' + KEYS.map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')\\uFE0F?', 'gu');
-const svgOf = name => LINE[name] ? `<svg class="ic ln t-${name}" aria-hidden="true"><use href="#i-${name}"/></svg>` : `<svg class="ic" aria-hidden="true"><use href="#i-${name}"/></svg>`;
+// 1.2 新画的图标（一串压缩过的 <symbol>）：浏览器能解压就换上（解压前先用旧的顶着），不能就一直用旧的
+const NEW = typeof DecompressionStream === 'function';
+const HAS = Object.fromEntries(Object.entries(KEYS12).map(([p, ks]) => [p, new Set(NEW ? ks : [])]));
+export const has12 = (pre, k) => HAS[pre] ? HAS[pre].has(k) : false;
+// 新图标：pre 是 i 小图标 / b 建筑 / r 研究 / c 其它（指令、奇遇、律令、专家、按钮……）
+export const ico = (pre, k, cls = '') => `<svg class="ic i2${cls ? ' ' + cls : ''}" aria-hidden="true"><use href="#${pre}-${k}"/></svg>`;
+const svgOf = name => name[1] === '-' ? ico(name[0], name.slice(2)) : HAS.i.has(name) ? ico('i', name) : LINE[name] ? `<svg class="ic ln t-${name}" aria-hidden="true"><use href="#i-${name}"/></svg>` : `<svg class="ic" aria-hidden="true"><use href="#i-${name}"/></svg>`;
 export const ICON_NAMES = Object.keys(ICONS);
 export function iconSvg(name) { return svgOf(name); }
 // 把一段 HTML 正文里的 emoji 换成图标（不碰标签属性，也不碰 <option>/<textarea> 里的字）
@@ -173,7 +184,7 @@ export function iconize(html) {
   for (let i = 0; i < parts.length; i++) {
     const s = parts[i];
     if (i % 2) { skip = /^<(option|textarea)\b/i.test(s); continue; }
-    if (s && !skip) parts[i] = s.replace(RE, em => { const k = MAP[em.replace(/\uFE0F$/, '')]; return k ? svgOf(k) : em; });
+    if (s && !skip) parts[i] = s.replace(RE, em => { const k = MAP[em.replace(/\uFE0F$/, '')]; return !k || (k[1] === '-' && !has12(k[0], k.slice(2))) ? em : svgOf(k); });
   }
   return parts.join('');
 }
@@ -186,4 +197,28 @@ export function injectIcons() {
   const holder = document.createElement('div');
   holder.innerHTML = `<svg id="iconSprite" xmlns="http://www.w3.org/2000/svg" style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true">${syms}</svg>`;
   document.body.prepend(holder.firstChild);
+  if (NEW) iconsReady = load12();
 }
+export let iconsReady = Promise.resolve();
+async function load12() {
+  try {
+    const u8 = Uint8Array.from(atob(SPRITE12_Z), c => c.charCodeAt(0));
+    const txt = await new Response(new Blob([u8]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).text();
+    const sp = document.getElementById('iconSprite');
+    for (const k of KEYS12.i) { const o = document.getElementById('i-' + k); if (o) o.remove(); } // 旧的同名图标让位
+    const holder = document.createElement('div');
+    holder.innerHTML = `<svg id="iconSprite12" xmlns="http://www.w3.org/2000/svg" style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true">${txt}</svg>`;
+    sp.after(holder.firstChild);
+  } catch (e) { console.warn('新图标没解开，用旧的', e); }
+}
+// 把一个图标画成图片（给 3D 场景里的贴图用）：id 是 symbol 的 id，比如 'i-wood'；新图标还没解开时等它
+const IMG = {};
+export function iconImage(id) {
+  return IMG[id] ||= iconsReady.then(() => new Promise((ok, no) => {
+    const sym = document.getElementById(id); if (!sym) { no(new Error('没有图标 ' + id)); return; }
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${sym.getAttribute('viewBox')}" width="128" height="128">${sym.innerHTML}</svg>`;
+    const im = new Image(); im.onload = () => ok(im); im.onerror = no;
+    im.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+  }));
+}
+

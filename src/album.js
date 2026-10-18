@@ -73,13 +73,13 @@ export class AlbumView {
   constructor(onDel) {
     this.onDel = onDel;
     const el = this.el = document.createElement('div'); el.id = 'albumview';
-    el.innerHTML = '<div class="pvin"><img alt="相册里的照片"><div class="avcap"></div><div class="pvbar"><button class="btn go" data-av="save">💾 保存图片</button><button class="btn" data-av="del">🗑 删除</button><button class="btn ghost" data-av="x">关闭</button></div><small>保存不了的话：电脑上右键图片「另存为」，手机上长按图片保存。</small></div>';
+    el.innerHTML = '<div class="pvin"><img alt="相册里的照片"><div class="avcap"></div><div class="pvbar"><button class="btn go" data-av="save">保存图片</button><button class="btn" data-av="del">删除</button><button class="btn ghost" data-av="x">关闭</button></div><small>保存不了的话：电脑上右键图片「另存为」，手机上长按图片保存。</small></div>';
     el.addEventListener('click', async e => {
       const b = e.target.closest('[data-av]');
       if (!b) { if (e.target === el) this.hide(); return; }
       const k = b.dataset.av;
       if (k === 'x') this.hide();
-      else if (k === 'save') { const r = await albumSave(this.rec); b.textContent = r === 'saved' ? '✓ 存好了' : r === 'busy' ? '还在问要不要保存…' : '💾 保存图片'; }
+      else if (k === 'save') { const r = await albumSave(this.rec); b.textContent = r === 'saved' ? '✓ 存好了' : r === 'busy' ? '还在问要不要保存…' : '保存图片'; }
       else if (k === 'del') {
         if (!this.armed) { this.armed = true; b.textContent = '再点一次删除'; b.classList.add('warn'); return; }
         await albumDel(this.rec.id); this.hide(); this.onDel && this.onDel(this.rec.id);
@@ -92,8 +92,8 @@ export class AlbumView {
     this.el.querySelector('img').src = url;
     const d = new Date(rec.t), p = n => String(n).padStart(2, '0');
     this.el.querySelector('.avcap').textContent = `${rec.cap || ''}  ·  ${d.getMonth() + 1}月${d.getDate()}日 ${p(d.getHours())}:${p(d.getMinutes())}${rec.auto ? '  ·  自动拍的' : ''}`;
-    const del = this.el.querySelector('[data-av="del"]'); del.textContent = '🗑 删除'; del.classList.remove('warn');
-    this.el.querySelector('[data-av="save"]').textContent = '💾 保存图片';
+    const del = this.el.querySelector('[data-av="del"]'); del.textContent = '删除'; del.classList.remove('warn');
+    this.el.querySelector('[data-av="save"]').textContent = '保存图片';
     this.el.classList.add('show');
   }
   hide() { this.el.classList.remove('show'); }

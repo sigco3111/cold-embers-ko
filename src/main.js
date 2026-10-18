@@ -526,8 +526,7 @@ class Game {
     { const rb = document.getElementById('placeRow'); rb.style.display = this.isTouch() && type !== 'furnace' ? '' : 'none'; rb.classList.toggle('on', this.place.rowMode); }
     document.body.classList.add('placing');
     document.getElementById('placeName').textContent = type === 'furnace' ? '前哨熔炉' : BLD[type].n;
-    const tc = this.ui.thumb(type, type === 'furnace' ? 2 : 1);
-    document.getElementById('placePic').innerHTML = tc ? `<i class="th ${tc}"></i>` : iconize(ICON[type]);
+    document.getElementById('placePic').innerHTML = this.ui.pic(type, type === 'furnace' ? 2 : 1);
     this.updateGhost();
   }
   // 挪建筑：预览从原来的位置开始，放下就挪过去（不花材料，停工 30 秒）
@@ -540,8 +539,7 @@ class Game {
     document.getElementById('placeRow').style.display = 'none';
     document.body.classList.add('placing');
     document.getElementById('placeName').textContent = `挪${BLD[b.type].n}`;
-    const tc = this.ui.thumb(b.type, Math.min(b.lvl, 20));
-    document.getElementById('placePic').innerHTML = tc ? `<i class="th ${tc}"></i>` : iconize(ICON[b.type]);
+    document.getElementById('placePic').innerHTML = this.ui.pic(b.type, Math.min(b.lvl, 20));
     const s = BLD[b.type].size; this.view.focus(b.x + s / 2, b.y + s / 2);
     this.updateGhost();
   }
@@ -556,8 +554,7 @@ class Game {
     document.getElementById('placeRow').style.display = 'none';
     document.body.classList.add('placing');
     document.getElementById('placeName').textContent = `在「${st.n}」点起新熔炉`;
-    const tc = this.ui.thumb('furnace', 2);
-    document.getElementById('placePic').innerHTML = tc ? `<i class="th ${tc}"></i>` : iconize(ICON.furnace);
+    document.getElementById('placePic').innerHTML = this.ui.pic('furnace', 2);
     this.view.followTrip = false;
     this.view.focus(a.x + 1.5, a.y + 1.5);
     this.updateGhost();

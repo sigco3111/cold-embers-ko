@@ -309,3 +309,21 @@ body.paused #side #speedBtn{background:var(--u-knob-fire);color:var(--u-knob-fir
 #toolbar button.main .svg{position:relative;width:28px;height:28px;color:var(--u-valve-fg)}
 #toolbar button.dot::after{top:12px;left:calc(50% + 12px);width:10px;height:10px;background:radial-gradient(circle at 40% 35%,#fff3c4,#ffb84a 55%,#c4700f);box-shadow:0 0 0 2px rgba(0,0,0,.35),0 0 8px #ffb84a}
 #toolbar button.main.dot::after{top:-30px;left:calc(50% + 22px)}
+
+/* ---------- 新图标 ---------- */
+/* 建筑：新画的图放在原来 3D 缩略图的位置，留一点边 */
+.th.i2b{background:none;display:block;padding:0}
+.ci.pic{position:relative}.ci.pic>.th.i2b{position:absolute;inset:0;width:auto;height:auto;padding:7px}
+.th.i2b>.ic{display:block;width:100%;height:100%;margin:0;vertical-align:top}
+/* 冷色铁板上，深色的图标外面带一圈淡光，免得煤、页岩、星屑和底色混在一起 */
+:root[data-theme=cold] .ic.i2{filter:drop-shadow(0 0 1px rgba(200,225,250,.35))}
+:root[data-theme=cold] :is(#sheet .pbody,#modal .mbox) .ic.i2{filter:drop-shadow(0 0 1px rgba(200,225,250,.28))}
+/* 顶栏、侧边旋钮、底栏的按钮图标（新画的彩色小图） */
+.hic{display:block;flex:none;width:24px;height:24px;pointer-events:none;overflow:visible}
+#bellBtn .hic{width:26px;height:26px}
+#bellBtn.hot .hic{animation:bellr 2.4s ease-in-out infinite;transform-origin:50% 12%}
+#side button .hic{width:25px;height:25px}
+#side #speedBtn .hic{width:21px;height:21px}
+#toolbar button .hic{width:28px;height:28px}
+#toolbar button.main .hic{position:relative;width:36px;height:36px}
+#side #speedBtn .ps{display:none}body.paused #side #speedBtn .ps{display:block}body.paused #side #speedBtn .sp{display:none}

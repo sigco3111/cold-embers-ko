@@ -6,6 +6,7 @@ import * as M from './models.js';
 import * as Sim from './sim.js';
 import { RICON } from './ui.js';
 import { drawFlag } from './cosmetic.js';
+import { iconImage } from './icons.js';
 
 const toW = (x, y) => new THREE.Vector3(x, 0, -y);
 const RESCOL = Object.fromEntries(Object.entries(RES).map(([k, v]) => [k, new THREE.Color(v.c)]));
@@ -1902,9 +1903,12 @@ void main() {
       const x = c.getContext('2d');
       x.fillStyle = 'rgba(20,26,36,.82)'; x.beginPath(); x.arc(32, 32, 28, 0, 7); x.fill();
       x.strokeStyle = '#' + RESCOL[r].getHexString(); x.lineWidth = 4; x.stroke();
-      x.font = '34px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
-      x.fillText(RICON[r] || '•', 32, 35);
       const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+      // 1.2：圆牌里画新画的材料图标（图片加载完再补上）
+      iconImage('i-' + r).then(im => { x.drawImage(im, 12, 12, 40, 40); t.needsUpdate = true; }).catch(() => {
+        x.font = '34px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+        x.fillText(RICON[r] || '•', 32, 35); t.needsUpdate = true;
+      });
       return (this.iconTex[r] = new THREE.SpriteMaterial({ map: t, depthTest: false, depthWrite: false, toneMapped: false }));
     };
     const g = this.chainG = new THREE.Group(); this.scene.add(g);

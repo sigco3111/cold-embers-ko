@@ -5,6 +5,7 @@ import * as Sim from './sim.js';
 import { FRAMES } from './data.js';
 import { drawFrame } from './cosmetic.js';
 import { albumAdd, toJpeg } from './album.js';
+import { iconize } from './icons.js';
 
 export const PH_FILTERS = [
   { id: 'none', n: '原色', css: '' },
@@ -67,11 +68,11 @@ export class Photo {
     });
     bar.addEventListener('input', e => { if (e.target.dataset.ph === 'pitch') { this.pitch = +e.target.value; this.apply(); } });
     // 只剩一个小按钮时，点画面任何地方都能把工具条叫回来
-    this.peek = document.createElement('button'); this.peek.id = 'photopeek'; this.peek.textContent = '📷'; this.peek.title = '显示拍照工具条';
+    this.peek = document.createElement('button'); this.peek.id = 'photopeek'; this.peek.innerHTML = iconize('📷'); this.peek.title = '显示拍照工具条';
     this.peek.addEventListener('click', () => document.body.classList.remove('photo-clean'));
     document.body.appendChild(this.peek);
     const view = document.createElement('div'); view.id = 'photoview';
-    view.innerHTML = '<div class="pvin"><img alt="刚拍的照片"><div class="pvbar"><button class="btn go" data-pv="save">💾 保存图片</button><button class="btn" data-pv="album">📔 收进相册</button><button class="btn" data-pv="again">再拍一张</button><button class="btn ghost" data-pv="done">退出拍照</button></div><small>保存不了的话：电脑上右键图片「另存为」，手机上长按图片保存。</small></div>';
+    view.innerHTML = '<div class="pvin"><img alt="刚拍的照片"><div class="pvbar"><button class="btn go" data-pv="save">保存图片</button><button class="btn" data-pv="album">收进相册</button><button class="btn" data-pv="again">再拍一张</button><button class="btn ghost" data-pv="done">退出拍照</button></div><small>保存不了的话：电脑上右键图片「另存为」，手机上长按图片保存。</small></div>';
     view.addEventListener('click', e => {
       const b = e.target.closest('[data-pv]'); if (!b && e.target !== view) return;
       if (b && b.dataset.pv === 'save') { this.save(); return; }
@@ -125,14 +126,14 @@ export class Photo {
   }
   draw() {
     const g = this.g, seg = (k, list, cur) => `<div class="phseg">${list.map(([v, n], i) => `<button class="${cur === (k === 'tod' ? i : v) ? 'on' : ''}" data-ph="${k}" data-v="${k === 'tod' ? i : v}">${n}</button>`).join('')}</div>`;
-    this.bar.innerHTML = `
+    this.bar.innerHTML = iconize(`
       <div class="phrow"><span class="phl">时辰</span>${seg('tod', PH_TIMES, this.tod)}</div>
       <div class="phrow"><span class="phl">滤镜</span>${seg('f', PH_FILTERS.map(x => [x.id, x.n]), this.f)}</div>
       ${(() => { const S = g.S, L = Object.keys(FRAMES).filter(id => Sim.cosHave(S, 'frame', id)); return L.length > 1 ? `<div class="phrow"><span class="phl">相框</span>${seg('fr', L.map(id => [id, FRAMES[id].n]), this.frame())}</div>` : ''; })()}
       <div class="phrow"><span class="phl">镜头</span><span class="phrng"><small>平视</small><input type="range" min="0" max="100" value="${this.pitch}" data-ph="pitch"><small>俯视</small></span>
         <button class="phtg ${g.paused ? 'on' : ''}" data-ph="freeze" title="暂停时间，人和车都停住">定格</button><button class="phtg ${this.ring ? 'on' : ''}" data-ph="ring" title="显示熔炉供热圈">供热圈</button></div>
       <div class="phrow phact"><button class="phx" data-ph="x">✕ 退出</button><button class="phx" data-ph="hide">藏起工具条</button><button class="phshot" data-ph="shot">📸 拍照</button></div>
-      <div class="phtip">拖动画面找角度 · ${matchMedia('(pointer:coarse)').matches ? '双指缩放、旋转' : '滚轮缩放 · 右键拖动旋转'} · 拍照模式里能凑得更近</div>`;
+      <div class="phtip">拖动画面找角度 · ${matchMedia('(pointer:coarse)').matches ? '双指缩放、旋转' : '滚轮缩放 · 右键拖动旋转'} · 拍照模式里能凑得更近</div>`);
   }
   // 拍照：截下这一帧，套上滤镜、暗角和落款
   shoot() {
@@ -160,8 +161,8 @@ export class Photo {
     this.pv.querySelector('img').src = url;
     this.dataUrl = this.url ? null : url;
     this.fname = `寒烬北行-${stamp()}.png`;
-    this.pv.querySelector('[data-pv="save"]').textContent = '💾 保存图片';
-    this.pv.querySelector('[data-pv="album"]').textContent = '📔 收进相册';
+    this.pv.querySelector('[data-pv="save"]').textContent = '保存图片';
+    this.pv.querySelector('[data-pv="album"]').textContent = '收进相册';
     this.pv.classList.add('show');
   }
   // 保存：claude.ai 里走页面的下载权限（会问一句），单独打开时用普通下载

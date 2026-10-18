@@ -35,19 +35,20 @@ export class Theme {
   want() {
     if (this.pref !== 'auto') return this.pref;
     if (this.stormy()) { this.calm = 0; return 'cold'; }
-    return this.cur === 'cold' && this.calm < HOLD ? 'cold' : 'warm';
+    return (this.tgt || this.cur) === 'cold' && this.calm < HOLD ? 'cold' : 'warm';
   }
   // 每帧调；内部每秒查一次
   tick(dt) {
     this.t += dt; if (this.t < 1) return;
     this.calm += this.t; this.t = 0;
-    const w = this.want(); if (w !== this.cur) this.apply(w, true);
+    const w = this.want(); if (w !== this.cur && w !== this.tgt) this.apply(w, true); // 正在换的不重来
   }
   apply(th, fade) {
-    if (th === this.cur) return;
+    if (th === this.cur && !this.tgt) return;
+    this.tgt = th;
     const root = document.documentElement, body = document.body;
     const go = () => {
-      this.cur = th; root.dataset.theme = th;
+      this.cur = th; this.tgt = null; root.dataset.theme = th;
       const m = document.querySelector('meta[name=theme-color]'); if (m) m.content = th === 'warm' ? '#4a2e19' : '#1b2430';
       if (this.g.ui && this.g.ui.onTheme) this.g.ui.onTheme(th);
     };
