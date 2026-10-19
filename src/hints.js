@@ -9,7 +9,7 @@ const make = S => c => S.buildings.filter(b => b.camp === c.id && BLD[b.type].ca
 
 // when(S, c, cr, g) 返回 false 表示还用不上；返回 { act, arg } 表示「去看看」按钮要做什么（没有按钮就返回 true）
 export const HINTS = [
-  { id: 'gang', ic: '🏴', n: '掠夺者来索贡了', d: '点左下角的便签或右上角的提醒铃答复：交贡、做买卖，或者靠箭塔顶回去。到时候没人答复，守得住就打，守不住就交贡。',
+  { id: 'gang', ic: '🏴', n: '掠夺者来索贡了', d: '点底下老向导的小条或右上角的提醒铃答复：交贡、做买卖，或者靠箭塔顶回去。到时候没人答复，守得住就打，守不住就交贡。',
     when: S => { const d = Sim.gangDemands(S)[0]; return d ? { act: 'gang', arg: d.g.id } : false; } },
   { id: 'net', ic: '🛷', n: '路已经修好了', d: '新营地一点火就有一条雪橇道连到最近的营地。在这里摆建筑就行，缺的木材、木板、石料，物流网会自己从有余的营地运过来。「生产 → 物流」里能看路上在运什么。',
     when: (S, c) => { const m = Sim.mainCamp(S); return c && m && c.id !== m.id && !c.depot && Sim.roadsAt(S, c.id).length ? { act: 'netview', arg: c.id } : false; } },
@@ -45,27 +45,17 @@ export const HINTS = [
     when: S => S.camps.length >= 2 || S.buildings.length >= 40 ? { act: 'photo' } : false },
 ];
 
+// 1.2：新玩法不再弹卡片，交给老向导的小条（ui.guideAdd）；小条里最多攒 2 条没看完的，两条之间至少隔 75 秒
 export class Hints {
-  constructor(g) {
-    this.g = g; this.t = 0; this.since = -FIRST; this.slowT = 0; this.cur = null;
-    const el = this.el = document.createElement('div'); el.id = 'hint';
-    document.body.appendChild(el);
-    el.addEventListener('click', e => {
-      const b = e.target.closest('button'); if (!b) return;
-      this.done(); // 「去看看」的动作交给 body 上的点击委托
-    });
-  }
+  constructor(g) { this.g = g; this.t = 0; this.since = -FIRST; this.slowT = 0; }
   seen(S) { return (S.meta.hints ||= {}); }
   // 每帧调；内部每 2 秒查一次
   tick(dt) {
-    const g = this.g, S = g.S;
+    const g = this.g, S = g.S, ui = g.ui;
     this.t += dt; this.since += dt; this.slowT += dt;
     if (this.t < 2) return; this.t = 0;
-    if (this.cur && this.cur.S !== S) this.hide();
     const blocked = !S.meta.tut || S.meta.hintOff || g.titleOn || (g.photo && g.photo.on) || g.place || document.getElementById('modal').classList.contains('show');
-    const phoneSheet = innerWidth < 760 && document.body.classList.contains('sheet-open');
-    this.el.classList.toggle('away', !!(blocked || phoneSheet || g.bigmap.open || g.chainmap.open));
-    if (this.cur || blocked || this.since < GAP) return;
+    if (blocked || this.since < GAP || ui.guideHints().length >= 2) return;
     const slow = this.slowT > 10; if (slow) this.slowT = 0;
     const c = Sim.getCamp(S, S.active) || S.camps[0], cr = Sim.rt(S).c[c.id] || {}, seen = this.seen(S);
     for (const h of HINTS) {
@@ -77,15 +67,12 @@ export class Hints {
     }
   }
   show(S, h, a) {
-    this.cur = { S, h };
-    this.seen(S)[h.id] = 1; // 弹出来就算看过：刷新页面不会再弹
-    const touch = this.g.isTouch(), extra = touch ? h.touch : h.pc;
-    this.el.innerHTML = iconize(`<div class="hk">✨ 新玩法</div><div class="hb"><span class="hi">${h.ic}</span><div><b>${h.n}</b><p>${h.d}${extra ? ' ' + extra : ''}</p></div></div>
-      <div class="hbtn">${a ? `<button class="small go" data-act="${a.act}" data-arg="${a.arg ?? ''}">去看看</button>` : ''}<button class="small ghost">知道了</button></div>`);
-    this.el.classList.add('show');
+    this.seen(S)[h.id] = 1; // 贴出来就算看过：刷新页面不会再贴
+    const extra = this.g.isTouch() ? h.touch : h.pc;
+    this.g.ui.guideAdd({ id: h.id, ic: h.ic, n: h.n, d: h.d + (extra ? ' ' + extra : ''), a });
+    this.since = 0;
   }
-  done() { this.since = 0; this.hide(); }
-  hide() { this.cur = null; this.el.classList.remove('show'); }
+  hide() { this.g.ui.guideHints().length = 0; }
 }
 
 // 老存档第一次打开新版：说一下这版加了什么，老存档是怎么接上的（from：存档原来是第几版）

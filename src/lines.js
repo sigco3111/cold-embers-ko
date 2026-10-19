@@ -299,7 +299,7 @@ function netTip(S, R, main, wait) {
       const J = N.jam[rid].filter(j => { const q = ((N.short || {})[j.c] || {})[j.k]; return q && q.tier <= 5; });
       if (!J.length) continue;
       const v = netRoadView(S, r), ks = [...new Set(J.map(j => gName(j.k)))].slice(0, 2).join('、');
-      return { pri: 1, kind: 'netjam', text: `${netRoadName(S, r)}的${roadKindName(r)}满了（${Math.round(v.flow)}/${Math.round(v.cap)} 件/分），${ks}在排队：升级它能多运一半${railOk(S, r) ? '，改成铁路能多运三倍' : ''}。`, act: 'netroad', arg: r.id };
+      return { pri: 1, kind: 'netjam', short: '有条路堵了，升级能多运一半', text: `${netRoadName(S, r)}的${roadKindName(r)}满了（${Math.round(v.flow)}/${Math.round(v.cap)} 件/分），${ks}在排队：升级它能多运一半${railOk(S, r) ? '，改成铁路能多运三倍' : ''}。`, act: 'netroad', arg: r.id };
     }
     return null;
   }
@@ -314,7 +314,7 @@ function netTip(S, R, main, wait) {
         for (const o of S.camps) { if (o.id === c.id || depotAuto(o)) continue; const sp = campSpare(S, o, {}); const sc = ins.length ? Math.min(...ins.map(x => sp[x] || 0)) : 0; if (sc > bs) { bs = sc; best = o; } }
         if (!best && c === main) continue;
         const where = best ? `在「${best.name}」多建一座${BLD[pt].n}，那边${ins.map(x => RES[x].n).join('和')}有余` : `多建一座${BLD[pt].n}`;
-        return { pri: 2, kind: 'netnone', camp: c.id, text: `「${c.name}」缺${RES[k].n}（${q.why}），哪个营地都没有多余的：${where}。`, act: 'campgo', arg: (best || c).id };
+        return { pri: 2, kind: 'netnone', camp: c.id, short: `「${c.name}」缺${RES[k].n}，哪儿都没余`, text: `「${c.name}」缺${RES[k].n}（${q.why}），哪个营地都没有多余的：${where}。`, act: 'campgo', arg: (best || c).id };
       }
   }
   // 在等运货：新营地（不是主营地）的建筑在等料，料已经在路上
@@ -327,7 +327,7 @@ function netTip(S, R, main, wait) {
       if (!want && !q) continue;
       const user = q ? `排队的${BLD[q.type].n}` : (() => { const b = S.buildings.find(b => b.camp === c.id && bdef(b).in && bdef(b).in[k]); return b ? `的${BLD[b.type].n}` : ''; })();
       const from = [...i.from].map(id => `「${(getCamp(S, id) || {}).name}」`).join('');
-      return { pri: 2, kind: 'netwait', camp: c.id, text: `「${c.name}」${user}在等${RES[k].n}：正从${from}运来，约 ${fmtS(i.eta)}。`, act: 'netview', arg: c.id };
+      return { pri: 2, kind: 'netwait', camp: c.id, short: `${RES[k].n}正在运来，约 ${fmtS(i.eta)}`, text: `「${c.name}」${user}在等${RES[k].n}：正从${from}运来，约 ${fmtS(i.eta)}。`, act: 'netview', arg: c.id };
     }
   }
   return null;
@@ -339,24 +339,24 @@ export function advisor(S) {
   for (const c of S.camps) {
     const cr = R.c[c.id] || {};
     // 补给站自己运转，只在撑不住时说一句
-    if (c.depot && !c.manual) { if (c.dWarn) return { pri: 0, kind: 'depot', camp: c.id, text: `补给站「${c.name}」${c.dWarn}：可以临时接手管一下，或者让它熄火换余烬。`, act: 'campgo', arg: c.id }; continue; }
+    if (c.depot && !c.manual) { if (c.dWarn) return { pri: 0, kind: 'depot', camp: c.id, short: `补给站「${c.name}」撑不住了`, text: `补给站「${c.name}」${c.dWarn}：可以临时接手管一下，或者让它熄火换余烬。`, act: 'campgo', arg: c.id }; continue; }
     if (cr.foodNet != null && cr.foodNet < -0.05) {
       const m = (c.stock.food || 0) / -cr.foodNet;
-      if (m < 10) return { pri: 0, kind: 'food', camp: c.id, text: `「${c.name}」的熟食只够 ${Math.max(1, Math.floor(m))} 分钟了：多派人去打猎和做饭，或者从别的营地运吃的过来。` };
+      if (m < 10) return { pri: 0, kind: 'food', camp: c.id, short: `熟食只够 ${Math.max(1, Math.floor(m))} 分钟了`, text: `「${c.name}」的熟食只够 ${Math.max(1, Math.floor(m))} 分钟了：多派人去打猎和做饭，或者从别的营地运吃的过来。` };
     }
     { const fm = cr.burnPerMin > 0 ? fuelLeft(cr) : Infinity; // 算上进账：伐木跟得上熔炉就不报
       if (fm < 10) {
         const how = countType(S, c.id, 'batteryworks') ? '晶体电池厂多派人、多建几座' : countType(S, c.id, 'coker') ? '煤矿和焦煤炉多派人' : countType(S, c.id, 'coalmine') ? '伐木场和煤矿多派人' : '伐木场多派人，或者再建一座';
         const early = !countType(S, c.id, 'coalmine') && !countType(S, c.id, 'coker') && !countType(S, c.id, 'batteryworks');
-        return { pri: 0, kind: 'fuel', camp: c.id, ...(early && c === main ? { act: 'place', arg: 'lumber' } : {}), text: fm < 0.5 ? `「${c.name}」的熔炉断燃料了：${how}。要用燃料的工厂会先停下，把燃料留给熔炉。` : `「${c.name}」的燃料只够 ${Math.max(1, Math.floor(fm))} 分钟了，烧得比进得快：${how}。要用燃料的工厂会先停下，把燃料留给熔炉。` };
+        return { pri: 0, kind: 'fuel', camp: c.id, short: fm < 0.5 ? `「${c.name}」的熔炉断燃料了` : `燃料只够 ${Math.max(1, Math.floor(fm))} 分钟了`, ...(early && c === main ? { act: 'place', arg: 'lumber' } : {}), text: fm < 0.5 ? `「${c.name}」的熔炉断燃料了：${how}。要用燃料的工厂会先停下，把燃料留给熔炉。` : `「${c.name}」的燃料只够 ${Math.max(1, Math.floor(fm))} 分钟了，烧得比进得快：${how}。要用燃料的工厂会先停下，把燃料留给熔炉。` };
       } }
-    if (cr.tH != null && cr.tH < -8 && c.people > 3) return { pri: 0, kind: 'cold', camp: c.id, text: `「${c.name}」太冷了，有人会冻伤：多烧燃料、开超载，或者给帐篷升级保暖。` };
+    if (cr.tH != null && cr.tH < -8 && c.people > 3) return { pri: 0, kind: 'cold', camp: c.id, short: `「${c.name}」太冷了，会冻伤人`, text: `「${c.name}」太冷了，有人会冻伤：多烧燃料、开超载，或者给帐篷升级保暖。` };
   }
   const nr = nextRaid(S);
-  if (nr && nr.in < 300 && !raidPrep(S, nr)) return { pri: 0, kind: 'raid', camp: nr.camp, text: `袭营还有 ${Math.max(1, Math.ceil(nr.in / 60))} 分钟就到「${(getCamp(S, nr.camp) || {}).name}」：点开去备战。`, act: 'raid' };
-  if (J.trip && J.trip.road) return { pri: 0, kind: 'road', text: '车队在路上遇到了事，停下来等你拿主意。', act: 'roadopen' };
-  if (J.trip && J.trip.hold > 0) return { pri: 1, kind: 'trip', text: `车队停下来歇一会儿（还要 ${Math.ceil(J.trip.hold)} 秒），后面的营地照常运转。`, act: null };
-  if (J.trip) return { pri: 1, kind: 'trip', text: J.trip.phase === 'arrive' ? `车队到了「${stopOf(S, J.trip.to).n}」：挑一块平地放下新熔炉。` : `车队正往「${stopOf(S, J.trip.to).n}」走，后面的营地照常运转。`, act: J.trip.phase === 'arrive' ? 'arrive' : null };
+  if (nr && nr.in < 300 && !raidPrep(S, nr)) return { pri: 0, kind: 'raid', camp: nr.camp, short: `袭营 ${Math.max(1, Math.ceil(nr.in / 60))} 分钟后到，去备战`, text: `袭营还有 ${Math.max(1, Math.ceil(nr.in / 60))} 分钟就到「${(getCamp(S, nr.camp) || {}).name}」：点开去备战。`, act: 'raid' };
+  if (J.trip && J.trip.road) return { pri: 0, kind: 'road', short: '车队路上遇到事，等你拿主意', text: '车队在路上遇到了事，停下来等你拿主意。', act: 'roadopen' };
+  if (J.trip && J.trip.hold > 0) return { pri: 1, kind: 'trip', short: '车队停下来歇一会儿', text: `车队停下来歇一会儿（还要 ${Math.ceil(J.trip.hold)} 秒），后面的营地照常运转。`, act: null };
+  if (J.trip) return { pri: 1, kind: 'trip', short: J.trip.phase === 'arrive' ? '车队到了，挑块平地放熔炉' : `车队正往「${stopOf(S, J.trip.to).n}」走`, text: J.trip.phase === 'arrive' ? `车队到了「${stopOf(S, J.trip.to).n}」：挑一块平地放下新熔炉。` : `车队正往「${stopOf(S, J.trip.to).n}」走，后面的营地照常运转。`, act: J.trip.phase === 'arrive' ? 'arrive' : null };
   // 矿快挖完了（剩不到 5%，又不是深井）：先说一声
   for (const c of [main, ...S.camps.filter(x => x !== main && !depotAuto(x))]) {
     const ore = (R.c[c.id] || {}).ore || {};
@@ -364,7 +364,7 @@ export function advisor(S) {
       const o = ore[k];
       if (o.frac >= ORE_URGENT || o.deep) continue;
       const t = gatherTypeFor(k);
-      return { pri: 1, kind: 'ore', camp: c.id, text: `「${c.name}」暖圈里的${SPOTS[k].n}快挖完了（剩 ${Math.max(0, Math.round(o.frac * 100))}%）：给${BLD[t].n}挖深井，挖完也有三成五的产量；或者去侦察营派勘探队找新矿脉，这次按最低价。`, act: 'spot', arg: o.b };
+      return { pri: 1, kind: 'ore', camp: c.id, short: `${SPOTS[k].n}快挖完了，能打深井`, text: `「${c.name}」暖圈里的${SPOTS[k].n}快挖完了（剩 ${Math.max(0, Math.round(o.frac * 100))}%）：给${BLD[t].n}挖深井，挖完也有三成五的产量；或者去侦察营派勘探队找新矿脉，这次按最低价。`, act: 'spot', arg: o.b };
     }
   }
   // 搬运工不够：每座建筑都跟着慢下来，比哪一环都要紧（不然会误判成「仓库满了」「缺料」）
@@ -374,7 +374,7 @@ export function advisor(S) {
       const wh = S.buildings.filter(b => b.camp === main.id && b.type === 'warehouse');
       const room = wh.reduce((a, b) => a + Math.max(0, maxWorkers('warehouse', b.lvl) - b.workers), 0);
       const tip = wh.length && room > 0 ? `给仓库派满人（还能派 ${room} 个）` : '多建一座仓库再派人';
-      return { pri: 1, kind: 'haul', camp: main.id, text: `「${main.name}」搬运工不够（要 ${Math.ceil(cr.demand)} 人，只有 ${Math.floor(cr.haulers)} 人），每座建筑都在等人送料：搬运工住在仓库里，${tip}；修路也能让搬运快一些。`, act: wh.length ? 'spot' : 'place', arg: wh.length ? wh[0].id : 'warehouse' };
+      return { pri: 1, kind: 'haul', camp: main.id, short: '搬运工不够，给仓库派人', text: `「${main.name}」搬运工不够（要 ${Math.ceil(cr.demand)} 人，只有 ${Math.floor(cr.haulers)} 人），每座建筑都在等人送料：搬运工住在仓库里，${tip}；修路也能让搬运快一些。`, act: wh.length ? 'spot' : 'place', arg: wh.length ? wh[0].id : 'warehouse' };
     }
   }
   // 物流网：要紧的货（排队的建筑、产线缺料）路满了运不过来，或者整张网都没有
@@ -385,20 +385,20 @@ export function advisor(S) {
   const g = rateGoals(S).find(x => !x.eternal) || rateGoals(S)[0];
   if (g) {
     const rate = prodRate(S, g.r), h = holdOf(S, g.id);
-    if (rate >= g.n - 1e-9) return { pri: 1, kind: 'hold', text: `${RES[g.r].n}线到了 ${fmtR(rate)}/分钟，再稳住 ${fmtS(HOLD - h.p)} 就达标。`, act: 'plan', arg: g.r };
+    if (rate >= g.n - 1e-9) return { pri: 1, kind: 'hold', short: `${RES[g.r].n}线够了，再稳住 ${fmtS(HOLD - h.p)}`, text: `${RES[g.r].n}线到了 ${fmtR(rate)}/分钟，再稳住 ${fmtS(HOLD - h.p)} 就达标。`, act: 'plan', arg: g.r };
     const P = planLine(S, g.r, g.n), w = P.worst;
     if (w) {
-      if (!w.count && w.type && !unlocked(S, w.type)) return { pri: 1, kind: 'line', text: `${RES[g.r].n}线要${RES[w.k].n}，可${BLD[w.type].n}还没解锁：派侦察队往北探，看到更北的纬度就能建。`, act: 'plan', arg: g.r };
-      if (!w.count) return { pri: 1, kind: 'line', text: `${RES[g.r].n}线缺一环：还没有${w.type ? BLD[w.type].n : RES[w.k].n}。${RES[w.k].n}要 ${fmtR(w.need)}/分钟，先建一座。`, act: 'plan', arg: g.r };
+      if (!w.count && w.type && !unlocked(S, w.type)) return { pri: 1, kind: 'line', short: `${BLD[w.type].n}没解锁，往北探路`, text: `${RES[g.r].n}线要${RES[w.k].n}，可${BLD[w.type].n}还没解锁：派侦察队往北探，看到更北的纬度就能建。`, act: 'plan', arg: g.r };
+      if (!w.count) return { pri: 1, kind: 'line', short: `${RES[g.r].n}线缺${w.type ? BLD[w.type].n : RES[w.k].n}，先建一座`, text: `${RES[g.r].n}线缺一环：还没有${w.type ? BLD[w.type].n : RES[w.k].n}。${RES[w.k].n}要 ${fmtR(w.need)}/分钟，先建一座。`, act: 'plan', arg: g.r };
       const by = P.nodes.find(x => x.k === (w.from || w.via));
       const full = Object.keys(w.stat).find(s => s === '仓库满了');
-      if (full) return { pri: 1, kind: 'line', text: `${RES[w.k].n}卡在仓库满了：多建仓库，或者在营地面板里打开「满仓自动兑换」。`, act: 'plan', arg: g.r };
+      if (full) return { pri: 1, kind: 'line', short: `${RES[w.k].n}卡在仓库满了`, text: `${RES[w.k].n}卡在仓库满了：多建仓库，或者在营地面板里打开「满仓自动兑换」。`, act: 'plan', arg: g.r };
       // 总产量够，却被别的建筑吃掉了
       if (w.comp && by) {
         const eat = {};
         for (const b of S.buildings) { const ir = ((R.b[b.id] || {}).inRate || {})[w.k]; if (ir > 0 && b.type !== by.type) eat[b.type] = (eat[b.type] || 0) + ir; }
         const top = Object.keys(eat).sort((a, b) => eat[b] - eat[a])[0];
-        return { pri: 1, kind: 'line', text: `${RES[g.r].n}线卡在${RES[w.k].n}：${RES[w.k].n}一分钟产 ${fmtR(w.prod)}，这条线只要 ${fmtR(w.need)}，可${BLD[by.type].n}分不到${top ? `，大半被${BLD[top].n}吃掉了（${fmtR(eat[top])}/分）。少派几个人去${BLD[top].n}` : '。多产一些'}，${BLD[by.type].n}就能开工。`, act: 'plan', arg: g.r };
+        return { pri: 1, kind: 'line', short: `${RES[w.k].n}被${top ? BLD[top].n : '别处'}吃掉了`, text: `${RES[g.r].n}线卡在${RES[w.k].n}：${RES[w.k].n}一分钟产 ${fmtR(w.prod)}，这条线只要 ${fmtR(w.need)}，可${BLD[by.type].n}分不到${top ? `，大半被${BLD[top].n}吃掉了（${fmtR(eat[top])}/分）。少派几个人去${BLD[top].n}` : '。多产一些'}，${BLD[by.type].n}就能开工。`, act: 'plan', arg: g.r };
       }
       // 这一环自己在等料（缺料、留料给建造、留燃料给熔炉）：再多建它也没用，该补的是上游
       { const cnt = Object.values(w.stat || {}).reduce((a, n) => a + n, 0) || 1;
@@ -409,53 +409,57 @@ export function advisor(S) {
         if (k && pt) {
           const n = BLD[w.type].n, kn = RES[k].n, idle = P.idle >= 1, can = unlocked(S, pt);
           const more = `多建几座${BLD[pt].n}（还有 ${P.idle} 个闲人）`;
-          let text;
+          let text, short = `${n}在等${kn}，${BLD[pt].n}供不上`;
           if (st === KEEP_WHY || st === FUEL_KEEP_WHY) {
             // 留料：木材这种东西先留给盖房、留给熔炉，攒过这条线，多出来的才拿去加工
             const cr = R.c[main.id] || {}, kb = isBuildMat(k) ? keepOf(main, k, storeCap(S, main)) : 0, kf = FUEL[k] ? (cr.burnPerMin || 0) * FUEL_KEEP_MIN / FUEL[k] : 0;
             const forW = [kb > 0 && '盖房', kf > 0 && '熔炉'].filter(Boolean).join('和');
+            short = `${kn}先留给${forW}，还不够分`;
             text = `${RES[g.r].n}线卡在${kn}：${kn}要先攒过 ${Math.ceil(Math.max(kb, kf))} 份（留给${forW}），多出来的才给${n}。${idle ? `${more}，或者先少盖点房子，让${kn}攒起来` : `先少盖点房子，让${kn}攒起来；人多了再多建几座${BLD[pt].n}`}。`;
           } else text = `${RES[g.r].n}线卡在${kn}：${n}在等${kn}，${BLD[pt].n}供不上。${idle ? more : `没有闲人了：盖帐篷让更多人来投奔，再${BLD[pt].n}多派人`}。`;
           { const sw = altSwap(S, w.type, k); if (sw) text += `也可以把${n}换成${sw}，不用${kn}。`; }
-          return { pri: 1, kind: 'line', text, act: can && idle ? 'place' : 'plan', arg: can && idle ? pt : g.r };
+          return { pri: 1, kind: 'line', text, short: short, act: can && idle ? 'place' : 'plan', arg: can && idle ? pt : g.r };
         } }
       const why = by ? `${BLD[by.type].n}要 ${fmtR(w.need)}/分，${BLD[w.type].n}只供 ${fmtR(w.prod)}/分` : `目标 ${fmtR(w.need)}/分，现在 ${fmtR(w.prod)}/分`;
-      let fix = w.workers < w.count * maxWorkers(w.type, w.lvl) ? `先把${BLD[w.type].n}的人派满` : `再建 ${Math.max(1, Math.ceil((w.need - w.prod) / Math.max(0.1, w.one)))} 座${BLD[w.type].n}，或者升级`;
+      const more = Math.max(1, Math.ceil((w.need - w.prod) / Math.max(0.1, w.one)));
+      let fix = w.workers < w.count * maxWorkers(w.type, w.lvl) ? `先把${BLD[w.type].n}的人派满` : `再建 ${more} 座${BLD[w.type].n}，或者升级`;
+      let fs = fix.startsWith('先把') ? '先把人派满' : `再建 ${more} 座`;
       // 采集建筑没地方放了：矿点旁边都被占了
       let blk = null;
       if (fix.startsWith('再建') && BLD[w.type].gather && !gatherRoom(S, main, w.type)) {
-        blk = blockerOf(S, main, w.type);
+        blk = blockerOf(S, main, w.type); fs = '矿点旁边放不下了';
         fix = `可${RES[w.k].n}矿点旁边已经放不下${BLD[w.type].n}了（被别的建筑占着，或者在供热圈外）：${blk ? `把矿点旁边的${BLD[blk.type].n}挪开（点它，选「挪位置」，不花材料）` : '把矿点旁边的一两座建筑挪开（点建筑，选「挪位置」）'}，或者升熔炉扩大供热圈，侦察营也能勘探新矿脉`;
       }
       // 没有闲人：这条线上产得太多的一环，可以撤人过来
       if (fix.startsWith('再建') && P.idle < (BLD[w.type].w || 1)) {
         const over = P.nodes.filter(x => x.type && x.workers > 0 && x.ratio > 1.8 && x.k !== g.r).sort((a, b) => b.ratio - a.ratio)[0];
+        if (over) fs = `从${BLD[over.type].n}撤人`;
         if (over) fix = `没有闲人了：${BLD[over.type].n}产 ${fmtR(over.prod)}/分，这条线只要 ${fmtR(over.need)}/分，可以从那边撤几个人过来`;
       }
-      return { pri: 1, kind: 'line', text: `${RES[g.r].n}线卡在${RES[w.k].n}：${why}。${fix}。`, act: blk ? 'spot' : 'plan', arg: blk ? blk.id : g.r };
+      return { pri: 1, kind: 'line', short: `${RES[g.r].n}线卡在${BLD[w.type].n}，${fs}`, text: `${RES[g.r].n}线卡在${RES[w.k].n}：${why}。${fix}。`, act: blk ? 'spot' : 'plan', arg: blk ? blk.id : g.r };
     }
   }
   // 物流网：新营地在等运货（告诉一声正从哪运来、多久到）
   { const n = netTip(S, R, main, true); if (n) return n; }
   // 人手和地盘
-  if (main.people >= popCap(S, main) && !main.depot) return { pri: 2, kind: 'pop', text: `人口满了（${main.people}/${popCap(S, main)}）：升熔炉能多住人，或者让产线升到二星，省出人手。`, act: 'furnace' };
-  if (freeLand(S, main) < 2) return { pri: 2, kind: 'land', text: '供热圈里快没地方了：升熔炉扩大供热圈，或者在这一程里开前哨营地。', act: 'furnace' };
+  if (main.people >= popCap(S, main) && !main.depot) return { pri: 2, kind: 'pop', short: '人口满了，升熔炉能多住人', text: `人口满了（${main.people}/${popCap(S, main)}）：升熔炉能多住人，或者让产线升到二星，省出人手。`, act: 'furnace' };
+  if (freeLand(S, main) < 2) return { pri: 2, kind: 'land', short: '供热圈里快没地方了', text: '供热圈里快没地方了：升熔炉扩大供热圈，或者在这一程里开前哨营地。', act: 'furnace' };
   // 下一程的方向
   const gt = departGate(S);
   if (gt) {
     const miss = gt.items.find(i => !i.ok);
-    if (!miss) return { pri: 3, kind: 'go', text: `北迁的四件事都备好了：打开北迁面板，往「${gt.next.n}」出发。`, act: 'migrate' };
-    if (miss.id === 'route') return { pri: 3, kind: 'route', text: `往「${gt.next.n}」的路还差约 ${gt.route.gap} 格：派侦察队往北探，车队只能走探开的路。`, act: 'scout' };
-    if (miss.id === 'flvl') return { pri: 3, kind: 'flvl', text: `熔炉要升到 ${gateFlvl(J.stage)} 级才能北迁（现在 ${miss.cur} 级）。`, act: 'furnace' };
+    if (!miss) return { pri: 3, kind: 'go', short: '北迁的四件事都备好了', text: `北迁的四件事都备好了：打开北迁面板，往「${gt.next.n}」出发。`, act: 'migrate' };
+    if (miss.id === 'route') return { pri: 3, kind: 'route', short: `往北的路还差约 ${gt.route.gap} 格`, text: `往「${gt.next.n}」的路还差约 ${gt.route.gap} 格：派侦察队往北探，车队只能走探开的路。`, act: 'scout' };
+    if (miss.id === 'flvl') return { pri: 3, kind: 'flvl', short: `熔炉升到 ${gateFlvl(J.stage)} 级才能北迁`, text: `熔炉要升到 ${gateFlvl(J.stage)} 级才能北迁（现在 ${miss.cur} 级）。`, act: 'furnace' };
     if (miss.id === 'car') {
       // 哪个营地的雪橇棚都能造车（老营地的也行），主营地的优先
       const P = gt.plan, sheds = S.buildings.filter(b => b.type === 'sledshed'), shed = sheds.find(b => b.camp === main.id) || sheds[0];
-      if (!P.roomOk && !shed) return { pri: 3, kind: 'car', text: `车队还缺车：先在主营地建一座雪橇棚，用木材和木板造雪橇（${miss.sub}）。`, act: 'place', arg: 'sledshed' };
-      if (!P.roomOk) return { pri: 3, kind: 'car', text: `车队还没备好：${miss.sub}。去${shed.camp === main.id ? '' : `「${getCamp(S, shed.camp).name}」的`}雪橇棚多造几架。`, act: 'spot', arg: shed.id };
-      return { pri: 3, kind: 'car', text: `车队还没备好：${miss.sub}。`, act: 'migrate' };
+      if (!P.roomOk && !shed) return { pri: 3, kind: 'car', short: '先建雪橇棚，造雪橇', text: `车队还缺车：先在主营地建一座雪橇棚，用木材和木板造雪橇（${miss.sub}）。`, act: 'place', arg: 'sledshed' };
+      if (!P.roomOk) return { pri: 3, kind: 'car', short: '车队缺车，去雪橇棚多造', text: `车队还没备好：${miss.sub}。去${shed.camp === main.id ? '' : `「${getCamp(S, shed.camp).name}」的`}雪橇棚多造几架。`, act: 'spot', arg: shed.id };
+      return { pri: 3, kind: 'car', short: '车队还没备好', text: `车队还没备好：${miss.sub}。`, act: 'migrate' };
     }
     const nxt = chapterDef(S, J.stage + 1), q = nxt && nxt.tasks.find(t => t.k === 'rate');
-    if (q) return { pri: 3, kind: 'next', text: `下一程要${RES[q.r].n}：${nextNeeds(S, q.r)}`, act: 'plan', arg: q.r };
+    if (q) return { pri: 3, kind: 'next', short: `下一程要${RES[q.r].n}`, text: `下一程要${RES[q.r].n}：${nextNeeds(S, q.r)}`, act: 'plan', arg: q.r };
   }
   return null;
 }
@@ -479,7 +483,7 @@ export function altTip(S, R, main, secs) {
     const flow = (R.c[main.id] || {}).flow || {};
     const have = x => (main.stock[x] || 0) >= other.in[x] * 3 || ((flow[x] || {}).p || 0) - ((flow[x] || {}).want || 0) >= other.in[x] * 0.5;
     if (!Object.keys(other.in).every(have)) continue;
-    return { pri: 1, kind: 'alt', camp: main.id, text: `${BLD[b.type].n}缺${RES[k].n}停了 ${Math.floor((S.t - br.stop0) / 60)} 分钟：换成${b.alt ? '原配方' : '替代配方'}（${recipeTxt(other)}）就能接着干。点开它，在「配方」里换，停工 ${ALT_SWITCH} 秒。`, act: 'spot', arg: b.id };
+    return { pri: 1, kind: 'alt', camp: main.id, short: `${BLD[b.type].n}停了，可以换配方`, text: `${BLD[b.type].n}缺${RES[k].n}停了 ${Math.floor((S.t - br.stop0) / 60)} 分钟：换成${b.alt ? '原配方' : '替代配方'}（${recipeTxt(other)}）就能接着干。点开它，在「配方」里换，停工 ${ALT_SWITCH} 秒。`, act: 'spot', arg: b.id };
   }
   return null;
 }

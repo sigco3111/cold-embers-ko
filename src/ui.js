@@ -30,7 +30,7 @@ const TUT = [
   { b: 'kitchen', why: '厨房把生肉做成熟食，大家靠它活着。' },
   { k: 'stock', why: '底部的「生产」里是物资总览：每种物资有多少、进出多少、卡在哪一环都写着。' },
   { k: 'furnace', why: '点任何建筑都能看到它的状态、派人和升级。熔炉是营地的心脏，升级后供热圈会变大。' },
-  { k: 'goal', why: '顶上是这一章的目标，三个任务做完能领奖励。「木板产量 6/分钟」这种任务，点旁边的「规划」，会算出还差几座建筑、几个人。左下角的便签是老向导，一次说一句下一步做什么。' },
+  { k: 'goal', why: '顶上是这一章的目标，三个任务做完能领奖励。「木板产量 6/分钟」这种任务，点旁边的「规划」，会算出还差几座建筑、几个人。底下那一行小条是老向导，一次说一句下一步做什么，点他的头像看全文。' },
 ];
 // 建筑状态 → 头顶小图标；严重的状态用红色
 const RES_BY_NAME = Object.fromEntries(Object.entries(RES).map(([k, r]) => [r.n, k]));
@@ -95,6 +95,13 @@ const HUBS = {
   bell: { n: '提醒', tabs: [['alerts', '提醒'], ['log', '消息']] },
 };
 const KIND_HUB = {}; for (const h in HUBS) for (const [k] of HUBS[h].tabs) KIND_HUB[k] = h;
+// 一行消息：小灯的颜色和没带符号时配的图标
+const TK_LAMP = { good: 'g', warn: 'y', bad: 'r' }, TK_IC = { info: 'point', good: 'check', warn: 'warn', bad: 'warn', story: 'scroll' };
+// 老向导每种话配的图标（c- 开头的是界面图标，别的是 i- 小图标）
+const GD_IC = { food: 'c-vt_food', fuel: 'c-vt_fuel', cold: 'c-vt_temp', raid: 'wolf', road: 'sled', trip: 'flag', ore: 'pick', haul: 'crate', hold: 'hourglass', line: 'factory', pop: 'c-vt_people', land: 'map', go: 'sled', route: 'compass', flvl: 'fire', car: 'sled', next: 'compass', alt: 'flask', netjam: 'road', netnone: 'crate', netwait: 'sled', depot: 'tent' };
+const gdIc = (k, cls) => { const n = GD_IC[k] || 'point'; return n.startsWith('c-') ? ico('c', n.slice(2), cls) : ico('i', n, cls); };
+// 新玩法提示「去看看」落在哪个底部入口：那个入口上亮一个暖色小点，点进去就灭
+const HINT_HUB = { build: 'build', camp: 'camp', migrate: 'north', stock: 'prod', mood: 'camp', netview: 'prod', chainmap: 'prod' };
 // 顶栏四格的线条图标
 const VT_IC = {
   tmp: '<path d="M10 14.5V5a2 2 0 014 0v9.5a4 4 0 11-4 0z"/><path d="M12 9v7"/>',
@@ -129,12 +136,13 @@ export class UI {
     // 1.2：温度格带一支温度计，燃料格带一块小表盘
     this.$('vitals').innerHTML = ['tmp', 'ppl', 'fuel', 'food'].map(k => `<button class="vt hpl ${k}" data-act="vt" data-arg="${k}" aria-label="${VT_N[k]}"><svg class="hic vic" aria-hidden="true"><use href="#c-vt_${{ tmp: 'temp', ppl: 'people', fuel: 'fuel', food: 'food' }[k]}"/></svg>${k === 'tmp' ? '<span class="thermo"><i></i></span>' : k === 'fuel' ? '<span class="gauge"><i></i></span>' : ''}<span class="vtx"><span class="vv"><svg class="svg" viewBox="0 0 24 24" aria-hidden="true">${VT_IC[k]}</svg><b></b></span><span class="vl"></span></span>${k === 'fuel' ? '<span class="vf"><i></i></span>' : ''}</button>`).join('');
     this.vt = Object.fromEntries(['tmp', 'ppl', 'fuel', 'food'].map(k => { const e = this.$('vitals').querySelector('.vt.' + k); return [k, { e, b: e.querySelector('b'), l: e.querySelector('.vl'), f: e.querySelector('.vf i') }]; }));
-    // 便签每 1.5 秒可能重画，用 pointerdown 接点击
+    // 老向导的小条每 1.2 秒可能重画，用 pointerdown 接点击；卡开着时点别处就收起
     this.$('note').addEventListener('pointerdown', e => {
       const b = e.target.closest('[data-n]'); if (!b) return;
-      e.preventDefault();
-      if (b.dataset.n === 'later') this.noteLater(); else this.noteGo();
+      e.preventDefault(); e.stopPropagation();
+      this.guideTap(b.dataset.n);
     });
+    window.addEventListener('pointerdown', e => { if (this.gOpen && !e.target.closest('#note')) { this.gOpen = false; this.guideCard(); } }, true);
     // 速度键：点一下换倍速，按住半秒暂停
     { const sb = this.$('speedBtn'); let t = null;
       const clear = () => { clearTimeout(t); t = null; sb.classList.remove('hold'); };
@@ -194,9 +202,10 @@ export class UI {
   camp() { return Sim.getCamp(this.S, this.S.active) || this.S.camps[0]; }
 
   // ---------- 提示 ----------
-  // 提示：最多同时 3 条（手机 2 条），一模一样的合并成 ×N；点一下打开消息记录
+  // 消息：目标条下面一行一条（手机 2 条、电脑 3 条），一模一样的合并成 ×N；左边一盏小灯（绿是好事、黄是注意、红是坏事），
+  // 太长的省略，4–9 秒后收起；全部记在铃铛的消息里，点一下打开
   toast(msg, type = 'info', action) {
-    const box = this.$('toasts'), max = innerWidth < 560 ? 2 : 3;
+    const box = this.$('toasts'), max = document.body.classList.contains('pc') ? 3 : 2;
     const life = { info: 4200, good: 5000, warn: 6500, bad: 7500, story: 9000 }[type] || 5000;
     const key = type + '|' + msg;
     let d = [...box.children].find(x => x.dataset.k === key && !x.classList.contains('out'));
@@ -204,13 +213,14 @@ export class UI {
       const n = (+d.dataset.n || 1) + 1; d.dataset.n = n;
       const tn = d.querySelector('.tn'); tn.textContent = '×' + n; tn.style.display = '';
     } else {
+      // 开头的符号挪到小灯后面当图标，没有就按种类配一个
+      const m = /^(\p{Extended_Pictographic}\uFE0F?)\s*/u.exec(msg), mi = m && iconize(m[1]);
+      const ic = mi && mi.includes('<svg') ? mi : ico('i', TK_IC[type] || 'point'), txt = m ? msg.slice(m[0].length) : msg;
       d = document.createElement('div');
-      d.className = 'toast ' + type; d.dataset.k = key; d.dataset.act = 'tb'; d.dataset.arg = 'log';
-      d.innerHTML = iconize(`<span class="tm">${esc(msg)}</span><b class="tn" style="display:none"></b>${action ? `<button class="ta" data-act="${action.act}" data-arg="${action.arg ?? ''}">${esc(action.label)}</button>` : ''}<i class="tl"></i>`);
+      d.className = 'tk ' + type; d.dataset.k = key; d.dataset.act = 'tb'; d.dataset.arg = 'log'; d.title = msg;
+      d.innerHTML = `<i class="u-lamp ${TK_LAMP[type] || 'w'}"></i>${ic}<span class="tm">${iconize(esc(txt))}</span><b class="tn" style="display:none"></b>${action ? `<button class="btn sm" data-act="${action.act}" data-arg="${action.arg ?? ''}">${esc(action.label)}</button>` : ''}`;
       box.appendChild(d);
     }
-    // 重新计时（进度条从头走）
-    const old = d.querySelector('.tl'), tl = document.createElement('i'); tl.className = 'tl'; tl.style.animationDuration = life + 'ms'; old.replaceWith(tl);
     clearTimeout(d._t); d._t = setTimeout(() => this.dropToast(d), life);
     const live = [...box.children].filter(x => !x.classList.contains('out'));
     for (let i = 0; i < live.length - max; i++) this.dropToast(live[i]);
@@ -580,17 +590,20 @@ export class UI {
     const cs = Sim.coldAt(S), z = Sim.tideAt(S), ton = z && z.on, tfc = z && !z.on && z.fc && z.inSec <= DAY_LEN;
     const con = cs && cs.on || ton, cfc = cs && !cs.on && cs.fc || tfc;
     const wl = w.blizzard ? `风雪 ${fmtTime(w.until - S.t)}` : ton ? `永冬 ${fmtTime(z.left)}` : cs && cs.on ? `寒潮 ${fmtTime(cs.left)}` : w.warn ? `${fmtTime(w.inSec)}来雪` : tfc ? `${fmtTime(z.inSec)}永冬` : cs && !cs.on && cs.fc ? `${fmtTime(cs.inSec)}寒潮` : '体感';
-    set('tmp', `${temp}°`, wl, (temp < 0 || w.blizzard || con ? 'bad' : w.warn || cfc ? 'warn' : '') + (temp < 10 ? ' cold' : ' warm'));
+    // 要紧的事让对应那一格亮一圈：受冻、风雪、寒潮、永冬潮、怪天气正在来是红圈，快到了是黄圈；燃料、熟食不到 10 分钟，缺床或不满太高也亮红圈
+    const U = (this.alertsNow || []).filter(u => u.urgent && /^(bliz|cold|tide|wxe)$/.test(u.k)), frz = cr.tH != null && cr.tH < -8 && c.people > 3;
+    const ring = (on, w) => on ? ' alarm' : w ? ' alarm-w' : '';
+    set('tmp', `${temp}°`, wl, (temp < 0 || w.blizzard || con ? 'bad' : w.warn || cfc ? 'warn' : '') + (temp < 10 ? ' cold' : ' warm') + ring(frz || U.some(u => u.lvl === 'bad'), U.length));
     const hp = Math.round(c.hope ?? 50), ds = Math.round(c.disc ?? 10), mt = cr.mood || { hT: hp, dT: ds }, arr = (v, t) => t > v + 1 ? '▲' : t < v - 1 ? '▼' : '';
     const pl = c.wait > 0 && ds < 55 ? `<span class="neg">缺 ${c.wait} 床</span>` : ds >= 55 ? `不满 ${ds}${arr(ds, mt.dT)}` : `希望 ${hp}${arr(hp, mt.hT)}`;
-    set('ppl', `${c.people}<small>/${cr.housing || 0}</small>`, pl, ds >= 70 ? 'bad' : ds >= 55 || hp <= 25 ? 'warn' : '');
+    set('ppl', `${c.people}<small>/${cr.housing || 0}</small>`, pl, (ds >= 70 ? 'bad' : ds >= 55 || hp <= 25 ? 'warn' : '') + ring(c.wait > 0 || ds >= 70));
     const ok = fuelEta === Infinity && fuelMin < 6000, show = Math.min(6001, fuelEta === Infinity ? fuelMin : fuelEta);
     const fv = fuelMin > 6000 ? '充足' : ok ? '够烧' : show >= 60 ? `${Math.floor(show / 60)}时${show < 600 && Math.floor(show % 60) ? Math.floor(show % 60) + '分' : ''}` : `${Math.max(0, Math.floor(show))}分`;
-    set('fuel', fv, fuelMin > 6000 || ok ? '燃料' : '还能烧', fuelEta < 30 ? 'bad' : fuelEta < 90 ? 'warn' : '');
+    set('fuel', fv, fuelMin > 6000 || ok ? '燃料' : '还能烧', (fuelEta < 30 ? 'bad' : fuelEta < 90 ? 'warn' : '') + ring(fuelEta < 10));
     V.fuel.f.style.setProperty('--f', Math.min(1, fuelMin / 240).toFixed(2)); V.fuel.e.style.setProperty('--f', Math.min(1, fuelMin / 240).toFixed(2));
     V.tmp.e.style.setProperty('--h', Math.max(0.06, Math.min(1, (temp + 30) / 90)).toFixed(2));
     const fn = cr.foodNet || 0, fm = fn < 0 ? (c.stock.food || 0) / -fn : Infinity;
-    set('food', fmt(this.rolled('food', c.stock.food)), `<span class="${fn < -0.05 ? 'neg' : fn > 0.05 ? 'pos' : ''}">${fn >= 0 ? '+' : ''}${fmt(fn)}/分</span>`, fm < 10 ? 'bad' : fm < 30 ? 'warn' : '');
+    set('food', fmt(this.rolled('food', c.stock.food)), `<span class="${fn < -0.05 ? 'neg' : fn > 0.05 ? 'pos' : ''}">${fn >= 0 ? '+' : ''}${fmt(fn)}/分</span>`, (fm < 10 ? 'bad' : fm < 30 ? 'warn' : '') + ring(fm < 10));
     V.tmp.e.dataset.tt = `住在屋里的体感温度${w.blizzard ? ' · 暴风雪还有 ' + fmtTime(w.until - S.t) : w.warn ? ' · 暴风雪 ' + fmtTime(w.inSec) + ' 后到' : ''}（点开熔炉）`;
     V.ppl.e.dataset.tt = `人口 / 床位 · 希望 ${hp} · 不满 ${ds}${c.wait > 0 ? ` · ${c.wait} 人在等床位` : ''}${c.bots ? ` · 自动机 ${c.bots} 台` : ''}`;
     V.fuel.e.dataset.tt = ok ? `燃料进得比烧得快（库存够烧 ${fmtTime(fuelMin * 60)}）` : `燃料还能烧 ${fmtTime(show * 60)}`;
@@ -617,34 +630,105 @@ export class UI {
     ge.style.visibility = title ? '' : 'hidden';
     ge.title = '点开看这一章的任务';
   }
-  // 便签：先说要紧的（老向导最急的一句、暴风雪、掠夺者、袭营），没有就说老向导的下一句；「稍后」收成左下角一个小角
-  noteSync(A) {
+  // ---------- 老向导 ----------
+  // 底下一行小条：头像 + 一句短话 + 一个按钮。他要说的排成一摞（他的下一句、攒下的新玩法），点头像或小条在上方展开一张卡，一次一条，左右翻。
+  // 头像角上的数字是没看过的条数；「稍后」：同一件事 3 分钟内不再贴出来
+  advBtn(a) { return { plan: '去规划', raid: '去备战', scout: '去侦察', arrive: '去放熔炉', migrate: '去北迁', place: '去建', spot: '去看看', roadopen: '拿主意', campgo: '去看看', netview: '看物流', netroad: '去升级' }[a.act] || (a.kind === 'trip' ? '跟着看' : a.kind === 'fuel' || a.kind === 'cold' ? '去熔炉' : a.kind === 'food' ? '看物资' : '去看看'); }
+  // 断燃料、断吃的、冻伤这几样急事刚冒出来时，发一条红灯消息带一个按钮（暴风雪、寒潮、袭营这些游戏里本来就会发一条带按钮的消息）；同一件事 3 分钟内不重发
+  urgentTicks() {
+    const a = this.adv, now = performance.now(), at = this.urgAt || (this.urgAt = {});
+    const key = a && a.pri === 0 && /^(fuel|food|cold)$/.test(a.kind) ? `${a.kind}|${a.camp ?? ''}` : null;
+    if (key && key !== this.urgWas && now - (at[key] || -1e9) >= 180000 && !this.g.titleOn) {
+      at[key] = now;
+      this.toast(a.short || a.text, 'bad', { act: 'advisor', label: this.advBtn(a) });
+    }
+    this.urgWas = key;
+  }
+  // 换了存档就从头来（老向导这一摞、看过的、稍后的都清掉）
+  guideFor() { const S = this.S; if (this.gS !== S) { this.gS = S; this.gHints = []; this.gRead = new Set(); this.gZz = {}; this.gOpen = false; } }
+  guideHints() { this.guideFor(); return this.gHints; }
+  guideAdd(h) { this.guideHints().push({ ...h, at: performance.now(), hub: h.a && (HINT_HUB[h.a.arg] || HINT_HUB[h.a.act]) }); this.noteT = 0; }
+  guideHubDot(hub) { return this.guideHints().some(x => x.hub === hub && !x.hubSeen); }
+  guideList() {
+    const S = this.S, a = this.adv, L = [], now = performance.now(), zz = this.gZz || (this.gZz = {});
+    if (a) {
+      L.push({ key: `v:${a.kind || ''}|${a.act || ''}|${a.arg ?? ''}`, adv: true, urgent: a.pri === 0, ic: gdIc(a.kind, 'gi'), short: a.short || a.text, text: a.text, btn: this.advBtn(a), go: () => this.advisorGo() });
+    }
+    for (const h of this.guideHints()) L.push({ key: 'h:' + h.id, hint: h, ic: iconize(h.ic).includes('<svg') ? iconize(h.ic).replace('class="', 'class="gi ') : ico('i', 'sparkle', 'gi'), title: h.n, short: h.n, text: h.d, btn: h.a ? '去看看' : '', at: h.at, go: h.a ? () => this.actDo(h.a.act, h.a.arg) : null });
+    return L.filter(x => !(zz[x.key] > now));
+  }
+  // 小条上说哪一条：急事 > 刚来的、还没看的新玩法（贴 30 秒）> 老向导的下一句 > 新玩法
+  guideTop(L) {
+    const rd = this.gRead, now = performance.now();
+    return L.find(x => x.urgent) || L.find(x => x.hint && !rd.has(x.key) && now - x.at < 30000) || L.find(x => x.adv) || L[0] || null;
+  }
+  noteSync() {
     if (this.noteT && performance.now() - this.noteT < 1200) return;
     this.noteT = performance.now();
-    const S = this.S, el = this.$('note'), mini = this.$('noteMini');
-    const a = S.meta.tut ? Sim.advisor(S) : null;
-    const u = (a && a.pri === 0) ? null : (A || []).find(x => x.urgent);
-    let n = null;
-    if (u) n = { key: 'a:' + u.k, urgent: u.lvl === 'bad', head: `${u.ic} ${u.t}`, cnt: u.cnt, text: u.d, btn: u.btn || '去看看', go: () => this.actDo(u.act, u.arg) };
-    else if (a) {
-      const btn = { plan: '去规划', raid: '去备战', scout: '去侦察', arrive: '去放熔炉', migrate: '去北迁', place: '去建', spot: '去看看', roadopen: '拿主意', campgo: '去看看', netview: '看物流', netroad: '去升级' }[a.act] || (a.kind === 'trip' ? '跟着看' : a.kind === 'fuel' || a.kind === 'cold' ? '去熔炉' : a.kind === 'food' ? '看物资' : '去看看');
-      n = { key: `v:${a.kind || ''}|${a.act || ''}|${a.arg ?? ''}`, urgent: a.pri === 0, head: '老向导', text: a.text, btn, go: () => this.advisorGo() };
+    const S = this.S, el = this.$('note');
+    this.guideFor();
+    if (!el.firstChild) this.guideBuild(el);
+    this.adv = S.meta.tut ? Sim.advisor(S) : null;
+    const L = this.gList = this.guideList(), top = this.gTop = this.guideTop(L);
+    const zzAny = Object.values(this.gZz).some(t => t > performance.now());
+    el.classList.toggle('show', !!(top || zzAny));
+    el.classList.toggle('only', !top); // 都按了「稍后」：只剩头像，点一下全部拿回来
+    if (!L.length) this.gOpen = false;
+    const un = L.filter(x => !this.gRead.has(x.key)).length, E = this.gEl;
+    E.badge.textContent = un > 9 ? '9+' : un; E.badge.style.display = un ? '' : 'none';
+    if (top) {
+      const k = top.key + '|' + top.short + '|' + top.btn;
+      if (E.slip.dataset.k !== k) {
+        const fresh = (E.slip.dataset.k || '').split('|')[0] !== top.key;
+        E.slip.dataset.k = k;
+        E.tag.style.display = top.hint ? '' : 'none';
+        E.txt.innerHTML = iconize(esc(top.short));
+        E.go.textContent = top.btn; E.go.style.display = top.btn ? '' : 'none';
+        if (fresh) { el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); }
+      }
+      el.classList.toggle('urgent', !!top.urgent);
     }
-    this.adv = a; this.noteCur = n;
-    const z = this.noteZz, snoozed = n && z && z.key === n.key && performance.now() < z.until;
-    const show = !!n && !snoozed;
-    el.classList.toggle('show', show); mini.classList.toggle('show', !!(n && snoozed));
-    if (!show) { el.dataset.h = ''; return; }
-    const h = `<div class="nk">${esc(n.head)}${n.cnt ? `<small>${n.cnt}</small>` : ''}</div><p>${esc(n.text)}</p><div class="nb"><button data-n="go">${esc(n.btn)}</button><button class="l" data-n="later">稍后</button></div>`;
-    if (el.dataset.h !== h) {
-      const fresh = el.dataset.k !== n.key; el.dataset.h = h; el.dataset.k = n.key;
-      el.innerHTML = iconize(h); el.classList.toggle('urgent', !!n.urgent);
-      if (fresh) { el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); }
-    }
+    this.guideCard();
   }
-  noteGo() { const n = this.noteCur; if (n) n.go(); this.noteT = 0; this.hud(); }
-  // 稍后：同一件事 3 分钟内不再贴出来（换了一件事就马上贴）
-  noteLater() { const n = this.noteCur; if (!n) return; this.noteZz = { key: n.key, until: performance.now() + 180000 }; this.noteT = 0; this.noteSync(this.alertsNow); }
+  // 头像、小条、展开卡只搭一次，之后只换里面的字（小条每 1.2 秒可能刷新，按钮用 pointerdown 接）
+  guideBuild(el) {
+    el.innerHTML = `<div class="ncard" role="dialog" aria-label="老向导"><div class="nch"><b>老向导</b><span class="u-tag ntg">新玩法</span><span class="npg"><button class="btn sm" data-n="prev" aria-label="上一条">‹</button><i></i><button class="btn sm" data-n="next" aria-label="下一条">›</button></span></div>
+<div class="ncb"><span class="nci"></span><div><b class="nct"></b><p></p></div></div><div class="ncf"><button class="btn sm" data-n="ok"></button><button class="btn go sm" data-n="cgo"></button></div></div>
+<button class="gmed" data-n="card" aria-label="老向导，点开看全文"><span class="pf"><svg class="gpf" aria-hidden="true"><use href="#c-spec_guide"/></svg></span><b class="u-badge"></b></button>
+<div class="nslip" data-n="card"><span class="u-tag ntg">新玩法</span><span class="nt"></span><button class="btn go sm" data-n="go"></button></div>`;
+    const q = s => el.querySelector(s), card = q('.ncard');
+    this.gEl = { card, badge: q('.gmed .u-badge'), slip: q('.nslip'), tag: q('.nslip .ntg'), txt: q('.nslip .nt'), go: q('.nslip [data-n=go]'),
+      ctag: q('.nch .ntg'), pg: q('.npg'), pgi: q('.npg i'), ci: q('.nci'), ct: q('.nct'), cp: q('.ncb p'), ok: q('[data-n=ok]'), cgo: q('[data-n=cgo]') };
+  }
+  guideCard() {
+    const E = this.gEl, L = this.gList || [], open = this.gOpen && L.length > 0;
+    E.card.classList.toggle('show', open);
+    if (!open) return;
+    let i = L.findIndex(x => x.key === this.gKey); if (i < 0) i = Math.min(L.length - 1, Math.max(0, this.gIdx || 0));
+    const it = L[i]; this.gKey = it.key; this.gIdx = i; this.gRead.add(it.key);
+    const k = [it.key, it.text, it.btn, i, L.length].join('|');
+    if (E.card.dataset.k === k) return;
+    E.card.dataset.k = k;
+    E.ctag.style.display = it.hint ? '' : 'none';
+    E.pg.style.display = L.length > 1 ? '' : 'none'; E.pgi.textContent = `${i + 1} / ${L.length}`;
+    E.ci.innerHTML = it.ic; E.ct.textContent = it.title || ''; E.ct.style.display = it.title ? '' : 'none';
+    E.cp.innerHTML = iconize(esc(it.text));
+    E.ok.textContent = it.hint ? '知道了' : '稍后';
+    E.cgo.textContent = it.btn; E.cgo.style.display = it.btn ? '' : 'none';
+  }
+  guideTap(n) {
+    const L = this.gList || [], cur = () => L.find(x => x.key === this.gKey);
+    if (n === 'card') {
+      if (!this.gTop) { this.gZz = {}; this.gOpen = true; } // 只剩头像：把按过「稍后」的都拿回来
+      else { this.gOpen = !this.gOpen; if (this.gOpen) this.gKey = this.gTop.key; }
+    } else if (n === 'go') { const t = this.gTop; if (t && t.go) { this.gRead.add(t.key); this.guideDone(t); t.go(); } this.gOpen = false; }
+    else if (n === 'prev' || n === 'next') { const i = L.findIndex(x => x.key === this.gKey), j = (i + (n === 'next' ? 1 : -1) + L.length) % L.length; this.gKey = L[j] && L[j].key; }
+    else if (n === 'ok') { const it = cur(); if (it) { if (it.hint) this.guideDone(it); else this.gZz[it.key] = performance.now() + 180000; } if (L.length <= 1) this.gOpen = false; }
+    else if (n === 'cgo') { const it = cur(); if (it && it.go) { this.guideDone(it); it.go(); } this.gOpen = false; }
+    this.noteT = 0; this.noteSync();
+  }
+  // 新玩法点过「知道了」或「去看看」就从这一摞里拿掉
+  guideDone(it) { if (!it.hint) return; const H = this.guideHints(), i = H.indexOf(it.hint); if (i >= 0) H.splice(i, 1); }
   hud() {
     const S = this.S, c = this.camp(), cr = Sim.rt(S).c[c.id] || {};
     this.cmdBar(c);
@@ -678,15 +762,16 @@ export class UI {
       }
     }
     this.goalSync();
-    this.noteSync(A);
-    document.body.classList.toggle('hint-on', !!(this.g.hints && this.g.hints.cur));
+    this.noteSync();
+    this.urgentTicks();
     // 底部分区上的小点
     { const T = S.tech, ct = T && T.cur && Sim.techDef(S, T.cur), tb = this.$('tbResearch');
       tb.style.setProperty('--p', ct ? Math.min(1, T.prog / ct.pts).toFixed(3) : 0); tb.classList.toggle('busy', !!ct);
       tb.classList.toggle('dot', !ct && S.buildings.some(b => b.type === 'workshop') && (TECHS.some(t => Sim.techCheck(S, t.id).ok) || Sim.techCheck(S, 'endless').ok)); }
-    this.$('tbBuild').classList.toggle('dot', this.newBld().length > 0);
-    this.$('tbNorth').classList.toggle('dot', ['migrate', 'specs', 'scout'].some(k => this.tabDot(k)));
-    this.$('tbCamp').classList.toggle('dot', this.tabDot('camp'));
+    this.$('tbBuild').classList.toggle('dot', this.newBld().length > 0 || this.guideHubDot('build'));
+    this.$('tbNorth').classList.toggle('dot', ['migrate', 'specs', 'scout'].some(k => this.tabDot(k)) || this.guideHubDot('north'));
+    this.$('tbCamp').classList.toggle('dot', this.tabDot('camp') || this.guideHubDot('camp'));
+    this.$('tbProd').classList.toggle('dot', this.guideHubDot('prod'));
   }
   // 熔炉号令：右下角一排圆按钮，外圈是冷却/生效的进度；点一下弹出说明和「发令」
   cmdBar(c) {
@@ -944,7 +1029,7 @@ export class UI {
     if (S.meta.tut || this.g.titleOn || this.$('modal').classList.contains('show')) return hide();
     const c = this.camp();
     const steps = TUT.filter(t => !(t.b ? Sim.countType(S, c.id, t.b) > 0 : this.tutSeen[t.k]));
-    if (!steps.length) { S.meta.tut = true; hide(); this.toast('新手引导完成。左下角的便签是老向导，会一句一句提醒下一步；「菜单 → 帮助」里有完整的说明。', 'good'); return; }
+    if (!steps.length) { S.meta.tut = true; hide(); this.toast('新手引导完成。底下那一行小条是老向导，会一句一句提醒下一步，点他的头像看全文；「菜单 → 帮助」里有完整的说明。', 'good'); return; }
     const st = steps[0], i = TUT.indexOf(st) + 1, touch = matchMedia('(pointer:coarse)').matches;
     let el = null, pt = null, msg = '';
     if (st.b) {
@@ -953,6 +1038,10 @@ export class UI {
         const s = BLD[st.b].size; pt = g.view.project(P.x + s / 2, P.y + s / 2, 0.6);
         msg = touch ? '点一下地面把预览挪过去，再点一次同一处（或按 ✓）就建好了。绿色框表示能建。' : '在地面上点一下就建好了。绿色框表示能建，红色表示不行。';
       } else if (P) { el = this.$('placeNo'); msg = '先取消正在摆放的建筑。'; }
+      else if (g.pc && g.pc.bOpen) { // 电脑版：建造是底部横条
+        if (g.pc.tier !== 1) { el = document.querySelector('#pcBuild .pct[data-pct="1"]'); msg = '切回「篝火」这一层。'; }
+        else { el = document.querySelector(`#pcBuild .pbc[data-arg="${st.b}"]`); msg = `选「${BLD[st.b].n}」。`; }
+      }
       else if (this.panel && this.panel.kind === 'build') {
         if (this.buildTier !== 1) { el = this.sheet.querySelector('.tab[data-arg="1"]'); msg = '切回「篝火」这一层。'; }
         else { el = this.sheet.querySelector(`.card[data-arg="${st.b}"]`); msg = `选「${BLD[st.b].n}」。`; if (el && this.tutScroll !== st.b) { this.tutScroll = st.b; el.scrollIntoView({ block: 'nearest' }); } }
@@ -992,6 +1081,7 @@ export class UI {
     if (kind === 'log') { this.logOpenSeen = this.logSeen; this.logSeen = this.S.log[this.S.log.length - 1] || null; }
     if (this.tutSeen) { if (kind === 'stock') this.tutSeen.stock = true; if (kind === 'bld' && Sim.getB(this.S, arg)?.type === 'furnace') this.tutSeen.furnace = true; if (kind === 'chapter') this.tutSeen.goal = true; }
     if (KIND_HUB[kind]) (this.hubLast || (this.hubLast = {}))[KIND_HUB[kind]] = kind;
+    if (KIND_HUB[kind]) for (const h of this.guideHints()) if (h.hub === KIND_HUB[kind]) h.hubSeen = true;
     // 返回：从一个面板里点开另一个不同分区的面板时记下来；换页签、从地图上点开都不记
     this.back = this.fromSheet && prev && !sameHub && prev.kind !== kind ? { kind: prev.kind, arg: prev.arg } : sameHub ? this.back : null;
     this.fromSheet = false;
@@ -2747,7 +2837,7 @@ export class UI {
     let h = '';
     if (!act.length) h += `<div class="hint">眼下没有要处理的事。</div>`;
     for (const a of act) h += this.alertCard(a);
-    if (this.adv) h += this.alertCard({ ic: '老', lvl: 'tip', t: '老向导', d: this.adv.text, act: 'advisor', btn: '去看看' });
+    if (this.adv) h += this.alertCard({ ic: '<svg class="gpf" aria-hidden="true"><use href="#c-spec_guide"/></svg>', lvl: 'tip', t: '老向导', d: this.adv.text, act: 'advisor', btn: this.advBtn(this.adv) });
     if (info.length) h += `<div class="sec">这会儿</div>` + info.map(a => this.alertCard(a)).join('');
     const nl = S.log.length; h += `<button class="mlink" data-act="htab" data-arg="log"><span>📜</span><span>消息记录<small>最近 ${nl} 条：发生过的事都在这里</small></span><i>›</i></button>`;
     return h;
@@ -2866,7 +2956,7 @@ export class UI {
   actDo(act, arg) { const el = { dataset: { act, arg: arg == null ? undefined : String(arg) } }; this.onClick({ target: { closest: q => q === '[data-act]' ? el : null } }); }
   // ---------- 点击 ----------
   onClick(e) {
-    const tst = e.target.closest('.toast'); if (tst) this.dropToast(tst);
+    const tst = e.target.closest('.tk'); if (tst) this.dropToast(tst);
     const el = e.target.closest('[data-act]');
     if (!el) return;
     const act = el.dataset.act, arg = el.dataset.arg;
@@ -2899,7 +2989,6 @@ export class UI {
       case 'htab': this.fromSheet = false; this.open(arg); break;
       case 'back': { const b = this.back; this.back = null; this.fromSheet = false; if (b) this.open(b.kind, b.arg); break; }
       case 'bell': if (this.panel && KIND_HUB[this.panel.kind] === 'bell') this.close(); else { g.cancelModes(); this.open((this.alertsNow || []).some(a => a.lvl !== 'info') || this.adv ? 'alerts' : 'log'); } break;
-      case 'notemini': this.noteZz = null; this.noteT = 0; this.noteSync(this.alertsNow); break;
       case 'vt': { const c = this.camp(); g.cancelModes();
         if (arg === 'tmp' || arg === 'fuel') { if (this.panel && this.panel.kind === 'bld' && this.panel.arg === c.furnace) this.close(); else this.actDo('reqgo', c.furnace); }
         else if (arg === 'ppl') { const k = (c.disc ?? 10) >= 55 || (c.hope ?? 50) <= 25 ? 'mood' : 'folk'; if (this.panel && KIND_HUB[this.panel.kind] === 'camp') this.close(); else this.open(k); }
@@ -3209,7 +3298,7 @@ export const HELP = `<h3>怎么玩</h3>
 <p><b>研究：</b>建工程站，派工程师攒研究点数。五条分支共 45 项：生产、生存、物流一开始就有，自动化要侦察到遗迹金属纬度，北境要走到北境才开放；带 ★ 的会解锁新东西（替代配方、城镇、奇观、熔炉号令等）。全部研究完以后开放无尽研究，每一级所有生产 +2%。探险带回的图纸可以直接抵研究点数。</p>
 <p><b>探索：</b>迷雾里藏着废弃仓库、冻住的列车、观测站这样的地点。侦察队揭开后，从侦察营派 4 人的探险队去；带足补给更安全，到了还能做更多选择。</p>
 <p><b>章节：</b>每到一个新地标就开始新的一章，有自己的故事和三个任务，做完可以领奖励。点顶上的目标栏查看。</p>
-<p><b>产能主线：</b>每章的头一个任务是某样材料每分钟产多少。点目标栏的「规划」看这条线：每一环要几座建筑、几个人，现在卡在哪一环。产量稳住一阵，产线就升星，升星加产量；累计产量到了里程碑也有奖励。自己还能立几条支线。一条线搭好了，可以「复制这条线」整组搬到别处。老向导（左下角的便签）会一直指着下一步。</p>
+<p><b>产能主线：</b>每章的头一个任务是某样材料每分钟产多少。点目标栏的「规划」看这条线：每一环要几座建筑、几个人，现在卡在哪一环。产量稳住一阵，产线就升星，升星加产量；累计产量到了里程碑也有奖励。自己还能立几条支线。一条线搭好了，可以「复制这条线」整组搬到别处。老向导（底下那一行小条，戴皮帽的头像）会一直指着下一步，点他看全文。</p>
 <p><b>营地基建：</b>在「营地 → 概况」修路（搬运更快）和蒸汽管道（供热圈更大、更暖）。</p>
 <p><b>危险：</b>暴风雪提前一小时就有预报（点右上角的提醒铃看撑不撑得住），记得囤燃料和熟食，熔炉还能超载顶一阵；雪狼和掠夺者会来袭，多建箭塔；侦察兵会提前 15 分钟发现它们，可以点火墙、召集民兵。人可能会冻死饿死，但营地永远不会全灭。</p>
 <p><b>生产链：</b>按 C 看整条生产链哪里卡住，按 G 看数据曲线。加工建筑挨着上下游时可以接传送带（之后升级成蒸汽轨道），直接供料、少用搬运工。矿快挖空时可以打深井，侦察营也能勘探新矿脉。</p>

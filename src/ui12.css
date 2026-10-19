@@ -40,6 +40,7 @@
 --u-valve-ring:repeating-conic-gradient(#7d8b98 0 9deg,#3a4550 9deg 18deg);--u-valve-ring-sh:0 0 0 2px #0a0e12,0 0 0 4px rgba(190,215,240,.22),0 8px 16px rgba(0,0,0,.55);
 --u-valve:radial-gradient(circle at 50% 34%,#ffd09a,#ff8a2b 42%,#b4470d 78%,#5d1f05);--u-valve-fg:#2a0e02;--u-valve-sh:inset 0 2px 2px rgba(255,240,215,.7),inset 0 -3px 4px rgba(80,20,0,.55),0 0 0 2px #0a0e12,0 0 22px rgba(255,138,43,.65);
 --u-medal-ring:radial-gradient(circle at 50% 30%,#dfe8f0,#6c7a87 60%,#2a333c);--u-medal:radial-gradient(circle at 50% 30%,#2c3742,#141a21);--u-medal-fg:#ffc58e;
+--u-tk:linear-gradient(180deg,rgba(38,49,60,.94),rgba(25,33,42,.94));--u-tk-bd:#06090c;--u-tk-fg:#e8f0f6;--u-tk-fg2:#9aaebf;--u-tk-sh:inset 0 1px 0 rgba(210,230,250,.18),0 3px 8px rgba(0,0,0,.35);
 --u-slip:linear-gradient(180deg,#dfe8ef,#c9d6e1);--u-slip-fg:#1d2833;--u-slip-fg2:#4e5f6e;--u-slip-sh:0 3px 8px rgba(4,10,18,.45),inset 0 0 0 1px rgba(255,255,255,.5);
 --u-ct:linear-gradient(180deg,#2d3844,#1b232c);--u-ct-bd:#06090c;--u-ct-fg:#f1f6fa;--u-ct-fg2:#ffbf86;--u-ct-sh:inset 0 1px 0 rgba(210,230,250,.3),0 3px 8px rgba(0,0,0,.45),0 0 14px rgba(255,138,43,.25);
 --u-vig:radial-gradient(ellipse 125% 95% at 50% 46%,rgba(0,0,0,0) 58%,rgba(198,222,244,.35) 80%,rgba(236,246,255,.78) 100%),linear-gradient(180deg,rgba(40,70,110,.10),rgba(40,70,110,.10));
@@ -95,6 +96,7 @@
 --u-valve-ring:repeating-conic-gradient(#e2b65a 0 9deg,#8a5f1f 9deg 18deg);--u-valve-ring-sh:0 0 0 2px #2a1709,0 0 0 4px #6b4428,0 8px 16px rgba(30,15,5,.5);
 --u-valve:radial-gradient(circle at 50% 34%,#ffd89a,#e8792a 45%,#a5401a 80%,#5a1d08);--u-valve-fg:#3a1204;--u-valve-sh:inset 0 2px 2px rgba(255,240,215,.75),inset 0 -3px 4px rgba(80,20,0,.5),0 0 0 2px #2a1709,0 0 20px rgba(255,170,90,.55);
 --u-medal-ring:radial-gradient(circle at 50% 30%,#fff0bf,#c99a41 55%,#6e4a17);--u-medal:radial-gradient(circle at 50% 30%,#fbf3e0,#e6d2a9);--u-medal-fg:#6b2719;
+--u-tk:linear-gradient(180deg,#fbf3e0,#f0e1bf);--u-tk-bd:#8a6a3a;--u-tk-fg:#3a2716;--u-tk-fg2:#7a5c3e;--u-tk-sh:0 0 0 1px rgba(255,252,242,.6) inset,0 3px 7px rgba(40,20,5,.3);
 --u-slip:linear-gradient(180deg,#fbf3e0,#f0e1bf);--u-slip-fg:#3a2716;--u-slip-fg2:#7a5c3e;--u-slip-sh:0 3px 8px rgba(40,20,5,.35),inset 0 0 0 1px rgba(122,84,25,.25);
 --u-ct:linear-gradient(180deg,#fff0bf,#e2b65a 45%,#b88633 55%,#d9ad55);--u-ct-bd:#5e3f12;--u-ct-fg:#3b2408;--u-ct-fg2:#7a2a18;--u-ct-sh:inset 0 1px 0 rgba(255,250,225,.85),0 3px 8px rgba(40,20,5,.4),0 0 16px rgba(255,190,100,.35);
 --u-vig:radial-gradient(ellipse 120% 95% at 50% 50%,rgba(0,0,0,0) 55%,rgba(90,45,12,.22) 82%,rgba(60,28,8,.45) 100%),linear-gradient(180deg,rgba(255,170,90,.07),rgba(255,170,90,.07));
@@ -257,8 +259,12 @@ button.small{padding:6px 11px;border-radius:5px;font-size:12.5px;font-weight:600
 .vt .vl{font-size:10px;color:var(--u-inset-fg2);margin-top:1px}
 .vt.fuel b{font:700 12.5px var(--sans)}
 .vt .vf{display:none}
-.vt.warn{box-shadow:var(--u-inset-sh),0 0 0 1.5px var(--u-warn)}.vt.warn .vl{color:var(--u-warn-t)}
-.vt.bad{background:var(--u-inset-bg);box-shadow:var(--u-inset-sh),0 0 0 2px var(--u-bad),0 0 12px var(--u-bad)}.vt.bad b,.vt.bad .vl{color:var(--u-bad-t)}
+.vt.warn .vl{color:var(--u-warn-t)}
+.vt.bad{background:var(--u-inset-bg);box-shadow:var(--u-inset-sh);animation:none}.vt.bad b,.vt.bad .vl{color:var(--u-bad-t)}
+/* 要紧的事：那一格亮一圈（红：正在发生；黄：快到了） */
+.vt.alarm{box-shadow:var(--u-inset-sh),0 0 0 2px var(--u-bad),0 0 12px var(--u-bad);animation:vtring 1.6s ease-in-out infinite}
+.vt.alarm-w{box-shadow:var(--u-inset-sh),0 0 0 2px var(--u-warn),0 0 9px var(--u-warn)}
+@keyframes vtring{50%{box-shadow:var(--u-inset-sh),0 0 0 2px var(--u-bad),0 0 4px var(--u-bad)}}
 .vt .vl.pos,.vt .vl .pos{color:var(--u-good-t)}.vt .vl.neg,.vt .vl .neg{color:var(--u-bad-t)}
 /* 温度计 */
 .vt .thermo{position:relative;width:9px;height:30px;flex:none;border-radius:5px;margin-bottom:3px;background:var(--u-glass);box-shadow:var(--u-glass-sh)}
@@ -579,8 +585,6 @@ body.pc #sheet.big .rgc .rn{font-size:12px;padding-right:18px}
 #pcTip .ttf{padding-top:7px;border-top:1px solid var(--u-rule-a);box-shadow:inset 0 1px 0 var(--u-rule-b);font-size:12px;color:var(--u-tip-fg2)}
 
 /* 向导纸条：电脑上放在号令台上方（第 6 步再改成一条） */
-body.pc #note{left:0;right:0;margin:0 auto;bottom:126px}
-body.pc #noteMini{left:auto;right:calc(50% + 260px);bottom:18px}
 body.pc.pcb-open #note,body.pc.big-open #note{display:none!important}
 body.pc #placebar{bottom:130px}
 
@@ -634,3 +638,68 @@ body.pc #placebar{bottom:130px}
 .rpd .btn.wide{align-self:stretch;margin:0}
 .rpd .tdone{font:700 14px var(--serif);color:var(--u-good-t)}.rpd .tdone.cur{color:var(--u-tab-mark)}
 .rpwhy{font-size:12px;line-height:1.4}
+
+/* ---------- 六、提示（第 6 步）：老向导一行小条 + 展开卡、一行消息 ---------- */
+/* 一行消息：目标条下面，左边一盏小灯 */
+#toasts{left:8px!important;right:66px;gap:6px}
+.tk{pointer-events:auto;cursor:pointer;display:flex;align-items:center;gap:7px;height:30px;max-height:30px;max-width:100%;padding:0 8px 0 7px;box-sizing:border-box;border-radius:5px;background:var(--u-tk);border:1px solid var(--u-tk-bd);box-shadow:var(--u-tk-sh);color:var(--u-tk-fg);font-size:12.5px;line-height:1;white-space:nowrap;
+  animation:tkin .28s ease-out;transition:opacity .3s,transform .3s,max-height .3s,margin .3s}
+.tk>.u-lamp{width:7px;height:7px}
+.tk>.ic{flex:none;width:18px;height:18px}
+.tk .tm{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.tk .tm .ic{width:1.15em;height:1.15em;vertical-align:-.2em}
+.tk.story .tm{font-family:var(--serif);font-weight:600}
+.tk .tn{flex:none;font:700 11px/16px var(--num);padding:0 5px;border-radius:8px;background:var(--u-badge);color:var(--u-badge-fg)}
+:is(#toasts,#note) .btn.sm{min-height:0;display:inline-flex;align-items:center;justify-content:center;flex:none;letter-spacing:.02em}
+.tk .btn.sm{height:22px;padding:0 8px;font-size:11.5px;border-radius:4px}
+.tk.out{opacity:0;transform:translateX(-14px);max-height:0;margin-bottom:-6px;border-width:0}
+@keyframes tkin{from{opacity:0;transform:translateX(-10px)}}
+/* 老向导：头像勋章 + 一行纸条；点开在上方展开一张卡 */
+#note{position:fixed;left:10px;right:12px;max-width:420px;bottom:calc(env(safe-area-inset-bottom) + 132px);z-index:4;display:none;align-items:center;pointer-events:none}
+#note.show{display:flex}
+#note>*{pointer-events:auto}
+#note .gmed{position:relative;z-index:1;flex:none;width:46px;height:46px;padding:0;border:0;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--u-medal-ring);box-shadow:0 2px 5px rgba(0,0,0,.4);cursor:pointer}
+#note .gmed>.pf{width:38px;height:38px;border-radius:50%;overflow:hidden;display:flex;align-items:flex-end;justify-content:center;background:var(--u-medal)}
+#note .gpf{display:block;width:40px;height:40px;margin-bottom:-3px}
+#note .gmed .u-badge{top:-4px;right:-4px}
+#note .nslip{flex:1;min-width:0;margin-left:-10px;height:34px;padding:0 5px 0 15px;box-sizing:border-box;display:flex;align-items:center;gap:7px;border-radius:2px;background:var(--u-slip);color:var(--u-slip-fg);box-shadow:var(--u-slip-sh);cursor:pointer}
+#note.pop .nslip{animation:gpop .35s cubic-bezier(.2,.9,.3,1.2)}
+@keyframes gpop{from{opacity:0;transform:translateY(8px)}}
+#note.urgent .nslip{box-shadow:var(--u-slip-sh),inset 3px 0 0 var(--u-bad)}
+#note.only .nslip{display:none}
+#note.only .gmed{opacity:.85}
+#note .nt{flex:1;min-width:0;font:600 13px var(--serif);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#note .nt .ic{width:1.1em;height:1.1em;vertical-align:-.18em}
+#note .ntg{flex:none;height:17px;font-size:10.5px}
+#note .nslip .btn.sm{height:26px;padding:0 9px;font-size:12px;border-radius:5px}
+#note .ncard{position:absolute;left:0;bottom:calc(100% + 10px);width:316px;max-width:calc(100vw - 24px);box-sizing:border-box;padding:12px 14px 10px;display:none;flex-direction:column;gap:8px;border-radius:6px;background:var(--u-slip);color:var(--u-slip-fg);box-shadow:var(--u-slip-sh),0 8px 22px rgba(0,0,0,.3);animation:gpop .25s ease-out}
+#note .ncard.show{display:flex}
+#note .ncard::after{content:"";position:absolute;left:17px;bottom:-6px;width:12px;height:12px;transform:rotate(45deg);background:var(--u-slip);box-shadow:2px 2px 2px rgba(0,0,0,.12)}
+#note .nch{display:flex;align-items:center;gap:8px}
+#note .nch>b{font:900 14px var(--serif);letter-spacing:.1em}
+#note .npg{margin-left:auto;display:flex;align-items:center;gap:6px;font:600 12px var(--num);color:var(--u-slip-fg2)}
+#note .npg i{font-style:normal;min-width:30px;text-align:center}
+#note .npg .btn.sm{width:26px;height:24px;padding:0;font-size:15px;line-height:1}
+#note .ncb{display:flex;gap:10px;align-items:flex-start}
+#note .nci{flex:none;width:34px;height:34px;display:grid;place-items:center}
+#note .nci .ic{width:34px;height:34px}
+#note .ncb b{display:block;font:700 14px var(--serif);margin-bottom:3px}
+#note .ncb p{margin:0;font-size:13px;line-height:1.55;color:var(--u-slip-fg)}
+#note .ncb p .ic{width:1.1em;height:1.1em;vertical-align:-.18em}
+#note .ncf{display:flex;gap:8px;justify-content:flex-end}
+#note .ncf .btn.sm{height:30px;padding:0 12px;font-size:12.5px}
+@media (orientation:landscape) and (min-width:761px){body:not(.pc) #note{left:100px;bottom:22px}}
+body.pc #note{left:0;right:0;margin:0 auto;width:440px;max-width:none;bottom:122px}
+/* 新手引导：同样的纸条，箭头和光圈不变 */
+#coach{background:var(--u-slip);color:var(--u-slip-fg);border:0;border-radius:6px;box-shadow:var(--u-slip-sh),0 8px 22px rgba(0,0,0,.35)}
+#coach .cstep{display:inline-flex;align-items:center;height:18px;padding:0 6px;border-radius:3px;font-size:11px;letter-spacing:.08em;background:var(--u-tag-bg);color:var(--u-tag-fg);border:1px solid var(--u-tag-bd);margin-bottom:5px}
+#coach .cmsg{color:var(--u-slip-fg)}
+#coach .cmsg b{color:var(--u-slip-fg);font-weight:900}
+#coach button.small.ghost{color:var(--u-slip-fg2);border-color:var(--u-slip-fg2);opacity:.8}
+@media (orientation:landscape) and (min-width:761px){body:not(.pc) #toasts{left:96px!important}}
+body.pc #coach{bottom:142px}
+body.pc.pcb-open #coach:not(.top){bottom:300px}
+/* 提醒里的老向导：同一枚头像勋章 */
+.alc.tip .ali{width:36px;height:36px;padding:0;background:var(--u-medal);box-shadow:0 0 0 3px var(--u-medal-ring-c,#8a96a2),0 2px 4px rgba(0,0,0,.35);overflow:hidden;align-items:end}
+.alc.tip .ali .gpf{width:38px;height:38px;margin-bottom:-4px}
+:root[data-theme=warm] .alc.tip .ali{--u-medal-ring-c:#c99a41}

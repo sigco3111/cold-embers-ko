@@ -310,25 +310,10 @@ body.paused #labels,body.paused #floats{filter:saturate(.6)}
 #toolbar button .tbp{position:absolute;left:30%;right:30%;bottom:4px;height:2px;border-radius:1px;background:rgba(200,220,240,.15);display:none}
 #toolbar button.busy .tbp{display:block}
 #toolbar button.busy .tbp::after{content:"";position:absolute;left:0;top:0;bottom:0;width:calc(var(--p,0)*100%);background:var(--a-ember2)}
-/* 老向导的便签：钉在左下角，一次一句；要紧的事（袭击、暴风雪）先说 */
-#note{position:fixed;left:16px;bottom:calc(env(safe-area-inset-bottom) + 100px);width:238px;padding:15px 14px 11px;z-index:4;display:none;pointer-events:auto;cursor:default;
-  background:#efe5d1;color:#3a2a1c;border-radius:3px;transform:rotate(-1.5deg);box-shadow:0 10px 20px rgba(16,22,32,.35),inset 0 0 0 1px rgba(120,90,60,.12)}
-#note.show{display:block}#note.pop{animation:notein .4s cubic-bezier(.2,.9,.3,1.2)}@keyframes notein{from{transform:rotate(-6deg) translateY(10px);opacity:0}}
-#note::before{content:"";position:absolute;top:-6px;left:112px;width:14px;height:14px;border-radius:7px;background:#b4472a;box-shadow:inset -2px -2px 0 rgba(0,0,0,.22),0 2px 3px rgba(0,0,0,.3)}
-#note .nk{display:flex;align-items:center;gap:6px;font:900 12.5px var(--serif);letter-spacing:.12em;color:#7a5636}
-#note .nk small{font:500 11px var(--sans);letter-spacing:0;color:#8a6a4c;margin-left:auto}
-#note p{margin:4px 0 8px;font-size:14px;line-height:1.55;color:#3a2a1c}
-#note .nb{display:flex;gap:6px;align-items:center}
-#note .nb button{height:40px;padding:0 16px;border-radius:8px;background:#3a2a1c;color:#fbe9d0;font-size:13.5px;font-weight:700}
-#note .nb button.l{background:transparent;color:#6e5038;font-weight:400;padding:0 12px}
-#note.urgent{background:#f4dccb}#note.urgent::before{background:#c0392b}#note.urgent .nk{color:#a03a22}#note.urgent .nb button:not(.l){background:#8a2a1a}
-#noteMini{position:fixed;left:16px;bottom:calc(env(safe-area-inset-bottom) + 100px);width:38px;height:38px;border-radius:3px;z-index:4;display:none;place-items:center;transform:rotate(-4deg);
-  background:#efe5d1;color:#7a5636;font:900 15px var(--serif);box-shadow:0 6px 14px rgba(16,22,32,.35)}
-#noteMini.show{display:grid}#noteMini::before{content:"";position:absolute;top:-5px;left:12px;width:11px;height:11px;border-radius:6px;background:#b4472a}
 body.photo #note,body.photo #noteMini,body.cine #note,body.cine #noteMini,body.titled #note,body.titled #noteMini,body.placing #note,body.placing #noteMini,body.hint-on #note,body.hint-on #noteMini,body.coach-on #note,body.coach-on #noteMini{display:none!important}
 @media (orientation:portrait),(max-width:760px){body.sheet-open #note,body.sheet-open #noteMini{display:none!important}}
 @media (max-width:430px){#campName{max-width:24vw}#vitals{gap:3px}.vt{padding:0 6px}.vt b{font-size:13px}.vt b small{font-size:10px}.vt .vv .svg{display:none}.vt .vf{left:6px;right:6px}}
-@media (max-width:380px){#top{padding-left:8px;padding-right:8px}#vitals{gap:3px}.vt{padding:0 5px}.vt b{font-size:13px}#campName{padding:0 6px 0 9px;font-size:13px}#note{left:10px;width:220px}#noteMini{left:10px}}
+@media (max-width:380px){#top{padding-left:8px;padding-right:8px}#vitals{gap:3px}.vt{padding:0 5px}.vt b{font-size:13px}#campName{padding:0 6px 0 9px;font-size:13px}}
 /* 横屏：顶栏并成一行；底部分区变成左边一列，面板从右边滑出来 */
 @media (orientation:landscape) and (min-width:700px){
   #top{flex-direction:row;align-items:stretch;gap:6px}
@@ -346,7 +331,6 @@ body.photo #note,body.photo #noteMini,body.cine #note,body.cine #noteMini,body.t
   #toolbar button.on::before{top:24%;bottom:24%;left:0;right:auto;width:2px;height:auto;border-radius:0 2px 2px 0}
   #toolbar button.dot::after{top:8px;left:calc(50% + 10px)}#toolbar button.main.dot::after{top:6px;left:calc(50% + 20px)}
   #toolbar button .tbp{bottom:2px}
-  #note,#noteMini{left:100px;bottom:22px}
 }
 
 @keyframes pulse{50%{box-shadow:0 0 10px rgba(255,111,85,.55)}}
@@ -379,20 +363,6 @@ body.photo #note,body.photo #noteMini,body.cine #note,body.cine #noteMini,body.t
 
 /* ---------- 提示 ---------- */
 #toasts{position:fixed;left:10px;right:64px;top:calc(env(safe-area-inset-top) + 92px);display:flex;flex-direction:column;align-items:flex-start;gap:5px;pointer-events:none;z-index:6}
-.toast{pointer-events:auto;cursor:pointer;position:relative;overflow:hidden;display:flex;align-items:flex-start;gap:8px;max-width:min(470px,100%);padding:6px 10px 7px 9px;font-size:13px;line-height:1.45;
-  background:var(--grain),linear-gradient(90deg,rgba(27,34,42,.96),rgba(18,22,27,.93));border:1px solid rgba(170,200,230,.28);border-left:3px solid var(--muted);border-radius:3px;
-  transition:opacity .35s,transform .35s,max-height .35s,margin .35s,padding .35s;animation:tin .28s ease-out;box-shadow:0 3px 10px rgba(0,0,0,.45);max-height:120px}
-.toast .tm{flex:1;min-width:0;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
-.toast.info .tm,.toast.good .tm{-webkit-line-clamp:1}.toast.story .tm{-webkit-line-clamp:3}
-.toast:hover .tm{-webkit-line-clamp:6}
-.toast .tn{flex:none;align-self:center;font-size:11px;font-weight:700;line-height:16px;color:#2a1708;background:linear-gradient(180deg,var(--brass-hi),var(--brass));border-radius:8px;padding:0 6px}
-.toast .ta{flex:none;align-self:center;font-size:12px;font-weight:700;padding:2px 9px;border-radius:3px;color:#2a1708;background:linear-gradient(180deg,var(--brass-hi),var(--brass));box-shadow:inset 0 1px 0 rgba(255,245,220,.6)}
-.toast .tl{position:absolute;left:0;bottom:0;height:2px;width:100%;transform-origin:left;background:currentColor;opacity:.3;animation:tlife linear forwards}
-.toast.good{border-left-color:var(--good)}.toast.good .tl{color:var(--good)}
-.toast.bad{border-left-color:var(--bad);background:var(--grain),linear-gradient(90deg,rgba(78,28,20,.96),rgba(19,24,29,.93))}.toast.bad .tl{color:var(--bad)}
-.toast.warn{border-left-color:var(--warn)}.toast.warn .tl{color:var(--warn)}
-.toast.story{border-left-color:var(--ember);font-family:var(--serif);color:#ffe0b8;line-height:1.6}.toast.story .tl{color:var(--ember)}
-.toast.out{opacity:0;transform:translateX(-14px);max-height:0;padding-top:0;padding-bottom:0;margin-bottom:-5px}
 @keyframes tlife{to{transform:scaleX(0)}}
 /* 北行大地图 */
 #bigmap{position:fixed;inset:0;z-index:12;display:none;align-items:center;justify-content:center;background:rgba(8,10,14,.6)}
@@ -927,18 +897,6 @@ body.photo-flash::after{content:'';position:fixed;inset:0;z-index:30;background:
 #coach{position:fixed;left:50%;bottom:112px;translate:-50% 0;z-index:30;width:min(420px,calc(100vw - 32px));pointer-events:none;
   background:linear-gradient(180deg,rgba(30,38,46,.96),rgba(17,22,27,.96));border:1px solid var(--brass);border-radius:6px;padding:10px 12px 8px;box-shadow:0 8px 28px rgba(0,0,0,.55),0 0 18px rgba(255,138,43,.18);font-size:13.5px;line-height:1.55;color:#e6edf3}
 #coach.top{bottom:auto;top:118px}
-#hint{position:fixed;left:14px;bottom:100px;z-index:29;width:min(340px,calc(100vw - 28px));pointer-events:none;opacity:0;translate:-12px 0;transition:opacity .35s,translate .35s;
-  background:linear-gradient(180deg,rgba(30,38,46,.95),rgba(17,22,27,.95));border:1px solid var(--brass);border-left:3px solid var(--ember-hi);border-radius:6px;padding:8px 11px 8px;box-shadow:0 8px 24px rgba(0,0,0,.5);font-size:13px;line-height:1.5;color:#e6edf3}
-#hint.show{opacity:1;translate:0 0;pointer-events:auto}#hint.show.away{opacity:0;pointer-events:none}
-#hint .hk{font-size:11px;color:var(--ember-hi);letter-spacing:.12em;margin-bottom:3px}
-#hint .hb{display:flex;gap:9px;align-items:flex-start}
-#hint .hi{flex:none;width:30px;height:30px;display:grid;place-items:center;border-radius:50%;background:rgba(0,0,0,.3);box-shadow:0 0 0 1px rgba(170,200,230,.5);font-size:16px}
-#hint .hi .svg{width:18px;height:18px}
-#hint b{display:block;font-family:var(--serif);font-size:14.5px;color:#ffe2b0}
-#hint p{margin:1px 0 0;color:#bfcddb}
-#hint .hbtn{display:flex;justify-content:flex-end;gap:6px;margin-top:6px}
-@media (max-width:560px){#hint{left:10px;right:58px;width:auto;bottom:104px;font-size:12.5px}}
-body.photo #hint{display:none!important}
 .ord .prw{font-size:12px;color:#ffb27a;margin-top:4px}
 .mbox .wn{display:grid;grid-template-columns:118px 1fr;gap:10px;padding:7px 0;border-top:1px solid rgba(170,200,230,.18);font-size:13.5px;line-height:1.55}.mbox .wn b{font-family:var(--serif);color:#ffd9a0;font-size:14px}
 @media (max-width:560px){.mbox .wn{grid-template-columns:1fr;gap:2px}}
@@ -1064,7 +1022,6 @@ body.titled #top,body.titled #toolbar,body.titled #side,body.titled #bigmap,body
 }
 @media (max-width:560px){
   #toasts{left:8px;right:60px}
-  .toast{font-size:12.5px;padding:5px 9px 6px 8px}
 }
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 /* ---------- 1.1 霜铁暖灯：面板、按钮、弹窗、提示换皮（放在最后，盖过上面的旧样式） ---------- */
@@ -1104,11 +1061,6 @@ body.titled #top,body.titled #toolbar,body.titled #side,body.titled #bigmap,body
 .mbox h2::after{background:linear-gradient(90deg,rgba(170,200,230,.3),transparent)}
 .mbox h3{color:#eef3f7}
 /* 提示条 */
-.toast{background:rgba(22,29,38,.95);border:1px solid rgba(170,200,230,.2);border-left:3px solid var(--a-text2);border-radius:10px;box-shadow:0 4px 12px rgba(4,8,14,.45)}
-.toast.bad{background:rgba(58,24,20,.95)}
-.toast.story{color:#ffdcb4}
-.toast .tn,.toast .ta{color:var(--a-ink);background:linear-gradient(180deg,#ffa54e,#e8782a);box-shadow:none;border-radius:8px}
-.toast .ta{padding:3px 10px}
 /* 地图上的营地牌子：深色铁牌，白字 */
 .camptag{color:#f2f6f9;background:rgba(20,27,36,.9);border:1px solid rgba(170,200,230,.35);border-radius:6px;box-shadow:0 2px 6px rgba(4,8,14,.5),0 0 12px rgba(255,138,43,.25)}
 .camptag small{color:#ffc38f}
@@ -1132,7 +1084,7 @@ body.titled #top,body.titled #toolbar,body.titled #side,body.titled #bigmap,body
 .row i.bad{color:#ff9b85;font-style:normal}.row i.warn{color:#ffcb5c;font-style:normal}
 /* 线条图标：比低多边形的小一点，物资带淡色；纸条和暖橙按钮上跟文字同色 */
 .ic.ln{width:1.25em;height:1.25em;vertical-align:-.26em;margin:-.12em .1em -.12em 0}
-#note .ic.ln,.btn.go .ic.ln,.toast .ta .ic.ln,#noteMini .ic.ln{color:inherit!important}
+.btn.go .ic.ln,.tk .btn .ic.ln{color:inherit!important}
 .pfbar{position:sticky;bottom:0;z-index:1;display:flex;gap:8px;padding:12px 14px calc(12px + env(safe-area-inset-bottom));background:linear-gradient(180deg,rgba(20,27,35,0),#141b23 16px)}
 .pfbar .btn{flex:1;margin:0;min-height:46px}.pfbar .btn.go{flex:1.4}
 .pfoot{margin-bottom:-20px;background:linear-gradient(180deg,#222c38,#19212b);border-top:1px solid rgba(170,200,230,.18);box-shadow:0 -6px 14px rgba(4,8,14,.35)}
@@ -1173,7 +1125,6 @@ button.small.ghost{border-color:rgba(170,200,230,.22);color:var(--a-text2)}
 <div id="toasts"></div>
 <div id="pausebar" data-act="pause">⏸ 已暂停 <small style="font:400 11.5px var(--sans);letter-spacing:0;color:var(--a-text2)">点这里继续</small></div>
 <div id="note"></div>
-<button id="noteMini" data-act="notemini" title="老向导" aria-label="老向导">老</button>
 <div id="side">
   <button id="menuBtn" data-act="hub" data-arg="menu" title="菜单" aria-label="菜单"><svg class="hic" aria-hidden="true"><use href="#c-ui_menu"/></svg></button>
   <button id="speedBtn" data-act="speed" title="加速（点一下换倍速，按住暂停）" aria-label="速度"><svg class="hic sp" aria-hidden="true"><use href="#c-ui_speed"/></svg><svg class="hic ps" aria-hidden="true"><use href="#c-ui_pause"/></svg><i>1×</i></button>
