@@ -771,3 +771,13 @@ body.titled .pcx{display:none!important}
 .fcard,.ifc,.mg,.tcur,.rend,.mje,.msave{background:var(--u-inset-bg);border:var(--u-inset-bd);color:var(--u-inset-fg);box-shadow:var(--u-inset-sh)}
 .tcur:not(.idle){border-color:rgba(255,138,43,.55)}
 .rend{border-style:dashed}
+/* 底部操作台上沿的铜条 / 霜边压在中间的「建造」阀门上：阀门和它的小红点要在铜条之上 */
+#toolbar button.main>span{z-index:3}
+#toolbar button.main.dot::after{z-index:4}
+/* 窗口往下滚时，标题牌和页签这一条是吸顶的：给它和窗口同一块底板，滚上来的内容从它下面过，不再透出来。
+   底板的明暗渐变按整扇窗口的高度铺，这里用窗口大致的高度，接缝处看不出来 */
+#sheet{--u-sheet-h:58vh}
+@media (orientation:landscape) and (min-width:761px){#sheet{--u-sheet-h:calc(100vh - 22px)}}
+body.pc #sheet.big{--u-sheet-h:calc(100vh / var(--uiz,1) - 192px)}
+body.pc #sheet.insp{--u-sheet-h:420px}
+#sheet>.phead{background:var(--u-plate-bg);background-size:100% var(--u-sheet-h);border-radius:inherit;border-bottom-left-radius:0;border-bottom-right-radius:0;box-shadow:0 7px 8px -7px rgba(0,0,0,.42)}
