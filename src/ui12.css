@@ -759,3 +759,8 @@ body.titled .pcx{display:none!important}
 #title .tbtn:active{transform:translateY(1px)}
 #title .tbtn.go{background:var(--u-go);border-color:var(--u-go-bd);color:var(--u-go-fg);box-shadow:var(--u-go-sh),0 0 26px rgba(255,138,43,.32);text-shadow:var(--u-go-ts)}
 #title .tbtn.ghost{background:rgba(8,10,14,.5);border:1px solid rgba(220,190,140,.32);color:#eadcc4;box-shadow:inset 0 1px 0 rgba(255,255,255,.05);text-shadow:none}
+/* 更新说明里的配色选择 */
+.mbox .wnpick{margin:6px 0 10px;padding:10px 12px 8px;border-radius:6px;background:var(--u-inset-bg);border:1px solid var(--u-inset-bd);box-shadow:var(--u-inset-sh);color:var(--u-inset-fg)}
+.mbox .wnpick>b{display:block;font:700 15px var(--serif);letter-spacing:.06em}
+.mbox .wnpick>small{display:block;font-size:12px;opacity:.75;margin:2px 0 8px}
+.mbox .wnpick .seg{margin:0 0 2px}

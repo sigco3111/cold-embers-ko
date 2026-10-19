@@ -3001,6 +3001,7 @@ export class UI {
       case 'logf': this.logF = arg; this.renderPanel(true); this.sheet.scrollTop = 0; break;
       case 'close-modal': this.closeModal(); break;
       case 'wn-north': this.closeModal(); this.open('migrate'); break;
+      case 'wn-theme': g.theme.set(arg); this.$('modal').querySelectorAll('[data-act="wn-theme"]').forEach(b => b.classList.toggle('on', b.dataset.arg === arg)); g.sfx && g.sfx('tap'); break;
       case 'tb': if (this.panel && this.panel.kind === arg) this.close(); else { g.cancelModes(); this.open(arg); } break;
       case 'techsel': this.techSel = arg; this.renderPanel(true); break;
       case 'tech': { const r = Sim.startTech(S, arg); if (!r.ok && r.reason) this.toast(r.reason, 'warn'); this.renderPanel(true); break; }

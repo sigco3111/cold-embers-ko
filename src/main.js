@@ -333,7 +333,7 @@ class Game {
         // 停在世界之脊的老存档：看完直接打开北迁面板，下一站是北境第 1 站
         this.whatsNew = false; S.meta.ver = WHATS_NEW;
         const spine = Sim.journeyOf(S).stage === Sim.SPINE && !Sim.journeyOf(S).trip;
-        this.ui.modal(whatsNewHtml(S, this.whatsFrom), spine ? [{ t: '去北境', a: 'wn-north', cls: 'go' }, { t: '知道了', a: 'close-modal' }] : [{ t: '知道了', a: 'close-modal', cls: 'go' }]);
+        this.ui.modal(whatsNewHtml(S, this.whatsFrom, this.theme.pref), spine ? [{ t: '去北境', a: 'wn-north', cls: 'go' }, { t: '知道了', a: 'close-modal' }] : [{ t: '知道了', a: 'close-modal', cls: 'go' }]);
       }
       else if (free && this.skyLater && !this.cine) { this.skyLater = false; this.skyCine(); }
       else if (free && Sim.roadView(S)) { if (this.ui.roadModal()) this.sfx('event'); }
