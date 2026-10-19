@@ -223,7 +223,7 @@ export class ChainMap {
         }
       });
       svg += `</svg>`;
-      const html = `<div class="cmbox"><div class="phead"><b>生产链 <small>${esc(camp.name)} · 点建筑看详情</small></b><button class="x" data-act="chainclose">✕</button></div>
+      const html = `<div class="cmbox u-paper"><div class="phead"><b>生产链 <small>${esc(camp.name)} · 点建筑看详情</small></b><button class="x" data-act="chainclose">✕</button></div>
         ${tabsHtml('chain')}${camps}<div class="cmsum" data-sum="1"></div>
         <div class="cmscroll"><div class="cmin" style="width:${L.W}px;height:${L.H}px">${svg}${G.nodes.map(n => this.nodeHtml(n, L.pos.get(n.id), o)).join('')}${chips.join('')}</div></div>
         <div class="bmleg"><span><i class="lg ok"></i>运转</span><span><i class="lg slow"></i>变慢 / 满仓</span><span><i class="lg short"></i>缺料 / 采空</span><span><i class="lg idle"></i>没人</span><span><i class="lgl b"></i>传送带</span><span><i class="lgl"></i>红虚线 = 供不上</span><span><i class="lgl g"></i>灰虚线 = 没有来源、在用库存</span></div></div>`;
@@ -260,11 +260,11 @@ export class ChainMap {
         <div class="pltimers">${goal ? `<span class="${h.done ? 'ok' : ''}">${h.done ? '✓ 已经达标' : `达标：稳住 ${mmss(h.p)} / 3:00${cur.on ? '' : '（掉下来了，在往回退）'}`}</span>` : ''}
           <span>${cur.star >= 3 ? '已经三星' : `${'★'.repeat(cur.star + 1)}：再稳住 ${mmss(nextStar)}${cur.on ? '' : '（暂停）'}`}</span>
           <span class="plfx">${['', '这条线的建筑产量 +15%', '每座建筑少要 1 个工人', '产量再 +30%'].slice(1, cur.star + 1).join('，') || '还没有星'}</span></div>
-        ${(() => { const a = Sim.advisor(S); return a && a.act === 'plan' && a.arg === cur.r ? `<div class="pladv"><i>老</i>${esc(a.text)}</div>` : ''; })()}
+        ${(() => { const a = Sim.advisor(S); return a && a.act === 'plan' && a.arg === cur.r ? `<div class="pladv"><span class="gmd"><svg class="gpf" aria-hidden="true"><use href="#c-spec_guide"/></svg></span><span>${esc(a.text)}</span></div>` : ''; })()}
         <div class="plnodes">${P.nodes.map(x => this.planNode(x, P)).join('')}</div>
         <div class="plfoot"><span>这条线用了 <b>${P.people}</b> 人</span><span>主营地人口 <b>${P.pop}</b>/${P.cap}，空闲 ${Math.max(0, P.idle)} 人</span><span>供热圈空地约 <b>${P.free}</b> 块</span></div>`;
     }
-    const html = `<div class="cmbox plbox"><div class="phead"><b>规划 <small>只指方向：建几座、放哪儿你来定</small></b><button class="x" data-act="chainclose">✕</button></div>
+    const html = `<div class="cmbox plbox u-paper"><div class="phead"><b>规划 <small>只指方向：建几座、放哪儿你来定</small></b><button class="x" data-act="chainclose">✕</button></div>
       ${tabsHtml('plan')}<div class="pllines">${chips}<button class="plchip add ${this.adding ? 'on' : ''}" data-pladdopen="1">＋ 立支线 <small>${side}/${smax}</small></button></div>
       <div class="plscroll">${body}</div></div>`;
     const sc = this.el.querySelector('.plscroll'), keep = sc ? sc.scrollTop : 0;

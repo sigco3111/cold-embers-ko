@@ -39,7 +39,7 @@ export class BigMap {
     g.cancelModes(); g.ui.close();
     this.open = true;
     this.el.classList.add('show');
-    this.el.innerHTML = iconize(`<div class="bmbox"><div class="phead"><b>北行地图 <small>${northRec(S) ? `🧭 ${northRec(S)} · ` : ''}点一处，镜头就飞过去</small></b><button class="x" data-act="mapclose">✕</button></div>
+    this.el.innerHTML = iconize(`<div class="bmbox u-paper"><div class="phead"><b>北行地图 <small>${northRec(S) ? `🧭 ${northRec(S)} · ` : ''}点一处，镜头就飞过去</small></b><button class="x" data-act="mapclose">✕</button></div>
       <div class="bmscroll"><div class="bmin"><canvas></canvas><div class="bmmk"></div></div></div>
       <div class="bmleg"><span>🔥 营地</span>${S.camps.some(c => c.depot) ? "<span>📦 补给站</span>" : ""}${(Sim.journeyOf(S).ruins || []).length ? "<span>🏚 熄火的老营地</span>" : ""}<span><i class="rt"></i>探好的路</span><span>📍 发现的地标</span><span>❔ 未知</span><span>🧭 雾里的地点</span><span>🆘 幸存者</span>${S.gangs && Object.keys(S.gangs).length ? "<span>🏴 掠夺者</span>" : ""}<span><i class="vw"></i>镜头</span></div></div>`);
     this.render(true);

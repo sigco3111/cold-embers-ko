@@ -39,7 +39,7 @@
 --u-well-on:linear-gradient(180deg,#3c2a1d,#2a1b11);--u-well-on-sh:inset 0 2px 3px rgba(0,0,0,.6),0 1px 0 rgba(255,170,100,.25),0 0 10px rgba(255,138,43,.35);
 --u-valve-ring:repeating-conic-gradient(#7d8b98 0 9deg,#3a4550 9deg 18deg);--u-valve-ring-sh:0 0 0 2px #0a0e12,0 0 0 4px rgba(190,215,240,.22),0 8px 16px rgba(0,0,0,.55);
 --u-valve:radial-gradient(circle at 50% 34%,#ffd09a,#ff8a2b 42%,#b4470d 78%,#5d1f05);--u-valve-fg:#2a0e02;--u-valve-sh:inset 0 2px 2px rgba(255,240,215,.7),inset 0 -3px 4px rgba(80,20,0,.55),0 0 0 2px #0a0e12,0 0 22px rgba(255,138,43,.65);
---u-medal-ring:radial-gradient(circle at 50% 30%,#dfe8f0,#6c7a87 60%,#2a333c);--u-medal:radial-gradient(circle at 50% 30%,#2c3742,#141a21);--u-medal-fg:#ffc58e;
+--u-medal-ring:radial-gradient(circle at 50% 30%,#dfe8f0,#6c7a87 60%,#2a333c);--u-medal:radial-gradient(circle at 50% 30%,#2c3742,#141a21);--u-medal-fg:#ffc58e;--u-medal-rc:#8a96a2;
 --u-tk:linear-gradient(180deg,rgba(38,49,60,.94),rgba(25,33,42,.94));--u-tk-bd:#06090c;--u-tk-fg:#e8f0f6;--u-tk-fg2:#9aaebf;--u-tk-sh:inset 0 1px 0 rgba(210,230,250,.18),0 3px 8px rgba(0,0,0,.35);
 --u-slip:linear-gradient(180deg,#dfe8ef,#c9d6e1);--u-slip-fg:#1d2833;--u-slip-fg2:#4e5f6e;--u-slip-sh:0 3px 8px rgba(4,10,18,.45),inset 0 0 0 1px rgba(255,255,255,.5);
 --u-ct:linear-gradient(180deg,#2d3844,#1b232c);--u-ct-bd:#06090c;--u-ct-fg:#f1f6fa;--u-ct-fg2:#ffbf86;--u-ct-sh:inset 0 1px 0 rgba(210,230,250,.3),0 3px 8px rgba(0,0,0,.45),0 0 14px rgba(255,138,43,.25);
@@ -83,7 +83,7 @@
 --u-btn-sh:inset 0 1px 0 rgba(255,250,225,.85),inset 0 -2px 0 rgba(90,55,20,.3),0 2px 0 #5e3f12,0 4px 7px rgba(40,20,5,.3);--u-btn-ts:0 1px 0 rgba(255,245,215,.6);
 --u-go:radial-gradient(ellipse 120% 90% at 50% 20%,#e9875a,#c4502a 52%,#8e3218);--u-go-bd:#4a1708;--u-go-fg:#fff3e0;
 --u-go-sh:inset 0 1px 0 rgba(255,215,180,.6),inset 0 -2px 0 rgba(70,15,5,.45),0 0 0 2px #d9ad55,0 0 0 3px #6e4a17,0 3px 0 3px rgba(60,25,8,.0),0 4px 8px rgba(40,20,5,.35);--u-go-ts:0 -1px 0 rgba(60,15,5,.55);
---u-plq:linear-gradient(180deg,#fff0bf,#e2b65a 42%,#b88633 52%,#d9ad55 70%,#f2d48a);--u-plq-bd:#5e3f12;--u-plq-fg:#3b2408;--u-plq-fg2:#6e4a1f;
+--u-plq:linear-gradient(180deg,#fff0bf,#e2b65a 42%,#b88633 52%,#d9ad55 70%,#f2d48a);--u-plq-bd:#5e3f12;--u-plq-fg:#3b2408;--u-plq-fg2:#563510;
 --u-plq-sh:inset 0 1px 0 rgba(255,250,225,.85),inset 0 -1px 0 rgba(90,55,20,.35),0 2px 4px rgba(40,20,5,.4);--u-plq-ts:0 1px 0 rgba(255,245,215,.6);--u-screw:radial-gradient(circle at 40% 35%,#fff3cc,#a57a32 55%,#4a2f12);
 --u-tabs-bg:transparent;--u-tabs-bd:0;--u-tabs-sh:inset 0 -2px 0 #8a5f1f;--u-tabs-r:0;
 --u-tab:linear-gradient(180deg,#8f3a28,#6b2719);--u-tab-fg:#f7dcc0;--u-tab-sh:inset 0 0 0 1px #3a1308,inset 0 0 0 3px rgba(0,0,0,0),inset 0 1px 0 rgba(255,200,160,.25);--u-tab-r:7px 7px 0 0;
@@ -95,7 +95,7 @@
 --u-well-on:linear-gradient(180deg,#fbe7ad,#d9ad55);--u-well-on-fg:#4a2a0e;--u-well-on-sh:inset 0 1px 0 rgba(255,250,225,.8),0 0 0 1px #5e3f12,0 0 12px rgba(255,200,110,.45);
 --u-valve-ring:repeating-conic-gradient(#e2b65a 0 9deg,#8a5f1f 9deg 18deg);--u-valve-ring-sh:0 0 0 2px #2a1709,0 0 0 4px #6b4428,0 8px 16px rgba(30,15,5,.5);
 --u-valve:radial-gradient(circle at 50% 34%,#ffd89a,#e8792a 45%,#a5401a 80%,#5a1d08);--u-valve-fg:#3a1204;--u-valve-sh:inset 0 2px 2px rgba(255,240,215,.75),inset 0 -3px 4px rgba(80,20,0,.5),0 0 0 2px #2a1709,0 0 20px rgba(255,170,90,.55);
---u-medal-ring:radial-gradient(circle at 50% 30%,#fff0bf,#c99a41 55%,#6e4a17);--u-medal:radial-gradient(circle at 50% 30%,#fbf3e0,#e6d2a9);--u-medal-fg:#6b2719;
+--u-medal-ring:radial-gradient(circle at 50% 30%,#fff0bf,#c99a41 55%,#6e4a17);--u-medal:radial-gradient(circle at 50% 30%,#fbf3e0,#e6d2a9);--u-medal-fg:#6b2719;--u-medal-rc:#c99a41;
 --u-tk:linear-gradient(180deg,#fbf3e0,#f0e1bf);--u-tk-bd:#8a6a3a;--u-tk-fg:#3a2716;--u-tk-fg2:#7a5c3e;--u-tk-sh:0 0 0 1px rgba(255,252,242,.6) inset,0 3px 7px rgba(40,20,5,.3);
 --u-slip:linear-gradient(180deg,#fbf3e0,#f0e1bf);--u-slip-fg:#3a2716;--u-slip-fg2:#7a5c3e;--u-slip-sh:0 3px 8px rgba(40,20,5,.35),inset 0 0 0 1px rgba(122,84,25,.25);
 --u-ct:linear-gradient(180deg,#fff0bf,#e2b65a 45%,#b88633 55%,#d9ad55);--u-ct-bd:#5e3f12;--u-ct-fg:#3b2408;--u-ct-fg2:#7a2a18;--u-ct-sh:inset 0 1px 0 rgba(255,250,225,.85),0 3px 8px rgba(40,20,5,.4),0 0 16px rgba(255,190,100,.35);
@@ -699,7 +699,63 @@ body.pc #note{left:0;right:0;margin:0 auto;width:440px;max-width:none;bottom:122
 @media (orientation:landscape) and (min-width:761px){body:not(.pc) #toasts{left:96px!important}}
 body.pc #coach{bottom:142px}
 body.pc.pcb-open #coach:not(.top){bottom:300px}
-/* 提醒里的老向导：同一枚头像勋章 */
-.alc.tip .ali{width:36px;height:36px;padding:0;background:var(--u-medal);box-shadow:0 0 0 3px var(--u-medal-ring-c,#8a96a2),0 2px 4px rgba(0,0,0,.35);overflow:hidden;align-items:end}
-.alc.tip .ali .gpf{width:38px;height:38px;margin-bottom:-4px}
-:root[data-theme=warm] .alc.tip .ali{--u-medal-ring-c:#c99a41}
+
+/* ---------- 七、其余窗口换皮（第 7 步） ---------- */
+/* 事件、章节、奇遇、遗物、探险顶上那行小字：换成小铭牌 */
+.evtag{display:inline-flex;align-items:center;gap:4px;height:20px;padding:0 8px;margin-bottom:8px;border-radius:3px;font:600 11px var(--serif);letter-spacing:.1em;background:var(--u-tag-bg);color:var(--u-tag-fg);border:1px solid var(--u-tag-bd);box-shadow:var(--u-tag-sh)}
+.evtag .ic{width:14px;height:14px}
+/* 老向导的小勋章，和底下小条上的是同一个人 */
+.gmd{flex:none;width:30px;height:30px;border-radius:50%;overflow:hidden;display:flex;align-items:flex-end;justify-content:center;background:var(--u-medal);box-shadow:0 0 0 2px var(--u-medal-rc),0 0 0 3px rgba(0,0,0,.3),0 2px 4px rgba(0,0,0,.3)}
+.gmd .gpf{display:block;width:32px;height:32px;margin-bottom:-3px}
+.alc.tip .ali{width:auto;height:auto;background:none;box-shadow:none;border-radius:0}
+.alc.tip .ali .gmd{width:34px;height:34px}.alc.tip .ali .gpf{width:36px;height:36px}
+/* 老向导说的话（章节开场、规划里）：和小条一样的纸条 */
+.brief,.pladv{gap:10px;align-items:flex-start;padding:9px 11px;border:0;border-radius:4px;background:var(--u-slip);color:var(--u-slip-fg);box-shadow:var(--u-slip-sh)}
+.brief b{color:var(--u-slip-fg);font:900 13px var(--serif);letter-spacing:.1em}
+.brief p{color:var(--u-slip-fg)}
+.pladv{color:var(--u-slip-fg);align-items:center}
+/* 生产链图、规划、北行地图：外框是铁板 / 木板；暖色里里面是纸 */
+.bmbox,.cmbox{background:var(--u-plate-bg);border:var(--u-plate-bd);border-radius:var(--u-plate-r);box-shadow:var(--u-plate-sh),0 14px 44px rgba(0,0,0,.6)}
+:root[data-theme=warm] :is(.bmbox,.cmbox){background:var(--u-paper-bg);box-shadow:inset 0 0 0 6px #5a3a1c,inset 0 0 0 7px #c99a41,inset 0 0 22px 7px rgba(150,100,40,.25),0 14px 44px rgba(30,15,5,.55)}
+:root[data-theme=warm] :is(.bmbox,.cmbox)>.phead{margin:7px 7px 0}
+:root[data-theme=warm] .cmscroll{background:radial-gradient(ellipse at 50% 40%,#f7eedb,#e9d7b0 80%);border-color:#8a6a3a;box-shadow:inset 0 0 14px rgba(120,80,30,.25)}
+:root[data-theme=warm] .bmscroll{border-color:#8a6a3a;box-shadow:inset 0 0 14px rgba(120,80,30,.25)}
+:root[data-theme=warm] .cmn{box-shadow:inset 0 0 0 1px rgba(255,252,240,.7),0 2px 6px rgba(90,55,20,.3)}
+:root[data-theme=warm] .cmn:hover{box-shadow:inset 0 0 0 1px #c99a41,0 3px 10px rgba(90,55,20,.4)}
+:root[data-theme=warm] .cmc{box-shadow:0 0 0 1px rgba(122,84,25,.45)}
+:root[data-theme=warm] .cme{filter:none}
+/* 拍照工具条：同样的铁板 / 木板，开关是嵌进去的滑槽 */
+#photobar{background:var(--u-plate-bg);border:var(--u-plate-bd);border-radius:var(--u-plate-r);box-shadow:var(--u-plate-sh),0 6px 18px rgba(0,0,0,.5);color:var(--u-hud-fg)}
+.phl{color:var(--u-hud-fg2)}
+.phseg{padding:3px;gap:2px;border-radius:6px;background:var(--u-sw-bg);box-shadow:var(--u-sw-sh)}
+.phseg button{background:transparent;border:0;border-radius:4px;color:var(--u-sw-fg)}
+.phtg{background:var(--u-sw-bg);border:0;border-radius:5px;box-shadow:var(--u-sw-sh);color:var(--u-sw-fg)}
+.phseg button.on,.phtg.on{background:var(--u-sw-on);color:var(--u-sw-on-fg);box-shadow:var(--u-sw-on-sh);border:0}
+.phrng small,.phtip{color:var(--u-hud-fg2)}
+.phrng input{accent-color:#ff8a2b}
+.phx{background:var(--u-btn);border:1px solid var(--u-btn-bd);color:var(--u-btn-fg);box-shadow:var(--u-btn-sh);text-shadow:var(--u-btn-ts);border-radius:6px}
+.phshot{background:var(--u-go);border:1px solid var(--u-go-bd);color:var(--u-go-fg);box-shadow:var(--u-go-sh);text-shadow:var(--u-go-ts);border-radius:6px}
+#photopeek{background:var(--u-knob);border:1px solid var(--u-knob-bd);color:var(--u-knob-fg);box-shadow:var(--u-knob-sh);opacity:.92}
+/* 场景里的营地牌：名字 · 级数，称号挂在下一行 */
+.camptag{font:900 13px var(--serif);letter-spacing:.04em;color:var(--u-ct-fg);background:var(--u-ct);border:1px solid var(--u-ct-bd);border-radius:4px;box-shadow:var(--u-ct-sh);padding:3px 12px 4px;text-align:center}
+.camptag small{font:inherit;color:inherit}
+.camptag .cttl{color:var(--u-ct-fg2);font:700 10.5px var(--sans);letter-spacing:.14em;margin-top:1px}
+.ctrole{font:600 10.5px var(--sans);letter-spacing:.04em;padding:0 5px;margin-right:6px;border-radius:2px;vertical-align:1px;background:var(--u-tag-bg);color:var(--u-tag-fg);border:1px solid var(--u-tag-bd)}
+.ctrole.dep{background:#3c5468;color:#dbe9f5;border-color:#1c2834}
+.camptag .ctfull{background:var(--u-badge);color:var(--u-badge-fg);border-radius:3px}
+.camptag.ruin{background:var(--u-tk);color:var(--u-tk-fg);border-color:var(--u-tk-bd);box-shadow:var(--u-tk-sh)}
+[data-theme=warm] .plnt em{color:#fff4e2;background:#a3321c}
+/* 规划页"还差几座"里的原因：是正文，不是「最卡」那种小牌 */
+.plnt .plmiss em{background:none;padding:0;margin:0;border-radius:0;font-size:inherit;font-weight:600;color:var(--u-warn-t)}
+.plnt .plh.plow{color:var(--u-warn-t)}
+.evdef{background:var(--u-tag-bg)!important;color:var(--u-tag-fg)!important;border:1px solid var(--u-tag-bd);font-weight:600}
+[data-theme=warm] .mbox .hint.wnfirst{color:var(--u-warn-t)}
+[data-theme=warm] .relic b{color:#7a4510}
+[data-theme=warm] .plnt .plh{color:#3f6276}
+/* 标题画面：电脑版的日期牌、小地图、底部工具条都先收起来；按钮换上当前配色的材质 */
+body.titled .pcx{display:none!important}
+#title .tbtn{background:var(--u-btn);border:1px solid var(--u-btn-bd);color:var(--u-btn-fg);box-shadow:var(--u-btn-sh);text-shadow:var(--u-btn-ts);border-radius:6px}
+#title .tbtn:hover{border-color:var(--u-btn-bd);filter:brightness(1.07)}
+#title .tbtn:active{transform:translateY(1px)}
+#title .tbtn.go{background:var(--u-go);border-color:var(--u-go-bd);color:var(--u-go-fg);box-shadow:var(--u-go-sh),0 0 26px rgba(255,138,43,.32);text-shadow:var(--u-go-ts)}
+#title .tbtn.ghost{background:rgba(8,10,14,.5);border:1px solid rgba(220,190,140,.32);color:#eadcc4;box-shadow:inset 0 1px 0 rgba(255,255,255,.05);text-shadow:none}

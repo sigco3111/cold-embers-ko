@@ -99,6 +99,8 @@ const KIND_HUB = {}; for (const h in HUBS) for (const [k] of HUBS[h].tabs) KIND_
 const TK_LAMP = { good: 'g', warn: 'y', bad: 'r' }, TK_IC = { info: 'point', good: 'check', warn: 'warn', bad: 'warn', story: 'scroll' };
 // 老向导每种话配的图标（c- 开头的是界面图标，别的是 i- 小图标）
 const GD_IC = { food: 'c-vt_food', fuel: 'c-vt_fuel', cold: 'c-vt_temp', raid: 'wolf', road: 'sled', trip: 'flag', ore: 'pick', haul: 'crate', hold: 'hourglass', line: 'factory', pop: 'c-vt_people', land: 'map', go: 'sled', route: 'compass', flvl: 'fire', car: 'sled', next: 'compass', alt: 'flask', netjam: 'road', netnone: 'crate', netwait: 'sled', depot: 'tent' };
+// 老向导的小勋章（章节开场、提醒里）
+const GMED = '<span class="gmd"><svg class="gpf" aria-hidden="true"><use href="#c-spec_guide"/></svg></span>';
 const gdIc = (k, cls) => { const n = GD_IC[k] || 'point'; return n.startsWith('c-') ? ico('c', n.slice(2), cls) : ico('i', n, cls); };
 // 新玩法提示「去看看」落在哪个底部入口：那个入口上亮一个暖色小点，点进去就灭
 const HINT_HUB = { build: 'build', camp: 'camp', migrate: 'north', stock: 'prod', mood: 'camp', netview: 'prod', chainmap: 'prod' };
@@ -515,7 +517,7 @@ export class UI {
     const ch = Sim.chapterDef(this.S, i); if (!ch) return false;
     const m = this.$('modal'), rl = ch.rule && NORTH_RULES[ch.rule];
     const brief = rl ? [`${rl.ic} ${rl.tip}`] : BRIEF[i];
-    m.innerHTML = iconize(`<div class="mbox chap"><div class="evtag">📖 新的一章 · ${esc(Sim.stopOf(this.S, i).n)}</div><h2>${esc(ch.n)}</h2><p class="story">${esc(ch.story)}</p>${brief ? `<div class="brief"><span class="advf">老</span><div><b>老向导</b>${brief.map(x => `<p>${esc(x)}</p>`).join('')}</div></div>` : ''}<div class="sec">这一章要做的事</div><ul class="ctl">${ch.tasks.map(t => `<li>${esc(t.t)}</li>`).join('')}</ul><div class="crw">🎁 奖励：${esc(Sim.chapterReward(this.S, i).join('，'))}</div><div class="mbtns"><button class="btn go" data-act="close-modal">出发</button></div></div>`);
+    m.innerHTML = iconize(`<div class="mbox chap"><div class="evtag">📖 新的一章 · ${esc(Sim.stopOf(this.S, i).n)}</div><h2>${esc(ch.n)}</h2><p class="story">${esc(ch.story)}</p>${brief ? `<div class="brief">${GMED}<div><b>老向导</b>${brief.map(x => `<p>${esc(x)}</p>`).join('')}</div></div>` : ''}<div class="sec">这一章要做的事</div><ul class="ctl">${ch.tasks.map(t => `<li>${esc(t.t)}</li>`).join('')}</ul><div class="crw">🎁 奖励：${esc(Sim.chapterReward(this.S, i).join('，'))}</div><div class="mbtns"><button class="btn go" data-act="close-modal">出发</button></div></div>`);
     m.classList.add('show');
     return true;
   }
@@ -915,7 +917,7 @@ export class UI {
       const nf = full.get(c.id) || 0;
       const F = Sim.focusOf(c);
       const role = c.depot ? '<em class="ctrole dep">补给站</em>' : S.camps.length > 1 && Sim.isMain(S, c) ? '<em class="ctrole">主营地</em>' : '';
-      if (p.on) html += `<div class="camptag" style="transform:translate(${p.x | 0}px,${p.y | 0}px)">${role}${F ? `<i class="fch xs" style="background:${F.col}" title="${F.n}营地">${F.ch}</i>` : ''}${esc(c.name)} <small>${Sim.getB(S, c.furnace).lvl}级</small>${ttl && (c.id === mainId || S.camps.length === 1) ? `<i class="cttl">${esc(ttl)}</i>` : ''}${nf ? `<b class="ctfull" data-camp="${c.id}" title="${nf} 栋建筑因为仓库满了停工">📦满 ${nf}</b>` : ''}</div>`;
+      if (p.on) html += `<div class="camptag" style="transform:translate(${p.x | 0}px,${p.y | 0}px)">${role}${F ? `<i class="fch xs" style="background:${F.col}" title="${F.n}营地">${F.ch}</i>` : ''}${esc(c.name)}<small> · ${Sim.getB(S, c.furnace).lvl} 级</small>${ttl && (c.id === mainId || S.camps.length === 1) ? `<i class="cttl">${esc(ttl)}</i>` : ''}${nf ? `<b class="ctfull" data-camp="${c.id}" title="${nf} 栋建筑因为仓库满了停工">📦满 ${nf}</b>` : ''}</div>`;
     }
     // 熄火的营地留下的废墟
     for (const r of Sim.journeyOf(S).ruins || []) {
@@ -2837,7 +2839,7 @@ export class UI {
     let h = '';
     if (!act.length) h += `<div class="hint">眼下没有要处理的事。</div>`;
     for (const a of act) h += this.alertCard(a);
-    if (this.adv) h += this.alertCard({ ic: '<svg class="gpf" aria-hidden="true"><use href="#c-spec_guide"/></svg>', lvl: 'tip', t: '老向导', d: this.adv.text, act: 'advisor', btn: this.advBtn(this.adv) });
+    if (this.adv) h += this.alertCard({ ic: GMED, lvl: 'tip', t: '老向导', d: this.adv.text, act: 'advisor', btn: this.advBtn(this.adv) });
     if (info.length) h += `<div class="sec">这会儿</div>` + info.map(a => this.alertCard(a)).join('');
     const nl = S.log.length; h += `<button class="mlink" data-act="htab" data-arg="log"><span>📜</span><span>消息记录<small>最近 ${nl} 条：发生过的事都在这里</small></span><i>›</i></button>`;
     return h;
