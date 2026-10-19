@@ -262,9 +262,11 @@ button.small{padding:6px 11px;border-radius:5px;font-size:12.5px;font-weight:600
 .vt.warn .vl{color:var(--u-warn-t)}
 .vt.bad{background:var(--u-inset-bg);box-shadow:var(--u-inset-sh);animation:none}.vt.bad b,.vt.bad .vl{color:var(--u-bad-t)}
 /* 要紧的事：那一格亮一圈（红：正在发生；黄：快到了） */
-.vt.alarm{box-shadow:var(--u-inset-sh),0 0 0 2px var(--u-bad),0 0 12px var(--u-bad);animation:vtring 1.6s ease-in-out infinite}
+.vt.alarm{box-shadow:var(--u-inset-sh),0 0 0 2px var(--u-bad),0 0 8px var(--u-bad)}
+/* 红圈的呼吸只动一层透明度（不重画阴影），手机上不费帧 */
+.vt.alarm::after{content:"";position:absolute;inset:0;border-radius:inherit;box-shadow:inset 0 0 0 2px var(--u-bad),inset 0 0 10px var(--u-bad);pointer-events:none;opacity:.45;will-change:opacity;animation:vtring 1.6s ease-in-out infinite}
 .vt.alarm-w{box-shadow:var(--u-inset-sh),0 0 0 2px var(--u-warn),0 0 9px var(--u-warn)}
-@keyframes vtring{50%{box-shadow:var(--u-inset-sh),0 0 0 2px var(--u-bad),0 0 4px var(--u-bad)}}
+@keyframes vtring{50%{opacity:1}}
 .vt .vl.pos,.vt .vl .pos{color:var(--u-good-t)}.vt .vl.neg,.vt .vl .neg{color:var(--u-bad-t)}
 /* 温度计 */
 .vt .thermo{position:relative;width:9px;height:30px;flex:none;border-radius:5px;margin-bottom:3px;background:var(--u-glass);box-shadow:var(--u-glass-sh)}
