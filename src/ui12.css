@@ -33,7 +33,7 @@
 --u-tab:transparent;--u-tab-fg:#8ea3b5;--u-tab-sh:none;--u-tab-r:5px;
 --u-tab-on:linear-gradient(180deg,#4e5c69,#36414c);--u-tab-on-fg:#f6fafd;--u-tab-on-sh:inset 0 1px 0 rgba(225,238,250,.35),0 2px 4px rgba(0,0,0,.55);
 --u-tab-mark:#ff8a2b;--u-tab-mark-sh:0 0 8px rgba(255,138,43,.9);
---u-card:linear-gradient(180deg,rgba(150,185,215,.07),rgba(150,185,215,.02));--u-card-bd:rgba(0,0,0,.6);--u-card-sh:inset 0 1px 0 rgba(200,225,250,.1),0 1px 0 rgba(200,225,250,.06);
+--u-card:rgba(150,185,215,.045);--u-card-bd:rgba(0,0,0,.6);--u-card-sh:inset 0 1px 0 rgba(200,225,250,.1),0 1px 0 rgba(200,225,250,.06);
 --u-rule-a:rgba(0,0,0,.55);--u-rule-b:rgba(190,215,240,.09);--u-sec-fg:#b8cada;--u-zebra:rgba(150,185,215,.035);
 --u-tb-fg:#93a7b9;--u-tb-on:#ffd2a6;--u-well:linear-gradient(180deg,#0e141a,#182029);--u-well-sh:inset 0 2px 3px rgba(0,0,0,.7),0 1px 0 rgba(190,215,240,.12);
 --u-well-on:linear-gradient(180deg,#3c2a1d,#2a1b11);--u-well-on-sh:inset 0 2px 3px rgba(0,0,0,.6),0 1px 0 rgba(255,170,100,.25),0 0 10px rgba(255,138,43,.35);
@@ -89,7 +89,7 @@
 --u-tab:linear-gradient(180deg,#8f3a28,#6b2719);--u-tab-fg:#f7dcc0;--u-tab-sh:inset 0 0 0 1px #3a1308,inset 0 0 0 3px rgba(0,0,0,0),inset 0 1px 0 rgba(255,200,160,.25);--u-tab-r:7px 7px 0 0;
 --u-tab-on:linear-gradient(180deg,#fbf3e0,#f3e6c8);--u-tab-on-fg:#3a2716;--u-tab-on-sh:inset 0 0 0 1px #b59056,0 -2px 4px rgba(40,20,5,.2);
 --u-tab-mark:#c4502a;--u-tab-mark-sh:none;
---u-card:linear-gradient(180deg,rgba(255,252,242,.75),rgba(255,248,232,.55));--u-card-bd:rgba(122,84,25,.45);--u-card-sh:inset 0 0 0 3px rgba(255,252,242,.6),inset 0 0 0 4px rgba(122,84,25,.2),0 1px 2px rgba(90,55,20,.18);
+--u-card:rgba(255,250,237,.66);--u-card-bd:rgba(122,84,25,.45);--u-card-sh:inset 0 0 0 3px rgba(255,252,242,.6),inset 0 0 0 4px rgba(122,84,25,.2),0 1px 2px rgba(90,55,20,.18);
 --u-rule-a:rgba(122,84,25,.28);--u-rule-b:rgba(255,252,240,.7);--u-sec-fg:#6e4a1f;--u-zebra:rgba(122,84,25,.05);
 --u-tb-fg:#e8cfa6;--u-tb-on:#fff2d6;--u-well:linear-gradient(180deg,#3a2213,#4c2e18);--u-well-sh:inset 0 2px 3px rgba(20,8,2,.65),0 1px 0 rgba(255,220,170,.2);
 --u-well-on:linear-gradient(180deg,#fbe7ad,#d9ad55);--u-well-on-fg:#4a2a0e;--u-well-on-sh:inset 0 1px 0 rgba(255,250,225,.8),0 0 0 1px #5e3f12,0 0 12px rgba(255,200,110,.45);
@@ -227,7 +227,7 @@ button.small{padding:6px 11px;border-radius:5px;font-size:12.5px;font-weight:600
 .sec{font:700 14px var(--serif);letter-spacing:.12em;color:var(--u-sec-fg);margin:16px 0 8px}
 .sec::after{height:0;background:none;border-top:1px solid var(--u-rule-a);border-bottom:1px solid var(--u-rule-b)}
 .row{border-bottom:1px solid var(--u-rule-a);box-shadow:0 1px 0 var(--u-rule-b)}
-.card,.mlink,.issue,.ncard,.achip,.dchip,.ghero,.lrow{background:var(--u-card);border:1px solid var(--u-card-bd);box-shadow:var(--u-card-sh);border-radius:6px}
+.card,.law,.mlink,.issue,.ncard,.achip,.dchip,.ghero,.lrow{background:var(--u-card);border:1px solid var(--u-card-bd);box-shadow:var(--u-card-sh);border-radius:6px}
 .card.on,.mlink.book,.achip.on,.dchip.on,.ncard.on{border-color:var(--u-tab-mark);box-shadow:var(--u-card-sh),0 0 0 1px var(--u-tab-mark)}
 .issue.bad{border-left:3px solid var(--u-bad);background:linear-gradient(90deg,rgba(255,107,87,.16),transparent 70%),var(--u-card)}
 .issue.warn{border-left:3px solid var(--u-warn);background:linear-gradient(90deg,rgba(255,195,92,.14),transparent 70%),var(--u-card)}
@@ -764,3 +764,8 @@ body.titled .pcx{display:none!important}
 .mbox .wnpick>b{display:block;font:700 15px var(--serif);letter-spacing:.06em}
 .mbox .wnpick>small{display:block;font-size:12px;opacity:.75;margin:2px 0 8px}
 .mbox .wnpick .seg{margin:0 0 2px}
+.law.on{border-color:var(--u-go-bd);background:radial-gradient(ellipse 70% 90% at 0 0,rgba(255,138,43,.16),transparent 70%),var(--u-card)}
+/* 旧样式里的「凹槽」小块（营地卡、人心表、当前研究、存档说明……）：用当前配色的凹槽材质，暖色下不再是泥色 */
+.fcard,.ifc,.mg,.tcur,.rend,.mje,.msave{background:var(--u-inset-bg);border:var(--u-inset-bd);color:var(--u-inset-fg);box-shadow:var(--u-inset-sh)}
+.tcur:not(.idle){border-color:rgba(255,138,43,.55)}
+.rend{border-style:dashed}
