@@ -1,1 +1,0 @@
-export default async function (page) { await page.evaluate(k => localStorage.setItem(k + '-s2', localStorage.getItem(k)), 'hanjin-beixing-v1'); await page.click('#title [data-act="slots"]'); await page.waitForTimeout(500); }

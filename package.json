@@ -1,18 +1,16 @@
 {
-  "name": "winter-game-3d",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "name": "cold-embers",
+  "version": "1.2.0",
+  "description": "寒烬北行 Cold Embers — 2.5D 低多边形放置 + 模拟经营游戏，带着火种一路向北",
+  "private": true,
+  "type": "module",
+  "license": "GPL-3.0-or-later",
   "scripts": {
     "build": "node build.mjs",
-    "test": "node test/smoke.mjs"
+    "release": "node build.mjs && node -e \"require('fs').copyFileSync('dist/index.html','寒烬北行.html')\""
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "dependencies": {
     "esbuild": "^0.20.2",
     "three": "^0.160.0"
-  },
-  "type": "module"
+  }
 }
