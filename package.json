@@ -2,6 +2,7 @@
   "name": "cold-embers",
   "version": "1.2.0",
   "description": "寒烬北行 Cold Embers — 2.5D 低多边形放置 + 模拟经营游戏，带着火种一路向北",
+  "author": "worldv4nquisher-cyber (https://github.com/worldv4nquisher-cyber)",
   "private": true,
   "type": "module",
   "license": "GPL-3.0-or-later",
@@ -12,5 +13,10 @@
   "dependencies": {
     "esbuild": "^0.20.2",
     "three": "^0.160.0"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/worldv4nquisher-cyber/Cold-Embers.git"
+  },
+  "homepage": "https://worldv4nquisher-cyber.github.io/Cold-Embers/"
 }

@@ -16,6 +16,8 @@
 ![three.js](https://img.shields.io/badge/three.js-0.160-222)
 ![no assets](https://img.shields.io/badge/%E5%A4%96%E9%83%A8%E7%BE%8E%E6%9C%AF%E4%B8%8E%E9%9F%B3%E9%A2%91%E6%96%87%E4%BB%B6-0-6a8f5a)
 
+作者 Author：[**worldv4nquisher-cyber**](https://github.com/worldv4nquisher-cyber)
+
 [中文](#中文) · [English](#english)
 
 </div>
@@ -119,9 +121,12 @@ packicons.py    把 icons-src/ 打包进 src/icons12.js
 
 ### 制作
 
-游戏的代码、模型、图标和音效都由 [Claude](https://www.anthropic.com/claude)（Anthropic 的 AI）编写，在和作者一轮又一轮的讨论、试玩和反馈里一点点做出来。完整过程留在了提交记录里。
+- **作者：** [worldv4nquisher-cyber](https://github.com/worldv4nquisher-cyber)，负责游戏方向、玩法设计、试玩和反馈。
+- **开发：** 代码、模型、图标和音效由 [Claude](https://www.anthropic.com/claude)（Anthropic 的 AI）编写，在和作者一轮又一轮的讨论、试玩和反馈里一点点做出来。完整过程留在了提交记录里。
 
 ### 许可证
+
+Copyright © 2026 [worldv4nquisher-cyber](https://github.com/worldv4nquisher-cyber)
 
 本项目以 [GNU 通用公共许可证 第 3 版（GPL-3.0）](LICENSE) 发布：你可以自由地玩、修改和再发布，但发布修改过的版本时，也要用同样的许可证公开源码。
 
@@ -171,8 +176,10 @@ Requires Node.js 18+. The only dependencies are [Three.js](https://threejs.org/)
 
 ### Credits
 
+**Author:** [worldv4nquisher-cyber](https://github.com/worldv4nquisher-cyber), who directed the game, designed the gameplay and playtested every build.
+
 The code, models, icons and sounds were written by [Claude](https://www.anthropic.com/claude), Anthropic's AI, over many rounds of discussion, playtesting and feedback with the author. The full process is in the commit history.
 
 ### License
 
-Released under the [GNU General Public License v3.0](LICENSE). Bundled third-party code: [Three.js](https://github.com/mrdoob/three.js) (MIT, © three.js authors). Fonts (Noto Serif SC, Barlow Condensed) are loaded from Google Fonts under the SIL Open Font License.
+Copyright © 2026 [worldv4nquisher-cyber](https://github.com/worldv4nquisher-cyber). Released under the [GNU General Public License v3.0](LICENSE). Bundled third-party code: [Three.js](https://github.com/mrdoob/three.js) (MIT, © three.js authors). Fonts (Noto Serif SC, Barlow Condensed) are loaded from Google Fonts under the SIL Open Font License.
