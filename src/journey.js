@@ -585,7 +585,7 @@ export function arrive(S, x, y) {
   autoAssign(S, camp);
   dirty(S);
   for (const c of S.camps) bumpMood(c, 6, -3);
-  logMsg(S, `🔥 행렬가 도착했습니다 「${st.n}", 새로운 용광로가 켜집니다 (${T.fl}수업).${tents ? `먼저 설정하세요.${tents}상단 천막.` : ''}${embers ? `정지된 야영지를 교체했습니다.${embers}잔불를 클릭하세요.` : ''}`, 'story');
+  logMsg(S, `🔥 행렬가 도착했습니다 「${st.n}", 새로운 용광로가 켜집니다 (${T.fl}레벨).${tents ? `먼저 설정하세요.${tents}상단 천막.` : ''}${embers ? `정지된 야영지를 교체했습니다.${embers}잔불를 클릭하세요.` : ''}`, 'story');
   rt(S).fx.push({ kind: 'arrive-stop', k: J.stage });
   if (st.rule) logMsg(S, `${NORTH_RULES[st.rule].ic} 늙은 길잡이: 「${NORTH_RULES[st.rule].tip}」`, 'story');
   // 北境：新的一章；第一次走到这个站号给一点余烬，记下最远纪录（新的北行也留着）

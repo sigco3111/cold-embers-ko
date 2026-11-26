@@ -278,7 +278,7 @@ export class ChainMap {
     if (t && BLD[t].gather) for (const k of BLD[t].gather) { const o = Sim.oreInfo(S, Sim.mainCamp(S), k); if (o && !o.deep && o.frac < Sim.ORE_WARN) low = `<small class="plh plow">⛏ 난방권${SPOTS[k].n}오직${Math.round(o.frac * 100)}%${o.eta ? `,에 대한${Math.max(1, Math.round(o.eta))}분` : ''}: 깊은 우물을 파거나 탐사</small>`; }
     return `<div class="pln ${x.worst ? 'worst' : ''} ${pct >= 0.999 ? 'ok' : ''}" style="--d:${x.depth}">
       <span class="plni">${RICON[x.k]}</span>
-      <span class="plnt"><span><b>${RES[x.k].n}</b>${x.worst ? `<em>${x.comp ? '나누어졌다' : '대부분 붙어 있음'}</em>` : ''}</span><small>${t ? `${BLD[t].n} ×${x.count}${x.count ? ` · ${x.lvl}수업 ·${x.workers}사람들` : ''}${x.alt ? ` · ${x.alt === x.count ? '모두' : ` ${x.alt}좌석`}대체 레시피 사용` : ''}` : ''}${stat ? ` · ${stat}` : ''}</small>
+      <span class="plnt"><span><b>${RES[x.k].n}</b>${x.worst ? `<em>${x.comp ? '나누어졌다' : '대부분 붙어 있음'}</em>` : ''}</span><small>${t ? `${BLD[t].n} ×${x.count}${x.count ? ` · ${x.lvl}레벨 ·${x.workers}사람들` : ''}${x.alt ? ` · ${x.alt === x.count ? '모두' : ` ${x.alt}좌석`}대체 레시피 사용` : ''}` : ''}${stat ? ` · ${stat}` : ''}</small>
         ${x.hint ? `<small class="plh">${x.hint}</small>` : ''}${low}${x.depth ? this.planNet(x.k) : ''}${this.planMiss(x, P)}</span>
       <span class="plnr"><span class="plbar"><i style="width:${(pct * 100).toFixed(1)}%"></i></span><small>현재 <b>${fr(x.prod)}</b> / 원함${fr(need)}분당</small></span>${go}</div>`;
   }
