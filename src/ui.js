@@ -463,7 +463,7 @@ export class UI {
     const chs = Sim.chapters(S), ch = chs[chs.length - 1], ppl = S.camps.reduce((a, x) => a + x.people, 0);
     const ago = S.savedAt ? (Date.now() - S.savedAt) / 1000 : 0;
     const D = Sim.diffOf(S);
-    const card = hasSave ? `<div class="tsave"><b>🔥 ${esc(c.name)}</b><span>${ch ? esc(ch.ch.n) : ''}</span><small>저장${this.g.slot} · ${D.ic}${D.n} · 👥 ${ppl}사람 · 아니.${S.meta.runs || 1}두 번째 북쪽 방향${ago > 60 ? `· 마지막으로 왔을 때는${fmtTime(ago)}앞으로` : ''}</small></div>` : '';
+    const card = hasSave ? `<div class="tsave"><b>🔥 ${esc(c.name)}</b><span>${ch ? esc(ch.ch.n) : ''}</span><small>저장${this.g.slot} · ${D.ic}${D.n} · 👥 ${ppl}명 · ${S.meta.runs || 1}번째 북행${ago > 60 ? ` · 마지막 접속 ${fmtTime(ago)} 전` : ''}</small></div>` : '';
     el.innerHTML = iconize(`<div class="tshade"></div><div class="tbox">
       <div class="tkick">HAN · JIN · BEI · XING</div>
       <h1 class="tname">${'차가운 잔불의 북행'.split('').map((ch, i) => `<span style="animation-delay:${0.15 + i * 0.12}s">${ch}</span>`).join('')}</h1>
@@ -2741,7 +2741,7 @@ export class UI {
     const next = LANDMARKS.findIndex((l, i) => !S.founded.includes(i) && l.row > far);
     const people = S.camps.reduce((a, c) => a + c.people, 0);
     let h = `<div class="mjour">
-      <div class="mjh"><div><div class="mjt">아니요.${S.meta.runs}두 번째 북쪽 여행</div><small>이 여행은 사라졌습니다${fmtTime(S.t)}${Sim.skyEnded(S) ? '· 🔥 하늘의 불이 켜졌습니다' : S.meta.graduated ? '· 🌟 점화 영원의 용광로' : ''}</small></div>
+      <div class="mjh"><div><div class="mjt">${S.meta.runs}번째 북행</div><small>이번 여정 ${fmtTime(S.t)} 진행${Sim.skyEnded(S) ? '· 🔥 하늘의 불이 켜졌습니다' : S.meta.graduated ? '· 🌟 점화 영원의 용광로' : ''}</small></div>
         <div class="mje" title="잔불：북상일 때 다음 여행에 영구 보너스 제공"><b>🔥${fmt(S.meta.embers)}</b><small>잔불</small></div></div>
       <div class="route"><i class="rl"><i style="너비:${Math.min(100, far / top * 100).toFixed(1)}%"></i></i>
         ${LANDMARKS.map((l, i) => { const cls = S.founded.includes(i) ? 'on' : S.discovered.includes(i) ? 'seen' : ''; return `<span class="rn ${cls} ${i === next ? 'next' : ''} ${i % 2 ? 'up' : ''}" style="left:${(l.row / top * 100).toFixed(1)}%"><em></em><small>${i <= known || cls ? l.n : '？'}</small></span>`; }).join('')}</div>
