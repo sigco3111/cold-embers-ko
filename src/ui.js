@@ -268,7 +268,7 @@ export class UI {
     if (s.empty) return '<span class="sl0">공석</span>';
     if (s.broken) return '<span class="sl0">저장이 손상되었습니다</span>';
     const ago = s.savedAt ? (Date.now() - s.savedAt) / 1000 : 0;
-    return `<b>${esc(s.name)}</b><small>👥 ${s.people}사람 · 아니.${Math.floor((s.t || 0) / DAY_LEN) + 1}일 · 번호${s.runs}두 번째 북쪽 방향 ·${s.diff.ic}${s.diff.n}${s.cur ? '' : ago > 60 ? ` · ${fmtTime(ago)}앞으로` : '· 단지'}</small>`;
+    return `<b>${esc(s.name)}</b><small>👥 ${s.people}명 · ${Math.floor((s.t || 0) / DAY_LEN) + 1}일째 · ${s.runs}번째 북행 · ${s.diff.ic}${s.diff.n}${s.cur ? '' : ago > 60 ? ` · ${fmtTime(ago)} 전` : ' · 방금'}</small>`;
   }
   slotsModal() {
     const g = this.g; let rows = '';
@@ -915,7 +915,7 @@ export class UI {
       const nf = full.get(c.id) || 0;
       const F = Sim.focusOf(c);
       const role = c.depot ? '<em class="ctrole dep">공급 창고</em>' : S.camps.length > 1 && Sim.isMain(S, c) ? '<em class="ctrole">본영</em>' : '';
-      if (p.on) html += `<div class="camptag" style="transform:translate(${p.x | 0}px,${p.y | 0}px)">${role}${F ? `<i class="fch xs" style="background:${F.col}" title="${F.n}야영지">${F.ch}</i>` : ''}${esc(c.name)}<small> · ${Sim.getB(S, c.furnace).lvl}수준</small>${ttl && (c.id === mainId || S.camps.length === 1) ? `<i class="cttl">${esc(ttl)}</i>` : ''}${nf ? `<b class="ctfull" data-camp="${c.id}" title="${nf}창고가 가득 참">📦 가득 참으로 인해 건물이 정지되었습니다${nf}</b>` : ''}</div>`;
+      if (p.on) html += `<div class="camptag" style="transform:translate(${p.x | 0}px,${p.y | 0}px)">${role}${F ? `<i class="fch xs" style="background:${F.col}" title="${F.n}야영지">${F.ch}</i>` : ''}${esc(c.name)}<small> · ${Sim.getB(S, c.furnace).lvl}레벨</small>${ttl && (c.id === mainId || S.camps.length === 1) ? `<i class="cttl">${esc(ttl)}</i>` : ''}${nf ? `<b class="ctfull" data-camp="${c.id}" title="${nf}창고가 가득 참">📦 가득 참으로 인해 건물이 정지되었습니다${nf}</b>` : ''}</div>`;
     }
     // 熄火的营地留下的废墟
     for (const r of Sim.journeyOf(S).ruins || []) {
@@ -1606,7 +1606,7 @@ export class UI {
         const lv = same.map(x => x.lvl), lo = Math.min(...lv), hi = Math.max(...lv), qn = same.filter(x => x.qup).length;
         h += `<div class="row subbulkr"><span>유사${same.length}건물</span><span>${lo === hi ? `모두${lo}레벨` : `${lo}～${hi}레벨`}${qn ? ` · ${qn}줄서서 건물 짓기` : ''}<button class="bulkb" data-act="bulkup" data-arg="${b.id}">⬆ 각 건물 업그레이드</button></span></div>`;
       } }
-    if (g > d.t) h += `<div class="row sub"><span>임계값</span><span>${b.lvl} 수준 이상에서는 "${TIER_NAMES[g]}" 레이어의 ${RES[GATE[g]].n}${RES[GATE[g]].t > S.known ? '(아직 잠금이 해제되지 않았습니다)' : ''}를 사용해야 합니다</span></div>`;
+    if (g > d.t) h += `<div class="row sub"><span>임계값</span><span>${b.lvl}레벨 이상에서 "${TIER_NAMES[g]}" 레이어의 ${RES[GATE[g]].n}${RES[GATE[g]].t > S.known ? '(아직 잠금이 해제되지 않았습니다)' : ''}를 사용해야 합니다</span></div>`;
     else { const nextGate = (Math.floor(b.lvl / GATE_EVERY) + 1) * GATE_EVERY; if (d.t < 7) h += `<div class="row sub"><span>임계값</span><span>${nextGate} 수준 이상에는 "${TIER_NAMES[d.t + 1]}" 수준의 ${RES[GATE[d.t + 1]].n} 필요</span></div>`; }
     h += `</div>`;
     if (b.type !== 'furnace' && !Sim.moveBlock(S, b)) h += `<button class="btn wide" data-act="movebld" data-arg="${b.id}">← 위치 이동 <small>재료 소비 불필요, 수평과 일꾼 모두 유지</small></button>`;
@@ -2482,7 +2482,7 @@ export class UI {
   }
   // ---------- 自动备份 ----------
   agoText(at) { const s = Math.max(0, (Date.now() - at) / 1000); return s < 60 ? '단지' : s < 3600 ? Math.floor(s / 60) + '몇 분 전' : s < 86400 ? Math.floor(s / 3600) + '몇 시간 전' : Math.floor(s / 86400) + '며칠 전'; }
-  bkLine(r) { const i = r.info || {}; return `${esc(i.name || '？')} · 👥 ${fmt(i.people || 0)}사람 · 아니.${Math.floor((i.t || 0) / DAY_LEN) + 1}하늘${(i.runs || 1) > 1 ? `· 아니요.${i.runs}두 번째 북쪽 방향` : ''}`; }
+  bkLine(r) { const i = r.info || {}; return `${esc(i.name || '？')} · 👥 ${fmt(i.people || 0)}명 · ${Math.floor((i.t || 0) / DAY_LEN) + 1}일째${(i.runs || 1) > 1 ? ` · ${i.runs}번째 북행` : ''}`; }
   bkRow() {
     if (!this.bks) { this.loadBackups(); return '<div class="row"><span>자동 백업<br><small>계산 중...</small></span></div>'; }
     const L = this.bks;
