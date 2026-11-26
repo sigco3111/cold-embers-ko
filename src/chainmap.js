@@ -10,15 +10,15 @@ const RES_BY_NAME = Object.fromEntries(Object.entries(RES).map(([k, r]) => [r.n,
 // 建筑状态归成几类，决定节点颜色
 export function statusKind(st) {
   if (!st) return 'idle';
-  if (st === '运转中' || st === Sim.DEEP_WHY || st === '研究中') return 'ok';
-  if (st === '仓库满了') return 'full';
-  if (st.startsWith('缺') || st === Sim.KEEP_WHY || st === Sim.FUEL_KEEP_WHY) return 'short';
-  if (st === '没有派人' || st === '没人干活') return 'idle';
-  if (st.includes('采空') || st.startsWith('等')) return 'depl';
+  if (st === '달리기' || st === Sim.DEEP_WHY || st === '연구중') return 'ok';
+  if (st === '창고가 가득 참') return 'full';
+  if (st.startsWith('부족') || st === Sim.KEEP_WHY || st === Sim.FUEL_KEEP_WHY) return 'short';
+  if (st === '배치된 일손 없음' || st === '아무도 일하지 않아') return 'idle';
+  if (st.includes('멍청이') || st.startsWith('기다리다')) return 'depl';
   return 'slow';
 }
 const RANK = { ok: 0, full: 1, slow: 2, idle: 3, depl: 4, short: 5 };
-export const KIND_TXT = { ok: '运转', full: '满仓', slow: '变慢', idle: '没人', depl: '采空', short: '缺料' };
+export const KIND_TXT = { ok: '달리다', full: '전체 창고', slow: '속도를 늦추다', idle: '아무도', depl: '멍청이', short: '재료 부족' };
 
 // 图：节点 = 同类建筑合在一起（外加熔炉、居民两个去处），边 = 一种物资从上游流到下游
 export function chainGraph(S, cid) {
@@ -36,7 +36,7 @@ export function chainGraph(S, cid) {
     const sk = statusKind(br.status);
     n.ks[sk] = (n.ks[sk] || 0) + 1;
     if (RANK[sk] > n.wr) { n.wr = RANK[sk]; n.worst = b.id; n.st = br.status || ''; }
-    if (br.status && br.status.startsWith('缺') && RES_BY_NAME[br.status.slice(1)]) n.short.add(RES_BY_NAME[br.status.slice(1)]);
+    if (br.status && br.status.startsWith('부족') && RES_BY_NAME[br.status.slice(1)]) n.short.add(RES_BY_NAME[br.status.slice(1)]);
   }
   for (const n of nodes.values()) n.kind = Object.keys(RANK).find(k => RANK[k] === n.wr) || 'idle';
   // 去处：熔炉烧燃料、居民吃熟食
@@ -46,9 +46,9 @@ export function chainGraph(S, cid) {
     const fb = Sim.getB(S, camp.furnace), burn = {};
     for (const k in FUEL) { const v = ((flow[k] || {}).c || 0) - (used[k] || 0); if (v > 0.01) burn[k] = v; }
     const fuels = Object.keys(burn).length ? Object.keys(burn) : ['wood'];
-    nodes.set('furnace', { id: 'furnace', sink: true, type: 'furnace', n: 1, lvl: fb ? fb.lvl : 1, inn: burn, out: {}, ins: fuels, outs: [], worst: camp.furnace, kind: (cr.fueled ?? 1) < 0.999 ? 'short' : 'ok', short: new Set((cr.fueled ?? 1) < 0.999 ? fuels : []), st: (cr.fueled ?? 1) < 0.999 ? '燃料不够' : '' });
+    nodes.set('furnace', { id: 'furnace', sink: true, type: 'furnace', n: 1, lvl: fb ? fb.lvl : 1, inn: burn, out: {}, ins: fuels, outs: [], worst: camp.furnace, kind: (cr.fueled ?? 1) < 0.999 ? 'short' : 'ok', short: new Set((cr.fueled ?? 1) < 0.999 ? fuels : []), st: (cr.fueled ?? 1) < 0.999 ? '연료로는 충분하지 않습니다' : '' });
     const eat = (flow.food || {}).c || 0, hungry = (cr.hunger || 0) > 0.01;
-    nodes.set('people', { id: 'people', sink: true, type: 'people', n: camp.people, inn: { food: eat }, out: {}, ins: ['food'], outs: [], worst: null, kind: hungry ? 'short' : 'ok', short: new Set(hungry ? ['food'] : []), st: hungry ? '吃不饱' : '' });
+    nodes.set('people', { id: 'people', sink: true, type: 'people', n: camp.people, inn: { food: eat }, out: {}, ins: ['food'], outs: [], worst: null, kind: hungry ? 'short' : 'ok', short: new Set(hungry ? ['food'] : []), st: hungry ? '먹기엔 부족하다' : '' });
   }
   // 缺上游：用到某种物资却没有建筑产出它，画一个虚线的「空位」
   const makes = k => [...nodes.values()].filter(n => !n.sink && n.outs.includes(k));
@@ -129,7 +129,7 @@ export function layoutGraph(G, o) {
   return { pos: out, W, H };
 }
 
-const tabsHtml = on => `<div class="cmtabs"><button class="${on === 'chain' ? 'on' : ''}" data-cmtab="chain">生产链</button><button class="${on === 'plan' ? 'on' : ''}" data-cmtab="plan">规划</button></div>`;
+const tabsHtml = on => `<div class="cmtabs"><button class="${on === 'chain' ? 'on' : ''}" data-cmtab="chain">생산 체인</button><button class="${on === 'plan' ? 'on' : ''}" data-cmtab="plan">계획</button></div>`;
 const stars = n => `<span class="plst">${'★'.repeat(n)}<i>${'★'.repeat(3 - n)}</i></span>`;
 const mmss = s => { s = Math.max(0, Math.ceil(s)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 const fr = v => v >= 100 ? Math.round(v) : Math.round(v * 10) / 10;
@@ -182,11 +182,11 @@ export class ChainMap {
     const st = `left:${p.x}px;top:${p.y}px;width:${o.w}px;height:${o.h}px`;
     if (n.ghost) {
       const t = n.type;
-      return `<div class="cmn ghost ${n.kind}" data-nid="${n.id}" style="${st}"><span class="cmi">${RICON[n.k]}</span><span class="cmt"><b>没有${RES[n.k].n}来源</b><span class="cms">${n.kind === 'short' ? '已经断供' : `库存还有 ${fmt(S.camps.find(c => c.id === S.active)?.stock[n.k] || 0)}`}</span>${t ? `<button class="small ${n.kind === 'short' ? 'go' : ''}" data-act="place" data-arg="${t}">建${BLD[t].n}</button>` : ''}</span></div>`;
+      return `<div class="cmn ghost ${n.kind}" data-nid="${n.id}" style="${st}"><span class="cmi">${RICON[n.k]}</span><span class="cmt"><b>아니요${RES[n.k].n}소스</b><span class="cms">${n.kind === 'short' ? '공급이 중단되었습니다' : `아직 재고가 있습니다${fmt(S.camps.find(c => c.id === S.active)?.stock[n.k] || 0)}`}</span>${t ? `<button class="small ${n.kind === 'short' ? 'go' : ''}" data-act="place" data-arg="${t}">빌드${BLD[t].n}</button>` : ''}</span></div>`;
     }
     let ico, name, sub = '';
-    if (n.type === 'people') { ico = RICON.people; name = '居民'; sub = `${n.n} 人`; }
-    else if (n.type === 'furnace') { ico = ui.ico('furnace', n.lvl); name = '熔炉'; sub = `${n.lvl} 级`; }
+    if (n.type === 'people') { ico = RICON.people; name = '주민'; sub = `${n.n}명`; }
+    else if (n.type === 'furnace') { ico = ui.ico('furnace', n.lvl); name = '용광로'; sub = `${n.lvl} 레벨`; }
     else { ico = ui.ico(n.type, n.lvl); name = BLD[n.type].n; sub = n.n > 1 ? `×${n.n}` : ''; }
     const dots = n.sink ? '' : `<span class="cmd">${Object.keys(RANK).filter(k => n.ks[k]).map(k => `<i class="${k}" title="${KIND_TXT[k]}">${n.ks[k]}</i>`).join('')}</span>`;
     return `<div class="cmn ${n.kind}" data-nid="${n.id}" ${n.worst ? `data-bid="${n.worst}"` : n.type === 'people' ? 'data-chpeople="1"' : ''} style="${st}">
@@ -223,10 +223,10 @@ export class ChainMap {
         }
       });
       svg += `</svg>`;
-      const html = `<div class="cmbox u-paper"><div class="phead"><b>生产链 <small>${esc(camp.name)} · 点建筑看详情</small></b><button class="x" data-act="chainclose">✕</button></div>
+      const html = `<div class="cmbox u-paper"><div class="phead"><b>생산 체인 <small>${esc(camp.name)} · 건물을 누르면 상세 정보</small></b><button class="x" data-act="chainclose">✕</button></div>
         ${tabsHtml('chain')}${camps}<div class="cmsum" data-sum="1"></div>
         <div class="cmscroll"><div class="cmin" style="width:${L.W}px;height:${L.H}px">${svg}${G.nodes.map(n => this.nodeHtml(n, L.pos.get(n.id), o)).join('')}${chips.join('')}</div></div>
-        <div class="bmleg"><span><i class="lg ok"></i>运转</span><span><i class="lg slow"></i>变慢 / 满仓</span><span><i class="lg short"></i>缺料 / 采空</span><span><i class="lg idle"></i>没人</span><span><i class="lgl b"></i>传送带</span><span><i class="lgl"></i>红虚线 = 供不上</span><span><i class="lgl g"></i>灰虚线 = 没有来源、在用库存</span></div></div>`;
+        <div class="bmleg"><span><i class="lg ok"></i>가동 중</span><span><i class="lg slow"></i>느려짐 / 만재</span><span><i class="lg short"></i>재료 부족 / 고갈</span><span><i class="lg idle"></i>인원 없음</span><span><i class="lgl b"></i>컨베이어 벨트</span><span><i class="lgl"></i>빨간 점선 = 공급 부족</span><span><i class="lgl g"></i>회색 점선 = 공급원 없음, 재고 사용 중</span></div></div>`;
       const sc = this.el.querySelector('.cmscroll'), keep = sc ? [sc.scrollLeft, sc.scrollTop] : null;
       this.el.innerHTML = iconize(html);
       if (keep) { const s2 = this.el.querySelector('.cmscroll'); s2.scrollLeft = keep[0]; s2.scrollTop = keep[1]; }
@@ -239,33 +239,31 @@ export class ChainMap {
     if (!L.length && !this.adding) this.adding = true;
     let cur = L.find(l => l.r === this.planR) || L.find(l => l.main && Sim.rateGoals(S).some(g => g.r === l.r)) || L[L.length - 1];
     if (cur) this.planR = cur.r;
-    const chips = L.map(l => `<button class="plchip ${cur && l.r === cur.r && !this.adding ? 'on' : ''} ${l.on ? 'up' : ''}" data-plsel="${l.r}">${RICON[l.r]}${RES[l.r].n}${l.main ? '<em>主线</em>' : ''}${stars(l.star)}<small>${fr(Sim.prodRate(S, l.r))}/${fr(l.n)}</small></button>`).join('');
+    const chips = L.map(l => `<button class="plchip ${cur && l.r === cur.r && !this.adding ? 'on' : ''} ${l.on ? 'up' : ''}" data-plsel="${l.r}">${RICON[l.r]}${RES[l.r].n}${l.main ? '<em>메인 라인</em>' : ''}${stars(l.star)}<small>${fr(Sim.prodRate(S, l.r))}/${fr(l.n)}</small></button>`).join('');
     const side = Sim.sideCount(S), smax = Sim.sideMax(S);
     let body = '';
     if (this.adding) {
       const can = Sim.LINE_RES.filter(k => RES[k].t <= Math.max(1, S.known) && !Sim.lineOf(S, k));
-      body = `<div class="pladd"><p>选一种材料立成支线：速度在目标以上稳住 10 分钟升一星，30 分钟二星（每座建筑少要 1 个工人），90 分钟三星。目标不能低于合格线。</p>
-        ${side >= smax ? `<p class="bad">支线已经立满 ${smax} 条了：撤掉一条，或者走完这一程多一个名额。</p>` : `<div class="plpick">${can.map(k => `<button data-pladd="${k}">${RICON[k]}${RES[k].n}<small>合格线 ${Sim.qualFloor(S, k)}/分 · 现在 ${fr(Sim.prodRate(S, k))}/分</small></button>`).join('')}</div>`}</div>`;
+      body = `<div class="pladd"><p>분기선을 구축할 재료 종류를 선택하세요. 속도가 목표 이상으로 안정적이면 10분에 별 1개, 30분에 별 2개(건물당 최소 1개의 일꾼), 90분에 별 3개로 증가합니다. 목표물은 추월선보다 낮을 수 없습니다. </p>${side >= smax ? `<p class="bad">지선이 가득 찼습니다.${smax}번호가 사라졌습니다. 번호 하나를 제거하거나 추가 좌석으로 여행을 마무리하세요. </p>` : `<div class="plpick">${can.map(k => `<button data-pladd="${k}">${RICON[k]}${RES[k].n}<small>적격 라인${Sim.qualFloor(S, k)}/분 · 지금${fr(Sim.prodRate(S, k))}/분</small></button>`).join('')}</div>`}</div>`;
     } else if (cur) {
       const P = Sim.planLine(S, cur.r, cur.n), goal = Sim.rateGoals(S).find(g => g.r === cur.r);
       const h = goal ? Sim.holdOf(S, goal.id) : null;
       const pct = Math.min(1, P.rate / cur.n);
       const nextStar = cur.star < 3 ? Sim.STAR_T[cur.star] - cur.st : 0;
       const floor = cur.main ? cur.n0 || cur.n : Sim.qualFloor(S, cur.r), step = Math.max(1, Math.round(floor / 4));
-      body = `<div class="plhead">${RICON[cur.r]}<b>${RES[cur.r].n}${cur.main ? '主线' : '支线'}</b>${stars(cur.star)}
-          <span class="pltg">目标 <button class="small" data-plset="${-step}" ${cur.n - step < floor ? 'disabled' : ''}>−</button><b>${fr(cur.n)}</b>/分钟<button class="small" data-plset="${step}">＋</button></span>
-          ${Sim.lineBlueprint(S, cur.r) ? `<button class="small" data-plcopy="${cur.r}" title="把这条线的建筑整组复制到别处">复制这条线</button>` : ''}
-          ${cur.main ? '' : `<button class="small ghostb" data-pldrop="${cur.id}">撤掉</button>`}</div>
-        <div class="plrate ${cur.on ? 'up' : ''}"><span class="plbar"><i style="width:${(pct * 100).toFixed(1)}%"></i></span><b>${fr(P.rate)}</b>/${fr(cur.n)} 每分钟</div>
-        <div class="pltimers">${goal ? `<span class="${h.done ? 'ok' : ''}">${h.done ? '✓ 已经达标' : `达标：稳住 ${mmss(h.p)} / 3:00${cur.on ? '' : '（掉下来了，在往回退）'}`}</span>` : ''}
-          <span>${cur.star >= 3 ? '已经三星' : `${'★'.repeat(cur.star + 1)}：再稳住 ${mmss(nextStar)}${cur.on ? '' : '（暂停）'}`}</span>
-          <span class="plfx">${['', '这条线的建筑产量 +15%', '每座建筑少要 1 个工人', '产量再 +30%'].slice(1, cur.star + 1).join('，') || '还没有星'}</span></div>
+      body = `<div class="plhead">${RICON[cur.r]}<b>${RES[cur.r].n}${cur.main ? '본선' : '지선'}</b>${stars(cur.star)}<span class="pltg">대상 <button class="small" data-plset="${-step}" ${cur.n - step < floor ? 'disabled' : ''}>−</button><b>${fr(cur.n)}</b>/분<button class="small" data-plset="${step}">＋</button></span>
+          ${Sim.lineBlueprint(S, cur.r) ? `<button class="small" data-plcopy="${cur.r}" title="이 선을 따라 있는 전체 건물 그룹을 다른 위치로 복사">이 선 복사</button>` : ''}
+          ${cur.main ? '' : `<button class="small ghostb" data-pldrop="${cur.id}">제거</button>`}</div>
+        <div class="plrate ${cur.on ? 'up' : ''}"><span class="plbar"><i style="width:${(pct * 100).toFixed(1)}%"></i></span><b>${fr(P.rate)}</b>/${fr(cur.n)}분당</div>
+        <div 클래스="pltimers">${goal ? `<span class="${h.done ? 'ok' : ''}">${h.done ? '✓ 이미 표준을 달성했습니다.' : `규정 준수: 잠깐만요${mmss(h.p)} / 3:00${cur.on ? '' : '(넘어졌다가 뒤로 물러난다)'}`}</span>` : ''}
+          <span>${cur.star >= 3 ? '이미 삼성' : `${'★'.repeat(cur.star + 1)}: 가만히 있어라${mmss(nextStar)}${cur.on ? '' : '(정지시키다)'}`}</span>
+          <span class="plfx">${['', '이 라인에 있는 건물 생산량 +15%', '각 건물에는 최소 1개의 일꾼이 필요합니다.', '생산량 +30% 더 보기'].slice(1, cur.star + 1).join('，') || '아직 별표 없음'}</span></div>
         ${(() => { const a = Sim.advisor(S); return a && a.act === 'plan' && a.arg === cur.r ? `<div class="pladv"><span class="gmd"><svg class="gpf" aria-hidden="true"><use href="#c-spec_guide"/></svg></span><span>${esc(a.text)}</span></div>` : ''; })()}
         <div class="plnodes">${P.nodes.map(x => this.planNode(x, P)).join('')}</div>
-        <div class="plfoot"><span>这条线用了 <b>${P.people}</b> 人</span><span>主营地人口 <b>${P.pop}</b>/${P.cap}，空闲 ${Math.max(0, P.idle)} 人</span><span>供热圈空地约 <b>${P.free}</b> 块</span></div>`;
+        <div class="plfoot"><span>이 줄은 <b>를 사용합니다.${P.people}</b> 사람 </span><span>본영인구 <b>${P.pop}</b>/${P.cap},게으른${Math.max(0, P.idle)}사람</span><span>난방권 공터 약 <비>${P.free}</b> 차단</span></div>`;
     }
-    const html = `<div class="cmbox plbox u-paper"><div class="phead"><b>规划 <small>只指方向：建几座、放哪儿你来定</small></b><button class="x" data-act="chainclose">✕</button></div>
-      ${tabsHtml('plan')}<div class="pllines">${chips}<button class="plchip add ${this.adding ? 'on' : ''}" data-pladdopen="1">＋ 立支线 <small>${side}/${smax}</small></button></div>
+    const html = `<div class="cmbox plbox u-paper"><div class="phead"><b>계획 <small>방향만 참조: 몇 개를 만들고 어디에 놓을지 결정하세요.</small></b><button class="x" data-act="chainclose">✕</button></div>
+      ${tabsHtml('plan')}<div class="pllines">${chips}<button class="plchip add ${this.adding ? 'on' : ''}" data-pladdopen="1">+ 수직 분기선 <small>${side}/${smax}</small></button></div>
       <div class="plscroll">${body}</div></div>`;
     const sc = this.el.querySelector('.plscroll'), keep = sc ? sc.scrollTop : 0;
     this.el.innerHTML = iconize(html);
@@ -273,16 +271,16 @@ export class ChainMap {
   }
   planNode(x, P) {
     const S = this.g.S, need = x.need, pct = need > 0 ? Math.min(1, x.prod / need) : 1, t = x.type;
-    const go = x.ids.length ? `<button class="small" data-plgo="${x.ids[0]}">去看看</button>` : t && Sim.unlocked(S, t) ? `<button class="small go" data-act="place" data-arg="${t}">建${BLD[t].n}</button>` : t ? `<small class="bad">${BLD[t].n}还没解锁：往北侦察</small>` : '';
-    const stat = Object.entries(x.stat).filter(([k]) => k !== '运转中').map(([k, n]) => `${k} ${n}`).join('、');
+    const go = x.ids.length ? `<button class="small" data-plgo="${x.ids[0]}">가 보기</button>` : t && Sim.unlocked(S, t) ? `<button class="small go" data-act="place" data-arg="${t}">${BLD[t].n} 빌드</button>` : t ? `<small class="bad">${BLD[t].n}은(는) 아직 잠금 해제되지 않았습니다. 북쪽으로 이동하세요 정찰</small>` : '';
+    const stat = Object.entries(x.stat).filter(([k]) => k !== '달리기').map(([k, n]) => `${k} ${n}`).join(',');
     // 原料快挖完：标出来
     let low = '';
-    if (t && BLD[t].gather) for (const k of BLD[t].gather) { const o = Sim.oreInfo(S, Sim.mainCamp(S), k); if (o && !o.deep && o.frac < Sim.ORE_WARN) low = `<small class="plh plow">⛏ 暖圈里的${SPOTS[k].n}只剩 ${Math.round(o.frac * 100)}%${o.eta ? `，约 ${Math.max(1, Math.round(o.eta))} 分钟` : ''}：挖深井或勘探</small>`; }
+    if (t && BLD[t].gather) for (const k of BLD[t].gather) { const o = Sim.oreInfo(S, Sim.mainCamp(S), k); if (o && !o.deep && o.frac < Sim.ORE_WARN) low = `<small class="plh plow">⛏ 난방권${SPOTS[k].n}오직${Math.round(o.frac * 100)}%${o.eta ? `,에 대한${Math.max(1, Math.round(o.eta))}분` : ''}: 깊은 우물을 파거나 탐사</small>`; }
     return `<div class="pln ${x.worst ? 'worst' : ''} ${pct >= 0.999 ? 'ok' : ''}" style="--d:${x.depth}">
       <span class="plni">${RICON[x.k]}</span>
-      <span class="plnt"><span><b>${RES[x.k].n}</b>${x.worst ? `<em>${x.comp ? '被分走了' : '最卡'}</em>` : ''}</span><small>${t ? `${BLD[t].n} ×${x.count}${x.count ? ` · ${x.lvl} 级 · ${x.workers} 人` : ''}${x.alt ? ` · ${x.alt === x.count ? '都' : ` ${x.alt} 座`}用替代配方` : ''}` : ''}${stat ? ` · ${stat}` : ''}</small>
+      <span class="plnt"><span><b>${RES[x.k].n}</b>${x.worst ? `<em>${x.comp ? '나누어졌다' : '대부분 붙어 있음'}</em>` : ''}</span><small>${t ? `${BLD[t].n} ×${x.count}${x.count ? ` · ${x.lvl}수업 ·${x.workers}사람들` : ''}${x.alt ? ` · ${x.alt === x.count ? '모두' : ` ${x.alt}좌석`}대체 레시피 사용` : ''}` : ''}${stat ? ` · ${stat}` : ''}</small>
         ${x.hint ? `<small class="plh">${x.hint}</small>` : ''}${low}${x.depth ? this.planNet(x.k) : ''}${this.planMiss(x, P)}</span>
-      <span class="plnr"><span class="plbar"><i style="width:${(pct * 100).toFixed(1)}%"></i></span><small>现在 <b>${fr(x.prod)}</b> / 要 ${fr(need)} 每分钟</small></span>${go}</div>`;
+      <span class="plnr"><span class="plbar"><i style="width:${(pct * 100).toFixed(1)}%"></i></span><small>현재 <b>${fr(x.prod)}</b> / 원함${fr(need)}분당</small></span>${go}</div>`;
   }
   // 物流网：别的营地有多余的这一样，也算一条来路（说最近的那个，和正在路上的）
   planNet(k) {
@@ -291,20 +289,20 @@ export class ChainMap {
     let best = null, bt = Infinity;
     for (const c of S.camps) { if (c.id === m.id) continue; const sp = Sim.campSpare(S, c, {})[k] || 0; if (sp < 10) continue; const t = Math.hypot(c.x - m.x, c.y - m.y); if (t < bt) { bt = t; best = { c, sp }; } }
     if (!best && !inc) return '';
-    return `<small class="plh">🛷 物流网：${best ? `「${esc(best.c.name)}」多 ${fr(best.sp)}，缺了会自己运过来` : ''}${best && inc ? '；' : ''}${inc ? `路上正运来 ${fr(inc)}` : ''}</small>`;
+    return `ㅜㅜ<small class="plh">🛷 물류망:${best ? `「${esc(best.c.name)}"많은${fr(best.sp)}, 누락된 경우 자체 배송됩니다.` : ''}${best && inc ? '；' : ''}${inc ? `가는 중${fr(inc)}` : ''}</small>`;
   }
   // 还差几座：按这一环每座的实际产量算；被上游卡住时先说上游；人手、空地不够时说卡在哪
   planMiss(x, P) {
     const S = this.g.S, t = x.type, fr = v => (v >= 10 ? Math.round(v) : Math.round(v * 10) / 10);
     if (!t || x.gap < 0.05 || !Sim.unlocked(S, t)) return '';
-    const short = Object.keys(x.stat).filter(k => k.startsWith('缺')).map(k => k.slice(1));
-    if (x.count && short.length) return `<small class="plh plow">这一环自己不缺座数，是上游的${short.join('、')}不够：先补上游</small>`;
+    const short = Object.keys(x.stat).filter(k => k.startsWith('부족')).map(k => k.slice(1));
+    if (x.count && short.length) return `<small class="plh plow">이 링 자체에는 좌석 수가 부족하지 않지만 상류 ${short.join('、')}이(가) 충분하지 않습니다. 상류를 먼저 보충하십시오.</small>`;
     const per = x.count && x.prod > 0 ? x.prod / x.count : x.one, nb = Math.max(1, Math.ceil(x.gap / Math.max(0.1, per)));
     const w = Sim.maxWorkers(t, 1), sz = BLD[t].size;
-    const stuck = P.idle < w ? `没有空闲的人了（一座要 ${w} 人）` : P.free < sz * sz ? '暖圈里没空地了' : '';
+    const stuck = P.idle < w ? `자유로운 사람은 없습니다(건물 비용은 ${w}명).` : P.free < sz * sz ? '난방권에는 빈 공간이 없습니다.' : '';
     const bs = x.ids.map(id => Sim.getB(S, id)).filter(Boolean).sort((a, b) => a.lvl - b.lvl), low = bs[0];
     const upg = low ? per * 0.15 / (1 + 0.15 * (low.lvl - 1)) : 0;
-    return `<span class="plmiss"><small>还差约 <b>${nb}</b> 座${BLD[t].n}${stuck ? `：<em>${stuck}</em>` : ''}</small><span class="plmb"><button class="small go" data-act="place" data-arg="${t}">建一座</button>${low ? `<button class="small" data-plgo="${low.id}">或升级一座：+${fr(upg)}/分，不加人</button>` : ''}</span></span>`;
+    return `<span class="plmiss"><small>아직 <b>에 대해${nb}</b> 좌석${BLD[t].n}${stuck ? `：<em>${stuck}</em>` : ''}</small><span class="plmb"><button class="small go" data-act="place" data-arg="${t}">하나 만들기</button>${low ? `<button class="small" data-plgo="${low.id}">또는 업그레이드 하나: +${fr(upg)}/분, 더 이상 사람이 없습니다</button>` : ''}</span></span>`;
   }
   planClick(e) {
     const S = this.g.S, t = e.target;
@@ -329,13 +327,13 @@ export class ChainMap {
       if (box) box.className = `cmn ${n.ghost ? 'ghost ' : ''}${n.kind}`;
       if (r) {
         let t;
-        if (n.type === 'people') t = `${RICON.food} 吃 ${fmt(n.inn.food || 0)}/分`;
-        else if (n.type === 'furnace') t = `🔥 烧 ${fmt(cr.burnPerMin || 0)} 燃料/分`;
-        else t = n.outs.map(k => `${RICON[k]} ${fmt(n.out[k] || 0)}/分`).join(' ');
+        if (n.type === 'people') t = `${RICON.food}는 ${fmt(n.inn.food || 0)}/분을 먹습니다`;
+        else if (n.type === 'furnace') t = `🔥 ${fmt(cr.burnPerMin || 0)} 연료/분 굽기`;
+        else t = n.outs.map(k => `${RICON[k]} ${fmt(n.out[k] || 0)}/분`).join(' ');
         r.innerHTML = iconize(t);
       }
       if (s) {
-        const msg = n.st && n.kind !== 'ok' ? n.st : n.toStore && n.toStore.length && !n.sink ? `→ 仓库（建造用）` : '';
+        const msg = n.st && n.kind !== 'ok' ? n.st : n.toStore && n.toStore.length && !n.sink ? `→ 창고(건설의 경우)` : '';
         s.textContent = msg; s.className = `cms ${n.kind}`;
       }
     }
@@ -351,7 +349,7 @@ export class ChainMap {
     for (const [ck, a] of agg) {
       const c = el.querySelector(`[data-ec="${CSS.escape(ck)}"]`); if (!c) continue;
       c.classList.toggle('short', a.short); c.classList.toggle('nosrc', !a.short && a.nosrc);
-      c.querySelector('em').textContent = a.short && a.r < 0.01 ? '缺' : a.nosrc ? '用库存' : a.r >= 0.01 ? fmt(a.r) : '';
+      c.querySelector('em').textContent = a.short && a.r < 0.01 ? '부족' : a.nosrc ? '인벤토리 사용' : a.r >= 0.01 ? fmt(a.r) : '';
     }
     // 一句话：最缺的东西
     const f = G.flow;
@@ -359,6 +357,6 @@ export class ChainMap {
     for (const k in f) { const q = f[k]; if (!q || q.want <= 0.05) continue; const gap = (q.want - q.c) / q.want; if (gap > 0.08 && gap > ws) { ws = gap; worst = k; } }
     const cnt = {}; for (const n of G.nodes) if (!n.sink && !n.ghost) for (const k in n.ks) cnt[k] = (cnt[k] || 0) + n.ks[k];
     const sum = el.querySelector('[data-sum]');
-    if (sum) sum.innerHTML = iconize(`${Object.keys(RANK).filter(k => cnt[k]).map(k => `<span class="cmk ${k}">${KIND_TXT[k]} ${cnt[k]}</span>`).join('')}${worst ? `<span class="cmw">最卡：${RICON[worst]}${RES[worst].n}，只够 ${Math.round((1 - ws) * 100)}%</span>` : `<span class="cmw okk">没有缺料</span>`}`);
+    if (sum) sum.innerHTML = iconize(`${Object.keys(RANK).filter(k => cnt[k]).map(k => `<span class="cmk ${k}">${KIND_TXT[k]} ${cnt[k]}</span>`).join('')}${worst ? `<span class="cmw">병목: ${RICON[worst]}${RES[worst].n}, 필요량의 ${Math.round((1 - ws) * 100)}%만 충족</span>` : `<span class="cmw okk">부족한 재료 없음</span>`}`);
   }
 }

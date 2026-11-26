@@ -10,39 +10,39 @@ const make = S => c => S.buildings.filter(b => b.camp === c.id && BLD[b.type].ca
 
 // when(S, c, cr, g) 返回 false 表示还用不上；返回 { act, arg } 表示「去看看」按钮要做什么（没有按钮就返回 true）
 export const HINTS = [
-  { id: 'gang', ic: '🏴', n: '掠夺者来索贡了', d: '点底下老向导的小条或右上角的提醒铃答复：交贡、做买卖，或者靠箭塔顶回去。到时候没人答复，守得住就打，守不住就交贡。',
+  { id: 'gang', ic: '🏴', n: '약탈자가 공물을 요구하러 왔습니다', d: '하단에 있는 늙은 길잡이의 작은 막대 또는 오른쪽 상단에 있는 알림 벨을 클릭하여 답장하세요. 경의를 표하고 사업을 수행하거나 화살탑에 의지하여 뒤로 물러서세요. 때가 되면 아무도 대답하지 않을 것이다. 방어할 수 있으면 공격하겠습니다. 우리가 그것을 방어할 수 없다면, 우리는 조공을 바칠 것입니다.',
     when: S => { const d = Sim.gangDemands(S)[0]; return d ? { act: 'gang', arg: d.g.id } : false; } },
-  { id: 'net', ic: '🛷', n: '路已经修好了', d: '新营地一点火就有一条雪橇道连到最近的营地。在这里摆建筑就行，缺的木材、木板、石料，物流网会自己从有余的营地运过来。「生产 → 物流」里能看路上在运什么。',
+  { id: 'net', ic: '🛷', n: '도로가 복구되었습니다', d: '새로운 야영지가 점화되자마자 가장 가까운 야영지에 연결된 썰매 경로가 생깁니다. 여기에 건물을 배치하면 됩니다. 누락된 목재, 목판, 석재, 물류망은 잉여 야영지에서 스스로 운송됩니다. "생산 → 물류"에서는 도로에 무엇이 운반되고 있는지 확인할 수 있습니다.',
     when: (S, c) => { const m = Sim.mainCamp(S); return c && m && c.id !== m.id && !c.depot && Sim.roadsAt(S, c.id).length ? { act: 'netview', arg: c.id } : false; } },
-  { id: 'wxe', ic: '❄', n: '怪天气要来了', d: '冰风暴、极寒夜、冰湖开裂都会提前预报。打开右上角的提醒铃，花点材料提前准备，能少受很多罪。',
+  { id: 'wxe', ic: '❄', n: '이상한 날씨가 오고 있어요', d: '얼음 폭풍, 극도로 추운 밤, 얼음호수 균열은 모두 사전에 예측됩니다. 오른쪽 상단의 알림 벨을 켜고 재료를 사용하여 미리 준비하면 많은 수고를 덜 수 있습니다.',
     when: (S, c) => { const e = Sim.wxeAt(S, S.t); return e.ev && !e.on && e.inSec <= Sim.forecastOf(S) && Sim.wxeMatters(S, c, e.ev) && !Sim.wxePrepped(S, c, e.ev) ? { act: 'wx' } : false; } },
-  { id: 'ward', ic: '🩺', n: '有人病了', d: '建一座医务所，派两个人照看：住进去的病人在冷天里也能慢慢好起来，营地里染病的人也会少。',
+  { id: 'ward', ic: '🩺', n: '누군가 아프다', d: '진료소를 만들고 두 사람을 보내서 관리하게 하세요. 그 안에 살고 있는 환자는 추운 날씨에 점차 나아질 것이고, 야영지에서는 아픈 사람이 줄어들 것입니다.',
     when: (S, c, cr) => (cr.sick || 0) >= 1 && Sim.unlocked(S, 'infirmary') && !Sim.countType(S, c.id, 'infirmary') ? { act: 'tb', arg: 'build' } : false },
-  { id: 'deep', ic: '⛏', n: '矿快挖空了', d: '矿场面板里能「打深井」：地表采空以后还能慢慢挖下去。侦察营还能派人勘探新矿脉。',
+  { id: 'deep', ic: '⛏', n: '광산은 거의 비어있습니다', d: '광산 패널에서 "깊은 우물을 파낼" 수 있습니다. 표면이 채굴된 후에는 천천히 더 깊게 파낼 수 있습니다. 정찰 막사는 일손 배치를 사용하여 새로운 광물맥을 탐색할 수도 있습니다.',
     when: (S, c) => { const gs = Sim.rt(S).gatherSpots; const b = S.buildings.find(b => b.camp === c.id && !b.deep && Sim.deepable(b.type) && gs && (gs.get(b.id) || []).length && Sim.gatherLeftFrac(S, b) <= 0.25); return b ? { act: 'reqgo', arg: b.id } : false; } },
-  { id: 'chain', ic: '🔗', n: '生产链总览', d: '按 C（或「生产 → 产线」里的生产链图）看整条生产链：哪一环缺人、缺料、堆满了，一眼就能看出来。',
+  { id: 'chain', ic: '🔗', n: '생산 체인 개요', d: 'C(또는 "생산 → 생산 라인"의 생산 체인 다이어그램)를 누르면 전체 생산 체인을 볼 수 있습니다. 어떤 링크에 인력, 자재가 부족하거나 꽉 차 있는지 한 눈에 볼 수 있습니다.',
     when: (S, c) => make(S)(c).length >= 2 && S.buildings.filter(b => b.camp === c.id).length >= 10 ? { act: 'chainmap' } : false },
-  { id: 'bulk', ic: '⬆', n: '一次管一批', d: '同类建筑多了：面板里能「每栋升一级」「都派满」。建造时还能一次摆一排。',
-    pc: '建造时按住左键拖一下，一次摆一排。', touch: '建造时先点「一排」，再拖预览，一次摆一排。',
+  { id: 'bulk', ic: '⬆', n: '한 번에 하나의 배치', d: '유사한 건물이 많이 있습니다. 패널은 "각 건물을 업그레이드"하고 "모두 제공"할 수 있습니다. 건설은 한 번에 한 행씩 배치할 수도 있습니다.',
+    pc: '건설인 경우 왼쪽 버튼을 누른 채 한 번에 한 행씩 드래그합니다.', touch: '건설을 사용하는 경우 먼저 "한 행"을 클릭한 다음 미리보기를 드래그하여 한 번에 한 행씩 배치합니다.',
     when: (S, c) => { const n = {}; for (const b of S.buildings) if (b.camp === c.id && b.type !== 'tent' && BLD[b.type].cat !== 'deco' && b.type !== 'furnace') if ((n[b.type] = (n[b.type] || 0) + 1) >= 3) return { act: 'reqgo', arg: b.id }; return false; } },
-  { id: 'fest', ic: '🎉', n: '可以办篝火庆典了', d: '熔炉面板里能办庆典：花些熟食和木材，大家歇一会儿，希望一下子涨上去，之后干活也更有劲。',
+  { id: 'fest', ic: '🎉', n: '지금부터 모닥불 축하를 할 수 있습니다', d: '용광로 패널에서 축하 행사를 열 수 있습니다. 일부 요리 및 목재를 사용하고 모두 잠시 쉬게 하면 희망이 갑자기 상승하고 이후에는 더욱 활발하게 작업할 수 있습니다.',
     when: (S, c) => !Sim.festBlock(S, c) && (c.hope ?? 50) < 60 ? { act: 'reqgo', arg: c.furnace } : false },
-  { id: 'focus', ic: '🧭', n: '营地可以选专精了', d: '熔炉到了 ' + FOCUS_LVL + ' 级：在「营地 → 概况」里选矿业、农垦、工坊或要塞，强一样、弱一样。',
+  { id: 'focus', ic: '🧭', n: '야영지는 이제 전문화를 선택할 수 있습니다.', d: '용광로가 도착했습니다' + FOCUS_LVL + '레벨: "야영지 → 개요"에서 광업, 농경, 공방 또는 요새를 선택합니다. 강점은 동일하고 약점은 동일합니다.',
     when: (S, c) => !c.focus && !c.trade && (Sim.getB(S, c.furnace) || {}).lvl >= FOCUS_LVL ? { act: 'tb', arg: 'camp' } : false },
-  { id: 'belt', ic: '⛓', n: '传送带', d: '加工建筑的面板里能接传送带：上下游挨得近，就能直接供料，少用搬运工，下游还快一点。',
+  { id: 'belt', ic: '⛓', n: '컨베이어 벨트', d: '가공 건물의 패널은 컨베이어 벨트에 연결될 수 있습니다. 상류와 하류가 서로 가깝고 자재를 직접 공급할 수 있습니다. 운반꾼을 적게 사용하면 다운스트림이 더 빨라집니다.',
     slow: true,
     when: (S, c) => { if (S.known < Sim.BELT[1].tier || (S.belts || []).length) return false; for (const b of make(S)(c)) if (Sim.beltOptions(S, b.id).some(o => o.ck.ok)) return { act: 'reqgo', arg: b.id }; return false; } },
-  { id: 'kennel', ic: '🐕', n: '雪橇犬舍', d: '建一座犬舍养雪橇犬：侦察队跑得更快，连着这座营地的路也运得更多。狗要吃生肉。',
+  { id: 'kennel', ic: '🐕', n: '썰매견 사육장', d: '썰매 개를 키우기 위해 개집을 건설하세요. 정찰대는 더 빨리 달리고, 이 야영지를 연결하는 도로에도 더 많은 교통량이 있습니다. 개는 생고기를 먹고 싶어합니다.',
     when: (S, c) => Sim.countType(S, c.id, 'scout') && !S.buildings.some(b => b.type === 'kennel') && S.buildings.filter(b => b.camp === c.id).length >= 14 ? { act: 'tb', arg: 'build' } : false },
-  { id: 'deco', ic: '🏮', n: '装饰建筑', d: '路灯、旗杆、雕像、花窖不产东西，但能让人心里亮一点（加希望）。放在大家常走的路边、熔炉旁边。',
+  { id: 'deco', ic: '🏮', n: '장식 건물', d: '가로등, 깃대, 조각상 및 꽃 저장고는 아무것도 생성하지 않지만 민심을 조금 더 밝게 만들 수 있습니다(+ 희망). 모두가 자주 다니는 길가, 용광로 옆에 놓아두세요.',
     when: (S, c) => (c.hope ?? 50) < 50 && S.buildings.filter(b => b.camp === c.id).length >= 16 && !S.buildings.some(b => BLD[b.type].cat === 'deco') ? { act: 'tb', arg: 'build' } : false },
-  { id: 'curve', ic: '📈', n: '数据曲线', d: '按 G（或「菜单 → 收藏」）看曲线：人口、温度、物资储量这几个小时是怎么变的，哪里在慢慢往下掉。',
+  { id: 'curve', ic: '📈', n: '데이터 곡선', d: 'G(또는 "메뉴 → 컬렉션")를 눌러 곡선을 확인하세요. 지난 몇 시간 동안 인구, 온도 및 재료 매장량이 어떻게 변했는지, 어디에서 천천히 감소하고 있는지를 확인하세요.',
     when: (S, c) => (c.hist && c.hist.f && c.hist.f.n >= 40) ? { act: 'curve' } : false },
-  { id: 'depart', ic: '🛷', n: '可以北迁了', d: '出发前的四件事都备好了。打开「北行 → 北迁」，挑好带多少人、多少货，后面的营地是留守还是熄火，再按出发。车队在路上的时候，营地照常干活。',
+  { id: 'depart', ic: '🛷', n: '알았어 북상', d: '출발 전 4가지 준비물이 준비되어 있습니다. "북행 → 북상"를 열고 탑승할 인원과 물품 수, 뒤에 있는 야영지가 뒤에 남을 것인지 꺼질 것인지를 선택한 후 이동을 누르세요. 행렬이 이동 중인 동안에는 야영지가 평소처럼 작동합니다.',
     when: S => { const g = Sim.departGate(S); return g && g.ok && !Sim.journeyOf(S).trip ? { act: 'tb', arg: 'migrate' } : false; } },
-  { id: 'trip', ic: '🚩', n: '车队上路了', d: '「北行 → 北迁」里能看车队走到哪儿、还要多久，点「跟着车队」镜头就跟过去。到了以后挑一块平地放下新熔炉，那里就是新的主营地。',
+  { id: 'trip', ic: '🚩', n: '행렬이 이동 중입니다.', d: '"북행 → 북상"에서는 행렬이 어디로 가는지, 얼마나 걸리는지 확인할 수 있습니다. 카메라를 따라가려면 "행렬 따라가기"를 클릭하세요. 도착 후 평평한 땅을 골라 새 용광로를 내려놓으세요. 새로운 본영이 있을 것입니다.',
     when: S => { const T = Sim.journeyOf(S).trip; return T && T.phase !== 'arrive' && !Sim.roadView(S) ? { act: 'tb', arg: 'migrate' } : false; } },
-  { id: 'photo', ic: '📷', n: '拍照模式', d: '按 H（或「菜单 → 收藏」）进拍照模式：藏起界面，换时辰、滤镜和镜头角度，给营地拍一张。',
+  { id: 'photo', ic: '📷', n: '사진 모드', d: 'H(또는 "메뉴 → 컬렉션")를 눌러 사진 모드로 들어갑니다. 인터페이스를 숨기고, 시간, 필터 및 렌즈 각도를 변경하고, 야영지 사진을 찍습니다.',
     when: S => S.camps.length >= 2 || S.buildings.length >= 40 ? { act: 'photo' } : false },
 ];
 
@@ -86,35 +86,35 @@ export function whatsNewHtml(S, from = 13, pref = 'auto') {
   const notes = [];
   if (from < 12) {
     const back = S.meta.refund12 || 0;
-    notes.push(`第十二版的改动也一起来了：北迁不再重开一局，「${main.name}」现在是主营地${depots.length ? `，${depots.map(c => '「' + c.name + '」').join('、')}变成补给站` : ''}；每章的头一个目标改成「每分钟产多少」；多了 4 倍速，离线攒资源比在线慢。${back ? `巧手强化多出来的几级退回了 🔥${back} 余烬。` : ''}`);
+    notes.push(`12판의 변경 사항도 함께 적용되었습니다. 북상는 더 이상 라운드를 다시 시작하지 않습니다.${main.name}"이제는 본영다.${depots.length ? `，${depots.map(c => '「' + c.name + '」').join('、')}공급 창고가 되어보세요` : ''};각 장의 첫 번째 목표는 "분당 얼마나 생산되는지"로 변경됩니다. 4배 빠른 속도로 오프라인는 온라인보다 느리게 리소스를 축적합니다.${back ? `손재주 향상의 추가 수준이 반환됩니다 🔥${back}잔불.` : ''}`);
   }
-  if (atSpine) notes.push('车队停在世界之脊，往北的路已经通了：北迁面板里的下一站就是「北境第 1 站」。');
-  else if (north) notes.push(`你已经在北境第 ${north} 站了，接着往北走就行。`);
-  if (got && from < 13) notes.push(`你以前做到的事已经算数：补发了 ${got} 个新成就，奖励在「菜单 → 收藏 → 装扮」里换上。`);
+  if (atSpine) notes.push('행렬은 세계의 척추에 정차했으며 북쪽으로 가는 길이 열려 있습니다. 북상 패널의 다음 정류장은 "북방 스테이션 1"입니다.');
+  else if (north) notes.push(`이미 북방의 ${north} 역에 있습니다. 북쪽으로 가세요.`);
+  if (got && from < 13) notes.push(`이전에 수행한 작업이 계산되었습니다. ${got}개의 새 업적이 재발행되었으며 "메뉴 → 컬렉션 → 드레스업"에서 보상이 교체되었습니다.`);
   if (from < 15) {
     const nr = (S.meta.netNew || []).length, sp = S.camps.filter(c => c.spec).length, bots = S.buildings.reduce((a, b) => a + (b.bots || 0), 0);
-    notes.push(`1.1 接上了：${nr ? `原来的运输线和补给站换成了物流网，新修了 ${nr} 条路；` : S.camps.length > 1 ? '原来的运输线换成了物流网；' : ''}${sp ? `每座营地按地形分到了一样特产；` : ''}在岗的建筑从熟练 1 级算起；以前的研究都还在；${bots ? `营地里的 ${bots} 台自动机都按劳工型装回了仓里；` : ''}${S.cold ? '寒潮过一天开始报；' : ''}${north >= 4 ? '已经过了北境第 4 站，第一波永冬潮大约两天后报出来；' : ''}读档前自动备份了一份，「菜单 → 存档 → 自动备份」里能退回去。`);
+    notes.push(`1.1 연결됨:${nr ? `원래 운송 라인과 보급 창고는 물류망로 교체되고 새로 수리되었습니다.${nr}도로; 도로` : S.camps.length > 1 ? '원래 운송 노선은 물류망로 대체되었습니다.' : ''}${sp ? `각 야영지에는 지형에 따라 특수 제품이 할당됩니다.` : ''}근무 중인 건물은 숙련도 1부터 계산됩니다. 이전 연구는 여전히 존재합니다.${bots ? `야영지에서${bots}대만 오토마톤는 노동형로 창고에 다시 적재되었습니다.` : ''}${S.cold ? '한파는 하루 안에 보고를 시작합니다.' : ''}${north >= 4 ? '북방의 네 번째 관측소가 통과되었으며 영동조의 첫 번째 물결은 약 이틀 후에 보고될 예정입니다.' : ''}불러오기 이전에 복사본이 자동으로 백업되었으며, "메뉴 → 저장 → 자동 백업"에서 되돌릴 수 있습니다.`);
   }
-  if (from >= 15) notes.unshift('这一版只换了界面，玩法和数值都没动。');
-  notes.push('存档里的东西都没丢。');
+  if (from >= 15) notes.unshift('이번 버전에서는 인터페이스만 변경되었을 뿐 게임 플레이와 가치관은 그대로 유지되었습니다.');
+  notes.push('저장에서는 아무것도 손실되지 않았습니다.');
   const CL = v => CHANGELOG.find(c => c.v === v);
-  const W12 = [['🎨', '拟物和冷暖', 0], ['✨', '新图标', 1], ['⚙', '电脑版', 2], ['🔔', '提示变小', 3], ['📖', '其余窗口', 4]];
+  const W12 = [['🎨', '스큐어모피즘과 따뜻함과 차가움', 0], ['✨', '새로운 아이콘', 1], ['⚙', 'PC 버전', 2], ['🔔', '프롬프트가 작아짐', 3], ['📖', '남은 창', 4]];
   const v12 = W12.map(([ic, n, i]) => `<div class="wn"><b>${ic} ${n}</b><span>${CL('v1.2.0').items[i]}</span></div>`).join('');
   // 当场选配色：点了就换，再点别的也行，「知道了」才关
-  const pick = `<div class="wnpick"><b>先挑一套配色</b><small>以后在「菜单 → 设置 → 界面配色」里随时能换</small><div class="seg">${THEMES.map(([k, n, d]) => `<button class="btn ${pref === k ? 'on' : ''}" data-act="wn-theme" data-arg="${k}">${n}<small>${k === 'auto' ? '风雪来时变冷' : d}</small></button>`).join('')}</div></div>`;
-  const W11 = [['🧭', '新界面', 0], ['🛷', '物流网', 1], ['⚗', '配方和特产', 2], ['🌨', '熟练工和寒潮', 3], ['🏪', '北方商会', 4], ['🔬', '45 项研究', 5], ['🤖', '自动机和号令', 6], ['🗺', '分岔和奇遇', 7], ['🏛', '奇观和城镇', 8], ['🔥', '鼎盛和永冬潮', 9]];
+  const pick = `<div class="wnpick"><b>색 구성표를 먼저 선택하세요</b><small>"메뉴 → 설정 → 인터페이스 색상 색상"에서 언제든지 변경할 수 있습니다.</small><div class="seg">${THEMES.map(([k, n, d]) => `<button class="btn ${pref === k ? 'on' : ''}" data-act="wn-theme" data-arg="${k}">${n}<small>${k === 'auto' ? '눈오면 추워지는데' : d}</small></button>`).join('')}</div></div>`;
+  const W11 = [['🧭', '새로운 인터페이스', 0], ['🛷', '물류망', 1], ['⚗', '조리법 및 특산품', 2], ['🌨', '숙련공 및 한파', 3], ['🏪', '북방 상회', 4], ['🔬', '45개 항목연구', 5], ['🤖', '오토마톤 및 명령', 6], ['🗺', '분기점 및 기연', 7], ['🏛', '불가사의 및 마을', 8], ['🔥', '딩성허 영동조', 9]];
   const v11 = W11.map(([ic, n, i]) => `<div class="wn"><b>${ic} ${n}</b><span>${CL('v1.1.0').items[i]}</span></div>`).join('');
-  const more = `<p class="hint">「菜单 → 帮助 → 更新日志」里能看到每一版加了什么。</p>`;
+  const more = `<p class="hint">"메뉴 → 도움말 → 업데이트 로그"에서 각 버전에 추가된 내용을 확인할 수 있습니다. </p>`;
   const head = `<h2>${VERSION_NAME}</h2>${pick}${v12}`;
-  if (from >= 15) return `${head}<div class="wn"><b>📜 你的存档</b><span>${notes.join('')}</span></div>${more}`;
-  if (from >= 14) return `${head}<p class="hint wnfirst">1.1.0 炉火连城的改动也一起来了：</p>${v11}<div class="wn"><b>📜 你的存档</b><span>${notes.join('')}</span></div>${more}`;
-  const v1 = `<div class="wn"><b>🎉 1.0.0 正式版</b><span>${CL('v1.0.0').items.map(t => '· ' + t).join('<br>')}</span></div>`;
-  if (from >= 13) return `${head}<p class="hint wnfirst">1.1.0 炉火连城和 1.0.0 正式版的改动也一起来了：</p>${v11}${v1}<div class="wn"><b>📜 你的存档</b><span>${notes.join('')}</span></div>${more}`;
-  return `${head}<p class="hint wnfirst">1.1.0 炉火连城、1.0.0 正式版和第十三版「极北篇」的内容也一起来了：</p>${v11}${v1}
-<div class="wn"><b>🧭 无尽北境</b><span>翻过世界之脊还能一直往北走。北境每一站有一种地貌：地热谷、富矿带、永夜、狼群领地、冰湖群、古城遗址、风暴走廊、陨石雨、冻土无林……各有好处和麻烦，还有一项专属任务。菜单和地图上记着你走到过的最远一站。</span></div>
-<div class="wn"><b>🗼 烽火塔</b><span>北境前十站各点亮一座烽火塔：打地基、喂高级材料、点火，一道光柱连回南边。第十站是天火塔，点着它就是最终结局。</span></div>
-<div class="wn"><b>🏆 成就与装扮</b><span>二十个新成就，奖励称号、炉火颜色、营旗图案、相框和八种北境装饰。相册会自动记下抵达、点塔这些时刻，拍照模式里也能收进去。</span></div>
-<div class="wn"><b>⛏ 矿点规划</b><span>矿快挖空会提前说，便宜的勘探随时补；摆建筑会挡住矿点时预览变黄。建筑能「挪位置」，不花材料；地上的金星是推荐位置；规划器会告诉你还差几座。</span></div>
-<div class="wn"><b>💾 存档</b><span>存档能存成文件、从文件读回来，存档位可以删除；拍的照片能直接保存。</span></div>
-<div class="wn"><b>📜 你的存档</b><span>${notes.join('')}</span></div>`;
+  if (from >= 15) return `${head}<div class="wn"><b>📜 귀하의 저장</b><span>${notes.join('')}</span></div>${more}`;
+  if (from >= 14) return `${head}<p class="hint wnfirst">1.1.0의 변경 사항도 여기에 있습니다:</p>${v11}<div class="wn"><b>📜 저장</b><span>${notes.join('')}</span></div>${more}`;
+  const v1 = `<div class="wn"><b>🎉 1.0.0 공식 버전</b><span>${CL('v1.0.0').items.map(t => '· ' + t).join('<br>')}</span></div>`;
+  if (from >= 13) return `${head}<p class="hint wnfirst">1.1.0 Fire City 및 1.0.0 공식 버전 변경 사항도 여기에 있습니다:</p>${v11}${v1}<div class="wn"><b>📜 귀하의 저장</b><span>${notes.join('')}</span></div>${more}`;
+  return `${head}<p class="hint wnfirst">1.1.0 The Great Fire, 1.0.0 공식 버전 및 13판 "Ultra North"의 콘텐츠도 여기에 있습니다:</p>${v11}${v1}
+<div class="wn"><b>🧭 Endless 북방</b><span>세계의 척추를 넘어도 북쪽으로 갈 수 있습니다. 북방의 각 스테이션에는 지열 골짜기, 부광대, 영야, 늑대 무리 영역, 얼음호수 지대, 고성 유적지, 폭풍 회랑, 운석비, 나무 없는 동토... 각각 고유한 장점과 문제점이 있으며 독점적인 지형도 있습니다. 과제. 이동한 가장 먼 정거장이 메뉴와 지도에 기록됩니다. </span></div>
+<div class="wn"><b>🗼 봉화탑</b><span>북방 처음 10개 스테이션 각각에서 봉화탑을 켜세요: 기초 공사, 고급 재료를 공급하고 점화하면 빛의 광선이 다시 남쪽으로 연결됩니다. 열 번째 정류장은 천화탑입니다. 클릭하시면 최종 결과를 보실 수 있습니다. </span></div>
+<div class="wn"><b>🏆 업적 및 드레스업</b><span>20개의 새로운 업적, 보상칭호, 불꽃 색상, 캠프 깃발 패턴, 사진 프레임 및 8개의 북방장식. 사진 앨범은 도착 순간과 타워 클릭 순간을 자동으로 기록하며 사진 모드에도 포함될 수 있습니다. </span></div>
+<div class="wn"><b>⛏ 광산 지점 계획</b><span> 광산이 곧 파헤쳐지면 미리 알려주고, 언제든지 저렴한 탐사를 보충할 수 있습니다. 건물을 배치하면 광산 지점이 차단되고 미리보기가 노란색으로 변합니다. 건물은 자재를 사용하지 않고도 "이동"할 수 있습니다. 지상의 금성이 권장되는 위치입니다. 플래너는 건물이 몇 개 남았는지 알려줄 것입니다. </span></div>
+<div class="wn"><b>💾 저장</b><span>저장은 파일로 저장하고 파일에서 다시 읽을 수 있습니다. 저장 비트는 삭제될 수 있습니다. 찍은 사진은 직접 저장할 수 있습니다. </span></div>
+<div class="wn"><b>📜 귀하의 저장</b><span>${notes.join('')}</span></div>`;
 }

@@ -27,8 +27,8 @@ function lineHold(S, P, l) {
   if (P.miss[l.id] == null) P.miss[l.id] = S.t;
   return S.t - P.miss[l.id] < PEAK.grace;
 }
-const lineName = l => `${RES[l.r].n}${l.main ? '主线' : '支线'}`;
-function whyOut(S, l) { return l.star < 3 ? `${lineName(l)}还是 ${l.star} 星` : `${lineName(l)}的速度掉到了目标以下`; }
+const lineName = l => `${RES[l.r].n}${l.main ? '본선' : '지선'}`;
+function whyOut(S, l) { return l.star < 3 ? `${lineName(l)} 또는 ${l.star}개의 별` : `${lineName(l)}의 속도가 목표보다 떨어졌습니다.`; }
 // 面板用：这座营地的线、哪条还差、熄过一次是因为哪条
 export function peakView(S, c) {
   const P = pkOf(c), L = campLines(S, c);
@@ -47,12 +47,12 @@ function peakStep(S) {
       P.on = 1; P.t0 = S.t; P.n = (P.n || 0) + 1; P.out = null;
       S.meta.peakN = (S.meta.peakN || 0) + 1;
       dirty(S);
-      logMsg(S, `🔥 「${c.name}」炉火鼎盛！这里的 ${L.length} 条产线全稳在三星：营地产量 +${PEAK.prod * 100}%，炉火烧成了金色。`, 'good', { act: 'campgo', arg: c.id, label: '看看' });
+      logMsg(S, `🔥 「${c.name}」이(가) 한창 진행 중입니다! 여기의 ${L.length} 생산 라인은 삼성에서 모두 안정적입니다: 야영지생산량 +${PEAK.prod * 100}%, 용광로는 금색으로 불타버렸습니다.`, 'good', { act: 'campgo', arg: c.id, label: '보기' });
       rt(S).fx.push({ kind: 'peak', camp: c.id, first: P.n === 1, x: c.x, y: c.y });
     } else if (P.on && !all) {
-      P.on = 0; P.out = { t: S.t, r: bad ? bad.r : null, why: bad ? whyOut(S, bad) : `产线不到 ${PEAK.min} 条` };
+      P.on = 0; P.out = { t: S.t, r: bad ? bad.r : null, why: bad ? whyOut(S, bad) : `${PEAK.min} 미만 생산 라인` };
       dirty(S);
-      logMsg(S, `「${c.name}」的炉火鼎盛熄了：${P.out.why}。补回三星水准，金色的火会再烧起来。`, 'warn', bad ? { act: 'plan', arg: bad.r, label: '看产线' } : undefined);
+      logMsg(S, `"${c.name}"의 불이 꺼졌습니다: ${P.out.why}. 삼성 수준을 만회하기 위해 금색의 불이 다시 타오를 것입니다.`, 'warn', bad ? { act: 'plan', arg: bad.r, label: '생산라인을 살펴보세요' } : undefined);
       rt(S).fx.push({ kind: 'peakoff', camp: c.id });
     }
   }
@@ -101,19 +101,19 @@ function tideStep(S) {
   if (C.on != null && C.end !== C.on && S.t >= tideStart(S, C.on) + TIDE.len) { C.end = C.on; tideEnd(S, C.on); }
   if (!z.on && z.fc && C.fc !== z.n) {
     C.fc = z.n;
-    logMsg(S, `🌌 永冬潮预报：第 ${z.n} 波约 ${Math.max(1, Math.round(z.inSec / 60))} 分钟后到，持续一天半：气温再降 ${z.drop}°，熔炉烧 ${TIDE.fuel} 倍燃料，户外采集变慢；最后一夜霜巨兽会冲主营地。物流网会先给每座营地备燃料。`, 'warn', { act: 'wx', label: '看看' });
+    logMsg(S, `🌌 영동조 예측: 첫 번째 ${z.n} 파도는 약 ${Math.max(1, Math.round(z.inSec / 60))}분 후에 도달하고 하루 반 동안 지속됩니다. 온도는 ${z.drop}° 더 떨어지고, 용광로는 연료의 ${TIDE.fuel}배를 태울 것이며, 실외 채집은 속도가 느려질 것입니다. 서리 괴물은 어젯밤에 본영으로 돌진할 것입니다. 물류망은 먼저 각 야영지에 대해 연료를 준비합니다.`, 'warn', { act: 'wx', label: '보기' });
   }
   if (z.on && C.on !== z.n) {
     C.on = z.n; C.hit = {}; C.bw = null;
     S.stats.tide = (S.stats.tide || 0) + 1;
-    logMsg(S, `🌌 永冬潮第 ${z.n} 波来了！一天半里气温再降 ${z.drop}°，熔炉烧 ${TIDE.fuel} 倍燃料，户外采集只剩 ${Math.round(tideGather(S) * 100)}%。最后一夜霜巨兽会来。`, 'bad', { act: 'wx', label: '看看' });
+    logMsg(S, `🌌 영동조 Wave ${z.n}이(가) 왔습니다! 하루 반 만에 온도가 ${z.drop}° 더 떨어졌고, 용광로는 연료보다 ${TIDE.fuel}배 더 많이 연소되었으며 실외 채집은 ${Math.round(tideGather(S) * 100)}%만 남았습니다. 서리 짐승은 어젯밤에 올 것이다.`, 'bad', { act: 'wx', label: '보기' });
     rt(S).fx.push({ kind: 'tide', n: z.n });
   }
   if (z.on && C.on === z.n && C.bt !== z.n) {
     const left = z.beastT - S.t;
     if (left <= TIDE.warn && C.bwarn !== z.n) {
       C.bwarn = z.n; const v = beastView(S, z);
-      if (v) logMsg(S, `🧊 霜巨兽从冰原那头走过来了，直奔「${v.name}」（强度 ${v.str}，防御 ${v.def}）。${v.def >= v.str ? '箭塔够它受的。' : '防御不够：多建箭塔，或者靠蒸汽巨像吓走它。'}`, 'warn', { act: 'wx', label: '看看' });
+      if (v) logMsg(S, `🧊 서리 거인은 빙원 반대편에서 다가와 "${v.name}"(강도 ${v.str}, 방어 ${v.def})을 향해 직진했습니다. ${v.def >= v.str ? '화살탑이면 충분합니다.' : '방어로는 충분하지 않습니다. 화살탑를 더 구축하거나 증기 거상로 겁을 주어 쫓아내세요.'}`, 'warn', { act: 'wx', label: '보기' });
     }
     if (S.t >= z.beastT) { C.bt = z.n; beastAttack(S, z); }
   }
@@ -127,8 +127,8 @@ function beastAttack(S, z) {
   if (def >= str || guard || colossusScare(S)) {
     C.bw = 1; bumpMood(camp, 4, -2);
     if (guard) guard.cd = S.t + BLD.colossus.guardCd / (1 + 0.15 * (guard.lvl - 1));
-    const how = def >= str ? `箭塔一轮轮射过去（${def} 对 ${str}）` : guard ? '巨像守卫站起来挡在门口' : '蒸汽巨像拉响汽笛、喷出一大团白汽';
-    logMsg(S, `🧊 霜巨兽冲到了「${camp.name}」外面，${how}，它退回了冰原。`, 'good');
+    const how = def >= str ? `화살탑은 라운드 후 라운드를 슛합니다(${def} 대 ${str}).` : guard ? '거상 수호자가 일어나 문을 막았다.' : '증기 거상이 휘파람을 불며 커다란 흰 증기를 뿜어냈다.';
+    logMsg(S, `🧊 서리괴수는 "${camp.name}", ${how} 밖으로 달려나가 빙원으로 후퇴했습니다.`, 'good');
     R.fx.push({ kind: 'raid', camp: camp.id, won: true, str, def: Math.max(def, str), t: S.t, beast: 1 });
     return;
   }
@@ -141,7 +141,7 @@ function beastAttack(S, z) {
   const hurt = Math.max(1, Math.round(camp.people * TIDE.sick));
   camp.sick = Math.min(camp.people * 0.3, (camp.sick || 0) + hurt);
   bumpMood(camp, -8, 6); trimWorkers(S, camp); dirty(S);
-  logMsg(S, `🧊 霜巨兽闯进了「${camp.name}」（防御 ${def} 对 ${str}）：${froze.length ? `${[...new Set(froze.map(b => BLD[b.type].n))].join('、')}被冻住了 ${TIDE.frz / 60} 分钟，` : ''}${hurt} 人冻伤病倒。没人遇难，冰化了就好。`, 'bad');
+  logMsg(S, `🧊 서리 괴물이 침입했어요 "${camp.name}"(방어${def}오른쪽${str}）：${froze.length ? `${[...new Set(froze.map(b => BLD[b.type].n))].join('、')}얼었다${TIDE.frz / 60}분,` : ''}${hurt}사람 동상가 병에 걸렸습니다. 아무도 죽지 않았습니다. 얼음이 녹도록 두십시오.`, 'bad');
   R.fx.push({ kind: 'raid', camp: camp.id, won: false, str, def, t: S.t, beast: 1 });
 }
 function tideEnd(S, n) {
@@ -154,10 +154,10 @@ function tideEnd(S, n) {
     S.meta.embers += e; S.meta.emberTotal = (S.meta.emberTotal || 0) + e;
     S.meta.tideBest = Math.max(S.meta.tideBest || 0, n);
     S.stats.tideOk = (S.stats.tideOk || 0) + 1;
-    logMsg(S, `🌌 永冬潮第 ${n} 波过去了，所有营地都挺住了：余烬 +${e}，每座营地希望 +${TIDE.hope}。${n >= 10 ? '十波永冬都没能熄掉这团火。' : n >= 5 ? '第五波都挺过来了，北境记住了这团火。' : ''}`, 'good');
+    logMsg(S, `🌌 영동조의 ${n} 파동이 통과되었으며 모든 야영지가 살아 남았습니다. 잔불 +${e}, 각 야영지희망 +${TIDE.hope}. ${n >= 10 ? '영원한 겨울의 10번의 파도가 이 화재를 진압하는데 실패했습니다.' : n >= 5 ? '다섯 번째 공격에서 살아남은 후 북방는 이 화재를 기억했습니다.' : ''}`, 'good');
   } else {
-    const why = [hit.length && `${hit.map(x => `「${x.name}」`).join('')}有人冻伤`, C.bw === 0 && '霜巨兽闯进了主营地'].filter(Boolean).join('，');
-    logMsg(S, `🌌 永冬潮第 ${n} 波过去了。${why}，这一波没有余烬。下一波更冷：早点备燃料、升级帐篷保暖、多建箭塔。`, 'warn');
+    const why = [hit.length && `${hit.map(x => `「${x.name}」`).join('')}누군가동상`, C.bw === 0 && '서리 괴물이 본영에 침입했습니다.'].filter(Boolean).join(',');
+    logMsg(S, `🌌 영동조 ${n}번째 웨이브가 지났습니다. ${why}, 이 웨이브에는 잔불이 없습니다. 다음 파도는 더 추울 것입니다. 연료 및 업그레이드천막을 일찍 준비하여 따뜻하게 유지하고 더 많은 화살탑을 구축하십시오.`, 'warn');
   }
   rt(S).fx.push({ kind: 'tide-end', n, win });
 }

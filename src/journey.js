@@ -22,7 +22,7 @@ export function stopOf(S, k) {
   if (k < LANDMARKS.length) { const l = LANDMARKS[k]; return { k, n: l.n, x: l.x, y: l.row, far: false }; }
   if (k > SPINE) {
     const p = northStop(S.runSeed, k - SPINE);
-    return { k, n: `北境第 ${p.k} 站·${p.name}`, short: p.name, x: p.x + 0.5, y: p.y + 0.5, far: true, north: p.k, r: p.r, rule: p.rule, mark: p.mark, rich: p.rich };
+    return { k, n: `북방번째 역 ${p.k}·${p.name}`, short: p.name, x: p.x + 0.5, y: p.y + 0.5, far: true, north: p.k, r: p.r, rule: p.rule, mark: p.mark, rich: p.rich };
   }
   const i = k - LANDMARKS.length, p = (getWorld(S.runSeed).far || [])[i];
   return p ? { k, n: FAR_MARKS[i].n, x: p.x + 0.5, y: p.y + 0.5, far: true, fi: i, r: FAR_MARKS[i].r } : null;
@@ -47,9 +47,9 @@ export const DEPOT_MIN = 10;     // 留守成补给站至少留下的人
 export const CREW = 3;           // 熄火的营地留几个人守火，车队到了再跟上
 export const ARRIVE_AUTO = 90;   // 车队到了以后这么久没人选地方，就放在推荐的位置
 export const VEH = {
-  sled: { n: '雪橇', cap: 200, fuel: 'wood', cost: { wood: 60, plank: 30 }, secs: 45 },
-  tractor: { n: '蒸汽拖车', cap: 1000, fuel: 'coal', cost: { steel: 30, gear: 10, engine: 1 }, secs: 120, from: 2 },
-  icebreaker: { n: '破冰车', cap: 2400, fuel: 'battery', cost: { alloy: 80, part: 30, engine: 6 }, secs: 200, from: 8 }, // 到了沉睡的破冰船才会造；冰面裂开不用绕路
+  sled: { n: '썰매', cap: 200, fuel: 'wood', cost: { wood: 60, plank: 30 }, secs: 45 },
+  tractor: { n: '증기 트레일러', cap: 1000, fuel: 'coal', cost: { steel: 30, gear: 10, engine: 1 }, secs: 120, from: 2 },
+  icebreaker: { n: '쇄빙차', cap: 2400, fuel: 'battery', cost: { alloy: 80, part: 30, engine: 6 }, secs: 200, from: 8 }, // 到了沉睡的破冰船才会造；冰面裂开不用绕路
 };
 const VEH_ORDER = ['icebreaker', 'tractor', 'sled']; // 装车先挑大的
 export const VEH_KEYS = Object.keys(VEH);
@@ -82,10 +82,10 @@ export function outpostRange(S) {
 }
 export function outpostBlock(S, cy) {
   const J = journeyOf(S);
-  if (J.trip) return '车队在路上：到了新地标再开新营地';
+  if (J.trip) return '행렬이 운행 중입니다. 새로운 랜드마크에서 새로운 야영지를 운전해 보세요.';
   const r = outpostRange(S);
-  if (cy > r.y1) return `超出这一程的范围：「${r.next.n}」附近要等车队北迁过去，这里先不能占`;
-  if (cy < r.y0) return '太靠南了：新营地要开在主营地和下一个地标之间';
+  if (cy > r.y1) return `이번 운행 범위를 벗어나는 경우: 행렬북상이 "${r.next.n}" 근처를 지나갈 때까지 기다려야 합니다. 당신은 이곳을 먼저 차지할 수 없습니다.`;
+  if (cy < r.y0) return '너무 남쪽에 있음: 새로운 야영지는 본영과 다음 랜드마크 사이에서 주행해야 합니다.';
   return '';
 }
 // 先遣队要带的口粮和燃料：离出发的营地越远带得越多
@@ -248,11 +248,11 @@ export function departGate(S) {
   const left = ch ? ch.tasks.filter(t => !t.ok).length : 0;
   const fl = getB(S, main.furnace).lvl, need = gateFlvl(k);
   const items = [
-    { id: 'route', ok: route.ok, t: '路探到了', sub: route.ok ? `路长约 ${Math.round(route.len)} 格` : `从主营地往「${nx.n}」的路还差约 ${route.gap} 格没探开` },
-    { id: 'chap', ok: !ch || ch.done, t: ch ? `做完「${ch.ch.n}」` : '这一章做完了', sub: !ch || ch.done ? '做完了' : `还有 ${left} 项任务` },
-    { id: 'flvl', ok: fl >= need, t: `主营地熔炉 ${need} 级`, sub: `现在 ${fl} 级`, cur: fl, n: need },
-    { id: 'car', ok: plan.roomOk && !plan.short.length && plan.people >= 5, t: '车队备好了',
-      sub: plan.people < 5 ? '至少要有 5 个人上路' : !plan.roomOk ? `车上还差 ${plan.lack} 份地方（约 ${Math.ceil(plan.lack / VEH.sled.cap)} 架雪橇）` : plan.short.length ? '缺：' + plan.short.join('，') : `${plan.people} 人，${plan.veh.icebreaker ? plan.veh.icebreaker + ' 台破冰车 ' : ''}${plan.veh.tractor ? plan.veh.tractor + ' 辆拖车 ' : ''}${plan.veh.sled ? plan.veh.sled + ' 辆雪橇' : ''}` },
+    { id: 'route', ok: route.ok, t: '도로가 발견되었습니다', sub: route.ok ? `도로 길이는 약 ${Math.round(route.len)}제곱입니다` : `본영에서 "${nx.n}"까지의 도로는 아직 ${route.gap} 블록 정도 떨어져 있습니다.` },
+    { id: 'chap', ok: !ch || ch.done, t: ch ? `"${ch.ch.n}" 완료됨` : '이번 장은 끝났습니다', sub: !ch || ch.done ? '완료' : `과제에 대한 항목이 ${left}개 더 있습니다.` },
+    { id: 'flvl', ok: fl >= need, t: `본영용광로 ${need} 레벨`, sub: `현재 ${fl} 레벨입니다`, cur: fl, n: need },
+    { id: 'car', ok: plan.roomOk && !plan.short.length && plan.people >= 5, t: '행렬이 준비되었습니다',
+      sub: plan.people < 5 ? '최소 5명 이상이 도로에 있어야 합니다.' : !plan.roomOk ? `차에 아직 ${plan.lack} 공간이 남아 있습니다(약 ${Math.ceil(plan.lack / VEH.sled.cap)} 썰매).` : plan.short.length ? '부족: ' + plan.short.join(',') : `${plan.people}명, ${plan.veh.icebreaker ? plan.veh.icebreaker + '대만 쇄빙차' : ''}${plan.veh.tractor ? plan.veh.tractor + '트레일러' : ''}${plan.veh.sled ? plan.veh.sled + '자동차 썰매' : ''}` },
   ];
   return { k, next: nx, items, n: items.filter(i => i.ok).length, ok: items.every(i => i.ok), plan, route };
 }
@@ -262,9 +262,9 @@ export function setCampMode(S, cid, mode) { const J = journeyOf(S); J.plan = J.p
 // ---------- 出发 ----------
 export function depart(S) {
   const J = journeyOf(S), g = departGate(S);
-  if (!g) return { ok: false, reason: '已经走到尽头了' };
-  if (J.trip) return { ok: false, reason: '车队已经在路上' };
-  if (!g.ok) return { ok: false, reason: g.items.filter(i => !i.ok).map(i => i.t + '：' + i.sub).join('；') };
+  if (!g) return { ok: false, reason: '이미 끝났어' };
+  if (J.trip) return { ok: false, reason: '행렬이 이미 진행 중입니다.' };
+  if (!g.ok) return { ok: false, reason: g.items.filter(i => !i.ok).map(i => i.t + ':' + i.sub).join(';') };
   // 1.1 北境：没选路就走侦察兵推荐的第一条；这一站没做完的奇遇就错过了
   { const F = forkOf(S); if (F && F.pick == null) pickFork(S, 0, true); }
   qyLeave(S);
@@ -284,7 +284,7 @@ export function depart(S) {
   };
   J.trip.ev = rollRoad(S, J.trip);
   dirty(S);
-  logMsg(S, `🛷 车队从「${main.name}」出发了：${p.people} 人，往北去「${g.next.n}」。路上大约 ${Math.max(1, Math.round(p.secs / 60))} 分钟。`, 'story');
+  logMsg(S, `🛷 행렬은 "${main.name}"에서 출발: ${p.people}명, "${g.next.n}"까지 북쪽으로 향합니다. 도로에서 약 ${Math.max(1, Math.round(p.secs / 60))}분 소요됩니다.`, 'story');
   rt(S).fx.push({ kind: 'depart', to: J.trip.to });
   return { ok: true };
 }
@@ -292,12 +292,12 @@ export function depart(S) {
 export const VQ_MAX = 10;
 export const vehName = v => (VEH[v] || VEH.sled).n;
 export function vehBlock(S, b, v) {
-  const V = VEH[v]; if (!V || !b || b.type !== 'sledshed') return '这里造不了';
-  if (V.from && journeyOf(S).stage < V.from) return `到了「${stopOf(S, V.from).n}」以后才能造`;
-  for (const k in V.cost) if (RES[k].t > S.known) return `需要「${RES[k].n}」`;
-  if ((b.vq || []).length >= VQ_MAX) return `最多排 ${VQ_MAX} 辆`;
+  const V = VEH[v]; if (!V || !b || b.type !== 'sledshed') return '여기서는 지을 수 없어요';
+  if (V.from && journeyOf(S).stage < V.from) return `"${stopOf(S, V.from).n}"에 도달한 후에만 생성할 수 있습니다.`;
+  for (const k in V.cost) if (RES[k].t > S.known) return `"${RES[k].n}" 필요`;
+  if ((b.vq || []).length >= VQ_MAX) return `최대 대기열 ${VQ_MAX} 차량`;
   const camp = getCamp(S, b.camp);
-  if (!canAfford(camp.stock, V.cost)) return '缺：' + missing(camp.stock, V.cost).join('，');
+  if (!canAfford(camp.stock, V.cost)) return '부족: ' + missing(camp.stock, V.cost).join(',');
   return '';
 }
 export function orderVeh(S, bid, v, n = 1) {
@@ -320,15 +320,15 @@ function vehStep(S, dt) {
     if (b.type !== 'sledshed') continue;
     const br = R.b[b.id] || (R.b[b.id] = {}), q = b.vq && b.vq[0], sp = vehSpeed(S, b);
     br.act = q ? sp : 0; br.staff = sp;
-    if (!q) { br.status = '空闲'; continue; }
-    if (!b.workers) { br.status = '没有派人'; continue; }
-    br.status = `在造${vehName(q.v)} ${Math.floor(q.p * 100)}%`;
+    if (!q) { br.status = '게으른'; continue; }
+    if (!b.workers) { br.status = '배치된 일손 없음'; continue; }
+    br.status = `${vehName(q.v)} ${Math.floor(q.p * 100)}% 건설 중`;
     q.p += dt * sp / VEH[q.v].secs;
     if (q.p < 1) continue;
     b.vq.shift();
     J.fleet[q.v] = (J.fleet[q.v] || 0) + 1;
     R.fx.push({ kind: 'veh', b: b.id, v: q.v });
-    if (!b.vq.length) logMsg(S, `🛷 雪橇棚的车造完了：车队现在有 ${J.fleet.sled || 0} 架雪橇${J.fleet.tractor ? `、${J.fleet.tractor} 台蒸汽拖车` : ''}。`, 'good', { act: 'spot', arg: b.id, label: '看看' });
+    if (!b.vq.length) logMsg(S, `🛷 썰매 헛간 차량이 완성되었습니다. 이제 행렬를 구매할 수 있습니다.${J.fleet.sled || 0}프레임 썰매${J.fleet.tractor ? `、${J.fleet.tractor}대만 증기 트레일러` : ''}。`, 'good', { act: 'spot', arg: b.id, label: '보기' });
     dirty(S);
   }
 }
@@ -340,7 +340,7 @@ const nVeh = T => VEH_KEYS.reduce((a, v) => a + (T.veh[v] || 0), 0);
 // 车上的货里，点炉要用的那份不动，剩下的才能在路上花
 // 熟食再留 10 分钟的口粮给新营地开局
 export const roadHave = (T, k) => Math.max(0, Math.floor((T.goods[k] || 0) - (FURNACE_KIT[k] || 0) - (k === 'food' ? T.people * EAT * 10 : 0)));
-const foodTxt = (T, n) => { const a = Math.min(n, roadHave(T, 'food')); return a ? `熟食 −${a}` : '车上没有多余的熟食'; };
+const foodTxt = (T, n) => { const a = Math.min(n, roadHave(T, 'food')); return a ? `요리 −${a}` : '차에 추가 요리가 없습니다'; };
 const roadTake = (T, k, n) => { const a = Math.min(n, roadHave(T, k)); T.goods[k] = (T.goods[k] || 0) - a; return a; };
 // 燃料按热值算，先烧不值钱的
 const FUEL_LOW = FUEL_ORDER.slice().reverse();
@@ -349,7 +349,7 @@ function fuelPlan(T, u) {
   for (const f of FUEL_LOW) { if (left <= 0) break; const n = Math.min(roadHave(T, f), Math.ceil(left / FUEL[f])); if (n > 0) { out[f] = n; left -= n * FUEL[f]; } }
   return { take: out, short: Math.max(0, left) };
 }
-const resTxt = o => Object.keys(o).map(k => `${RES[k].n} −${o[k]}`).join('，');
+const resTxt = o => Object.keys(o).map(k => `${RES[k].n} −${o[k]}`).join(',');
 const roomLeft = T => VEH_KEYS.reduce((a, v) => a + (T.veh[v] || 0) * VEH[v].cap, 0) - T.people * PERSON_LOAD - sum(T.goods);
 const stepsLeft = T => Math.max(1, Math.ceil((T.len - T.d) / 10));
 function roadLoot(T) {
@@ -359,81 +359,81 @@ function roadLoot(T) {
   return { part: 2 * k, star: 4 * k };
 }
 const ROAD = [
-  { id: 'storm', n: '暴风雪压过来', w: 3, when: () => true,
+  { id: 'storm', n: '눈보라 프레스 오버', w: 3, when: () => true,
     ctx: (S, T) => ({ u: 8 * nVeh(T) + 2 * Math.ceil(T.people / 5), wait: 40, hurt: Math.max(1, Math.round(T.people * 0.08)) }),
-    text: () => '天边压过来一堵白墙，风越刮越紧，拉车的人都看向领头的雪橇。',
+    text: () => '수평선에 흰 벽이 눌려 있었고 바람은 점점 더 세게 불었습니다. 수레를 끄는 사람들은 리더인 썰매를 바라보았다.',
     opts: [
-      { t: '扎营等它过去', d: (S, T, x) => { const f = fuelPlan(T, x.u); return `${resTxt(f.take) || '车上没有多余的燃料'} · 晚到约 ${x.wait + Math.ceil(f.short / 2)} 秒`; },
-        go: (S, T, x) => { const f = fuelPlan(T, x.u); for (const k in f.take) roadTake(T, k, f.take[k]); T.hold = (T.hold || 0) + x.wait + Math.ceil(f.short / 2); return '车队围成一圈扎营，火堆烧了一夜，雪停了才上路。'; } },
-      { t: '顶着走', d: (S, T, x) => `准时到 · ${x.hurt} 人冻伤，到了先养病`, go: (S, T, x) => { T.sick = (T.sick || 0) + x.hurt; return `车队顶着风雪往前走，${x.hurt} 个人冻伤了手脚。`; } },
+      { t: '캠프를 준비하고 기다리세요', d: (S, T, x) => { const f = fuelPlan(T, x.u); return `${resTxt(f.take) || '차에 추가 연료가 없습니다'} · 약 ${x.wait + Math.ceil(f.short / 2)}초 늦음`; },
+        go: (S, T, x) => { const f = fuelPlan(T, x.u); for (const k in f.take) roadTake(T, k, f.take[k]); T.hold = (T.hold || 0) + x.wait + Math.ceil(f.short / 2); return '행렬은 원을 그리며 진을 치고 밤새도록 불을 피웠습니다. 눈이 그친 뒤 그들은 길을 떠났다.'; } },
+      { t: '등을 대고 걸어라', d: (S, T, x) => `정시에 도착 · ${x.hurt}명 동상, 도착 시 먼저 회복`, go: (S, T, x) => { T.sick = (T.sick || 0) + x.hurt; return `행렬은 바람과 눈 속에서 앞으로 걸어갔지만 ${x.hurt} 개인적으로 동상이 문제에 빠졌습니다.`; } },
     ] },
-  { id: 'lost', n: '被困的人', w: 3, when: () => true,
+  { id: 'lost', n: '갇힌 사람들', w: 3, when: () => true,
     ctx: (S, T, r) => { const n = 3 + Math.floor(r() * 4); return { n, food: n * 12, eat: n * stepsLeft(T) }; },
-    text: (S, T, x) => `雪地里有一架翻倒的旧雪橇，${x.n} 个人挤在下面取暖。他们是从南边一路逃过来的。`,
+    text: (S, T, x) => `눈 속에 뒤집힌 낡은 썰매가 있었고, ${x.n}명의 사람들이 그 아래에 모여서 몸을 따뜻하게 유지하고 있었습니다. 그들은 남쪽에서 멀리 탈출했습니다.`,
     opts: [
-      { t: '留下吃的再走', d: (S, T, x) => `${foodTxt(T, x.food)} · 到了以后希望 +5 · 余烬 +2`,
-        go: (S, T, x) => { roadTake(T, 'food', x.food); T.hope = (T.hope || 0) + 5; S.meta.embers += 2; S.meta.emberTotal = (S.meta.emberTotal || 0) + 2; return '大家把口粮分了一份给他们，有人哭着道谢。'; } },
-      { t: '带上他们', d: (S, T, x) => `+${x.n} 人 · 车上要空出 ${x.n * PERSON_LOAD} 份地方（现在空 ${Math.max(0, roomLeft(T))}）· 熟食 −${x.eat}`,
+      { t: '떠나기 전에 먹을 것을 남겨두세요', d: (S, T, x) => `${foodTxt(T, x.food)} · 도착 후 희망 +5 · 잔불 +2`,
+        go: (S, T, x) => { roadTake(T, 'food', x.food); T.hope = (T.hope || 0) + 5; S.meta.embers += 2; S.meta.emberTotal = (S.meta.emberTotal || 0) + 2; return '모두가 배급의 일부를 그들에게 주었고 어떤 사람들은 울며 감사했습니다.'; } },
+      { t: '그것들을 가지고 가세요', d: (S, T, x) => `+${x.n}명 · 차에 ${x.n * PERSON_LOAD} 공간이 필요합니다(현재 ${Math.max(0, roomLeft(T))}이 비어 있음) · 요리 −${x.eat}`,
         ok: (S, T, x) => roomLeft(T) >= x.n * PERSON_LOAD + x.eat && roadHave(T, 'food') >= x.eat,
-        go: (S, T, x) => { roadTake(T, 'food', x.eat); T.people += x.n; return `${x.n} 个人爬上了雪橇，跟车队一起往北走。`; } },
+        go: (S, T, x) => { roadTake(T, 'food', x.eat); T.people += x.n; return `${x.n} 누군가 썰매에 올라가서 행렬과 함께 북쪽으로 걸어갔습니다.`; } },
     ] },
-  { id: 'wolves', n: '狼群跟上来', w: 2, when: (S, T) => T.to <= 2,
+  { id: 'wolves', n: '늑대들이 따라온다', w: 2, when: (S, T) => T.to <= 2,
     ctx: (S, T, r) => ({ meat: 20 + T.people, u: 6 * nVeh(T), hurt: r() < 0.5 ? 1 + Math.floor(r() * 2) : 0 }),
-    text: () => '雪原上亮起一串绿莹莹的眼睛，狼群远远跟着车队，越靠越近。',
+    text: () => '설원 위에 녹색 눈이 한줄기 빛나고, 늑대들은 행렬을 멀리서 따라오며 점점 가까워졌다.',
     opts: [
-      { t: '丢下一些肉引开', d: (S, T, x) => { const g = Math.min(x.meat, roadHave(T, 'game')), f = Math.min(x.meat - g, roadHave(T, 'food')), lack = x.meat - g - f; return [g && `生肉 −${g}`, f && `熟食 −${f}`, lack && `肉不够，绕远一点：晚到约 ${Math.ceil(lack / 2)} 秒`].filter(Boolean).join(' · '); },
-        go: (S, T, x) => { const g = roadTake(T, 'game', x.meat), f = roadTake(T, 'food', x.meat - g), lack = x.meat - g - f; if (lack > 0) T.hold = (T.hold || 0) + Math.ceil(lack / 2); return '肉扔在雪地里，狼群停下来抢食，车队趁机走远了。'; } },
-      { t: '围成圈守夜', d: (S, T, x) => { const f = fuelPlan(T, x.u); return `${resTxt(f.take)} · 可能有人受伤`; }, ok: (S, T, x) => !fuelPlan(T, x.u).short,
-        go: (S, T, x) => { const f = fuelPlan(T, x.u); for (const k in f.take) roadTake(T, k, f.take[k]); if (x.hurt) T.sick = (T.sick || 0) + x.hurt; return x.hurt ? `火堆守了一夜，狼群扑上来过一次，${x.hurt} 个人被咬伤了。` : '火堆守了一夜，狼群天亮前散了。'; } },
+      { t: '고기를 좀 남겨서 유인하세요', d: (S, T, x) => { const g = Math.min(x.meat, roadHave(T, 'game')), f = Math.min(x.meat - g, roadHave(T, 'food')), lack = x.meat - g - f; return [g && `생고기 −${g}`, f && `요리 −${f}`, lack && `고기가 부족합니다. 조금 더 진행하세요. 약 ${Math.ceil(lack / 2)}초 늦었습니다.`].filter(Boolean).join(' · '); },
+        go: (S, T, x) => { const g = roadTake(T, 'game', x.meat), f = roadTake(T, 'food', x.meat - g), lack = x.meat - g - f; if (lack > 0) T.hold = (T.hold || 0) + Math.ceil(lack / 2); return '고기가 눈 속에 던져졌고, 늑대들은 음식을 잡기 위해 멈춰 섰습니다. 행렬은 기회를 잡았습니다.'; } },
+      { t: '원을 그리며 경계하다', d: (S, T, x) => { const f = fuelPlan(T, x.u); return `${resTxt(f.take)} · 누군가가 부상을 입을 수 있습니다`; }, ok: (S, T, x) => !fuelPlan(T, x.u).short,
+        go: (S, T, x) => { const f = fuelPlan(T, x.u); for (const k in f.take) roadTake(T, k, f.take[k]); if (x.hurt) T.sick = (T.sick || 0) + x.hurt; return x.hurt ? `불은 밤새도록 지켰는데, 한 무리의 늑대가 그 불을 덮쳐 ${x.hurt}명이 물렸습니다.` : '불은 밤새도록 지켰고, 늑대들은 새벽이 되기 전에 흩어졌습니다.'; } },
     ] },
-  { id: 'ice', n: '冰面裂开', w: 2, when: (S, T) => T.to >= 3 && T.to <= 4,
+  { id: 'ice', n: '얼음 균열', w: 2, when: (S, T) => T.to >= 3 && T.to <= 4,
     ctx: (S, T) => ({ far: 10, food: T.people, plank: 20 + 5 * nVeh(T), ib: (T.veh.icebreaker || 0) > 0 }),
-    text: () => '前面的冰河裂开一道口子，黑水在冰下流得很急，雪橇过不去。',
+    text: () => '전방 빙하에 틈이 생기고, 얼음 아래로 검은 물이 급격하게 흘러 썰매가 통과하기 어렵게 됐다.',
     opts: [
-      { t: '绕路', tib: '破冰车在前面开路', d: (S, T, x) => x.ib ? '不耽误，什么都不花' : `多走约 ${x.far} 格 · ${foodTxt(T, x.food)}`,
-        go: (S, T, x) => { if (x.ib) return '破冰车压碎了冰缝两边的冰，车队跟着它的履带印开了过去。'; roadTake(T, 'food', x.food); T.detour = (T.detour || 0) + x.far; return '车队沿着河岸绕了一大圈，才找到能过的地方。'; } },
-      { t: '用木板搭桥', d: (S, T, x) => `木板 −${x.plank}（车上多带的）· 不耽误`, ok: (S, T, x) => roadHave(T, 'plank') >= x.plank,
-        go: (S, T, x) => { roadTake(T, 'plank', x.plank); return '木板一块块铺过裂缝，车队一辆接一辆开了过去。'; } },
+      { t: '우회', tib: '쇄빙차가 앞쪽으로 길을 열어줍니다.', d: (S, T, x) => x.ib ? '지연 없음, 비용 없음' : `약 ${x.far} 정사각형 더 이동 · ${foodTxt(T, x.food)}`,
+        go: (S, T, x) => { if (x.ib) return '쇄빙차는 얼음 틈새 양쪽의 얼음을 부수었고, 행렬은 그 흔적을 따라가며 지나갔습니다.'; roadTake(T, 'food', x.food); T.detour = (T.detour || 0) + x.far; return '행렬은 강둑을 따라 긴 원을 그리며 건너갈 곳을 찾았습니다.'; } },
+      { t: '목판을 사용하여 다리 건설', d: (S, T, x) => `목판 −${x.plank} (차량에 추가 요금) · 지체 없음`, ok: (S, T, x) => roadHave(T, 'plank') >= x.plank,
+        go: (S, T, x) => { roadTake(T, 'plank', x.plank); return '목판은 균열을 하나씩 통과했고, 행렬은 차례로 지나갔다.'; } },
     ] },
-  { id: 'wreck', n: '旧时代的残骸', w: 2, when: (S, T) => T.from >= 3,
+  { id: 'wreck', n: '옛날의 잔재', w: 2, when: (S, T) => T.from >= 3,
     ctx: (S, T) => ({ loot: roadLoot(T), wait: 45 }),
-    text: () => '路边半埋着一台旧时代的大机器，铁皮被风雪磨得发亮，里面好像还有完好的零件。',
+    text: () => '길가에는 구시대의 대형 기계가 반쯤 묻혀있습니다. 양철은 바람과 눈에 의해 광택이 나고 내부에 손상되지 않은 부품이 있는 것처럼 보였습니다.',
     opts: [
-      { t: '不停，继续赶路', d: () => '不耽误', go: () => '车队没有停，残骸慢慢消失在身后的风雪里。' },
-      { t: '停下来拆', d: (S, T, x) => `晚到约 ${x.wait} 秒 · ${Object.keys(x.loot).map(k => `${RES[k].n} +${x.loot[k]}`).join('，')}`,
-        go: (S, T, x) => { T.hold = (T.hold || 0) + x.wait; addTo(T.goods, x.loot); return '大家拆了半天，把能用的都装上了车。'; } },
+      { t: '멈추지 말고 계속 가세요', d: () => '지연 없음', go: () => '행렬은 멈추지 않았고 잔해는 그 뒤의 바람과 눈 속으로 천천히 사라졌습니다.' },
+      { t: '중지 및 해체', d: (S, T, x) => `약속 시간에 늦다${x.wait}두번째 ·${Object.keys(x.loot).map(k => `${RES[k].n} +${x.loot[k]}`).join('，')}`,
+        go: (S, T, x) => { T.hold = (T.hold || 0) + x.wait; addTo(T.goods, x.loot); return '모두가 오랫동안 그것을 분해하고 사용할 수있는 모든 것을 차에 넣었습니다.'; } },
     ] },
-  { id: 'bot', n: '迷路的自动机', w: 2, when: (S, T) => T.from >= 5,
+  { id: 'bot', n: '분실 오토마톤', w: 2, when: (S, T) => T.from >= 5,
     ctx: (S, T) => ({ star: 25 + 3 * T.to, part: 8 }),
-    text: () => '一台自动机在雪地里原地打转，关节结满了冰，看见车队就跟了上来。',
+    text: () => '오토마톤은 눈 위에서 원을 그리며 회전하고 있었고 관절은 얼음으로 덮여 있었습니다. 행렬을 보고 따라갔습니다.',
     opts: [
-      { t: '拆了带走星铁', d: (S, T, x) => `星铁 +${x.star}`, go: (S, T, x) => { addTo(T.goods, { star: x.star }); return '自动机被拆开，星铁装上了车。'; } },
-      { t: '修好带上', d: (S, T, x) => `构件 −${x.part} · 得到 1 个自动机核心（有自动机仓就能唤醒 2 台）`, ok: (S, T, x) => roadHave(T, 'part') >= x.part,
-        go: (S, T, x) => { roadTake(T, 'part', x.part); addTo(T.goods, { core: 1 }); return '换了几个构件，自动机重新站稳了，乖乖跟着车队走。'; } },
+      { t: '분해해서 가져간 성철', d: (S, T, x) => `성철 +${x.star}`, go: (S, T, x) => { addTo(T.goods, { star: x.star }); return '오토마톤을 분해하고 성철을 차량에 설치했습니다.'; } },
+      { t: '수리해서 가지고 가세요', d: (S, T, x) => `구성요소 −${x.part} · 오토마톤 코어 1개 획득(오토마톤 격납고로 2개 유닛을 각성할 수 있음)`, ok: (S, T, x) => roadHave(T, 'part') >= x.part,
+        go: (S, T, x) => { roadTake(T, 'part', x.part); addTo(T.goods, { core: 1 }); return '여러 부품을 교체한 후 오토마톤은 다시 자리를 잡고 순종적으로 행렬을 따라갔습니다.'; } },
     ] },
-  { id: 'night', n: '极夜', w: 3, when: (S, T) => T.from >= 6,
+  { id: 'night', n: '극지방의 밤', w: 3, when: (S, T) => T.from >= 6,
     ctx: (S, T, r) => ({ u: 10 * nVeh(T) + 3 * Math.ceil(T.people / 5), lose: r() < 0.5 }),
-    text: () => '太阳很久没有升起来了。四下一片漆黑，只有车灯照着前面几步的雪。',
+    text: () => '오랫동안 해가 뜨지 않았습니다. 사방이 칠흑같이 캄캄했고, 몇 걸음 앞의 눈을 비춰주는 자동차 불빛만 있었습니다.',
     opts: [
-      { t: '点火把赶路', d: (S, T, x) => { const f = fuelPlan(T, x.u); return `${resTxt(f.take) || '车上没有多余的燃料'}${f.short ? ` · 火把不够，走得慢：晚到约 ${Math.ceil(f.short / 2)} 秒` : ''}`; },
-        go: (S, T, x) => { const f = fuelPlan(T, x.u); for (const k in f.take) roadTake(T, k, f.take[k]); if (f.short) T.hold = (T.hold || 0) + Math.ceil(f.short / 2); return '一长串火把在黑夜里往北移动，像一条发光的河。'; } },
-      { t: '摸黑走', d: () => '不烧燃料 · 可能走散一辆车（连车上的货）', ok: (S, T) => nVeh(T) > 1,
+      { t: '횃불을 켜고 길을 가세요', d: (S, T, x) => { const f = fuelPlan(T, x.u); return `${resTxt(f.take) || '차에 추가 연료가 없습니다'}${f.short ? `· 횃불 부족, 천천히 걷기: 약속시간에 늦게 도착${Math.ceil(f.short / 2)}두번째` : ''}`; },
+        go: (S, T, x) => { const f = fuelPlan(T, x.u); for (const k in f.take) roadTake(T, k, f.take[k]); if (f.short) T.hold = (T.hold || 0) + Math.ceil(f.short / 2); return '긴 횃불이 어두운 밤에 빛나는 강처럼 북쪽으로 이동했습니다.'; } },
+      { t: '어둠 속을 걸어보세요', d: () => '불태우지 마세요 연료 · 차량이 분실될 수 있습니다. (차량에 실린 물건도 포함)', ok: (S, T) => nVeh(T) > 1,
         go: (S, T, x) => {
-          if (!x.lose) return '大家手拉着绳子摸黑走，天亮时一辆车都没少。';
+          if (!x.lose) return '모두가 밧줄을 잡고 어둠 속을 걸었고, 새벽에도 차는 한 대도 사라지지 않았습니다.';
           const v = T.veh.sled ? 'sled' : T.veh.tractor ? 'tractor' : 'icebreaker', cap = VEH_KEYS.reduce((a, k) => a + (T.veh[k] || 0) * VEH[k].cap, 0), f = VEH[v].cap / Math.max(1, cap);
           T.veh[v]--; const J = journeyOf(S); J.fleet[v] = Math.max(0, (J.fleet[v] || 0) - 1);
           const gone = {}; for (const k in T.goods) { const n = Math.floor(roadHave(T, k) * f); if (n > 0) { T.goods[k] -= n; gone[k] = n; } }
-          return `天亮时少了一架${vehName(v)}，车上的货也跟着丢了${Object.keys(gone).length ? '：' + resTxt(gone) : ''}。`;
+          return `새벽에 차량 ${vehName(v)} 1대가 없어졌고, 해당 차량에 있던 물품도 ${Object.keys(gone).length ? '：' + resTxt(gone) : ''}이(가) 없어졌습니다.`;
         } },
     ] },
-  { id: 'chasm', n: '冰原裂谷', w: 2, when: (S, T) => T.from >= 6,
+  { id: 'chasm', n: '빙상 균열', w: 2, when: (S, T) => T.from >= 6,
     ctx: (S, T) => ({ far: 14, food: T.people, steel: 30 + 5 * nVeh(T), ib: (T.veh.icebreaker || 0) > 0 }),
-    text: () => '冰原上横着一道看不见底的裂谷，风从底下往上灌，呜呜作响。',
+    text: () => '빙상에는 바닥이 없는 균열이 있었고, 바람은 바닥에서 위로 불어오며 윙윙거리는 소리를 냈습니다.',
     opts: [
-      { t: '找路绕过去', tib: '破冰车在前面开路', d: (S, T, x) => x.ib ? '不耽误，什么都不花' : `多走约 ${x.far} 格 · ${foodTxt(T, x.food)}`,
-        go: (S, T, x) => { if (x.ib) return '破冰车沿着裂谷边压出一条冰道，车队稳稳地绕了过去。'; roadTake(T, 'food', x.food); T.detour = (T.detour || 0) + x.far; return '车队沿着裂谷走了很远，才找到一处窄的地方绕过去。'; } },
-      { t: '架桥', d: (S, T, x) => `钢材 −${x.steel}（车上带的）· 不耽误`, ok: (S, T, x) => roadHave(T, 'steel') >= x.steel,
-        go: (S, T, x) => { roadTake(T, 'steel', x.steel); return '钢梁架过裂谷，车队一辆接一辆开了过去。'; } },
+      { t: '주변에서 길을 찾아보세요', tib: '쇄빙차가 앞쪽으로 길을 열어줍니다.', d: (S, T, x) => x.ib ? '지연 없음, 비용 없음' : `약 ${x.far} 정사각형 더 이동 · ${foodTxt(T, x.food)}`,
+        go: (S, T, x) => { if (x.ib) return '쇄빙차는 균열 계곡 가장자리를 따라 얼음 길을 눌렀고, 행렬은 그 주위를 꾸준히 돌았습니다.'; roadTake(T, 'food', x.food); T.detour = (T.detour || 0) + x.far; return '행렬은 균열 계곡을 따라 먼 길을 걸어 돌아다닐 수 있는 좁은 장소를 찾았습니다.'; } },
+      { t: '다리', d: (S, T, x) => `강재 −${x.steel} (차로 가져옴) · 지체 없음`, ok: (S, T, x) => roadHave(T, 'steel') >= x.steel,
+        go: (S, T, x) => { roadTake(T, 'steel', x.steel); return '강철빔이 균열 계곡을 가로지르고, 행렬이 차례로 지나갔다.'; } },
     ] },
 ];
 export const ROAD_IDS = ROAD.map(e => e.id);
@@ -483,7 +483,7 @@ export function resolveRoad(S, i, auto) {
   const msg = o.go(S, T, v.x);
   (T.done || (T.done = [])).push([e.id, i]);
   T.road = null;
-  logMsg(S, `【${e.n}】${auto ? '没人拿主意，按默认的办：' : ''}${msg}`, 'story');
+  logMsg(S, `【${e.n}】${auto ? '아무도 결정을 내리지 않았습니다. 기본값을 따르십시오.' : ''}${msg}`, 'story');
   dirty(S);
   return msg;
 }
@@ -504,20 +504,20 @@ export function tripPos(trip) {
 // ---------- 到了：放下新熔炉 ----------
 export function arriveCheck(S, x, y) {
   const J = journeyOf(S), T = J.trip;
-  if (!T || T.phase !== 'arrive') return { ok: false, reason: '车队还没到' };
+  if (!T || T.phase !== 'arrive') return { ok: false, reason: '행렬이 아직 도착하지 않았습니다' };
   const st = stopOf(S, T.to), w = getWorld(S.runSeed), cx = x + 1.5, cy = y + 1.5;
-  if (Math.hypot(cx - st.x, cy - st.y) > FOUND_DIST - 1) return { ok: false, reason: `要放在「${st.n}」附近 ${FOUND_DIST - 1} 格以内` };
+  if (Math.hypot(cx - st.x, cy - st.y) > FOUND_DIST - 1) return { ok: false, reason: `"${st.n}" 근처의 ${FOUND_DIST - 1} 공백 내에 배치됩니다.` };
   for (let yy = y; yy < y + 3; yy++) for (let xx = x; xx < x + 3; xx++) {
-    if (!inMap(xx, yy)) return { ok: false, reason: '超出地图' };
+    if (!inMap(xx, yy)) return { ok: false, reason: '지도 밖에서' };
     const i = idx(xx, yy);
-    if (!S.reveal[i]) return { ok: false, reason: '迷雾里不能建造' };
-    if (w.terrain[i] !== 0) return { ok: false, reason: '地形不平（岩石或冰湖）' };
-    if (occAt(S, xx, yy)) return { ok: false, reason: '和其他建筑重叠' };
-    if (landmarkBlock(xx, yy, S)) return { ok: false, reason: '地标遗迹占着这里' };
-    if (siteAt(S, xx, yy, 1)) return { ok: false, reason: '这里有一处遗迹' };
-    if (w.spot[i] >= 0 && !['tree', 'rock', 'herd'].includes(spotKey(w, i)) && S.spots[i] !== 0) return { ok: false, reason: '这里是矿点' };
+    if (!S.reveal[i]) return { ok: false, reason: '건설은 안개에서 사용할 수 없습니다.' };
+    if (w.terrain[i] !== 0) return { ok: false, reason: '고르지 않은 지형(바위 또는 얼음호수)' };
+    if (occAt(S, xx, yy)) return { ok: false, reason: '다른 건물과 겹쳐서' };
+    if (landmarkBlock(xx, yy, S)) return { ok: false, reason: '랜드마크와 유적지가 이곳을 차지하고 있습니다.' };
+    if (siteAt(S, xx, yy, 1)) return { ok: false, reason: '여기에 폐허가 있습니다' };
+    if (w.spot[i] >= 0 && !['tree', 'rock', 'herd'].includes(spotKey(w, i)) && S.spots[i] !== 0) return { ok: false, reason: '이것은 광산이다' };
   }
-  for (const c of S.camps) if (Math.hypot(c.x - cx, c.y - cy) < CAMP_GAP) return { ok: false, reason: `离「${c.name}」太近` };
+  for (const c of S.camps) if (Math.hypot(c.x - cx, c.y - cy) < CAMP_GAP) return { ok: false, reason: `"${c.name}"에 너무 가깝습니다.` };
   return { ok: true };
 }
 const spotKey = (w, i) => SPOT_KEYS[w.spot[i]];
@@ -537,7 +537,7 @@ export function arriveSpot(S) {
 }
 export function arrive(S, x, y) {
   const J = journeyOf(S), T = J.trip;
-  if (x == null) { const a = arriveSpot(S); if (!a) return { ok: false, reason: '附近找不到能放熔炉的平地' }; x = a.x; y = a.y; }
+  if (x == null) { const a = arriveSpot(S); if (!a) return { ok: false, reason: '근처에 용광로를 놓을 수 있는 평지가 없습니다.' }; x = a.x; y = a.y; }
   const ck = arriveCheck(S, x, y); if (!ck.ok) return ck;
   const st = stopOf(S, T.to);
   const camp = makeCamp(S, x, y, st.n);
@@ -585,9 +585,9 @@ export function arrive(S, x, y) {
   autoAssign(S, camp);
   dirty(S);
   for (const c of S.camps) bumpMood(c, 6, -3);
-  logMsg(S, `🔥 车队到了「${st.n}」，新熔炉点着了（${T.fl} 级）。${tents ? `先搭好了 ${tents} 顶帐篷。` : ''}${embers ? `熄火的营地换来 ${embers} 点余烬。` : ''}`, 'story');
+  logMsg(S, `🔥 행렬가 도착했습니다 「${st.n}", 새로운 용광로가 켜집니다 (${T.fl}수업).${tents ? `먼저 설정하세요.${tents}상단 천막.` : ''}${embers ? `정지된 야영지를 교체했습니다.${embers}잔불를 클릭하세요.` : ''}`, 'story');
   rt(S).fx.push({ kind: 'arrive-stop', k: J.stage });
-  if (st.rule) logMsg(S, `${NORTH_RULES[st.rule].ic} 老向导：「${NORTH_RULES[st.rule].tip}」`, 'story');
+  if (st.rule) logMsg(S, `${NORTH_RULES[st.rule].ic} 늙은 길잡이: 「${NORTH_RULES[st.rule].tip}」`, 'story');
   // 北境：新的一章；第一次走到这个站号给一点余烬，记下最远纪录（新的北行也留着）
   if (st.north) {
     qyArrive(S, J.stage); // 1.1 这一站的奇遇：半天以后出现
@@ -595,14 +595,14 @@ export function arrive(S, x, y) {
     if (st.north > (S.meta.northMax || 0)) {
       S.meta.northMax = st.north;
       const e = northEmbers(S); S.meta.embers += e; S.meta.emberTotal = (S.meta.emberTotal || 0) + e;
-      logMsg(S, `第一次走到北境第 ${st.north} 站！带来 ${e} 点余烬。`, 'story');
+      logMsg(S, `처음으로 북방의 ${st.north}을(를) 멈추기 위해 걸어갔습니다! ${e} 포인트잔불을 가져옵니다.`, 'story');
     }
   }
   growNext(S);
   // 走到世界之脊：真结局
   if (J.stage === SPINE) {
     const first = !S.meta.trueEnd; S.meta.trueEnd = (S.meta.trueEnd || 0) + 1;
-    logMsg(S, '🏔 车队翻上了世界之脊。一路走来的营火连成了一条线——这是真正的终点。', 'story');
+    logMsg(S, '🏔 행렬이 세계의 척추를 뒤집었습니다. 길을 따라 모닥불이 선을 형성했습니다. 이것이 실제 끝점입니다.', 'story');
     rt(S).fx.push({ kind: 'trueend', first });
   }
   return { ok: true, camp: camp.id };
@@ -662,30 +662,30 @@ export const depotAuto = c => !!(c && c.depot && !c.manual); // 补给站自己�
 export function takeOver(S, cid, on) {
   const c = getCamp(S, cid); if (!c || !c.depot) return { ok: false };
   c.manual = !!on; if (!on) c.auto = true;
-  logMsg(S, on ? `你临时接手了补给站「${c.name}」：可以盖房、升级了。管完记得交回去让它自己转。` : `补给站「${c.name}」交回去自己运转了。`, 'info');
+  logMsg(S, on ? `귀하는 일시적으로 보급 창고 "${c.name}"을(를) 인수했습니다. 집 업그레이드를 지을 수 있습니다. 관리한 후에는 다시 돌려주고 스스로 작동하도록 놔두는 것을 잊지 마세요.` : `보급 창고 "${c.name}"이(가) 반환되어 자체적으로 작동하기 시작했습니다.`, 'info');
   dirty(S); return { ok: true };
 }
 // 补给站熄火：人去主营地，拆下三成材料送过去，按熔炉等级换余烬，原地留下一片废墟
 export function douseDepot(S, cid) {
   const c = getCamp(S, cid), m = mainCamp(S);
-  if (!c || !c.depot || !m || c.id === m.id) return { ok: false, reason: '只有补给站能熄火' };
-  if (journeyOf(S).trip) return { ok: false, reason: '车队在路上，等到了再说' };
+  if (!c || !c.depot || !m || c.id === m.id) return { ok: false, reason: '공급 스테이션만이 화염을 차단할 수 있습니다.' };
+  if (journeyOf(S).trip) return { ok: false, reason: '행렬이 오는 중입니다. 나중에 이야기하겠습니다.' };
   const lvl = getB(S, c.furnace).lvl, embers = douseEmbers(S, lvl), n = c.people;
   const a = addPeople(S, m, n);
   for (const k in c.stock) if (c.stock[k] > 0) m.stock[k] = (m.stock[k] || 0) + Math.floor(c.stock[k] * 0.3);
   S.meta.embers += embers; S.meta.emberTotal = (S.meta.emberTotal || 0) + embers;
   journeyOf(S).ruins.push({ x: c.x, y: c.y, lvl, n: c.name, t: S.t, b: S.buildings.filter(b => b.camp === c.id && b.type !== 'furnace' && !BLD[b.type].tower).map(b => [b.type, b.x, b.y]) });
   removeCamp(S, c.id, m.id);
-  logMsg(S, `🕯 「${c.name}」熄火了。${n} 个人往北去了「${m.name}」${a.wait ? `（${a.wait} 人先在窝棚里等床位）` : ''}，换来 ${embers} 点余烬。`, 'story');
+  logMsg(S, `🕯 「${c.name}"엔진이 꺼져 있습니다."${n}나는 개인적으로 북쪽으로 갔다."${m.name}」${a.wait ? `（${a.wait}사람들은 먼저 오두막에서 침대를 기다립니다)` : ''}, 그 대가로${embers}잔불를 클릭하세요.`, 'story');
   rt(S).fx.push({ kind: 'douse', x: c.x, y: c.y });
   return { ok: true, embers };
 }
 // 补给站撑不住了：燃料不到 10 分钟、挨饿、人太少，提醒一次（好了再坏会再提醒）
 export function depotTrouble(S, c) {
   const cr = rt(S).c[c.id] || {};
-  if (c.people < DEPOT_MIN) return `只剩 ${c.people} 个人`;
-  if ((cr.hunger || 0) > 0.1) return '在挨饿';
-  if (cr.burnPerMin && (cr.fuelUnits || 0) / cr.burnPerMin < 10) return '燃料撑不到 10 分钟';
+  if (c.people < DEPOT_MIN) return `${c.people}명만 남았습니다`;
+  if ((cr.hunger || 0) > 0.1) return '굶주리는';
+  if (cr.burnPerMin && (cr.fuelUnits || 0) / cr.burnPerMin < 10) return '연료는 10분도 버틸 수 없습니다';
   return '';
 }
 // 补给站自己运转：撑不住了提醒一次（货都交给物流网调，见 net.js）
@@ -698,7 +698,7 @@ function supplyStep(S, dt) {
   for (const c of S.camps) {
     if (!c.depot || c.id === m.id || c.manual) continue;
     const why = depotTrouble(S, c);
-    if (why && c.dWarn !== why) logMsg(S, `⚠ 补给站「${c.name}」${why}：可以临时接手管一下，或者让它熄火换余烬。`, 'warn', { act: 'campgo', arg: c.id, label: '去看看' });
+    if (why && c.dWarn !== why) logMsg(S, `⚠ 공급 스테이션 "${c.name}" ${why}: 일시적으로 인수하거나 폐쇄하고 잔불으로 교체할 수 있습니다.`, 'warn', { act: 'campgo', arg: c.id, label: '가 보기' });
     c.dWarn = why;
   }
 }
@@ -710,7 +710,7 @@ function beaconStep(S) {
     if (b.type !== 'beacon' || b.lit === b.lvl) continue;
     b.lit = b.lvl;
     revealCircle(S, b.x + 1, b.y + 1, BLD.beacon.reveal + 4 * (b.lvl - 1));
-    logMsg(S, `🗼 信号灯塔亮了：四周 ${BLD.beacon.reveal + 4 * (b.lvl - 1)} 格的雾都照开了。`, 'good');
+    logMsg(S, `🗼 신호 등탑이 켜집니다: ${BLD.beacon.reveal + 4 * (b.lvl - 1)} 블록 주변의 안개가 밝아집니다.`, 'good');
   }
 }
 export function journeyStep(S, dt) {
@@ -732,7 +732,7 @@ export function journeyStep(S, dt) {
       T.d = T.len; T.phase = 'arrive'; T.at = S.t;
       const st = stopOf(S, T.to);
       revealCircle(S, st.x, st.y, 14);
-      logMsg(S, `车队到了「${st.n}」。选一块地放下新熔炉吧（${ARRIVE_AUTO} 秒内没选，就放在推荐的位置）。`, 'good', { act: 'arrive', label: '去放熔炉' });
+      logMsg(S, `행렬이 "${st.n}"에 도착했습니다. 새로운 용광로를 배치할 토지를 선택하세요(${ARRIVE_AUTO}초 내에 선택하지 않으면 권장 위치에 배치됩니다).`, 'good', { act: 'arrive', label: '가서 용광로를 넣어' });
       rt(S).fx.push({ kind: 'trip-arrived', k: T.to });
     }
   } else if (T.phase === 'arrive' && S.t - T.at >= ARRIVE_AUTO) { // 关着页面补算时也一样：先等这一分半

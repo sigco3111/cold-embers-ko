@@ -88,7 +88,7 @@ export function drawFrame(x, id, w, h, k = 1) {
     x.fillStyle = 'rgba(226,207,160,.92)'; x.beginPath(); x.arc(cx, cy, R * 1.15, 0, 7); x.fill();
     x.strokeStyle = 'rgba(90,60,30,.8)'; x.lineWidth = Math.max(1, b * 0.06); x.beginPath(); x.arc(cx, cy, R, 0, 7); x.stroke();
     for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2 - Math.PI / 2; x.fillStyle = i ? 'rgba(90,60,30,.85)' : '#a83228'; x.beginPath(); x.moveTo(cx, cy); x.lineTo(cx + Math.cos(a - 0.4) * R * 0.25, cy + Math.sin(a - 0.4) * R * 0.25); x.lineTo(cx + Math.cos(a) * R * 0.95, cy + Math.sin(a) * R * 0.95); x.lineTo(cx + Math.cos(a + 0.4) * R * 0.25, cy + Math.sin(a + 0.4) * R * 0.25); x.closePath(); x.fill(); }
-    x.fillStyle = 'rgba(90,60,30,.9)'; x.font = `700 ${Math.round(R * 0.45)}px serif`; x.textAlign = 'center'; x.textBaseline = 'bottom'; x.fillText('北', cx, cy - R * 1.0);
+    x.fillStyle = 'rgba(90,60,30,.9)'; x.font = `700 ${Math.round(R * 0.45)}px serif`; x.textAlign = 'center'; x.textBaseline = 'bottom'; x.fillText('북쪽', cx, cy - R * 1.0);
   } else if (id === 'ruin') {
     // 古城石框：一块块石砖，砖缝深色，顶上压着雪，四角刻一个菱形
     ring('#555b62'); // 砖缝

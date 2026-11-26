@@ -8,13 +8,13 @@ import { albumAdd, toJpeg } from './album.js';
 import { iconize } from './icons.js';
 
 export const PH_FILTERS = [
-  { id: 'none', n: '原色', css: '' },
-  { id: 'warm', n: '暖阳', css: 'sepia(.22) saturate(1.25) brightness(1.04)' },
-  { id: 'cold', n: '冷冽', css: 'saturate(.72) hue-rotate(12deg) brightness(1.06) contrast(1.05)' },
-  { id: 'film', n: '胶片', css: 'contrast(1.12) saturate(.8) sepia(.2)' },
-  { id: 'mono', n: '黑白', css: 'grayscale(1) contrast(1.15)' },
-  { id: 'aur', n: '极光', css: 'hue-rotate(-18deg) saturate(1.35) contrast(1.06) brightness(1.02)' },
-  { id: 'fade', n: '褪色', css: 'contrast(.88) brightness(1.08) saturate(.62) sepia(.08)' },
+  { id: 'none', n: '원색', css: '' },
+  { id: 'warm', n: '따뜻한 태양', css: 'sepia(.22) saturate(1.25) brightness(1.04)' },
+  { id: 'cold', n: '냉담한', css: 'saturate(.72) hue-rotate(12deg) brightness(1.06) contrast(1.05)' },
+  { id: 'film', n: '필름', css: 'contrast(1.12) saturate(.8) sepia(.2)' },
+  { id: 'mono', n: '검정색과 흰색', css: 'grayscale(1) contrast(1.15)' },
+  { id: 'aur', n: '오로라', css: 'hue-rotate(-18deg) saturate(1.35) contrast(1.06) brightness(1.02)' },
+  { id: 'fade', n: '바래다', css: 'contrast(.88) brightness(1.08) saturate(.62) sepia(.08)' },
 ];
 // 一张照片：滤镜、暗角、相框、落款（自动拍的相册照片也走这一套）
 export function compose(g, src, o = {}) {
@@ -40,9 +40,9 @@ export function compose(g, src, o = {}) {
 }
 export function captionOf(S, extra) {
   const c = Sim.getCamp(S, S.active) || S.camps[0], tt = Sim.titleOf(S);
-  return `寒烬北行 · ${extra || (c ? c.name : '')}${tt ? ` · ${tt}` : ''} · 第 ${Math.floor(S.t / DAY_LEN) + 1} 天`;
+  return `차가운 잔불의 북행 ·${extra || (c ? c.name : '')}${tt ? ` · ${tt}` : ''}· 아니요.${Math.floor(S.t / DAY_LEN) + 1}하늘`;
 }
-export const PH_TIMES = [[null, '跟随'], [0.22, '白天'], [0.56, '黄昏'], [0.76, '夜晚'], [0.95, '黎明']];
+export const PH_TIMES = [[null, '따르다'], [0.22, '낮'], [0.56, '해질녘'], [0.76, '밤'], [0.95, '새벽']];
 const P_LO = 0.3, P_HI = 1.25;
 
 export class Photo {
@@ -68,11 +68,11 @@ export class Photo {
     });
     bar.addEventListener('input', e => { if (e.target.dataset.ph === 'pitch') { this.pitch = +e.target.value; this.apply(); } });
     // 只剩一个小按钮时，点画面任何地方都能把工具条叫回来
-    this.peek = document.createElement('button'); this.peek.id = 'photopeek'; this.peek.innerHTML = iconize('📷'); this.peek.title = '显示拍照工具条';
+    this.peek = document.createElement('button'); this.peek.id = 'photopeek'; this.peek.innerHTML = iconize('📷'); this.peek.title = '사진 도구 모음 표시';
     this.peek.addEventListener('click', () => document.body.classList.remove('photo-clean'));
     document.body.appendChild(this.peek);
     const view = document.createElement('div'); view.id = 'photoview';
-    view.innerHTML = '<div class="pvin"><img alt="刚拍的照片"><div class="pvbar"><button class="btn go" data-pv="save">保存图片</button><button class="btn" data-pv="album">收进相册</button><button class="btn" data-pv="again">再拍一张</button><button class="btn ghost" data-pv="done">退出拍照</button></div><small>保存不了的话：电脑上右键图片「另存为」，手机上长按图片保存。</small></div>';
+    view.innerHTML = '<div class="pvin"><img alt="방금 찍은 사진"><div class="pvbar"><button class="btn go" data-pv="save">사진 저장</button><button class="btn" data-pv="album">앨범에 추가</button><button class="btn" data-pv="again">한 장 더 찍기</button><button class="btn ghost" data-pv="done">촬영 중단 사진</button></div><small>저장할 수 없는 경우: 컴퓨터에서 사진을 마우스 오른쪽 버튼으로 클릭하고 "다른 이름으로 저장"한 다음 휴대폰에서 사진을 길게 눌러 저장하세요. </small></div>';
     view.addEventListener('click', e => {
       const b = e.target.closest('[data-pv]'); if (!b && e.target !== view) return;
       if (b && b.dataset.pv === 'save') { this.save(); return; }
@@ -126,21 +126,19 @@ export class Photo {
   }
   draw() {
     const g = this.g, seg = (k, list, cur) => `<div class="phseg">${list.map(([v, n], i) => `<button class="${cur === (k === 'tod' ? i : v) ? 'on' : ''}" data-ph="${k}" data-v="${k === 'tod' ? i : v}">${n}</button>`).join('')}</div>`;
-    this.bar.innerHTML = iconize(`
-      <div class="phrow"><span class="phl">时辰</span>${seg('tod', PH_TIMES, this.tod)}</div>
-      <div class="phrow"><span class="phl">滤镜</span>${seg('f', PH_FILTERS.map(x => [x.id, x.n]), this.f)}</div>
-      ${(() => { const S = g.S, L = Object.keys(FRAMES).filter(id => Sim.cosHave(S, 'frame', id)); return L.length > 1 ? `<div class="phrow"><span class="phl">相框</span>${seg('fr', L.map(id => [id, FRAMES[id].n]), this.frame())}</div>` : ''; })()}
-      <div class="phrow"><span class="phl">镜头</span><span class="phrng"><small>平视</small><input type="range" min="0" max="100" value="${this.pitch}" data-ph="pitch"><small>俯视</small></span>
-        <button class="phtg ${g.paused ? 'on' : ''}" data-ph="freeze" title="暂停时间，人和车都停住">定格</button><button class="phtg ${this.ring ? 'on' : ''}" data-ph="ring" title="显示熔炉供热圈">供热圈</button></div>
-      <div class="phrow phact"><button class="phx" data-ph="x">✕ 退出</button><button class="phx" data-ph="hide">藏起工具条</button><button class="phshot" data-ph="shot">📸 拍照</button></div>
-      <div class="phtip">拖动画面找角度 · ${matchMedia('(pointer:coarse)').matches ? '双指缩放、旋转' : '滚轮缩放 · 右键拖动旋转'} · 拍照模式里能凑得更近</div>`);
+    this.bar.innerHTML = iconize(`<div class="phrow"><span class="phl">시간</span>${seg('tod', PH_TIMES, this.tod)}</div>
+      <div class="phrow"><span class="phl">필터</span>${seg('f', PH_FILTERS.map(x => [x.id, x.n]), this.f)}</div>
+      ${(() => { const S = g.S, L = Object.keys(FRAMES).filter(id => Sim.cosHave(S, 'frame', id)); return L.length > 1 ? `<div class="phrow"><span class="phl">액자</span>${seg('fr', L.map(id => [id, FRAMES[id].n]), this.frame())}</div>` : ''; })()}<div class="phrow"><span class="phl">렌즈</span><span class="phrng"><small>헤드업</small><input type="range" min="0" max="100" value="${this.pitch}" data-ph="pitch"><small>아래를 내려다 보면서</small></span>
+        <버튼 클래스="phtg${g.paused ? 'on' : ''}" data-ph="freeze" title="시간 정지, 사람과 자동차 정지">정지</button><button class="phtg${this.ring ? 'on' : ''}" data-ph="ring" title="용광로난방권">난방권 표시</button></div>
+      <div class="phrow phact"><button class="phx" data-ph="x">✕ 종료</button><button class="phx" data-ph="hide">툴바 숨기기</button><button class="phshot" data-ph="shot">📸 사진 찍기</button></div>
+      <div class="phtip">이미지를 드래그하여 각도를 찾으세요 ·${matchMedia('(pointer:coarse)').matches ? '핀치하여 확대/축소 및 회전' : '휠 확대/축소 · 마우스 오른쪽 버튼을 클릭하고 드래그하여 회전'}· 사진 모드로 더 가까이 다가갈 수 있습니다</div>`);
   }
   // 拍照：截下这一帧，套上滤镜、暗角和落款
   shoot() {
     const g = this.g, v = g.view, S = g.S;
     if (this.busy) return;
     this.busy = true; clearTimeout(this.busyT); this.busyT = setTimeout(() => { if (this.busy) { this.busy = false; this.draw(); } }, 60000);
-    const btn = this.bar.querySelector('.phshot'); if (btn) { btn.disabled = true; btn.textContent = '冲洗中…'; }
+    const btn = this.bar.querySelector('.phshot'); if (btn) { btn.disabled = true; btn.textContent = '헹구는 중…'; }
     g.sfx('shutter');
     document.body.classList.add('photo-flash'); setTimeout(() => document.body.classList.remove('photo-flash'), 380);
     v.shotCb = src => {
@@ -155,14 +153,14 @@ export class Photo {
     const S = this.g.S;
     this.busy = false; this.draw();
     S.meta.photos = (S.meta.photos || 0) + 1;
-    if (!url) { this.g.ui.toast('这台设备拍不了照片。', 'warn'); return; }
+    if (!url) { this.g.ui.toast('이 장치는 사진을 찍을 수 없습니다.', 'warn'); return; }
     if (this.url) URL.revokeObjectURL(this.url);
     this.url = url.startsWith('blob:') ? url : null;
     this.pv.querySelector('img').src = url;
     this.dataUrl = this.url ? null : url;
-    this.fname = `寒烬北行-${stamp()}.png`;
-    this.pv.querySelector('[data-pv="save"]').textContent = '保存图片';
-    this.pv.querySelector('[data-pv="album"]').textContent = '收进相册';
+    this.fname = `차가운 잔불의 북행-${stamp()}.png`;
+    this.pv.querySelector('[data-pv="save"]').textContent = '이미지 저장';
+    this.pv.querySelector('[data-pv="album"]').textContent = '앨범에 추가';
     this.pv.classList.add('show');
   }
   // 保存：claude.ai 里走页面的下载权限（会问一句），单独打开时用普通下载
@@ -170,19 +168,19 @@ export class Photo {
     let data = this.blob;
     if (!data && this.dataUrl) data = await (await fetch(this.dataUrl)).blob();
     const btn = this.pv.querySelector('[data-pv="save"]'); // 拍照模式里提示条是藏起来的，结果写在按钮上
-    if (!data) { btn.textContent = '存不了，请右键或长按图片'; return; }
-    const r = await saveFile(this.fname, data, this.fname.replace('寒烬北行', 'hanjin'));
-    if (r === 'saved') btn.textContent = '✓ 存好了';
-    else if (r === 'busy') btn.textContent = '还在问要不要保存…';
+    if (!data) { btn.textContent = '저장할 수 없습니다. 사진을 마우스 오른쪽 버튼으로 클릭하거나 길게 누르세요.'; return; }
+    const r = await saveFile(this.fname, data, this.fname.replace('차가운 잔불의 북행', 'hanjin'));
+    if (r === 'saved') btn.textContent = '✓ 저장됨';
+    else if (r === 'busy') btn.textContent = '아직도 저장하겠냐고 물어보는데...';
   }
   hidePreview() { this.pv.classList.remove('show'); }
   // 手动收进相册：存一份缩小的 JPEG
   async toAlbum(btn) {
     if (!this.lastCv || this.inAlbum) return;
-    this.inAlbum = true; btn.textContent = '收着呢…';
+    this.inAlbum = true; btn.textContent = '그것을 유지하는 ...';
     const j = await toJpeg(this.lastCv);
-    if (!j) { btn.textContent = '存不进相册'; this.inAlbum = false; return; }
+    if (!j) { btn.textContent = '사진 앨범에 저장할 수 없습니다'; this.inAlbum = false; return; }
     await albumAdd({ blob: j.blob, w: j.w, h: j.h, cap: captionOf(this.g.S), auto: 0 });
-    btn.textContent = '✓ 收进相册了'; this.g.ui.albumDirty && this.g.ui.albumDirty();
+    btn.textContent = '✓ 사진 앨범에 추가됨'; this.g.ui.albumDirty && this.g.ui.albumDirty();
   }
 }

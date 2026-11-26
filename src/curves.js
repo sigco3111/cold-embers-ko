@@ -13,7 +13,7 @@ export function fmtV(v) {
   if (a >= 100) return Math.round(v).toLocaleString('en-US');
   return (Math.round(v * 10) / 10).toString();
 }
-export const dayLabel = t => `第 ${Math.floor(t / DAY_LEN) + 1} 天`;
+export const dayLabel = t => `일 ${Math.floor(t / DAY_LEN) + 1}`;
 export const timeLabel = t => `${dayLabel(t)} · ${dayCycle(t).name}`;
 
 function niceStep(span, n) {
@@ -52,7 +52,7 @@ export function chartHtml(o) {
     const xa = X(Math.max(a, t0)), xb = X(Math.min(b, t1));
     if (xb - xa < 1) continue;
     g += `<rect x="${xa.toFixed(1)}" y="${padT}" width="${(xb - xa).toFixed(1)}" height="${ih}" class="cvoff"/>`;
-    if (xb - xa > 30) g += `<text x="${((xa + xb) / 2).toFixed(1)}" y="${padT + 11}" class="cvofft">离线</text>`;
+    if (xb - xa > 30) g += `<text x="${((xa + xb) / 2).toFixed(1)}" y="${padT + 11}" class="cvofft">오프라인</text>`;
   }
   // 网格与 y 轴刻度
   for (const v of Y.ticks) { const y = YY(v).toFixed(1); g += `<line x1="${padL}" x2="${padL + iw}" y1="${y}" y2="${y}" class="cvgrid${v === 0 && Y.lo < 0 ? ' zero' : ''}"/><text x="${padL - 6}" y="${(+y + 3.5).toFixed(1)}" class="cvyt">${fmtV(v)}${o.unit && v === Y.ticks[Y.ticks.length - 1] ? o.unit : ''}</text>`; }

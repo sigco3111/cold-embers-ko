@@ -30,9 +30,9 @@ export function sellPrice(S, k) { return basePrice(k) * floatOf(S, k) * qyMul(S)
 // 卖 n 个一共换多少（越卖越便宜，按积分算）
 export function sellValue(S, k, n) { const D = depthOf(k), v = volOf(S, k); return basePrice(k) * floatOf(S, k) * qyMul(S) * D * (Math.exp(-v / D) - Math.exp(-(v + n) / D)); }
 export function guildSell(S, cid, k, n) {
-  const c = guildCamp(S, cid); if (!c) return { ok: false, reason: '先在哪座营地盖一座商会驿站' };
-  if (!tradable(S, k)) return { ok: false, reason: '商会不收这样东西' };
-  n = Math.floor(Math.min(n, c.stock[k] || 0)); if (n < 1) return { ok: false, reason: `「${c.name}」没有${RES[k].n}可卖` };
+  const c = guildCamp(S, cid); if (!c) return { ok: false, reason: '어떤 야영지를 먼저 구축해야 합니까?' };
+  if (!tradable(S, k)) return { ok: false, reason: '상회는 그런 것을 받아들이지 않습니다' };
+  n = Math.floor(Math.min(n, c.stock[k] || 0)); if (n < 1) return { ok: false, reason: `"${c.name}"에는 판매할 ${RES[k].n}이(가) 없습니다.` };
   const v = sellValue(S, k, n), G = guildOf(S);
   c.stock[k] -= n; G.vol[k] = volOf(S, k) + n; G.silver += v;
   S.stats.sold = (S.stats.sold || 0) + v;
@@ -42,11 +42,11 @@ export function guildSell(S, cid, k, n) {
 export const buyPrice = (S, k) => basePrice(k) * floatOf(S, k) * GUILD.buyMul;
 export const buyLeft = (S, k) => Math.max(0, (GUILD.buyLim[RES[k].t] || 0) - (guildOf(S).bought[k] || 0));
 export function guildBuy(S, cid, k, n) {
-  const c = guildCamp(S, cid); if (!c) return { ok: false, reason: '先在哪座营地盖一座商会驿站' };
-  if (!tradable(S, k)) return { ok: false, reason: '商会不卖这样东西' };
+  const c = guildCamp(S, cid); if (!c) return { ok: false, reason: '어떤 야영지를 먼저 구축해야 합니까?' };
+  if (!tradable(S, k)) return { ok: false, reason: '상회는 그런거 안팔아요' };
   const G = guildOf(S), p = buyPrice(S, k);
   n = Math.floor(Math.min(n, buyLeft(S, k), G.silver / p));
-  if (n < 1) return { ok: false, reason: buyLeft(S, k) < 1 ? `今天的${RES[k].n}卖完了，明天再来` : '银币不够' };
+  if (n < 1) return { ok: false, reason: buyLeft(S, k) < 1 ? `오늘의 ${RES[k].n}은(는) 매진되었습니다. 내일 다시 오세요.` : '은화만으로는 충분하지 않습니다' };
   G.silver -= n * p; G.bought[k] = (G.bought[k] || 0) + n; c.stock[k] = (c.stock[k] || 0) + n;
   return { ok: true, n, silver: n * p };
 }
@@ -54,10 +54,10 @@ export function guildBuy(S, cid, k, n) {
 export const emberPrice = S => GUILD.emberCost * Math.max(1, S.known);
 export const emberLeft = S => Math.max(0, GUILD.emberDay - (guildOf(S).emb || 0));
 export function buyEmbers(S, n) {
-  if (!guildOn(S)) return { ok: false, reason: '先盖一座商会驿站' };
+  if (!guildOn(S)) return { ok: false, reason: '먼저 상회 역참을 구축하세요' };
   const G = guildOf(S), p = emberPrice(S);
   n = Math.floor(Math.min(n, emberLeft(S), G.silver / p));
-  if (n < 1) return { ok: false, reason: emberLeft(S) < 1 ? '今天的余烬买满了，明天再来' : '银币不够' };
+  if (n < 1) return { ok: false, reason: emberLeft(S) < 1 ? '오늘 잔불 구매완료 내일 다시오세요' : '은화만으로는 충분하지 않습니다' };
   G.silver -= n * p; G.emb = (G.emb || 0) + n;
   S.meta.embers += n; S.meta.emberTotal = (S.meta.emberTotal || 0) + n;
   return { ok: true, n };
@@ -66,10 +66,10 @@ export function buyEmbers(S, n) {
 export const SHOP_DECOS = Object.keys(BLD).filter(t => BLD[t].shop);
 export const shopHave = (S, t) => !!(S.meta.shop && S.meta.shop[t]);
 export function buyDeco(S, t) {
-  if (!guildOn(S)) return { ok: false, reason: '先盖一座商会驿站' };
+  if (!guildOn(S)) return { ok: false, reason: '먼저 상회 역참을 구축하세요' };
   const d = BLD[t]; if (!d || !d.shop) return { ok: false, reason: '' };
-  if (shopHave(S, t)) return { ok: false, reason: '已经买过了' };
-  const G = guildOf(S); if (G.silver < d.shop) return { ok: false, reason: `还差 ${Math.ceil(d.shop - G.silver)} 银币` };
+  if (shopHave(S, t)) return { ok: false, reason: '이미 샀어요' };
+  const G = guildOf(S); if (G.silver < d.shop) return { ok: false, reason: `아직 ${Math.ceil(d.shop - G.silver)} 은화가 누락되었습니다.` };
   G.silver -= d.shop; (S.meta.shop || (S.meta.shop = {}))[t] = 1;
   return { ok: true };
 }
@@ -90,7 +90,7 @@ function newOrders(S, day) {
 export function guildDeliver(S, cid, oid) {
   const c = guildCamp(S, cid), G = guildOf(S), o = G.orders.find(x => x.id === oid);
   if (!c || !o) return { ok: false, reason: '' };
-  if ((c.stock[o.k] || 0) < o.n) return { ok: false, reason: `「${c.name}」的${RES[o.k].n}还差 ${Math.ceil(o.n - (c.stock[o.k] || 0))}` };
+  if ((c.stock[o.k] || 0) < o.n) return { ok: false, reason: `"${c.name}"은(는) ${RES[o.k].n}보다 ${Math.ceil(o.n - (c.stock[o.k] || 0))}만큼 부족합니다.` };
   c.stock[o.k] -= o.n; G.silver += o.silver; S.meta.embers += o.emb; S.meta.emberTotal = (S.meta.emberTotal || 0) + o.emb;
   G.orders = G.orders.filter(x => x !== o); S.stats.orders = (S.stats.orders || 0) + 1;
   return { ok: true, silver: o.silver, emb: o.emb };
@@ -106,6 +106,6 @@ export function guildStep(S) {
   newOrders(S, day);
   if (!rt(S).offline) {
     const best = RES_KEYS.filter(k => tradable(S, k) && prodRate(S, k) > 0.05).sort((a, b) => floatOf(S, b) - floatOf(S, a))[0];
-    logMsg(S, first ? '🛷 北方商会的车队第一次到了驿站：可以卖货换银币、接订单、买装饰图纸。生产 › 商会。' : `🛷 商会的车队到了：今天${best ? `「${RES[best].n}」价钱最好（${Math.round(floatOf(S, best) * 100)}%）` : '带来了新的价钱'}，订单 ${G.orders.length} 张。`, 'info', { act: 'guild', label: '去商会' });
+    logMsg(S, first ? '🛷 북방 상회의 행렬이 처음으로 여관에 도착했습니다. 은화와 교환하여 상품을 판매하고, 주문을 받고, 장식 도면을 구매할 수 있습니다. 생산 › 상회.' : `🛷 상회 중 행렬 도착: 오늘${best ? `「${RES[best].n}"최고의 가격(${Math.round(floatOf(S, best) * 100)}%）` : '새로운 가격을 가져왔다'},주문하다${G.orders.length}열려 있는.`, 'info', { act: 'guild', label: '상회로 이동' });
   }
 }

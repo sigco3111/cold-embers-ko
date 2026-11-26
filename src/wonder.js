@@ -16,11 +16,11 @@ export const isWonder = type => !!(BLD[type] && BLD[type].wonder);
 export const wonderIn = (S, cid) => S.buildings.find(b => b.camp === cid && isWonder(b.type)) || null;
 export const wonderDone = b => !!(b && b.wd && b.wd.ph >= WONDER_PH.length);
 export function wonderLock(S, type) {
-  const W = WONDERS[type]; if (!W) return '不是奇观';
-  if (!bpHave(S, type)) return `还没有「${W.n}」的图纸：研究「奇观图纸·${W.tech === 'wonder1' ? '一' : '二'}」，或在北境的分岔、奇遇里拿到`;
-  if (wonderOn(S, type)) return `${W.n}这一程已经建过了`;
+  const W = WONDERS[type]; if (!W) return '불가사의 아님';
+  if (!bpHave(S, type)) return `"${W.n}"에 대한 청사진은 아직 없습니다: 연구 "불가사의 청사진·${W.tech === 'wonder1' ? '하나' : '둘'}", 또는 북방 또는 기연 브랜치에서 얻을 수 있습니다.`;
+  if (wonderOn(S, type)) return `${W.n}이 프로세스는 이미 완료되었습니다.`;
   const b = S.buildings.find(x => x.type === type);
-  if (b) return `${W.n}已经在「${(getCamp(S, b.camp) || {}).name || '?'}」开工了`;
+  if (b) return `${W.n}이(가) "${(getCamp(S, b.camp) || {}).name || '?'}"에서 공사를 시작했습니다.`;
   return '';
 }
 // 第 ph 期要喂什么：每种的总量、每分钟多少（满速）、喂多久
@@ -43,8 +43,8 @@ export function wonderFeed(S, b, dt, hf, offK, st, R, dem, fuelKeepU = 0) {
   const br = R.b[b.id] || (R.b[b.id] = {}), W = b.wd || (b.wd = { ph: 0, p: 0 });
   br.rate = {}; br.inRate = {}; br.want = {}; br.haul = 0; br.act = 0; br.staff = 1; br.dist = R.dist.get(b.id) || 0;
   const sp = wonderSpec(b.type, W.ph);
-  if (!sp) { br.status = '建成了'; return; }
-  if (b.moveT > S.t) { br.status = '在搬家'; return; }
+  if (!sp) { br.status = '세워짐'; return; }
+  if (b.moveT > S.t) { br.status = '움직이는'; return; }
   const camp = getCamp(S, b.camp), mul = feedMul(S, camp);
   const f = Math.min(dt * hf * offK * mul, sp.dur - W.p);
   let lim = 1, whyK = null;
@@ -59,7 +59,7 @@ export function wonderFeed(S, b, dt, hf, offK, st, R, dem, fuelKeepU = 0) {
   }
   W.p = Math.min(sp.dur, W.p + f * lim);
   br.act = lim; br.haul = dem * hf * lim;
-  br.status = lim < 0.95 ? (fuelKeep(st, whyK, fuelKeepU) > 0 && (st[whyK] || 0) > 0 ? '留燃料给熔炉' : `缺${RES[whyK].n}`) : hf < 0.7 ? '搬运工不够' : `${sp.n}中`;
+  br.status = lim < 0.95 ? (fuelKeep(st, whyK, fuelKeepU) > 0 && (st[whyK] || 0) > 0 ? '연료를 용광로에 맡기세요' : `${RES[whyK].n} 누락됨`) : hf < 0.7 ? '운반꾼 부족' : `${sp.n} 안으로`;
   if (W.p >= sp.dur - 1e-6) wonderNext(S, b);
 }
 function wonderNext(S, b) {
@@ -67,7 +67,7 @@ function wonderNext(S, b) {
   W.ph++; W.p = 0;
   const R = rt(S);
   if (W.ph < WONDER_PH.length) {
-    logMsg(S, `🏗️ ${Wn.n}「${WONDER_PH[W.ph - 1].n}」完工了，接着${WONDER_PH[W.ph].n}：${Object.entries(Wn.ph[W.ph]).map(([k, v]) => `${RES[k].n} ${v}`).join('、')}。`, 'good', { act: 'spot', arg: b.id, label: '去看看' });
+    logMsg(S, `🏗️ ${Wn.n}「${WONDER_PH[W.ph - 1].n}"그럼 됐어.${WONDER_PH[W.ph].n}：${Object.entries(Wn.ph[W.ph]).map(([k, v]) => `${RES[k].n} ${v}`).join('、')}。`, 'good', { act: 'spot', arg: b.id, label: '가 보기' });
     R.fx.push({ kind: 'wonder-ph', bid: b.id, ph: W.ph, x: b.x + s / 2, y: b.y + s / 2 });
     return;
   }
@@ -77,7 +77,7 @@ function wonderNext(S, b) {
   M.wMax = Math.max(M.wMax || 0, wonderList(S).length);
   for (const c of S.camps) bumpMood(c, c.id === b.camp ? 10 : 4, -3);
   dirty(S);
-  logMsg(S, `${Wn.ic}【${Wn.n}】在「${camp ? camp.name : '?'}」落成了！${Wn.d}。这一程一直有效，营地熄火了也不丢。`, 'story', { act: 'spot', arg: b.id, label: '去看看' });
+  logMsg(S, `${Wn.ic}【${Wn.n}】이(가) "${camp ? camp.name : '?'}"에 완료되었습니다! ${Wn.d}. 이 프로세스는 항상 효과적이며 야영지는 꺼져 있어도 손실되지 않습니다.`, 'story', { act: 'spot', arg: b.id, label: '가 보기' });
   R.fx.push({ kind: 'wonder-done', bid: b.id, w: b.type, x: b.x + s / 2, y: b.y + s / 2 });
 }
 // 施工进度（0..1，按三期的时长加权）
@@ -118,24 +118,24 @@ export const townOf = camp => Math.max(0, Math.min(TOWN.length - 1, (camp && cam
 export const townName = camp => TOWN[townOf(camp)].n;
 export const townNext = camp => TOWN[townOf(camp) + 1] || null;
 export function townBlock(S, camp) {
-  const nx = townNext(camp); if (!nx) return '已经是大城了';
-  if (!techDone(S, 'townplan')) return '先研究「城镇规划」';
-  if (camp.depot) return '补给站升不了城镇';
-  if (camp.people < nx.pop) return `要住满 ${nx.pop} 人（现在 ${camp.people}）`;
-  if ((camp.hope ?? 50) < nx.need) return `希望要到 ${nx.need}（现在 ${Math.round(camp.hope ?? 50)}）`;
+  const nx = townNext(camp); if (!nx) return '벌써 대도시 입니다';
+  if (!techDone(S, 'townplan')) return '첫 번째 연구 "도시 계획"';
+  if (camp.depot) return '보급고는 마을을 업그레이드할 수 없습니다.';
+  if (camp.people < nx.pop) return `${nx.pop}명 수용 가능(현재 ${camp.people})`;
+  if ((camp.hope ?? 50) < nx.need) return `희망은 ${nx.need}(현재 ${Math.round(camp.hope ?? 50)})로 이동합니다.`;
   return '';
 }
 export function townUp(S, cid) {
-  const camp = getCamp(S, cid); if (!camp) return { ok: false, reason: '没有这个营地' };
+  const camp = getCamp(S, cid); if (!camp) return { ok: false, reason: '그런 야영지는 없습니다' };
   const why = townBlock(S, camp); if (why) return { ok: false, reason: why };
   const nx = townNext(camp);
   camp.town = townOf(camp) + 1;
   if (camp.town >= 3) camp.giftDay = Math.floor(S.t / DAY_LEN); // 第一份市政礼包明天送
-  addBuff(S, camp, 'prod', -0.5, TOWN_FEST, `升${nx.n}典礼（大家都去看烟花了）`);
+  addBuff(S, camp, 'prod', -0.5, TOWN_FEST, `${nx.n} 승진식 (다들 불꽃놀이 보러 갔어요)`);
   bumpMood(camp, 10, -6);
   S.meta.town = Math.max(S.meta.town || 0, camp.town);
   dirty(S);
-  logMsg(S, `🎆「${camp.name}」升成了${nx.n}！大家放下手里的活，围着熔炉看了一场烟花。${nx.d}。`, 'story');
+  logMsg(S, `🎆「${camp.name}」이(가) ${nx.n}(으)로 업그레이드되었습니다! 모두들 하던 일을 잠시 내려놓고 용광로 주변에서 불꽃놀이를 관람했습니다. ${nx.d}.`, 'story');
   rt(S).fx.push({ kind: 'town', camp: camp.id, lvl: camp.town, x: camp.x, y: camp.y });
   return { ok: true, lvl: camp.town };
 }
@@ -157,7 +157,7 @@ export function townStep(S) {
       const add = Math.max(0, Math.min(n, storeCap(S, c) - (c.stock[k] || 0)));
       if (add > 0) { c.stock[k] = (c.stock[k] || 0) + add; got.push(`${RES[k].n} ${Math.round(add)}`); }
     }
-    if (got.length && !rt(S).offline) logMsg(S, `🎁「${c.name}」的市政礼包到了：${got.join('、')}。`, 'good');
+    if (got.length && !rt(S).offline) logMsg(S, `🎁"${c.name}"의 시립 선물 팩 ${got.join('、')}이(가) 도착했습니다.`, 'good');
   }
 }
 // 物流网：奇观工地这一期还要的料，按十分钟的量往这儿送（也不往外调）

@@ -1,12 +1,12 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="ko">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#1b2430">
-<title>寒烬北行</title>
+<title>차가운 잔불의 북행</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@600;900&family=Barlow+Condensed:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@600;900&family=Noto+Sans+KR:wght@400;500;700&family=Barlow+Condensed:wght@500;600;700&display=swap">
 <style>
 /* 视觉：冻土上的蒸汽铁器。铆钉铁板做底，黄铜包边，熔炉橙是唯一的暖色，冰霜蓝只出现在边缘和寒冷警告上。 */
 :root{
@@ -21,8 +21,8 @@
   --good:#9fd47a;--bad:#ff6f55;--warn:#ffcb5c;
   --panel:linear-gradient(180deg,rgba(26,34,45,.98),rgba(18,24,32,.98));
   --plate:linear-gradient(180deg,rgba(33,42,54,.94),rgba(23,30,39,.94));
-  --serif:"Noto Serif SC","Songti SC","STSong","SimSun",serif;
-  --sans:-apple-system,"PingFang SC","Microsoft YaHei","Noto Sans SC",sans-serif;
+  --serif:"Noto Serif KR","Nanum Myeongjo","Batang",serif;
+  --sans:-apple-system,"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",sans-serif;
   --rivet:radial-gradient(circle at 35% 35%,#e6eef5 0,#8ea3b6 35%,#2a3644 75%,transparent 80%);
   --grain:linear-gradient(transparent,transparent);
   --brush:linear-gradient(transparent,transparent);
@@ -798,7 +798,7 @@ body.cine #top,body.cine #toolbar,body.cine #side,body.cine #labels,body.cine #t
 #cinebar{display:none}
 body.cine #cinebar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:35;height:14vh;min-height:72px;align-items:center;justify-content:center;background:#000;pointer-events:none;animation:cineUp .9s ease-out}
 body.cine::before{content:'';position:fixed;left:0;right:0;top:0;height:11vh;min-height:52px;background:#000;z-index:35;pointer-events:none;animation:cineDown .9s ease-out}
-#cinebar .cap{font:600 clamp(16px,2.4vw,24px)/1.4 "Noto Serif SC",serif;color:#ffe6b8;letter-spacing:.12em;text-align:center;padding:0 100px;opacity:0}
+#cinebar .cap{font:600 clamp(16px,2.4vw,24px)/1.4 "Noto Serif KR",serif;color:#ffe6b8;letter-spacing:.12em;text-align:center;padding:0 100px;opacity:0}
 #cinebar .cap.in{animation:capIn 1.6s ease-out forwards}
 #cinebar [data-skip]{position:absolute;right:16px;top:50%;transform:translateY(-50%);pointer-events:auto;background:rgba(255,255,255,.08);color:#cfd6e0;border:1px solid rgba(255,255,255,.2);font-size:13px;padding:6px 12px;min-height:0}
 @keyframes capIn{0%{opacity:0;transform:translateY(6px)}30%{opacity:1;transform:none}100%{opacity:1;transform:none}}
@@ -959,7 +959,7 @@ button.small.go{color:#fff;background:linear-gradient(180deg,#ff9a3c,#b54d18);bo
   .card .cb{display:flex;flex-direction:column;gap:3px}
   .card .cn{font-size:14px;line-height:1.25}.card .chas,.card .cnx{display:none}
   .chave{display:block;position:absolute;right:3px;top:3px;font-style:normal;font-size:11px;font-weight:700;line-height:1;padding:3px 5px;border-radius:8px;background:rgba(9,11,13,.78);color:#f2e8d8;box-shadow:0 0 0 1px rgba(170,200,230,.4)}
-  .chave::before{content:"已有 ";font-weight:400;color:var(--muted)}
+  .chave::before{content:"보유 ";font-weight:400;color:var(--muted)}
   .card .cd{font-size:11.5px;line-height:1.35;margin:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.7em}
   .card .cc{font-size:12.5px;line-height:1.55;margin-top:auto}
   .card .cio{font-size:11px;margin-top:0;line-height:1.4}
@@ -1119,38 +1119,38 @@ button.small.ghost{border-color:rgba(170,200,230,.22);color:var(--a-text2)}
 <div id="floats"></div>
 <div id="labels"></div>
 <div id="top">
-  <div class="r1"><button id="campName" class="hpl" data-act="campBtn"><span class="cn">营地</span><span class="csub"></span><svg class="svg cv" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10l5 5 5-5"/></svg></button><div id="vitals"></div></div>
-  <div class="r2"><div id="goal" class="hpl"></div><button id="bellBtn" class="hpl" data-act="bell" title="提醒与消息" aria-label="提醒"><svg class="hic" aria-hidden="true"><use href="#c-ui_bell"/></svg><i class="bn"></i></button></div>
+  <div class="r1"><button id="campName" class="hpl" data-act="campBtn"><span class="cn">야영지</span><span class="csub"></span><svg class="svg cv" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10l5 5 5-5"/></svg></button><div id="vitals"></div></div>
+  <div class="r2"><div id="goal" class="hpl"></div><button id="bellBtn" class="hpl" data-act="bell" title="알림과 메시지" aria-label="알림"><svg class="hic" aria-hidden="true"><use href="#c-ui_bell"/></svg><i class="bn"></i></button></div>
 </div>
 <div id="toasts"></div>
-<div id="pausebar" data-act="pause">⏸ 已暂停 <small style="font:400 11.5px var(--sans);letter-spacing:0;color:var(--a-text2)">点这里继续</small></div>
+<div id="pausebar" data-act="pause">⏸ 일시 정지됨 <small style="font:400 11.5px var(--sans);letter-spacing:0;color:var(--a-text2)">여기를 눌러 계속</small></div>
 <div id="note"></div>
 <div id="side">
-  <button id="menuBtn" data-act="hub" data-arg="menu" title="菜单" aria-label="菜单"><svg class="hic" aria-hidden="true"><use href="#c-ui_menu"/></svg></button>
-  <button id="speedBtn" data-act="speed" title="加速（点一下换倍速，按住暂停）" aria-label="速度"><svg class="hic sp" aria-hidden="true"><use href="#c-ui_speed"/></svg><svg class="hic ps" aria-hidden="true"><use href="#c-ui_pause"/></svg><i>1×</i></button>
-  <button id="mapBtn" data-act="bigmap" title="北行地图（M）" aria-label="北行地图"><svg class="hic" aria-hidden="true"><use href="#c-ui_map"/></svg><span class="pl">北行地图<kbd>M</kbd></span></button>
-  <button id="homeBtn" title="回到炉火（空格）" aria-label="回到炉火"><svg class="hic" aria-hidden="true"><use href="#c-ui_home"/></svg><span class="pl">回到炉火<kbd>空格</kbd></span></button>
+  <button id="menuBtn" data-act="hub" data-arg="menu" title="메뉴" aria-label="메뉴"><svg class="hic" aria-hidden="true"><use href="#c-ui_menu"/></svg></button>
+  <button id="speedBtn" data-act="speed" title="배속(누르면 배속 변경, 길게 누르면 일시 정지)" aria-label="배속"><svg class="hic sp" aria-hidden="true"><use href="#c-ui_speed"/></svg><svg class="hic ps" aria-hidden="true"><use href="#c-ui_pause"/></svg><i>1×</i></button>
+  <button id="mapBtn" data-act="bigmap" title="북행 지도(M)" aria-label="북행 지도"><svg class="hic" aria-hidden="true"><use href="#c-ui_map"/></svg><span class="pl">북행 지도<kbd>M</kbd></span></button>
+  <button id="homeBtn" title="모닥불로 돌아가기(스페이스)" aria-label="모닥불로 돌아가기"><svg class="hic" aria-hidden="true"><use href="#c-ui_home"/></svg><span class="pl">모닥불로<kbd>스페이스</kbd></span></button>
 </div>
 <div id="cmdbar"></div>
 <div id="toolbar">
-  <button id="tbCamp" data-act="hub" data-arg="camp"><span><svg class="hic" aria-hidden="true"><use href="#c-hub_camp"/></svg></span><em class="tl">营地<kbd class="pk">1</kbd></em></button>
-  <button id="tbProd" data-act="hub" data-arg="prod"><span><svg class="hic" aria-hidden="true"><use href="#c-hub_prod"/></svg></span><em class="tl">生产<kbd class="pk">2</kbd></em></button>
-  <button id="tbBuild" class="main" data-act="hub" data-arg="build"><span><svg class="hic" aria-hidden="true"><use href="#c-hub_build"/></svg></span><em class="tl">建造<kbd class="pk">3</kbd></em></button>
-  <button id="tbResearch" data-act="hub" data-arg="research"><span><svg class="hic" aria-hidden="true"><use href="#c-hub_research"/></svg></span><em class="tl">研究<kbd class="pk">4</kbd></em><i class="tbp"></i></button>
-  <button id="tbNorth" data-act="hub" data-arg="north"><span><svg class="hic" aria-hidden="true"><use href="#c-hub_north"/></svg></span><em class="tl">北行<kbd class="pk">5</kbd></em></button>
+  <button id="tbCamp" data-act="hub" data-arg="camp"><span><svg class="hic" aria-hidden="true"><use href="#c-hub_camp"/></svg></span><em class="tl">야영지<kbd class="pk">1</kbd></em></button>
+  <button id="tbProd" data-act="hub" data-arg="prod"><span><svg class="hic" aria-hidden="true"><use href="#c-hub_prod"/></svg></span><em class="tl">생산<kbd class="pk">2</kbd></em></button>
+  <button id="tbBuild" class="main" data-act="hub" data-arg="build"><span><svg class="hic" aria-hidden="true"><use href="#c-hub_build"/></svg></span><em class="tl">건설<kbd class="pk">3</kbd></em></button>
+  <button id="tbResearch" data-act="hub" data-arg="research"><span><svg class="hic" aria-hidden="true"><use href="#c-hub_research"/></svg></span><em class="tl">연구<kbd class="pk">4</kbd></em><i class="tbp"></i></button>
+  <button id="tbNorth" data-act="hub" data-arg="north"><span><svg class="hic" aria-hidden="true"><use href="#c-hub_north"/></svg></span><em class="tl">북행<kbd class="pk">5</kbd></em></button>
 </div>
 <div id="placebar">
   <div class="pic" id="placePic"></div><div><div class="nm" id="placeName"></div><div class="pc" id="placeCost"></div></div>
-  <button id="placeRow" title="连续摆一排">一排</button>
-  <button id="placeNo" title="取消">✕</button>
-  <button id="placeOk" title="确认建造">✓</button>
+  <button id="placeRow" title="연속으로 한 줄 배치">한 줄</button>
+  <button id="placeNo" title="취소">✕</button>
+  <button id="placeOk" title="건설 확인">✓</button>
 </div>
 <div id="sheet"></div>
 <div id="bigmap"></div>
 <div id="chainmap"></div>
 <div id="title"></div>
 <div id="modal"></div>
-<div id="loading"><svg viewBox="0 0 24 24" width="54" height="54" fill="none" stroke="#ffb05a" stroke-width="1.4" stroke-linejoin="round"><path d="M12 2.5c.8 4 6 5.5 6 11.5a6 6 0 01-12 0c0-3 1.8-4.3 2.3-6.5 1.4 1.2 2 2.6 2 4.2C11.6 9.5 12.6 6.5 12 2.5z"/></svg>寒烬北行<small>正在点燃熔炉…</small></div>
+<div id="loading"><svg viewBox="0 0 24 24" width="54" height="54" fill="none" stroke="#ffb05a" stroke-width="1.4" stroke-linejoin="round"><path d="M12 2.5c.8 4 6 5.5 6 11.5a6 6 0 01-12 0c0-3 1.8-4.3 2.3-6.5 1.4 1.2 2 2.6 2 4.2C11.6 9.5 12.6 6.5 12 2.5z"/></svg>차가운 잔불의 북행<small>용광로에 불을 붙이는 중…</small></div>
 <script>/*BUNDLE*/</script>
 <script>document.getElementById('loading').remove();</script>
 </body>

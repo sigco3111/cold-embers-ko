@@ -91,11 +91,11 @@ export function newRun(meta, site = 0, seed) {
   revealCircle(S, L.x, L.row, 12 + up(S, 'sight'));
   markFounded(S, camp);
   S.known = Math.max(1, tierOfRow(L.row));
-  logMsg(S, k === 0 ? STORY.intro : `${STORY.migrate}（从${L.n}出发）`, 'story');
+  logMsg(S, k === 0 ? STORY.intro : `${STORY.migrate}(${L.n}부터)`, 'story');
   if (k > 0) {
     const kit = starterKit(S, camp, k);
     S.safeUntil = SAFE_START;
-    logMsg(S, `先遣队已经搭好了营地：${kit}。北边的狼群和劫掠者暂时还没发现你们，大约 ${Math.round(SAFE_START / 3600)} 小时内不会遇袭，趁这段时间把防御建起来。`, 'good');
+    logMsg(S, `사전 팀이 야영지: ${kit}을(를) 설정했습니다. 북쪽의 늑대와 약탈자들은 아직 당신을 알아차리지 못했고, 당신은 약 ${Math.round(SAFE_START / 3600)}시간 동안 공격을 받지 않을 것입니다. 이 시간을 활용하여 방어를 구축하세요.`, 'good');
   }
   return S;
 }
@@ -129,7 +129,7 @@ function starterKit(S, camp, k) {
     dirty(S);
   }
   autoAssign(S, camp);
-  return Object.keys(got).map(t => BLD[t].n + (got[t] > 1 ? ' ×' + got[t] : '')).join('、');
+  return Object.keys(got).map(t => BLD[t].n + (got[t] > 1 ? ' ×' + got[t] : '')).join(',');
 }
 
 export function makeCamp(S, fx, fy, name) {
@@ -215,14 +215,14 @@ export function revealCircle(S, cx, cy, r) {
   const top = Math.min(H - 1, Math.floor(cy + r));
   const t = tierOfRow(top);
   if (t > S.known) {
-    for (let k = S.known + 1; k <= t; k++) logMsg(S, `侦察到更北的土地：解锁「${['', '篝火', '煤与铁', '钢与蒸汽', '油与铁路', '霜晶', '遗迹金属', '炉心'][k]}」一层的建筑。`, 'good');
+    for (let k = S.known + 1; k <= t; k++) logMsg(S, `정찰더 북쪽 땅으로 이동: "${['', '모닥불', '석탄과 철', '강철과 증기', '석유와 철도', '서리수정', '유적 금속', '노심'][k]}"의 1층에 있는 건물을 잠금 해제하세요.`, 'good');
     S.known = t;
   }
   LANDMARKS.forEach((l, i) => {
     if (S.discovered.includes(i)) return;
     if ((l.x - cx) ** 2 + (l.row - cy) ** 2 <= r * r) {
       S.discovered.push(i);
-      if (i > 0) logMsg(S, `发现地标「${l.n}」：${l.desc} 车队北迁到这里时，它就是新的主营地。`, 'story');
+      if (i > 0) logMsg(S, `랜드마크 "${l.n}" 발견: ${l.desc} 행렬북상 여기에 도착하면 새로운 본영입니다.`, 'story');
     }
   });
   void W0;
@@ -322,15 +322,15 @@ export function popRoom(S, camp) { return popCap(S, camp) - camp.people - awayOf
 export function infraCost(S, camp, k) { const L = INFRA[k].lv[(camp[k] || 0) + 1]; return L ? L.cost : null; }
 export function upgradeInfra(S, cid, k) {
   const camp = getCamp(S, cid), cost = infraCost(S, camp, k);
-  if (!cost) return { ok: false, reason: '已经是最高级了' };
-  for (const r in cost) if (RES[r].t > S.known) return { ok: false, reason: `需要「${RES[r].n}」——先往北侦察到它所在的纬度` };
-  if (!canAfford(camp.stock, cost)) return { ok: false, reason: '缺：' + missing(camp.stock, cost).join('，') };
+  if (!cost) return { ok: false, reason: '이미 최고레벨이네' };
+  for (const r in cost) if (RES[r].t > S.known) return { ok: false, reason: `"${RES[r].n}" 필요 - 먼저 정찰 북쪽으로 위도까지 이동하세요.` };
+  if (!canAfford(camp.stock, cost)) return { ok: false, reason: '부족: ' + missing(camp.stock, cost).join(',') };
   pay(camp.stock, cost);
   camp[k] = (camp[k] || 0) + 1;
   const L = INFRA[k].lv[camp[k]];
   if (k === 'pipe') revealCircle(S, camp.x, camp.y, heatRadius(S, camp) + 2);
   dirty(S); rt(S).infraDirty = true;
-  logMsg(S, `「${camp.name}」修好了${L.n}：${L.d}。`, 'good');
+  logMsg(S, `"${camp.name}"이 ${L.n}:${L.d}을(를) 수정했습니다.`, 'good');
   return { ok: true };
 }
 
@@ -392,10 +392,10 @@ export function focusProd(camp, type) {
 }
 export function focusLeft(S, camp) { return camp.focusAt == null ? 0 : Math.max(0, FOCUS_CD - (S.t - camp.focusAt)); }
 export function focusBlock(S, camp, k) {
-  if (getB(S, camp.furnace).lvl < FOCUS_LVL) return `熔炉 ${FOCUS_LVL} 级后才能选专精`;
-  if (camp.focus === k) return '已经是这个专精了';
+  if (getB(S, camp.furnace).lvl < FOCUS_LVL) return `용광로 ${FOCUS_LVL} 레벨 이후에만 전문화를 선택할 수 있습니다.`;
+  if (camp.focus === k) return '이건 이미 전문이야';
   const left = focusLeft(S, camp);
-  if (camp.focus && left > 0) return `刚换过专精，还要等 ${Math.ceil(left / 60)} 分钟`;
+  if (camp.focus && left > 0) return `전문화를 변경했지만 여전히 ${Math.ceil(left / 60)}분 기다려야 함`;
   return null;
 }
 export function setFocus(S, cid, k) {
@@ -403,7 +403,7 @@ export function setFocus(S, cid, k) {
   const why = focusBlock(S, camp, k); if (why) return { ok: false, reason: why };
   const had = camp.focus;
   camp.focus = k; camp.focusAt = S.t;
-  logMsg(S, had ? `「${camp.name}」改成了${FOCUS[k].n}营地。` : `「${camp.name}」定下了方向：${FOCUS[k].n}营地。${FOCUS[k].d}`, 'good');
+  logMsg(S, had ? `"${camp.name}"이(가) ${FOCUS[k].n}야영지로 변경되었습니다.` : `"${camp.name}"은 ${FOCUS[k].n}야영지 방향을 설정합니다. ${FOCUS[k].d}`, 'good');
   rt(S).fx.push({ kind: 'focus', camp: cid, k });
   return { ok: true };
 }
@@ -482,13 +482,13 @@ export const freeTok = (camp, type) => !!(camp && camp.freeB && camp.freeB[type]
 export const freeAny = (S, type) => S.camps.some(c => freeTok(c, type));
 export function unlocked(S, type) { const d = BLD[type]; return d.t <= S.known && (!d.shop || shopHave(S, type)) && (!d.gift || cosHave(S, 'deco', type)) && (!d.stage || journeyOf(S).stage >= d.stage) && (!d.rule || ruleNow(S) === d.rule || freeAny(S, type)) && (!d.tower || !towerLock(S, type)) && (!d.wonder || !wonderLock(S, type)); }
 // 永恒之炉以北的新东西：走到那一程才解锁；北境地貌的建筑：只有那种地貌的站能建
-export const stageLock = (S, type) => { const d = BLD[type]; if (d.shop && !shopHave(S, type)) return `在北方商会用 ${d.shop} 银币买下图纸`; if (d.gift && !cosHave(S, 'deco', type)) { const a = giftFrom('deco', type); return `成就「${a && a.hid && !bookOf(S).a[a.id] ? '？？？' : a ? a.n : '？'}」解锁`; } if (d.rule && ruleNow(S) !== d.rule && !freeAny(S, type)) return `只有在「${NORTH_RULES[d.rule].n}」的站才能建`; if (d.tower && towerLock(S, type)) return towerLock(S, type); if (d.wonder && wonderLock(S, type)) return wonderLock(S, type); return d.stage && journeyOf(S).stage < d.stage ? `走到「${stopOf(S, d.stage).n}」才能建` : ''; };
+export const stageLock = (S, type) => { const d = BLD[type]; if (d.shop && !shopHave(S, type)) return `${d.shop} 은화에 북방 상회에서 청사진을 구매하세요`; if (d.gift && !cosHave(S, 'deco', type)) { const a = giftFrom('deco', type); return `업적「${a && a.hid && !bookOf(S).a[a.id] ? '？？？' : a ? a.n : '？'}」 잠금 해제됨`; } if (d.rule && ruleNow(S) !== d.rule && !freeAny(S, type)) return `"${NORTH_RULES[d.rule].n}" 사이트에만 구축할 수 있습니다.`; if (d.tower && towerLock(S, type)) return towerLock(S, type); if (d.wonder && wonderLock(S, type)) return wonderLock(S, type); return d.stage && journeyOf(S).stage < d.stage ? `빌드하려면 "${stopOf(S, d.stage).n}"으로 이동해야 합니다.` : ''; };
 export const forecastOf = S => FORECAST * (journeyOf(S).stage >= 9 ? 2 : 1) * (ruleNow(S) === 'storm' ? 2 : 1); // 到了极光观测站，天气预报提前一倍；风暴走廊再早一倍
 // 加工厂不把基础建材吃光：锯木厂不会把木材全锯成木板、炼钢厂不会把铁锭用完——仓库里留两成（最多 300）给建造。
 // 只管前两层的建材；更高层的中间品本来就是为了往下加工，留料会卡住整条链
-export const KEEP_FRAC = 0.2, KEEP_MAX = 300, KEEP_WHY = '留料给建造';
+export const KEEP_FRAC = 0.2, KEEP_MAX = 300, KEEP_WHY = '건설용 재료 남겨두기';
 // 燃料也留一份给熔炉：工厂和烽火塔塔身拿燃料（木材、煤、焦煤、晶体电池）时，营地的燃料总量不低于熔炉 FUEL_KEEP_MIN 分钟的用量
-export const FUEL_KEEP_MIN = 10, FUEL_KEEP_WHY = '留燃料给熔炉';
+export const FUEL_KEEP_MIN = 10, FUEL_KEEP_WHY = '연료를 용광로에 맡기세요';
 // 「造燃料」的建筑：产出的燃料份数比吃进去的燃料多（晶体电池厂、焦煤炉）。它们缺的非燃料原料（铁锭）算进 feed，造这些原料的建筑也不受留燃料限制
 export function fuelGain(d) { let o = 0, i = 0; for (const k in d.out || {}) o += (FUEL[k] || 0) * d.out[k]; for (const k in d.in || {}) i += (FUEL[k] || 0) * d.in[k]; return o > 0 && o > i; }
 export function fuelFeedOf(plans) {
@@ -510,58 +510,58 @@ export function checkPlace(S, type, x, y, selfQ = 0, selfB = 0) {
   const s = d.size;
   const w = getWorld(S.runSeed);
   const res = { ok: false, reason: '', camp: -1, dist: 0, spots: 0, syn: 0, cost: null };
-  if (!Number.isFinite(x) || !Number.isFinite(y)) { res.reason = '超出地图'; return res; }
-  if (!unlocked(S, type)) { res.reason = d.t <= S.known ? stageLock(S, type) : `需要先侦察到「${['', '篝火', '煤与铁', '钢与蒸汽', '油与铁路', '霜晶', '遗迹金属', '炉心'][d.t]}」纬度`; return res; }
+  if (!Number.isFinite(x) || !Number.isFinite(y)) { res.reason = '지도 밖에서'; return res; }
+  if (!unlocked(S, type)) { res.reason = d.t <= S.known ? stageLock(S, type) : `먼저 "${['', '모닥불', '석탄과 철', '강철과 증기', '석유와 철도', '서리수정', '유적 금속', '노심'][d.t]}" 위도까지 정찰이 필요합니다.`; return res; }
   if (type === 'furnace') { const why = outpostBlock(S, y + 1.5); if (why) { res.reason = why; return res; } }
   for (let yy = y; yy < y + s; yy++) for (let xx = x; xx < x + s; xx++) {
-    if (!inMap(xx, yy)) { res.reason = '超出地图'; return res; }
+    if (!inMap(xx, yy)) { res.reason = '지도 밖에서'; return res; }
     const i = idx(xx, yy);
-    if (!S.reveal[i]) { res.reason = '迷雾里不能建造'; return res; }
-    if (w.terrain[i] !== T_SNOW) { res.reason = '地形不平（岩石或冰湖）'; return res; }
+    if (!S.reveal[i]) { res.reason = '건설은 안개에서 사용할 수 없습니다.'; return res; }
+    if (w.terrain[i] !== T_SNOW) { res.reason = '고르지 않은 지형(바위 또는 얼음호수)'; return res; }
     if (w.spot[i] >= 0 && spotLeft(S, i) > 0) {
       // 树、碎石、兽群可以顺手清掉（返还一点材料）；矿点不能压
-      if (!CLEARABLE[SPOT_KEYS[w.spot[i]]]) { res.reason = SPOT_KEYS[w.spot[i]] === 'ruin' ? '古城废墟占着这里：点一下废墟可以派人拆掉' : '这里是矿点：建在旁边，用对应的采集建筑开采'; return res; }
+      if (!CLEARABLE[SPOT_KEYS[w.spot[i]]]) { res.reason = SPOT_KEYS[w.spot[i]] === 'ruin' ? '고성 폐허가 이 장소를 차지하고 있습니다. 폐허를 클릭하여 철거하세요. 일손 배치' : '채굴 현장은 다음과 같습니다. 옆에 건설하고 해당 채집 건물을 사용하여 채굴하세요.'; return res; }
       res.clears = (res.clears || 0) + 1;
     }
-    { const o = occAt(S, xx, yy); if (o && o !== -selfQ && (!selfB || o !== selfB)) { res.reason = o < 0 ? '这里已经排了一栋等材料的建筑' : '和其他建筑重叠'; return res; } }
-    if (landmarkBlock(xx, yy, S)) { res.reason = '地标遗迹占着这里'; return res; }
-    if (siteAt(S, xx, yy, 1)) { res.reason = '这里有一处遗迹'; return res; }
-    if (caravanAt(S, xx, yy)) { res.reason = '商队的雪橇停在这里'; return res; }
-    if (rebuild(S).beltOcc.has(i)) { res.reason = '传送带从这里经过'; return res; }
+    { const o = occAt(S, xx, yy); if (o && o !== -selfQ && (!selfB || o !== selfB)) { res.reason = o < 0 ? '자재를 기다리는 건물이 여기 늘어서 있어요' : '다른 건물과 겹쳐서'; return res; } }
+    if (landmarkBlock(xx, yy, S)) { res.reason = '랜드마크와 유적지가 이곳을 차지하고 있습니다.'; return res; }
+    if (siteAt(S, xx, yy, 1)) { res.reason = '여기에 폐허가 있습니다'; return res; }
+    if (caravanAt(S, xx, yy)) { res.reason = '캐러밴의 썰매가 여기에 멈췄습니다.'; return res; }
+    if (rebuild(S).beltOcc.has(i)) { res.reason = '컨베이어 벨트가 여기를 통과해요'; return res; }
   }
   if (type === 'furnace') {
     const cx = x + 1.5, cy = y + 1.5;
-    for (const c of S.camps) if (Math.hypot(c.x - cx, c.y - cy) < CAMP_GAP) { res.reason = `离「${c.name}」太近（至少 ${CAMP_GAP} 格）`; return res; }
+    for (const c of S.camps) if (Math.hypot(c.x - cx, c.y - cy) < CAMP_GAP) { res.reason = `'${c.name}'에 너무 가깝습니다(최소 ${CAMP_GAP} 블록).`; return res; }
     const act = getCamp(S, S.active), payer = act && !act.depot ? act : mainCamp(S);
     res.camp = payer.id;
     res.cost = buildCost(S, type, payer.id, y);
-    if (payer.people < 16) { res.reason = `「${payer.name}」至少要有 16 人才能分出先遣队`; return res; }
+    if (payer.people < 16) { res.reason = `"${payer.name}"에는 사전 팀을 구성하기 위해 최소 16명이 필요합니다.`; return res; }
     // 先遣队路上和开头要吃要烧：离得越远带得越多
     const kit = res.kit = outpostKit(S, payer, cx, cy);
     const all = { ...res.cost }; all.food = (all.food || 0) + kit.food;
     const short = missing(payer.stock, all);
-    if (fuelUnits(payer.stock) < kit.fuel + 1e-9) short.push(`燃料 ${Math.ceil(kit.fuel - fuelUnits(payer.stock))} 份`);
-    if (short.length) { res.reason = '缺：' + short.join('，'); res.soft = true; return res; }
+    if (fuelUnits(payer.stock) < kit.fuel + 1e-9) short.push(`연료 ${Math.ceil(kit.fuel - fuelUnits(payer.stock))} 부분`);
+    if (short.length) { res.reason = '부족: ' + short.join(','); res.soft = true; return res; }
     res.ok = true; return res;
   }
   // 普通建筑：整块都要在同一营地的供热区
   let camp = -2;
   for (let yy = y; yy < y + s; yy++) for (let xx = x; xx < x + s; xx++) {
     const c = warmCampAt(S, xx, yy);
-    if (c < 0) { res.reason = '不在熔炉供热区内（太冷）'; return res; }
-    if (camp === -2) camp = c; else if (camp !== c) { res.reason = '跨了两个营地'; return res; }
+    if (c < 0) { res.reason = '용광로난방 구역에는 없음(너무 추움)'; return res; }
+    if (camp === -2) camp = c; else if (camp !== c) { res.reason = '두 개의 야영지를 교차했습니다.'; return res; }
   }
   res.camp = camp;
   const cobj = getCamp(S, camp);
-  if (d.rule && !freeTok(cobj, type) && (camp !== journeyOf(S).main || ruleNow(S) !== d.rule)) { res.reason = freeAny(S, type) ? `奇遇给的免费${d.n}只能建在「${S.camps.find(c => freeTok(c, type)).name}」` : `只能建在「${NORTH_RULES[d.rule].n}」这一站的主营地`; return res; }
-  if (d.tower && camp !== journeyOf(S).main) { res.reason = `${d.n}只能建在这一站的主营地`; return res; }
-  if (d.wonder) { const o = wonderIn(S, camp); if (o && o.id !== selfB) { res.reason = `「${cobj.name}」已经有一座${BLD[o.type].n}了（一座营地最多一座奇观）`; return res; } }
-  if (depotAuto(cobj)) { res.reason = `「${cobj.name}」是补给站，自己运转，不盖新房（要盖先「临时接手」）`; return res; }
+  if (d.rule && !freeTok(cobj, type) && (camp !== journeyOf(S).main || ruleNow(S) !== d.rule)) { res.reason = freeAny(S, type) ? `기연이 제공하는 무료 ${d.n}은(는) "${S.camps.find(c => freeTok(c, type)).name}"에만 구축할 수 있습니다.` : `본영은 "${NORTH_RULES[d.rule].n}" 역에서만 건설할 수 있습니다.`; return res; }
+  if (d.tower && camp !== journeyOf(S).main) { res.reason = `${d.n}은(는) 이 스테이션의 본영에만 건설할 수 있습니다.`; return res; }
+  if (d.wonder) { const o = wonderIn(S, camp); if (o && o.id !== selfB) { res.reason = `"${cobj.name}"에는 이미 하나의 ${BLD[o.type].n}(야영지 하나, 최대 불가사의 하나)이 있습니다.`; return res; } }
+  if (depotAuto(cobj)) { res.reason = `"${cobj.name}"은(는) 보급 창고입니다. 자체적으로 운영되며 새 집을 짓지 않습니다(지어야 할 경우 "일시적으로 인수"해야 함).`; return res; }
   res.cost = buildCost(S, type, camp, y);
   res.dist = haulDistOf(S, camp, x, y, s, selfB || -1);
   if (d.gather) res.spots = findSpots(S, type, x, y).filter(p => spotLeft(S, p.i) > 0).length;
   res.syn = synergyOf(S, type, x, y, selfB || -1);
-  if (!canAfford(cobj.stock, res.cost)) { res.reason = '缺：' + missing(cobj.stock, res.cost).join('，'); res.soft = true; return res; }
+  if (!canAfford(cobj.stock, res.cost)) { res.reason = '부족: ' + missing(cobj.stock, res.cost).join(','); res.soft = true; return res; }
   res.ok = true;
   return res;
 }
@@ -573,7 +573,7 @@ export function place(S, type, x, y) {
   if (type === 'furnace') {
     const payer = getCamp(S, c.camp);
     pay(payer.stock, c.cost);
-    const name = nearLandmarkName(x + 1.5, y + 1.5) || `第 ${S.camps.length + 1} 营地`;
+    const name = nearLandmarkName(x + 1.5, y + 1.5) || `번호 ${S.camps.length + 1} 야영지`;
     const camp = makeCamp(S, x, y, name);
     const move = Math.min(10, payer.people - 6);
     payer.people -= move; camp.people += move;
@@ -586,7 +586,7 @@ export function place(S, type, x, y) {
     { const take = Math.min(payer.stock.plank || 0, 60); payer.stock.plank = (payer.stock.plank || 0) - take; camp.stock.plank = (camp.stock.plank || 0) + take; }
     revealCircle(S, camp.x, camp.y, 8);
     markFounded(S, camp);
-    logMsg(S, `前哨营地点燃：「${camp.name}」。${move} 人从「${payer.name}」出发前往，带了 ${c.kit.food} 份口粮和 ${c.kit.fuel} 份燃料。${autoRoad(S, camp.id) ? '一条雪橇道已经修好，连到最近的营地：缺什么料，物流网会自己运来。' : ''}`, 'good');
+    logMsg(S, `전초기지 야영지 켜짐: "${camp.name}". ${move}는 배급의 ${c.kit.food}개 사본 및 연료의 ${c.kit.fuel}개 사본과 함께 "${payer.name}"에서 이동했습니다. ${autoRoad(S, camp.id) ? '썰매 도로가 수리되어 가장 가까운 야영지에 연결되었습니다. 필요한 자재가 무엇이든 물류망가 스스로 운반합니다.' : ''}`, 'good');
     S.active = camp.id;
     dirty(S);
     return { ok: true, id: camp.furnace, camp: camp.id };
@@ -597,8 +597,8 @@ export function place(S, type, x, y) {
   const b = { id: S.nextId++, type, x, y, lvl: 1, workers: 0, camp: c.camp };
   S.buildings.push(b);
   dirty(S);
-  if (BLD[type].wonder) { b.wd = { ph: 0, p: 0 }; const sp = wonderSpec(type, 0); logMsg(S, `🏗️ ${BLD[type].n}的工地圈起来了。分三期施工，第一期「${sp.n}」：${sp.kinds.map(k => `${RES[k].n} ${sp.amt[k]}`).join('、')}，搬运工会一点点往里送，缺一种就停。`, 'story'); }
-  if (BLD[type].tower) { b.tn = northN(journeyOf(S).stage); b.tw = { p: 0 }; const sp = towerSpec(S, b.tn); logMsg(S, `🗼 ${towerName(b.tn)}的地基立起来了。塔身要${sp.kinds.map(k => RES[k].n).join('、')}各 ${sp.rate}/分钟，一起喂满 ${sp.dur / 60} 分钟，缺一种就停。`, 'story'); }
+  if (BLD[type].wonder) { b.wd = { ph: 0, p: 0 }; const sp = wonderSpec(type, 0); logMsg(S, `🏗️ ${BLD[type].n}건설 현장은 동그라미로 표시되어 있습니다. 건설은 3단계로 나누어진다. 첫 번째 단계 "${sp.n}」：${sp.kinds.map(k => `${RES[k].n} ${sp.amt[k]}`).join('、')}, 운반꾼가 조금씩 투입되며, 하나가 없으면 작동을 멈춥니다.`, 'story'); }
+  if (BLD[type].tower) { b.tn = northN(journeyOf(S).stage); b.tw = { p: 0 }; const sp = towerSpec(S, b.tn); logMsg(S, `🗼 ${towerName(b.tn)}의 기초가 세워졌습니다. 타워 본체에는 ${sp.rate}/분당 ${sp.kinds.map(k => RES[k].n).join('、')}가 필요합니다. ${sp.dur / 60}분 동안 함께 식사하세요. 한 가지 유형이 누락되면 중지됩니다.`, 'story'); }
   // 默认派满人
   b.workers = Math.min(maxWorkers(type, 1), Math.max(0, idleLabor(S, camp)));
   if (b.workers < maxWorkers(type, 1)) autoAssign(S, camp);
@@ -639,14 +639,14 @@ function farStep(S) {
     if (!F.seen.includes(i) && S.reveal[idx(p.x, p.y)]) {
       F.seen.push(i);
       const fs = S.meta.farSeen || (S.meta.farSeen = {}), e = fs[i] ? 5 : farEmbers(i); fs[i] = 1; S.meta.embers += e; S.meta.emberTotal = (S.meta.emberTotal || 0) + e;
-      logMsg(S, `📍 侦察队在永夜冰原上发现了「${f.n}」！带回 ${e} 点余烬。在它旁边 ${FOUND_DIST} 格内点起熔炉，就能带回遗物「${f.relic.n}」。`, 'story', { act: 'far', arg: i, label: '看看' });
+      logMsg(S, `📍 정찰대가 영야 빙원에서 "${f.n}"을(를) 발견했습니다! ${e}포인트 잔불을 되찾으세요. 옆에 있는 ${FOUND_DIST} 상자에서 용광로를 클릭하면 "${f.relic.n}" 유물을 다시 가져올 수 있습니다.`, 'story', { act: 'far', arg: i, label: '보기' });
       rt(S).fx.push({ kind: 'far', i, lit: false });
     }
     if (F.seen.includes(i) && !F.lit.includes(i) && S.camps.some(c => Math.hypot(c.x - p.x - 0.5, c.y - p.y - 0.5) <= FOUND_DIST + 1)) {
       F.lit.push(i);
       const had = !!(S.meta.relics && S.meta.relics[i]);
       (S.meta.relics || (S.meta.relics = {}))[i] = 1;
-      logMsg(S, had ? `营地的火光照亮了「${f.n}」。遗物「${f.relic.n}」早已带回，大家在这里歇了歇脚。` : `营地的火光照亮了「${f.n}」，带回了遗物「${f.relic.n}」：${f.relic.d}（永久生效，北迁后也保留）。`, 'story', { act: 'far', arg: i, label: '看看' });
+      logMsg(S, had ? `야영지의 불빛이 "${f.n}"을(를) 비춥니다. 유물 "${f.relic.n}"이(가) 돌아왔고 모두 이곳에서 쉬었습니다.` : `야영지의 불은 "${f.n}"을 밝히고 유물 "${f.relic.n}": ${f.relic.d}를 가져왔습니다(영구적으로 유효하며 북상 이후에도 유지됩니다).`, 'story', { act: 'far', arg: i, label: '보기' });
       rt(S).fx.push({ kind: 'far', i, lit: true, had });
     }
   });
@@ -662,7 +662,7 @@ export function markFounded(S, camp) {
     if (!S.discovered.includes(i)) S.discovered.push(i);
     if (!S.meta.sites.includes(i)) {
       S.meta.sites.push(i); S.meta.sites.sort((a, b) => a - b);
-      if (i > 0) { const e = arriveEmbers(S, i, true); S.meta.embers += e; S.meta.emberTotal = (S.meta.emberTotal || 0) + e; logMsg(S, `第一次抵达「${l.n}」！带来 ${e} 点余烬。`, 'story'); }
+      if (i > 0) { const e = arriveEmbers(S, i, true); S.meta.embers += e; S.meta.emberTotal = (S.meta.emberTotal || 0) + e; logMsg(S, `처음으로 "${l.n}"에 도착했습니다! ${e} 포인트잔불을 가져옵니다.`, 'story'); }
       if (S.t > 0) for (const c of S.camps) bumpMood(c, 12, -5);
     }
     S.meta.best = Math.max(S.meta.best || 0, i);
@@ -674,7 +674,7 @@ export function markFounded(S, camp) {
     if (!CHAPTERS[i] || Math.hypot(p.x + 0.5 - camp.x, p.y + 0.5 - camp.y) > FOUND_DIST + 2) return;
     if (!S.founded.includes(i)) { S.founded.push(i); if (S.t > 0) rt(S).fx.push({ kind: 'chapter', i }); }
     const fa = S.meta.farArr || (S.meta.farArr = {});
-    if (!fa[j]) { fa[j] = 1; const e = arriveEmbers(S, i, true); S.meta.embers += e; S.meta.emberTotal = (S.meta.emberTotal || 0) + e; logMsg(S, `第一次抵达「${FAR_MARKS[j].n}」！带来 ${e} 点余烬。`, 'story'); if (S.t > 0) for (const c of S.camps) bumpMood(c, 12, -5); }
+    if (!fa[j]) { fa[j] = 1; const e = arriveEmbers(S, i, true); S.meta.embers += e; S.meta.emberTotal = (S.meta.emberTotal || 0) + e; logMsg(S, `처음으로 "${FAR_MARKS[j].n}"에 도착했습니다! ${e} 포인트잔불을 가져옵니다.`, 'story'); if (S.t > 0) for (const c of S.camps) bumpMood(c, 12, -5); }
     S.meta.best = Math.max(S.meta.best || 0, i);
   });
 }
@@ -696,33 +696,33 @@ export function setWorkers(S, bid, n) {
 export function upgrade(S, bid) {
   const b = getB(S, bid); if (!b) return { ok: false };
   const camp = getCamp(S, b.camp);
-  if (depotAuto(camp)) return { ok: false, reason: `「${camp.name}」是补给站，自己运转，不升级（要升先「临时接手」）` };
-  if (BLD[b.type].tower) return { ok: false, reason: `${BLD[b.type].n}不用升级` };
-  if (BLD[b.type].wonder) return { ok: false, reason: '奇观不用升级' };
+  if (depotAuto(camp)) return { ok: false, reason: `"${camp.name}"은(는) 공급 스테이션입니다. 그것은 스스로 작동합니다. 업그레이드가 필요하지 않습니다(승격하려면 "일시적으로 인수").` };
+  if (BLD[b.type].tower) return { ok: false, reason: `${BLD[b.type].n}은(는) 사용되지 않습니다. 업그레이드` };
+  if (BLD[b.type].wonder) return { ok: false, reason: '불가사의에는 업그레이드가 필요하지 않습니다.' };
   const cost = upgradeCost(S, b);
-  if (cost.starcore && journeyOf(S).stage < RES.starcore.stage) return { ok: false, reason: `熔炉 35 级以后要用星核：走到「${stopOf(S, RES.starcore.stage).n}」才挖得到` };
-  for (const k in cost) if (RES[k].t > S.known) return { ok: false, reason: `需要「${RES[k].n}」——先往北侦察到它所在的纬度` };
-  if (!canAfford(camp.stock, cost)) return { ok: false, reason: '缺：' + missing(camp.stock, cost).join('，') };
+  if (cost.starcore && journeyOf(S).stage < RES.starcore.stage) return { ok: false, reason: `용광로 레벨 35 이후에는 별핵을 사용해야 합니다. "${stopOf(S, RES.starcore.stage).n}"로 이동하면 파낼 수 있습니다.` };
+  for (const k in cost) if (RES[k].t > S.known) return { ok: false, reason: `"${RES[k].n}" 필요 - 먼저 정찰 북쪽으로 위도까지 이동하세요.` };
+  if (!canAfford(camp.stock, cost)) return { ok: false, reason: '부족: ' + missing(camp.stock, cost).join(',') };
   pay(camp.stock, cost);
   b.lvl++;
   if (b.hold && b.workers >= maxWorkers(b.type, b.lvl - 1)) b.hold = false;
   dirty(S);
   if (b.type === 'furnace') {
     revealCircle(S, camp.x, camp.y, heatRadius(S, camp) + 2);
-    logMsg(S, `「${camp.name}」熔炉升到 ${b.lvl} 级，供热圈扩大到 ${heatRadius(S, camp)} 格。`, 'good');
+    logMsg(S, `"${camp.name}" 용광로가 ${b.lvl} 레벨로 업그레이드되었으며 난방권이 ${heatRadius(S, camp)} 레벨로 확장되었습니다.`, 'good');
   }
   return { ok: true };
 }
 export function demolish(S, bid) {
   const b = getB(S, bid);
   if (!b || b.type === 'furnace') return { ok: false };
-  if (BLD[b.type].tower && (b.tw.lit || b.tw.p > 0)) return { ok: false, reason: '塔身已经开始建了，拆不得' };
-  if (BLD[b.type].wonder && b.wd && (b.wd.ph > 0 || b.wd.p > 0)) return { ok: false, reason: '奇观已经开工了，拆不得' };
+  if (BLD[b.type].tower && (b.tw.lit || b.tw.p > 0)) return { ok: false, reason: '타워 건설은 이미 시작되었으므로 철거할 수 없습니다.' };
+  if (BLD[b.type].wonder && b.wd && (b.wd.ph > 0 || b.wd.p > 0)) return { ok: false, reason: '불가사의는 건설을 시작했으며 철거할 수 없습니다' };
   const camp = getCamp(S, b.camp);
   const d = BLD[b.type];
   for (const k in d.cost) camp.stock[k] = (camp.stock[k] || 0) + Math.floor(d.cost[k] * 0.5);
   for (const sid in S.specAt) if (S.specAt[sid] === bid) delete S.specAt[sid];
-  if (b.type === 'bay' && b.bots) { if (techDone(S, 'corerec')) { camp.stock.core = (camp.stock.core || 0) + Math.floor(b.bots / 2); logMsg(S, `拆掉自动机仓，${b.bots} 台自动机拆回了 ${Math.floor(b.bots / 2)} 个核心。`, 'info'); } b.bots = 0; }
+  if (b.type === 'bay' && b.bots) { if (techDone(S, 'corerec')) { camp.stock.core = (camp.stock.core || 0) + Math.floor(b.bots / 2); logMsg(S, `오토마톤 격납고를 해체한 후 ${b.bots} 오토마톤을 해체하고 ${Math.floor(b.bots / 2)} 핵심을 해체했습니다.`, 'info'); } b.bots = 0; }
   S.buildings = S.buildings.filter(x => x.id !== bid);
   if (b.type === 'bay') { campBots(S, camp); trimWorkers(S, camp); }
   S.belts = (S.belts || []).filter(e => e.a !== bid && e.b !== bid);
@@ -733,12 +733,12 @@ export function demolish(S, bid) {
 // ---------- 挪建筑（第十三版）：同一个营地的暖圈里换个地方，等级、工人、专家都留着，不花材料，停工 30 秒 ----------
 export const MOVE_PAUSE = 30;
 export function moveBlock(S, b) {
-  if (!b) return '建筑不在了';
-  if (b.type === 'furnace') return '熔炉不能挪';
-  if (BLD[b.type].nomove) return `${BLD[b.type].n}不能挪`;
-  if (BLD[b.type].tower && (b.tw.lit || b.tw.p > 0)) return '塔身已经开始建了，不能挪';
-  if (BLD[b.type].wonder && b.wd && (b.wd.ph > 0 || b.wd.p > 0)) return '奇观已经开工了，不能挪';
-  if (depotAuto(getCamp(S, b.camp))) return '补给站自己运转，要挪先「临时接手」';
+  if (!b) return '건물이 없어졌어요';
+  if (b.type === 'furnace') return '용광로는 이동할 수 없습니다';
+  if (BLD[b.type].nomove) return `${BLD[b.type].n}을(를) 이동할 수 없습니다`;
+  if (BLD[b.type].tower && (b.tw.lit || b.tw.p > 0)) return '타워 건설이 이미 시작되어 이동할 수 없습니다.';
+  if (BLD[b.type].wonder && b.wd && (b.wd.ph > 0 || b.wd.p > 0)) return '불가사의가 공사를 시작하여 이동할 수 없습니다.';
+  if (depotAuto(getCamp(S, b.camp))) return '보급창고가 자체적으로 운영되기 때문에 \'임시인계\'로 이전해야 함';
   return '';
 }
 export function checkMove(S, id, x, y) {
@@ -746,8 +746,8 @@ export function checkMove(S, id, x, y) {
   if (why) return { ok: false, reason: why, camp: -1 };
   const ck = checkPlace(S, b.type, x, y, 0, id);
   if (!ck.ok && !ck.soft) return ck;
-  if (ck.camp !== b.camp) return { ...ck, ok: false, soft: false, reason: '只能在同一个营地的暖圈里挪' };
-  if (x === b.x && y === b.y) return { ...ck, ok: false, soft: false, reason: '还在原来的地方' };
+  if (ck.camp !== b.camp) return { ...ck, ok: false, soft: false, reason: '동일한 야영지의 난방권 내에서만 이동할 수 있습니다.' };
+  if (x === b.x && y === b.y) return { ...ck, ok: false, soft: false, reason: '아직도 같은 곳에' };
   ck.ok = true; ck.soft = false; ck.reason = ''; ck.cost = null;
   ck.belts = (S.belts || []).filter(e => e.a === id || e.b === id).length;
   return ck;
@@ -766,7 +766,7 @@ export function moveBuilding(S, id, x, y) {
 
 // ---------- 传送带 / 蒸汽轨道：挨着的上下游直接供料，省搬运工，下游也快一点 ----------
 export const BELT_MAX = 6, BELT_PER = 4;
-export const BELT = [null, { n: '传送带', cut: 0.6, bonus: 0.08, tier: 2 }, { n: '蒸汽轨道', cut: 0.85, bonus: 0.15, tier: 3 }];
+export const BELT = [null, { n: '컨베이어 벨트', cut: 0.6, bonus: 0.08, tier: 2 }, { n: '증기 트랙', cut: 0.85, bonus: 0.15, tier: 3 }];
 function rectOf(b) { const s = BLD[b.type].size; return { x0: b.x, y0: b.y, s, cx: b.x + s / 2, cy: b.y + s / 2 }; }
 // 两栋建筑之间的那一段：从 A 的边沿着中心连线走到 B 的边
 export function beltEnds(a, b) {
@@ -795,27 +795,27 @@ export function beltCost(S, len, lvl) {
 export function beltsOf(S, bid) { return (S.belts || []).filter(e => e.a === bid || e.b === bid); }
 export function beltCheck(S, aid, bid, k) {
   const a = getB(S, aid), b = getB(S, bid), res = { ok: false, reason: '' };
-  if (!a || !b || a.id === b.id) { res.reason = '建筑不在了'; return res; }
-  if (a.camp !== b.camp) { res.reason = '不在同一个营地'; return res; }
-  if (S.known < BELT[1].tier) { res.reason = '侦察到「煤与铁」纬度后才能造传送带'; return res; }
-  if (!(bdef(a).out || {})[k] || !(bdef(b).in || {})[k]) { res.reason = '这两栋之间没有这种物资往来'; return res; }
-  if (S.belts.some(e => e.a === aid && e.b === bid && e.k === k)) { res.reason = '已经连上了'; return res; }
-  if (beltsOf(S, aid).length >= BELT_PER || beltsOf(S, bid).length >= BELT_PER) { res.reason = `一栋建筑最多连 ${BELT_PER} 条`; return res; }
+  if (!a || !b || a.id === b.id) { res.reason = '건물이 없어졌어요'; return res; }
+  if (a.camp !== b.camp) { res.reason = '동일한 야영지에 있지 않음'; return res; }
+  if (S.known < BELT[1].tier) { res.reason = '컨베이어 벨트는 정찰이 "석탄과 철"의 위도에 도달한 후에만 건설할 수 있습니다.'; return res; }
+  if (!(bdef(a).out || {})[k] || !(bdef(b).in || {})[k]) { res.reason = '두 건물 사이에는 그러한 물질적 교환이 없습니다.'; return res; }
+  if (S.belts.some(e => e.a === aid && e.b === bid && e.k === k)) { res.reason = '이미 연결됨'; return res; }
+  if (beltsOf(S, aid).length >= BELT_PER || beltsOf(S, bid).length >= BELT_PER) { res.reason = `건물에는 최대 ${BELT_PER}개의 링크가 있을 수 있습니다.`; return res; }
   const e = beltEnds(a, b);
   res.len = e.len;
-  if (e.len > BELT_MAX) { res.reason = `离得太远（最多隔 ${BELT_MAX} 格）`; return res; }
+  if (e.len > BELT_MAX) { res.reason = `너무 멀리 떨어져 있음(최대 ${BELT_MAX} 간격)`; return res; }
   const w = getWorld(S.runSeed), R = rebuild(S);
   for (const i of beltTiles(a, b)) {
     const x = i % W, y = Math.floor(i / W);
-    if (w.terrain[i] !== T_SNOW) { res.reason = '中间有岩石或冰湖'; return res; }
-    if (R.occ[i]) { res.reason = '中间有建筑挡着'; return res; }
-    if (R.beltOcc.has(i)) { res.reason = '和别的传送带交叉了'; return res; }
-    if (w.spot[i] >= 0 && spotLeft(S, i) > 0 && !CLEARABLE[SPOT_KEYS[w.spot[i]]]) { res.reason = '中间有矿点'; return res; }
-    if (landmarkBlock(x, y, S) || siteAt(S, x, y, 1)) { res.reason = '中间有遗迹'; return res; }
+    if (w.terrain[i] !== T_SNOW) { res.reason = '중앙에 바위가 있거나 얼음호수가 있습니다.'; return res; }
+    if (R.occ[i]) { res.reason = '가운데를 막고 있는 건물이 있어요'; return res; }
+    if (R.beltOcc.has(i)) { res.reason = '다른 컨베이어 벨트와 교차'; return res; }
+    if (w.spot[i] >= 0 && spotLeft(S, i) > 0 && !CLEARABLE[SPOT_KEYS[w.spot[i]]]) { res.reason = '중간에 미네랄 포인트가 있어요'; return res; }
+    if (landmarkBlock(x, y, S) || siteAt(S, x, y, 1)) { res.reason = '중간에 폐허도 있고'; return res; }
   }
   res.cost = beltCost(S, e.len, 1);
   const c = getCamp(S, a.camp);
-  if (!canAfford(c.stock, res.cost)) { res.reason = '缺：' + missing(c.stock, res.cost).join('，'); res.soft = true; return res; }
+  if (!canAfford(c.stock, res.cost)) { res.reason = '부족: ' + missing(c.stock, res.cost).join(','); res.soft = true; return res; }
   res.ok = true;
   return res;
 }
@@ -834,22 +834,22 @@ export function addBelt(S, aid, bid, k) {
   }
   S.belts.push({ id: S.nextId++, camp: a.camp, a: aid, b: bid, k, lvl: 1 });
   dirty(S);
-  logMsg(S, `「${BLD[a.type].n}」到「${BLD[b.type].n}」的传送带接上了：${RES[k].n}直接送过去，少用搬运工。`, 'good');
+  logMsg(S, `"${BLD[a.type].n}"에서 "${BLD[b.type].n}"까지의 컨베이어 벨트가 연결되어 있습니다. ${RES[k].n}가 그곳으로 직접 전송됩니다. 운반꾼을 적게 사용하십시오.`, 'good');
   return { ok: true };
 }
 export function beltUpBlock(S, e) {
-  if (e.lvl >= 2) return '已经是蒸汽轨道了';
-  if (S.known < BELT[2].tier) return '侦察到「钢与蒸汽」纬度后才能升级';
+  if (e.lvl >= 2) return '이미 증기 트랙입니다';
+  if (S.known < BELT[2].tier) return '정찰이 "강철과 증기"의 위도에 도달한 후에만 업그레이드를 사용할 수 있습니다.';
   const a = getB(S, e.a), b = getB(S, e.b), c = getCamp(S, e.camp), cost = beltCost(S, beltEnds(a, b).len, 2);
-  if (!canAfford(c.stock, cost)) return '缺：' + missing(c.stock, cost).join('，');
+  if (!canAfford(c.stock, cost)) return '부족: ' + missing(c.stock, cost).join(',');
   return '';
 }
 export function upBelt(S, id) {
-  const e = (S.belts || []).find(x => x.id === id); if (!e) return { ok: false, reason: '传送带不在了' };
+  const e = (S.belts || []).find(x => x.id === id); if (!e) return { ok: false, reason: '컨베이어벨트가 사라졌다' };
   const why = beltUpBlock(S, e); if (why) return { ok: false, reason: why };
   pay(getCamp(S, e.camp).stock, beltCost(S, beltEnds(getB(S, e.a), getB(S, e.b)).len, 2));
   e.lvl = 2; dirty(S);
-  logMsg(S, `传送带换成了蒸汽轨道：更快、更省人。`, 'good');
+  logMsg(S, `컨베이어 벨트가 증기 트랙으로 교체되어 더 빠르고 노동력이 절약됩니다.`, 'good');
   return { ok: true };
 }
 export function removeBelt(S, id) {
@@ -870,7 +870,7 @@ export function beltOptions(S, bid) {
     for (const k in d.in || {}) if ((dx.out || {})[k]) out.push({ a: x.id, b: b.id, k, dir: 'in', other: x });
   }
   for (const o of out) { o.ck = beltCheck(S, o.a, o.b, o.k); o.len = beltEnds(getB(S, o.a), getB(S, o.b)).len; }
-  return out.filter(o => o.len <= BELT_MAX && o.ck.reason !== '已经连上了').sort((p, q) => (q.ck.ok ? 1 : 0) - (p.ck.ok ? 1 : 0) || p.len - q.len);
+  return out.filter(o => o.len <= BELT_MAX && o.ck.reason !== '이미 연결됨').sort((p, q) => (q.ck.ok ? 1 : 0) - (p.ck.ok ? 1 : 0) || p.len - q.len);
 }
 
 // ---------- 天气与袭营（由种子决定的时间表，在线离线一致）----------
@@ -937,9 +937,9 @@ export function skyAt(S, t) {
 // ---------- 其他天气：冰风暴、极寒夜、冰湖开裂 ----------
 // 和暴风雪一样由种子排好时间表（在线离线一致），提前一小时预报；每座营地可以花点材料提前准备
 export const WXE = {
-  ice: { n: '冰风暴', ic: '🧊', d: '冻雨把一切裹上一层冰壳：暖炉和暖气管冻住不供热，户外采集慢三成。', prep: '给管道裹保温毡', prepD: '暖炉和暖气管照常供热', cost: { wood: 40, plank: 30 } },
-  cold: { n: '极寒夜', ic: '🌡', d: '一夜之间气温再降一截：熔炉要多烧六成燃料，烧够了屋里也会冷几度；燃料不够会冷得更厉害。', prep: '封好门窗缝', prepD: '降温减半', cost: { wood: 50, plank: 10 } },
-  crack: { n: '冰湖开裂', ic: '💧', d: '冰湖上裂开一道道水沟，只能绕路：营地附近有冰湖的，搬运慢 35%；侦察队和物流网的路也慢三成。', prep: '铺木板便道', prepD: '营地里搬运照常', cost: { plank: 60 } },
+  ice: { n: '얼음 폭풍', ic: '🧊', d: '얼어붙는 비는 모든 것을 얼음 층으로 덮었습니다. 용광로와 난방 파이프가 얼어 난방이 제공되지 않았으며 실외 채집은 30% 더 느렸습니다.', prep: '단열 담요로 파이프 감싸기', prepD: '용광로와 난방 파이프는 평소와 같이 계속해서 열을 공급합니다.', cost: { wood: 40, plank: 30 } },
+  cold: { n: '매우 추운 밤', ic: '🌡', d: '밤새 온도가 다시 떨어집니다. 용광로는 연료보다 60% 더 많이 연소되어야 합니다. 충분히 타면 방은 몇도 정도 더 추워질 것입니다. 연료가 충분히 연소되지 않으면 더욱 추워집니다.', prep: '문과 창문의 균열을 밀봉하세요.', prepD: '절반으로 냉각', cost: { wood: 50, plank: 10 } },
+  crack: { n: '얼음호수 크래킹', ic: '💧', d: '얼음호수에는 도랑이 있으므로 우회만 할 수 있습니다. 야영지 근처에 얼음호수가 있으며 교통 속도가 35% 더 느립니다. 정찰대 및 물류망 도로도 30% 더 느립니다.', prep: '목판 보도 포장', prepD: '야영지의 교통은 평소와 같습니다.', cost: { plank: 60 } },
 };
 export const WXE_KEYS = Object.keys(WXE);
 const WXE_P = 9000, WXE_FIRST = 6000;
@@ -995,15 +995,15 @@ export function wxeMatters(S, camp, ev) {
 }
 export function wxePrep(S, cid) {
   const c = getCamp(S, cid), e = wxeAt(S, S.t), ev = e.ev;
-  if (!c || !ev || (!e.on && e.inSec > forecastOf(S))) return { ok: false, reason: '眼下没有这样的天气预报' };
-  if (wxePrepped(S, c, ev)) return { ok: false, reason: '已经准备好了' };
-  if (!wxeMatters(S, c, ev)) return { ok: false, reason: '这座营地不用准备' };
+  if (!c || !ev || (!e.on && e.inSec > forecastOf(S))) return { ok: false, reason: '현재로서는 해당 일기예보가 없습니다.' };
+  if (wxePrepped(S, c, ev)) return { ok: false, reason: '준비가 된' };
+  if (!wxeMatters(S, c, ev)) return { ok: false, reason: '이건 준비할 필요가 없어요 야영지' };
   const cost = wxePrepCost(S, c, ev);
-  if (!canAfford(c.stock, cost)) return { ok: false, reason: '材料不够' };
+  if (!canAfford(c.stock, cost)) return { ok: false, reason: '자료가 충분하지 않습니다.' };
   for (const k in cost) c.stock[k] -= cost[k];
   S.wxPrep ||= {}; (S.wxPrep[ev.k] ||= {})[c.id] = 1;
   for (const k in S.wxPrep) if (+k < ev.k - 2) delete S.wxPrep[k];
-  logMsg(S, `「${c.name}」${WXE[ev.kind].prep}：${WXE[ev.kind].n}来了也不怕，${WXE[ev.kind].prepD}。`, 'good');
+  logMsg(S, `「${c.name}」${WXE[ev.kind].prep}: ${WXE[ev.kind].n}이 와도 두려워하지 마세요, ${WXE[ev.kind].prepD}.`, 'good');
   return { ok: true };
 }
 export function blizzDrop(S, camp, w) { return w.blizzard ? slotDrop(S, camp, w.slot) : 0; }
@@ -1020,7 +1020,7 @@ function odActive(S, camp, w, fb) {
 }
 export function setOverdrive(S, cid, on) {
   const c = getCamp(S, cid); if (!c) return { ok: false };
-  if (on && c.odCool > 0) return { ok: false, reason: '炉膛还在降温，等一会儿' };
+  if (on && c.odCool > 0) return { ok: false, reason: '퍼니스가 아직 식는 중입니다. 잠시만 기다려주세요.' };
   c.od = on ? 1 : 0;
   if (!on && c.odAuto !== false) c.odA = 0; // 手动关掉后，自动超载也先歇着，等炉温降到 40% 再说
   return { ok: true };
@@ -1078,7 +1078,7 @@ function wolfNext(S) {
   return null;
 }
 // 袭营的是谁：狼群领地的主营地一定是狼
-export function raiderName(S, camp) { return campRule(S, camp) === 'wolf' ? '雪狼群' : RAIDERS[tierOfRow(camp.y)]; }
+export function raiderName(S, camp) { return campRule(S, camp) === 'wolf' ? '눈늑대 무리' : RAIDERS[tierOfRow(camp.y)]; }
 
 // ---------- 加成：各项百分比先加在一起再乘一次，每样都有上限（全部拉满大约 ×4）----------
 // 吃不饱、太冷、希望低、人手不足照旧打折扣，这些不算加成
@@ -1088,17 +1088,17 @@ const ALT_DEF = {};
 for (const t in ALT) ALT_DEF[t] = { ...BLD[t], in: ALT[t].in, out: ALT[t].out, alt: true };
 export function bdef(b) { return b.alt && ALT_DEF[b.type] ? ALT_DEF[b.type] : BLD[b.type]; }
 export const altDef = type => ALT_DEF[type] || null;
-export const ALT_TECH = { alt1: '替代配方·一', alt2: '替代配方·二' };
+export const ALT_TECH = { alt1: '대체 레시피 1', alt2: '대체 레시피 2' };
 export const altTech = type => (BLD[type].t <= 3 ? 'alt1' : 'alt2');
 const fmtQ = v => Math.round(v * 10) / 10;
 export const recipeTxt = d => Object.keys(d.in || {}).map(k => RES[k].n + fmtQ(d.in[k])).join('+') + '→' + Object.keys(d.out || {}).map(k => RES[k].n + fmtQ(d.out[k])).join('+');
 export function altOk(S, type) { return !!ALT[type] && techDone(S, altTech(type)); }
 export function setAlt(S, id, on) {
   const b = getB(S, id);
-  if (!b || !ALT[b.type]) return { ok: false, reason: '这种建筑没有替代配方' };
+  if (!b || !ALT[b.type]) return { ok: false, reason: '이 건물에는 대체 레시피가 없습니다.' };
   on = !!on;
   if (!!b.alt === on) return { ok: true, same: true };
-  if (on && !altOk(S, b.type)) return { ok: false, reason: `先研究「${ALT_TECH[altTech(b.type)]}」` };
+  if (on && !altOk(S, b.type)) return { ok: false, reason: `첫 번째연구「${ALT_TECH[altTech(b.type)]}」` };
   if (on) b.alt = 1; else delete b.alt;
   b.altT = S.t + ALT_SWITCH; // 换配方要停工一会儿
   dirty(S);
@@ -1136,7 +1136,7 @@ export function pickCampSpec(S, camp, rad) {
 // 北境的站按地貌，富矿带按那一种矿，别的营地按矿点
 export function specForStop(S, camp, st, rad) { return st && st.rule ? (st.rule === 'rich' ? st.rich : st.rule) : pickCampSpec(S, camp, rad); }
 
-export const PERM_CAP = 2, BONUS_BURST = new Set(['鼓舞', '奇观', '炉火鼎盛']);
+export const PERM_CAP = 2, BONUS_BURST = new Set(['장려하다', '불가사의', '불이 한창이다']);
 export const BONUS_CAP = { tech: 0.4, spec: 1, focus: 0.3, star: 0.45, mile: 0.15, ember: 0.6, relic: 0.1, adj: 0.4 };
 export const EMBER_PROD = 0.04;
 export function prodBonus(S, b, camp, syn, beltB) {
@@ -1146,28 +1146,28 @@ export function prodBonus(S, b, camp, syn, beltB) {
   const st = bStar(S, b), stV = Math.min(BONUS_CAP.star, STAR_PROD[st] || 0);
   const mi = Math.min(BONUS_CAP.mile, lineProd(S, b) - (STAR_PROD[st] || 0));
   const parts = [
-    ['升星', stV],
-    ['里程碑', mi],
-    ['研究', Math.min(BONUS_CAP.tech, techBP(S, b.type))],
-    ['专家', Math.min(BONUS_CAP.spec, specOf(S, b))],
-    ['专精', Math.min(BONUS_CAP.focus, focusProd(camp, b.type))],
-    ['特产', campSpecFx(S, b, camp)],
-    ['熟练', skillBonus(b)],
-    ['相邻、传送带', Math.min(BONUS_CAP.adj, SYN_PER * syn + beltB)],
-    ['余烬', Math.min(BONUS_CAP.ember, EMBER_PROD * up(S, 'prod'))],
-    ['遗物', Math.min(BONUS_CAP.relic, relicSum(S, 'prod'))],
-    ['烽火余晖', techDone(S, 'afterglow') ? 0.03 * towersLit(S) : 0],
-    ['无尽研究', ENDLESS.prod * endlessLvl(S)],
-    ['无人工坊', techDone(S, 'autofac') && BLD[b.type].cat === 'make' ? 0.1 + 0.1 * ((R.c[camp.id] || {}).botFr || 0) : 0],
-    ['律令', lawSum(S, 'prod')],
-    ['鼓舞', buffOf(S, camp, 'prod')],
-    ['奇观', wonderProd(S, b)],
-    ['炉火鼎盛', peakProd(S, b)],
-    ['城', townProd(camp)],
+    ['떠오르는 별', stV],
+    ['중요한 단계', mi],
+    ['연구', Math.min(BONUS_CAP.tech, techBP(S, b.type))],
+    ['전문가', Math.min(BONUS_CAP.spec, specOf(S, b))],
+    ['전문화하다', Math.min(BONUS_CAP.focus, focusProd(camp, b.type))],
+    ['전문', campSpecFx(S, b, camp)],
+    ['숙련된', skillBonus(b)],
+    ['인접, 컨베이어 벨트', Math.min(BONUS_CAP.adj, SYN_PER * syn + beltB)],
+    ['잔불', Math.min(BONUS_CAP.ember, EMBER_PROD * up(S, 'prod'))],
+    ['유물', Math.min(BONUS_CAP.relic, relicSum(S, 'prod'))],
+    ['봉화의 여운', techDone(S, 'afterglow') ? 0.03 * towersLit(S) : 0],
+    ['헨타이연구', ENDLESS.prod * endlessLvl(S)],
+    ['무인 공방', techDone(S, 'autofac') && BLD[b.type].cat === 'make' ? 0.1 + 0.1 * ((R.c[camp.id] || {}).botFr || 0) : 0],
+    ['법률 및 명령', lawSum(S, 'prod')],
+    ['장려하다', buffOf(S, camp, 'prod')],
+    ['불가사의', wonderProd(S, b)],
+    ['불이 한창이다', peakProd(S, b)],
+    ['도시', townProd(camp)],
   ].filter(p => Math.abs(p[1]) > 1e-9);
   // 1.1 长期加成合起来最多 +200%（×3）；鼓舞、奇观、炉火鼎盛这种爆发的另算在上面
   let perm = 0; for (const p of parts) if (!BONUS_BURST.has(p[0]) && p[1] > 0) perm += p[1];
-  if (perm > PERM_CAP) parts.push(['长期加成封顶', PERM_CAP - perm]);
+  if (perm > PERM_CAP) parts.push(['장기 보너스 상량', PERM_CAP - perm]);
   let sum = 0; for (const p of parts) sum += p[1];
   return { sum: Math.max(-0.5, sum), parts };
 }
@@ -1190,11 +1190,11 @@ export function assignSpec(S, sid, bid) {
 }
 export function trainSpec(S, sid) {
   const m = S.meta.specs[sid]; if (!m) return { ok: false };
-  if (m.lvl >= SPEC_MAX) return { ok: false, reason: '已经练到顶了' };
+  if (m.lvl >= SPEC_MAX) return { ok: false, reason: '이미 정상까지 연습했어' };
   const camp = getCamp(S, S.active) || S.camps[0];
   const cost = specTrainCost(m.lvl);
-  for (const k in cost) if (RES[k].t > S.known) return { ok: false, reason: `需要「${RES[k].n}」` };
-  if (!canAfford(camp.stock, cost)) return { ok: false, reason: '缺：' + missing(camp.stock, cost).join('，') };
+  for (const k in cost) if (RES[k].t > S.known) return { ok: false, reason: `"${RES[k].n}" 필요` };
+  if (!canAfford(camp.stock, cost)) return { ok: false, reason: '부족: ' + missing(camp.stock, cost).join(',') };
   pay(camp.stock, cost); m.lvl++;
   return { ok: true };
 }
@@ -1210,7 +1210,7 @@ export const allTechDone = S => !!S.tech && TECHS.every(t => S.tech.done[t.id]);
 export function endlessDef(S) {
   const L = endlessLvl(S), m = Math.pow(ENDLESS.mul, L), cost = {};
   for (const k in ENDLESS.cost) cost[k] = Math.round(ENDLESS.cost[k] * m);
-  return { id: 'endless', br: -1, n: `无尽研究 · 第 ${L + 1} 级`, ic: '♾️', t: 0, pts: Math.round(ENDLESS.pts * m), cost, d: `所有生产 +${Math.round(ENDLESS.prod * 100)}%（现在 +${Math.round(L * ENDLESS.prod * 100)}%）`, fx: {} };
+  return { id: 'endless', br: -1, n: `Endless연구 · 레벨 ${L + 1}`, ic: '♾️', t: 0, pts: Math.round(ENDLESS.pts * m), cost, d: `모든 생산 +${Math.round(ENDLESS.prod * 100)}% (현재 +${Math.round(L * ENDLESS.prod * 100)}%)`, fx: {} };
 }
 export const techDef = (S, id) => (id === 'endless' ? endlessDef(S) : TECHS.find(x => x.id === id));
 // 分支开没开：自动化要侦察到遗迹金属纬度，北境要走到北境
@@ -1236,17 +1236,17 @@ export function campBots(S, camp, bs) {
 export function botUnits(S, camp) { return Math.floor(((camp.bots || 0) - (camp.botH || 0)) * botPow(S)); }
 export function setBayModel(S, bid, m) {
   const b = getB(S, bid); if (!b || b.type !== 'bay') return { ok: false, reason: '' };
-  if (!botModelOk(S, m)) return { ok: false, reason: `先研究「${TECHS.find(t => t.id === BOT_MODELS[m].tech).n}」` };
+  if (!botModelOk(S, m)) return { ok: false, reason: `첫 번째연구「${TECHS.find(t => t.id === BOT_MODELS[m].tech).n}」` };
   if ((b.model || 'labor') === m) return { ok: false, reason: '' };
   b.model = m; const camp = getCamp(S, b.camp); campBots(S, camp); trimWorkers(S, camp); dirty(S);
-  if (b.bots) logMsg(S, `「${camp.name}」的自动机仓改造成${BOT_MODELS[m].n}：${b.bots} 台自动机换了装备。`, 'info');
+  if (b.bots) logMsg(S, `"${camp.name}"의 오토마톤 격납고가 ${BOT_MODELS[m].n}로 변형되었습니다. ${b.bots}의 오토마톤이 장비를 변경했습니다.`, 'info');
   return { ok: true };
 }
 // 核心回收：拆掉自动机退回核心（两台一个）
 export function scrapBots(S, bid, n) {
   const b = getB(S, bid); if (!b || b.type !== 'bay') return { ok: false, reason: '' };
-  if (!techDone(S, 'corerec')) return { ok: false, reason: '先研究「核心回收」' };
-  n = Math.min(b.bots || 0, Math.floor(n / 2) * 2); if (n < 2) return { ok: false, reason: '仓里没有自动机' };
+  if (!techDone(S, 'corerec')) return { ok: false, reason: '첫 번째 연구 "코어 회수"' };
+  n = Math.min(b.bots || 0, Math.floor(n / 2) * 2); if (n < 2) return { ok: false, reason: '창고에 오토마톤이 없습니다' };
   const camp = getCamp(S, b.camp); b.bots -= n; b.want = b.bots; camp.stock.core = (camp.stock.core || 0) + n / 2;
   campBots(S, camp); trimWorkers(S, camp); dirty(S);
   return { ok: true, n, cores: n / 2 };
@@ -1263,10 +1263,10 @@ export const cmdCd = (S, id) => { const c = cmdOf(S, id); return c ? Math.max(0,
 export function cmdFuel(S, camp) { return (cmdOn(S, 'blaze', camp) ? 3 : 1) * (cmdOn(S, 'shelter', camp) ? 0.5 : 1); }
 export function cmdCheck(S, id) {
   const d = CMDS[id]; if (!d) return { ok: false, reason: '' };
-  if (!cmdOk(S, id)) return { ok: false, lock: true, reason: `先研究「${TECHS.find(t => t.id === d.tech).n}」` };
-  if (rt(S).offline) return { ok: false, reason: '离线时不发号令' };
-  if (cmdLeft(S, id) > 0) return { ok: false, on: true, reason: '号令正在生效' };
-  const cd = cmdCd(S, id); if (cd > 0) return { ok: false, cd, reason: `还要 ${Math.ceil(cd / 60)} 分钟才能再发` };
+  if (!cmdOk(S, id)) return { ok: false, lock: true, reason: `첫 번째연구「${TECHS.find(t => t.id === d.tech).n}」` };
+  if (rt(S).offline) return { ok: false, reason: '오프라인에서는 명령이 실행되지 않습니다.' };
+  if (cmdLeft(S, id) > 0) return { ok: false, on: true, reason: '명령이 발효 중입니다.' };
+  const cd = cmdCd(S, id); if (cd > 0) return { ok: false, cd, reason: `다시 보내려면 ${Math.ceil(cd / 60)}분이 더 걸립니다.` };
   return { ok: true };
 }
 export function fireCmd(S, id, cid) {
@@ -1274,7 +1274,7 @@ export function fireCmd(S, id, cid) {
   const d = CMDS[id], camp = getCamp(S, cid) || mainCamp(S);
   (S.cmd || (S.cmd = {}))[id] = { camp: camp.id, until: S.t + d.len, ready: S.t + d.cd };
   if (id === 'unity') camp.disc = 0;
-  logMsg(S, `📯 「${camp.name}」吹响号角：${d.n}！${d.d}（${d.len >= 120 ? d.len / 60 + ' 分钟' : d.len + ' 秒'}）。`, 'good');
+  logMsg(S, `📯「${camp.name}」 경적을 울립니다: ${d.n}! ${d.d}(${d.len >= 120 ? d.len / 60 + '분' : d.len + '두번째'}).`, 'good');
   rt(S).fx.push({ kind: 'cmd', id, camp: camp.id });
   dirty(S);
   return { ok: true };
@@ -1284,29 +1284,29 @@ export function fireCmd(S, id, cid) {
 export function techCheck(S, id) {
   const t = techDef(S, id), T = techState(S);
   if (!t) return { ok: false, reason: '' };
-  if (id === 'endless' ? !allTechDone(S) : T.done[id]) return id === 'endless' ? { ok: false, lock: true, reason: '五条分支全部研究完以后开放' } : { ok: false, done: true, reason: '已完成' };
-  if (T.cur === id) return { ok: false, cur: true, reason: '研究中' };
+  if (id === 'endless' ? !allTechDone(S) : T.done[id]) return id === 'endless' ? { ok: false, lock: true, reason: '연구 완료 후 5개 지점 모두 오픈 예정' } : { ok: false, done: true, reason: '완전한' };
+  if (T.cur === id) return { ok: false, cur: true, reason: '연구중' };
   const gw = t.br >= 0 ? techGateWhy(S, t.br) : ''; if (gw) return { ok: false, lock: true, gate: true, reason: gw };
   const miss = (t.req || []).filter(r => !T.done[r]);
-  if (miss.length) return { ok: false, lock: true, reason: '先研究「' + miss.map(r => TECHS.find(x => x.id === r).n).join('」「') + '」' };
-  if (t.t > S.known) return { ok: false, lock: true, reason: `侦察到「${['', '篝火', '煤与铁', '钢与蒸汽', '油与铁路', '霜晶', '遗迹金属', '炉心'][t.t]}」纬度后才能研究` };
-  if (T.cur) return { ok: false, busy: true, reason: `正在研究「${techDef(S, T.cur).n}」` };
+  if (miss.length) return { ok: false, lock: true, reason: '퍼스트연구」' + miss.map(r => TECHS.find(x => x.id === r).n).join('""') + '"' };
+  if (t.t > S.known) return { ok: false, lock: true, reason: `정찰은 "${['', '모닥불', '석탄과 철', '강철과 증기', '석유와 철도', '서리수정', '유적 금속', '노심'][t.t]}" 위도에 도달한 후에만 연구가 될 수 있습니다.` };
+  if (T.cur) return { ok: false, busy: true, reason: `현재 연구「${techDef(S, T.cur).n}」` };
   const camp = getCamp(S, S.active) || S.camps[0];
-  if (!canAfford(camp.stock, t.cost)) return { ok: false, soft: true, reason: '缺：' + missing(camp.stock, t.cost).join('，') };
+  if (!canAfford(camp.stock, t.cost)) return { ok: false, soft: true, reason: '부족: ' + missing(camp.stock, t.cost).join(',') };
   return { ok: true };
 }
 export function startTech(S, id) {
   const ck = techCheck(S, id); if (!ck.ok) return ck;
   const t = techDef(S, id), T = techState(S), camp = getCamp(S, S.active) || S.camps[0];
   pay(camp.stock, t.cost); T.cur = id; T.prog = 0; T.paidBy = camp.id; T.paid = t.cost;
-  logMsg(S, `工程站开始研究「${t.n}」。`);
+  logMsg(S, `공학 작업장은 연구 "${t.n}"을(를) 시작합니다.`);
   return { ok: true };
 }
 export function cancelTech(S) {
   const T = techState(S); if (!T.cur) return;
   const t = techDef(S, T.cur), camp = getCamp(S, T.paidBy) || S.camps[0], cost = T.paid || t.cost;
   for (const k in cost) camp.stock[k] = (camp.stock[k] || 0) + cost[k];
-  logMsg(S, `停止研究「${t.n}」，材料退回了「${camp.name}」。`);
+  logMsg(S, `연구 "${t.n}"을(를) 중지하고 자료가 "${camp.name}"을(를) 반환했습니다.`);
   T.cur = null; T.prog = 0; delete T.paid;
 }
 // 研究点数：各营地工程站每分钟的贡献加起来
@@ -1327,8 +1327,8 @@ function researchDone(S, T, R) {
     T.bank = (T.bank || 0) + (T.prog - t.pts); // 多出来的点数留给下一项
     if (t.id === 'endless') T.endless = endlessLvl(S) + 1; else T.done[t.id] = true;
     T.cur = null; T.prog = 0; delete T.paid;
-    logMsg(S, t.id === 'endless' ? `无尽研究升到第 ${T.endless} 级：所有生产 +${Math.round(T.endless * ENDLESS.prod * 100)}%。` : `研究完成「${t.n}」：${t.d}。`, 'good');
-    if (t.id !== 'endless' && allTechDone(S)) logMsg(S, '五条分支的研究全部完成了！工程站开放了「无尽研究」：每一级所有生产 +2%，没有上限。', 'story', { act: 'tb', arg: 'research', label: '去看看' });
+    logMsg(S, t.id === 'endless' ? `끝없는 연구가 ${T.endless} 레벨로 업그레이드되었습니다: 모든 생산에 대해 +${Math.round(T.endless * ENDLESS.prod * 100)}%.` : `연구는 "${t.n}": ${t.d}을(를) 완료했습니다.`, 'good');
+    if (t.id !== 'endless' && allTechDone(S)) logMsg(S, '연구 5개 지점이 모두 완성되었습니다! 공학 작업장이 "Endless 연구"를 열었습니다. 모든 생산은 각 레벨에서 +2%, 상한선은 없습니다.', 'story', { act: 'tb', arg: 'research', label: '가 보기' });
     R.fx.push({ kind: 'tech', id: t.id });
     dirty(S);
   }
@@ -1342,12 +1342,12 @@ export function lawWait(S, id) { const t = S.lawT && S.lawT[id]; return t != nul
 export function bumpMood(c, dh, dd) { c.hope = clamp100((c.hope ?? 50) + dh); c.disc = clamp100((c.disc ?? 10) + dd); }
 export function toggleLaw(S, id) {
   const l = LAWS.find(x => x.id === id); if (!l) return { ok: false };
-  const wait = lawWait(S, id); if (wait > 0) return { ok: false, reason: `「${l.n}」刚改过，${Math.ceil(wait / 60)} 分钟后才能再改。` };
+  const wait = lawWait(S, id); if (wait > 0) return { ok: false, reason: `"${l.n}"이(가) 방금 수정되었으며 ${Math.ceil(wait / 60)}분 동안 다시 수정되지 않습니다.` };
   S.laws = S.laws || {}; S.lawT = S.lawT || {};
   const on = !S.laws[id];
   if (on) S.laws[id] = true; else { delete S.laws[id]; for (const c of S.camps) bumpMood(c, 0, 4); }
   S.lawT[id] = S.t;
-  logMsg(S, on ? `签署了律令「${l.n}」。` : `废除了律令「${l.n}」。朝令夕改，有人不太高兴。`, on ? 'info' : 'warn');
+  logMsg(S, on ? `"${l.n}" 법령에 서명했습니다.` : `"${l.n}" 주문이 취소되었습니다. 어떤 사람들은 순서가 하룻밤 사이에 바뀌었을 때 기분이 좋지 않았습니다.`, on ? 'info' : 'warn');
   return { ok: true, on };
 }
 // 希望和不满会慢慢走向一个「目标值」；目标值由住处、冷暖、吃饭、病人、律令等决定
@@ -1355,27 +1355,27 @@ export function moodFactors(S, camp, cr) {
   const ppl = Math.max(1, camp.people), u = Math.max(0, camp.people - (cr.housed ?? camp.people)) / ppl;
   const tH = cr.tH ?? 10, hung = cr.hunger || 0, sk = Math.max(0, (cr.sick || 0) - 0.5 * (cr.treated || 0)) / ppl, fueled = cr.fueled ?? 1; // 住进医务所的病人，大家没那么揪心
   const hope = [], disc = [];
-  hope.push(['住处', u > 0 ? -30 * u : 8]);
-  hope.push(['冷暖', tH >= 10 ? 8 : tH >= 0 ? 0.8 * tH : Math.max(-20, 1.5 * tH)]);
-  hope.push(['吃饭', hung > 0.01 ? -25 * Math.min(1, hung * 2) : (cr.foodNet ?? 0) >= 0 ? 6 : -4]);
-  if (sk > 0) hope.push(['病人', -40 * sk]);
-  if (fueled < 0.99) hope.push(['熔炉断燃', -15 * (1 - fueled)]);
-  const fl = S.founded.length - 1; if (fl > 0) hope.push(['北行的进展', 2 * fl]);
-  { const D = diffOf(S); if (D.hope) hope.push([`难度：${D.n}`, D.hope]); }
-  { const dh = decoHope(S, camp); if (dh.raw > 0) hope.push(['装饰', dh.v]); }
-  if (campRule(S, camp) === 'night') hope.push(['永夜的极光', RULE_FX.nightHope]);
-  if (towerLitAt(S, camp)) hope.push(['烽火塔的光', TOWER_FX.hope]);
-  if (wonderHope(S)) hope.push(['极光塔', wonderHope(S)]);
-  if (townHope(camp)) hope.push(['住进了镇子', townHope(camp)]);
-  { const F = focusOf(camp); if (F && F.hope) hope.push([`${F.n}营地`, F.hope]); if (F && F.disc) disc.push([`${F.n}营地`, F.disc]); }
-  const glow = (camp.buffs || []).some(b => b.n === '庆典余温' && b.until > S.t);
-  if (camp.fest) { hope.push(['篝火庆典', 18]); disc.push(['篝火庆典', -10]); }
-  else if (glow) { hope.push(['庆典余温', 10]); disc.push(['庆典余温', -6]); }
-  else if (buffOf(S, camp, 'prod') > 0) hope.push(['篝火会', 8]);
-  if (u > 0) disc.push(['没有床位', 25 * u]);
-  if (hung > 0.01) disc.push(['挨饿', 30 * Math.min(1, hung * 2)]);
-  if (tH < 0) disc.push(['太冷', Math.min(20, -tH * 1.2)]);
-  if (sk > 0) disc.push(['病人', 20 * sk]);
+  hope.push(['거주', u > 0 ? -30 * u : 8]);
+  hope.push(['차갑고 따뜻하다', tH >= 10 ? 8 : tH >= 0 ? 0.8 * tH : Math.max(-20, 1.5 * tH)]);
+  hope.push(['식사하세요', hung > 0.01 ? -25 * Math.min(1, hung * 2) : (cr.foodNet ?? 0) >= 0 ? 6 : -4]);
+  if (sk > 0) hope.push(['환자', -40 * sk]);
+  if (fueled < 0.99) hope.push(['용광로 엔진 정지', -15 * (1 - fueled)]);
+  const fl = S.founded.length - 1; if (fl > 0) hope.push(['북쪽 방향 진행', 2 * fl]);
+  { const D = diffOf(S); if (D.hope) hope.push([`난이도: ${D.n}`, D.hope]); }
+  { const dh = decoHope(S, camp); if (dh.raw > 0) hope.push(['장식', dh.v]); }
+  if (campRule(S, camp) === 'night') hope.push(['영야오로라', RULE_FX.nightHope]);
+  if (towerLitAt(S, camp)) hope.push(['봉화탑 라이트', TOWER_FX.hope]);
+  if (wonderHope(S)) hope.push(['오로라 탑', wonderHope(S)]);
+  if (townHope(camp)) hope.push(['마을에 살았다', townHope(camp)]);
+  { const F = focusOf(camp); if (F && F.hope) hope.push([`${F.n}야영지`, F.hope]); if (F && F.disc) disc.push([`${F.n}야영지`, F.disc]); }
+  const glow = (camp.buffs || []).some(b => b.n === '축하잔열' && b.until > S.t);
+  if (camp.fest) { hope.push(['모닥불 축하', 18]); disc.push(['모닥불 축하', -10]); }
+  else if (glow) { hope.push(['축하잔열', 10]); disc.push(['축하잔열', -6]); }
+  else if (buffOf(S, camp, 'prod') > 0) hope.push(['모닥불은', 8]);
+  if (u > 0) disc.push(['침대 없음', 25 * u]);
+  if (hung > 0.01) disc.push(['굶어 죽다', 30 * Math.min(1, hung * 2)]);
+  if (tH < 0) disc.push(['너무 추워요', Math.min(20, -tH * 1.2)]);
+  if (sk > 0) disc.push(['환자', 20 * sk]);
   if (S.laws) for (const l of LAWS) if (S.laws[l.id]) { if (l.hope) hope.push([l.n, l.hope]); if (l.disc) disc.push([l.n, l.disc]); }
   if (S.tech) for (const t of TECHS) if (S.tech.done[t.id] && t.fx.hope) hope.push([t.n, t.fx.hope]);
   const r = a => a.map(([n, v]) => [n, Math.round(v * 10) / 10]).filter(x => x[1]);
@@ -1403,12 +1403,12 @@ function moodStep(S, camp, cr, dt) {
       camp.leaveAcc -= 1;
       if (camp.people <= LEAVE_MIN) { camp.leaveAcc = 0; break; }
       camp.people--; S.stats.left = (S.stats.left || 0) + 1; trimWorkers(S, camp);
-      logMsg(S, `「${camp.name}」有人对营地失去了信心，趁夜离开了。`, 'bad');
+      logMsg(S, `「${camp.name}」누군가 야영지에 대한 신뢰를 잃고 밤에 떠났습니다.`, 'bad');
     }
   } else camp.leaveAcc = 0;
-  if (camp.disc >= 70 && !camp.discWarn) { camp.discWarn = true; logMsg(S, `「${camp.name}」的不满在蔓延（${Math.round(camp.disc)}）。超过 85 就会有人离开。看看「营地 → 人心」里是什么让大家不满。`, 'warn'); }
+  if (camp.disc >= 70 && !camp.discWarn) { camp.discWarn = true; logMsg(S, `"${camp.name}"의 불만이 확산되고 있습니다(${Math.round(camp.disc)}). 85세가 넘으면 누군가는 떠날 것입니다. 보기의 모든 사람이 불만을 "야영지 → 민심"로 만드는 이유.`, 'warn'); }
   if (camp.disc < 60) camp.discWarn = false;
-  if (camp.hope <= 20 && !camp.hopeWarn) { camp.hopeWarn = true; logMsg(S, `「${camp.name}」的人快没有盼头了（希望 ${Math.round(camp.hope)}），干活越来越没劲。`, 'warn'); }
+  if (camp.hope <= 20 && !camp.hopeWarn) { camp.hopeWarn = true; logMsg(S, `이름이 "${camp.name}"인 사람은 희망이 거의 없으며(희망 ${Math.round(camp.hope)}) 그의 작업은 점점 지루해지고 있습니다.`, 'warn'); }
   if (camp.hope > 30) camp.hopeWarn = false;
 }
 
@@ -1462,10 +1462,10 @@ function coldStep(S) {
   const C = S.cold;
   if (c.on && C.on !== c.k) {
     C.on = c.k; C.hit = {}; S.stats.cold = (S.stats.cold || 0) + 1;
-    logMsg(S, `🌨 寒潮来了！这一整天熔炉烧 ${coldFuel(S)} 倍燃料，户外采集只剩 ${Math.round(coldGather(S) * 100)}%，气温再降 ${COLD.drop}°。挺过去没人冻伤，希望和余烬都有奖励。`, 'bad', { act: 'wx', label: '看看' });
+    logMsg(S, `🌨한파가 왔습니다! 용광로는 하루 종일 연료의 ${coldFuel(S)}배를 태웠고 실외 채집은 ${Math.round(coldGather(S) * 100)}%만 남았으며 온도는 ${COLD.drop}° 더 떨어졌습니다. 동상, 희망 및 잔불은 모두 보상을 통과하지 못했습니다.`, 'bad', { act: 'wx', label: '보기' });
   } else if (!c.on && c.fc && C.fc !== c.k) {
     C.fc = c.k;
-    logMsg(S, `🌨 寒潮预报：约 ${Math.max(1, Math.round(c.inSec / 60))} 分钟后寒潮来袭，持续一整天（${DAY_LEN / 60} 分钟）：熔炉烧 ${coldFuel(S)} 倍燃料，户外采集减半，气温再降 ${COLD.drop}°。物流网会先给每座营地备足燃料。${coldBliz(S, c) ? '这次还和暴风雪撞在一起，燃料和熟食要多备。' : ''}`, 'warn', { act: 'wx', label: '看看' });
+    logMsg(S, `🌨 한파 예보: 한파는 약 ${Math.max(1, Math.round(c.inSec / 60))}분 후에 발생하고 하루 종일 지속됩니다(${DAY_LEN / 60}분). 용광로는 연료를 ${coldFuel(S)}번 태우고 실외 채집은 반으로 줄고 온도는 ${COLD.drop}° 더 떨어집니다. 물류망은 먼저 각 야영지에 대해 충분한 연료를 준비합니다. ${coldBliz(S, c) ? '이번에도 눈보라와 충돌했으니 연료, 요리를 준비하세요.' : ''}`, 'warn', { act: 'wx', label: '보기' });
   }
   // 寒潮过去：没人冻伤的营地希望 +5；全都挺住了再给余烬
   if (!c.on && C.on != null && C.on === c.k - 1 && C.done !== C.on) {
@@ -1473,7 +1473,7 @@ function coldStep(S) {
     const live = S.camps.filter(x => x.people > 0), hit = live.filter(x => (C.hit || {})[x.id]), ok = live.filter(x => !(C.hit || {})[x.id]);
     for (const x of ok) bumpMood(x, COLD.hope, 0);
     if (!hit.length) { S.meta.embers += COLD.embers; S.meta.emberTotal = (S.meta.emberTotal || 0) + COLD.embers; S.stats.coldOk = (S.stats.coldOk || 0) + 1; }
-    logMsg(S, !hit.length ? `🌨 寒潮过去了，一个人都没冻伤：每座营地希望 +${COLD.hope}，余烬 +${COLD.embers}。` : `🌨 寒潮过去了。${hit.map(x => `「${x.name}」`).join('')}有人冻伤了${ok.length ? `；别的营地都挺住了，希望 +${COLD.hope}` : ''}。下次早点备燃料、给帐篷升级保暖。`, hit.length ? 'warn' : 'good');
+    logMsg(S, !hit.length ? `🌨 한파가 지나갔고 동상이 아무도 없었습니다. 각 야영지희망 +${COLD.hope}, 잔불 +${COLD.embers}.` : `🌨 한파 합격했습니다.${hit.map(x => `「${x.name}」`).join('')}누군가 동상${ok.length ? `;다른 야영지는 희망 +${COLD.hope}` : ''}. 다음에는 연료를 일찍 준비하고 천막업그레이드를 따뜻하게 유지하세요.`, hit.length ? 'warn' : 'good');
   }
 }
 
@@ -1488,12 +1488,12 @@ export function step(S, dt) {
   const w = weatherAt(S, S.t);
   // 记在存档里：刷新页面不会重复播报、重复计数
   const wx = S.wx || (S.wx = { last: R.lastBliz ?? -1, warn: -1, fc: -1 });
-  if (w.blizzard && wx.last !== w.slot.k) { wx.last = w.slot.k; S.stats.blizzards++; logMsg(S, `暴风雪来了！气温骤降，室外的人会冻伤。${S.camps.some(c => c.odAuto !== false) ? '熔炉已自动超载顶住寒潮。' : ''}`, 'bad'); }
-  if (w.warn && wx.warn !== w.slot.k) { wx.warn = w.slot.k; logMsg(S, `暴风雪将在 ${Math.ceil(w.inSec / 60)} 分钟后到来，备足燃料和熟食。`, 'warn', { act: 'wx', label: '备战' }); }
+  if (w.blizzard && wx.last !== w.slot.k) { wx.last = w.slot.k; S.stats.blizzards++; logMsg(S, `눈보라가 왔습니다! 기온이 급격하게 떨어지고 밖에 있는 사람들은 동상 할 것이다. ${S.camps.some(c => c.odAuto !== false) ? '용광로는 한파를 견딜 수 있도록 자동으로 과부하되었습니다.' : ''}`, 'bad'); }
+  if (w.warn && wx.warn !== w.slot.k) { wx.warn = w.slot.k; logMsg(S, `눈보라는 연료 및 요리가 가득 채워진 상태로 ${Math.ceil(w.inSec / 60)}분 안에 도착합니다.`, 'warn', { act: 'wx', label: '전쟁을 준비하세요' }); }
   if (!w.blizzard && !w.warn && w.next <= forecastOf(S) && wx.fc !== w.slot.k) {
     wx.fc = w.slot.k;
     const c = getCamp(S, S.active) || S.camps[0];
-    logMsg(S, `❄ 气象预报：约 ${Math.round(w.next / 60)} 分钟后有一场暴风雪，持续约 ${Math.round((w.slot.end - w.slot.start) / 60)} 分钟，「${c.name}」会降温 ${Math.round(slotDrop(S, c, w.slot))}°。看看燃料和熟食撑不撑得住。`, 'warn', { act: 'wx', label: '备战' });
+    logMsg(S, `❄ 기상 예측: 약 ${Math.round(w.next / 60)}분 후에 눈보라가 발생하고 약 ${Math.round((w.slot.end - w.slot.start) / 60)}분 동안 지속되며 "${c.name}"의 온도는 ${Math.round(slotDrop(S, c, w.slot))}° 낮아집니다. 보기연료 및 요리를 견딜 수 있습니까?`, 'warn', { act: 'wx', label: '전쟁을 준비하세요' });
   }
   // 其他天气：预报、临近提醒、开始、结束
   const we = w.ev = wxeAt(S, S.t);
@@ -1502,20 +1502,20 @@ export function step(S, dt) {
     if (we.on && wx.es !== k) {
       wx.es = k; wx.ef = wx.ew = k;
       S.stats.wxe ||= {}; S.stats.wxe[we.ev.kind] = (S.stats.wxe[we.ev.kind] || 0) + 1;
-      logMsg(S, `${E.ic} ${E.n}来了！${E.d}`, 'bad', { act: 'wx', label: '看看' });
+      logMsg(S, `${E.ic} ${E.n}이(가) 왔습니다! ${E.d}`, 'bad', { act: 'wx', label: '보기' });
     } else if (!we.on && we.inSec <= WXE_WARN && wx.ew !== k) {
       wx.ew = k; wx.ef = k;
       const need = S.camps.filter(c => wxeMatters(S, c, we.ev) && !wxePrepped(S, c, we.ev));
-      logMsg(S, `${E.ic} ${E.n}还有 ${Math.ceil(we.inSec / 60)} 分钟就到。${need.length ? `还没准备的营地：${need.map(c => `「${c.name}」`).join('')}。` : ''}`, 'warn', { act: 'wx', label: '准备' });
+      logMsg(S, `${E.ic} ${E.n}게다가${Math.ceil(we.inSec / 60)}단 몇 분 거리에 있습니다.${need.length ? `야영지 아직 준비되지 않음:${need.map(c => `「${c.name}」`).join('')}。` : ''}`, 'warn', { act: 'wx', label: '준비하다' });
     } else if (!we.on && we.inSec <= forecastOf(S) && wx.ef !== k) {
       wx.ef = k;
-      logMsg(S, `${E.ic} 气象预报：约 ${Math.round(we.inSec / 60)} 分钟后有一场${E.n}，持续约 ${Math.round((we.ev.end - we.ev.start) / 60)} 分钟。${wxeMatters(S, c0, we.ev) ? `可以提前「${E.prep}」。` : ''}`, 'warn', { act: 'wx', label: '看看' });
+      logMsg(S, `${E.ic}기상 예측: 약.${Math.round(we.inSec / 60)}몇 분 안에 하나 있을 거예요${E.n}, 약 지속됩니다.${Math.round((we.ev.end - we.ev.start) / 60)}분.${wxeMatters(S, c0, we.ev) ? `미리 만들어 놓을 수 있어요${E.prep}」。` : ''}`, 'warn', { act: 'wx', label: '보기' });
     }
   }
   if (wx.es != null && wx.ee !== wx.es && !(we.on && we.ev.k === wx.es)) {
     wx.ee = wx.es;
     const z = wxeSlot(S, wx.es);
-    if (S.t >= z.end && S.t - z.end < 600) logMsg(S, `${WXE[z.kind].ic} ${WXE[z.kind].n}过去了。`, 'good');
+    if (S.t >= z.end && S.t - z.end < 600) logMsg(S, `${WXE[z.kind].ic} ${WXE[z.kind].n}이(가) 통과되었습니다.`, 'good');
   }
   regrow(S, dt);
   oreStep(S, dt);
@@ -1551,7 +1551,7 @@ function ruleStep(S, dt, w) {
     if (sk > ns.bz.s0) ns.bz.bad = 1;
   } else if (ns.bz) { ns.bliz = (ns.bliz || 0) + 1; if (!ns.bz.bad) { ns.blizOk = (ns.blizOk || 0) + 1; if (r === 'storm' && ns.blizOk >= 4) flag13(S, 'storm4'); } ns.bz = null; }
   if (r === 'night') { const hp = main.hope ?? 50; ns.hh = hp >= 70 ? Math.min(600, (ns.hh || 0) + dt) : Math.max(0, (ns.hh || 0) - dt / 2); }
-  if (r === 'rich' && !ns.shrunk && !richGrace(S)) { ns.shrunk = 1; dirty(S); logMsg(S, `💎 富矿带的头两天过去了，熔炉压不住这里的寒气：「${main.name}」的暖圈缩了 ${-RULE_FX.richWarm} 格。`, 'warn'); }
+  if (r === 'rich' && !ns.shrunk && !richGrace(S)) { ns.shrunk = 1; dirty(S); logMsg(S, `💎 부광대의 처음 이틀이 지났고 용광로는 여기서 추위를 억제할 수 없습니다. "${main.name}" 난방권이 ${-RULE_FX.richWarm}만큼 줄어들었습니다.`, 'warn'); }
   if (r === 'meteor') {
     const h = ruleSpans(S, 'meteor').find(q => q.t1 == null);
     for (let n = 0; h && n < 20; n++) {
@@ -1569,7 +1569,7 @@ function meteorFall(S, camp, z, ns) {
     const b = bs[Math.floor(z.pick * bs.length) % bs.length], h = BLD[b.type].size / 2;
     b.hitT = S.t + RULE_FX.metHit;
     ns.hits = (ns.hits || 0) + 1;
-    logMsg(S, `☄ 一块陨石砸中了「${camp.name}」的${BLD[b.type].n}，停工修 ${Math.round(RULE_FX.metHit / 60)} 分钟。没人受伤，修好就和原来一样。`, 'warn');
+    logMsg(S, `☄ 운석이 "${camp.name}" 중 ${BLD[b.type].n}에 부딪혔으며 수리를 위해 작업이 ${Math.round(RULE_FX.metHit / 60)}분 동안 중단되었습니다. 다친 사람은 없었고 예전처럼 수리가 완료되었습니다.`, 'warn');
     rt(S).fx.push({ kind: 'meteor', camp: camp.id, b: b.id, x: b.x + h, y: b.y + h, hit: true });
   } else {
     const a = z.a * Math.PI * 2, d = heatRadius(S, camp) * (0.6 + 0.35 * z.pick);
@@ -1595,12 +1595,12 @@ export function ruinTiles(S, i) {
 export const ruinLoot = n => ({ part: 15 * n, steel: 30 * n });
 export const ruinCost = n => ({ food: 15 * n });
 export function ruinBlock(S, i) {
-  const tiles = ruinTiles(S, i); if (!tiles.length) return { why: '这里没有废墟了' };
+  const tiles = ruinTiles(S, i); if (!tiles.length) return { why: '여기에는 폐허가 없습니다.' };
   const camp = getCamp(S, warmCampAt(S, i % W, Math.floor(i / W)));
-  if (!camp) return { why: '要在营地的暖圈里才能派人去拆', tiles };
-  if (depotAuto(camp)) return { why: `「${camp.name}」是补给站，先「临时接手」才能派人`, tiles, camp };
+  if (!camp) return { why: '일손 배치는 야영지 및 난방권에서만 분해할 수 있습니다.', tiles };
+  if (depotAuto(camp)) return { why: `"${camp.name}"은(는) 공급 스테이션입니다. 일손 배치를 수행하려면 먼저 "일시적으로 인수"해야 합니다.`, tiles, camp };
   const cost = ruinCost(tiles.length);
-  if (!canAfford(camp.stock, cost)) return { why: '缺：' + missing(camp.stock, cost).join('，'), tiles, camp, cost };
+  if (!canAfford(camp.stock, cost)) return { why: '부족: ' + missing(camp.stock, cost).join(','), tiles, camp, cost };
   return { why: '', tiles, camp, cost };
 }
 export function dismantleRuin(S, i) {
@@ -1614,7 +1614,7 @@ export function dismantleRuin(S, i) {
   if (camp.id === journeyOf(S).main && ruleNow(S)) { const ns = nsOf(S); ns.ruin = (ns.ruin || 0) + 1; }
   const cx = tiles.reduce((a, t) => a + t % W, 0) / tiles.length + 0.5, cy = tiles.reduce((a, t) => a + Math.floor(t / W), 0) / tiles.length + 0.5;
   rt(S).fx.push({ kind: 'ruin', camp: camp.id, x: cx, y: cy });
-  logMsg(S, `🏛 「${camp.name}」拆掉了一处古城废墟，空出 ${tiles.length} 格地：古代构件 +${loot.part}，钢材 +${loot.steel}。`, 'good');
+  logMsg(S, `🏛 「${camp.name}」는 고성 폐허를 철거하여 ${tiles.length} 정사각형을 남겼습니다: 고대 부품 +${loot.part}, 강재 +${loot.steel}.`, 'good');
   return { ok: true, loot };
 }
 
@@ -1663,12 +1663,12 @@ export function histSeries(T, k) { const A = T && T.v[k]; if (!A) return null; r
 // ---------- 建造队列：材料不够也先摆下，材料一到自动开工；升级也能排 ----------
 export const QUEUE_MAX = 8;
 export function queueBuild(S, type, x, y) {
-  if (type === 'furnace') return { ok: false, reason: '前哨熔炉不能排队' };
+  if (type === 'furnace') return { ok: false, reason: '전초기지 용광로를 대기열에 추가할 수 없습니다.' };
   const ck = checkPlace(S, type, x, y);
   if (ck.ok) return place(S, type, x, y);
   if (!ck.soft) return ck;
   S.queue = S.queue || [];
-  if (S.queue.filter(q => q.camp === ck.camp).length >= QUEUE_MAX) return { ok: false, reason: `这个营地已经排了 ${QUEUE_MAX} 栋在等材料` };
+  if (S.queue.filter(q => q.camp === ck.camp).length >= QUEUE_MAX) return { ok: false, reason: `이 야영지는 ${QUEUE_MAX} 대기열에 추가되었으며 자료를 기다리고 있습니다.` };
   const q = { id: S.nextId++, type, x, y, camp: ck.camp, t: S.t };
   S.queue.push(q);
   clearFootprint(S, type, x, y, ck.camp); // 先把地块上的石头树木清掉，免得蓝图和它们穿模
@@ -1725,7 +1725,7 @@ export function rowPlan(S, type, slots) {
     for (const k in cost) total[k] = (total[k] || 0) + cost[k];
     if (canAfford(st, cost)) { pay(st, cost); extra[cid] = (extra[cid] || 0) + 1; plan.push({ x, y, st: 'ok', camp: cid }); ok++; continue; }
     const inQ = (S.queue || []).filter(e => e.camp === cid).length + (qn[cid] || 0);
-    if (inQ >= QUEUE_MAX) { plan.push({ x, y, st: 'bad', reason: `这个营地已经排了 ${QUEUE_MAX} 栋在等材料` }); bad++; continue; }
+    if (inQ >= QUEUE_MAX) { plan.push({ x, y, st: 'bad', reason: `이 야영지는 ${QUEUE_MAX} 대기열에 추가되었으며 자료를 기다리고 있습니다.` }); bad++; continue; }
     qn[cid] = (qn[cid] || 0) + 1; plan.push({ x, y, st: 'q', camp: cid }); q++;
   }
   return { plan, ok, q, bad, total };
@@ -1744,11 +1744,11 @@ function queueStep(S) {
     const camp = getCamp(S, q.camp); if (!camp) { unqueue(S, q.id); continue; }
     if (!canAfford(camp.stock, queueCost(S, q))) continue;
     const ck = checkPlace(S, q.type, q.x, q.y, q.id);
-    if (!ck.ok && !ck.soft) { unqueue(S, q.id); logMsg(S, `排队的${BLD[q.type].n}那块地已经不能建了（${ck.reason}），已取消。`, 'warn'); continue; }
+    if (!ck.ok && !ck.soft) { unqueue(S, q.id); logMsg(S, `대기열에 있는 토지의 ${BLD[q.type].n} 구역은 더 이상 건설할 수 없으며(${ck.reason}) 취소되었습니다.`, 'warn'); continue; }
     if (!ck.ok) continue;
     unqueue(S, q.id);
     const r = place(S, q.type, q.x, q.y);
-    if (r.ok) { logMsg(S, `材料到齐，排队的${BLD[q.type].n}在「${camp.name}」开工建好了。`, 'good'); rt(S).fx.push({ kind: 'qbuilt', id: r.id }); }
+    if (r.ok) { logMsg(S, `재료가 수집되었으며 ${BLD[q.type].n} 줄이 "${camp.name}"에서 공사를 시작했습니다.`, 'good'); rt(S).fx.push({ kind: 'qbuilt', id: r.id }); }
   }
   for (const b of S.buildings) {
     if (!b.qup) continue;
@@ -1756,7 +1756,7 @@ function queueStep(S) {
     if (Object.keys(cost).some(k => RES[k].t > S.known)) continue;
     if (!canAfford(camp.stock, cost)) continue;
     b.qup = 0;
-    if (upgrade(S, b.id).ok && b.type !== 'furnace') logMsg(S, `材料到齐，${BLD[b.type].n}自动升到了 ${b.lvl} 级。`, 'good');
+    if (upgrade(S, b.id).ok && b.type !== 'furnace') logMsg(S, `모든 자료가 준비되면 ${BLD[b.type].n}이(가) 자동으로 ${b.lvl} 레벨로 업그레이드되었습니다.`, 'good');
   }
 }
 
@@ -1807,15 +1807,15 @@ function makeOrders(S, camp, k) {
   return out;
 }
 export function orderBlock(S, i) {
-  const c = S.car, o = c && c.orders[i]; if (!o) return '没有这张订单';
-  if (o.done) return '已经交过货了';
-  const camp = getCamp(S, c.camp); if (!camp) return '营地不在了';
-  if ((camp.stock[o.ask] || 0) < o.n) return `${RES[o.ask].n}不够（还差 ${Math.ceil(o.n - (camp.stock[o.ask] || 0))}）`;
+  const c = S.car, o = c && c.orders[i]; if (!o) return '그런 순서는 없어요';
+  if (o.done) return '상품이 배송되었습니다';
+  const camp = getCamp(S, c.camp); if (!camp) return '야영지가 사라짐';
+  if ((camp.stock[o.ask] || 0) < o.n) return `${RES[o.ask].n}이(가) 충분하지 않습니다(${Math.ceil(o.n - (camp.stock[o.ask] || 0))}이(가) 누락되었습니다)`;
   if (o.kind === 'people') {
-    const beds = Math.floor(freeBeds(S, camp)); if (beds < o.gn) return `床位不够：要空出 ${o.gn} 张，现在空 ${Math.max(0, beds)} 张`;
+    const beds = Math.floor(freeBeds(S, camp)); if (beds < o.gn) return `침대 부족: 침대 ${o.gn}개 필요, 현재 침대 ${Math.max(0, beds)}개 사용 가능`;
     // 跟新人自己来投奔一样：口粮撑不住就先别收人，免得大家一起挨饿
     const cr = rt(S).c[camp.id] || {};
-    if ((cr.foodNet != null && cr.foodNet < EAT * o.gn) || (camp.stock.food || 0) < (camp.people + o.gn) * EAT * 30) return `口粮不够再养 ${o.gn} 个人了：先多弄点吃的`;
+    if ((cr.foodNet != null && cr.foodNet < EAT * o.gn) || (camp.stock.food || 0) < (camp.people + o.gn) * EAT * 30) return `배급은 더 이상 ${o.gn}을(를) 모으기에 충분하지 않습니다. 먼저 음식을 더 확보하세요.`;
   }
   return '';
 }
@@ -1825,9 +1825,9 @@ export function deliverOrder(S, i, auto) {
   camp.stock[o.ask] -= o.n; o.done = true; S.stats.carOrders = (S.stats.carOrders || 0) + 1;
   let got;
   if (o.kind === 'goods') { camp.stock[o.give] = Math.max(camp.stock[o.give] || 0, Math.min(storeCap(S, camp), (camp.stock[o.give] || 0) + o.gn)); got = `${o.gn} ${RES[o.give].n}`; }
-  else if (o.kind === 'ember') { S.meta.embers += o.gn; S.meta.emberTotal = (S.meta.emberTotal || 0) + o.gn; got = `${o.gn} 点余烬`; }
-  else { addPeople(S, camp, o.gn); got = `${o.gn} 个跟着商队的流浪者在营地住下`; }
-  logMsg(S, `${auto ? '商队临走前，' : ''}「${camp.name}」交了 ${o.n} ${RES[o.ask].n}，换来 ${got}。`, 'good');
+  else if (o.kind === 'ember') { S.meta.embers += o.gn; S.meta.emberTotal = (S.meta.emberTotal || 0) + o.gn; got = `${o.gn}포인트잔불`; }
+  else { addPeople(S, camp, o.gn); got = `캐러밴을 따라가는 방랑자 ${o.gn}명이 야영지에 정착했습니다.`; }
+  logMsg(S, `${auto ? '카라반이 떠나기 전,' : ''}「${camp.name}」은(는) ${got}와 교환하여 ${o.n} ${RES[o.ask].n}을(를) 넘겨주었습니다.`, 'good');
   return { ok: true, got };
 }
 export function setCarAuto(S, on) { S.carAuto = !!on; }
@@ -1838,7 +1838,7 @@ function caravanStep(S) {
     if (!camp || S.t >= c.until) {
       const n = c.orders.filter(o => o.done).length;
       S.car = null; dirty(S);
-      logMsg(S, n ? `商队收好货物启程了，这次做成了 ${n} 张订单。` : '商队等不到货，拉着雪橇走了。');
+      logMsg(S, n ? `캐러밴은 물건을 모으고 출발했으며 이번에는 ${n}를 주문했습니다.` : '캐러밴은 상품을 기다릴 수 없어 썰매를 가져갔습니다.');
       return;
     }
     // 没人照看时（离线、挂机）临走前把多出来的货交掉：只交库存够两倍的
@@ -1852,7 +1852,7 @@ function caravanStep(S) {
   const at = camp && caravanSpot(S, camp); if (!at) return;
   S.car = { k, camp: camp.id, x: at.x, y: at.y, t: S.t, until: sl.t + CAR_STAY, orders: makeOrders(S, camp, k) };
   dirty(S);
-  logMsg(S, `🛷 一支雪橇商队在「${camp.name}」外扎营，带来 ${S.car.orders.length} 张订单：拿货换稀缺物资、余烬和人手。大约 ${Math.round((S.car.until - S.t) / 60)} 分钟后启程。`, 'good', { act: 'car', label: '看订单' });
+  logMsg(S, `🛷 썰매 캐러밴이 "${camp.name}" 외부에서 캠핑을 하고 ${S.car.orders.length} 주문을 가져왔습니다. 부족한 보급품인 잔불 및 일손을 교환합니다. 약 ${Math.round((S.car.until - S.t) / 60)}분 후에 출발합니다.`, 'good', { act: 'car', label: '순서를 보세요' });
 }
 
 // 自动把空闲的人派到缺人的建筑（吃饭、取暖优先）
@@ -1860,7 +1860,7 @@ const AUTO_ORDER = ['kitchen', 'hunter', 'greenhouse', 'lumber', 'nursery', 'coa
 function autoPr(t) { const i = AUTO_ORDER.indexOf(t); return i < 0 ? 50 + BLD[t].t : i; }
 export function autoAssign(S, camp) {
   if (camp.auto === false && !depotAuto(camp)) return;
-  const R = rt(S), FULL = '仓库满了';
+  const R = rt(S), FULL = '창고가 가득 참';
   const st = b => (R.b[b.id] || {}).status;
   let idle = idleLabor(S, camp);
   const mine = S.buildings.filter(b => b.camp === camp.id && !b.hold);
@@ -1938,15 +1938,15 @@ function campStep(S, camp, dt, w) {
   // 炉温：超载时升高（工程师看炉子升得慢），不超载时回落
   if (od) {
     camp.ovh = Math.min(100, (camp.ovh || 0) + OD_UP / (1 + fSpec) * dt);
-    if (camp.ovh >= 85 && camp.od && !camp.ovhWarn) { camp.ovhWarn = true; logMsg(S, `「${camp.name}」的熔炉烧得发红了（炉温 ${Math.round(camp.ovh)}%），再不停下超载就要被迫停炉降温。`, 'warn', { act: 'wx', label: '看炉温' }); }
+    if (camp.ovh >= 85 && camp.od && !camp.ovhWarn) { camp.ovhWarn = true; logMsg(S, `"${camp.name}"의 용광로가 빨간색으로 불타고 있습니다(퍼니스 온도 ${Math.round(camp.ovh)}%). 멈추지 않고 과부하가 걸리면 냉각을 위해 퍼니스를 강제로 종료해야 합니다.`, 'warn', { act: 'wx', label: '보일러 온도 좀 보세요' }); }
     if (camp.ovh >= 100) {
       camp.od = 0; camp.odA = 0; camp.odCool = OD_STALL; camp.ovh = 75;
-      logMsg(S, `「${camp.name}」的熔炉超载过头，炉膛被迫停下降温 ${OD_STALL / 60} 分钟，这段时间只剩三成热量！`, 'bad');
+      logMsg(S, `"${camp.name}"의 용광로가 과부하되어 퍼니스가 ${OD_STALL / 60}분 동안 냉각을 강제로 중지했습니다. 이 기간 동안 열은 30%만 남았습니다!`, 'bad');
       rt(S).fx.push({ kind: 'odstall', camp: camp.id });
     }
   } else {
     camp.ovh = Math.max(0, (camp.ovh || 0) - OD_DOWN * dt);
-    if (camp.odCool > 0) { camp.odCool = Math.max(0, camp.odCool - dt); if (!camp.odCool) logMsg(S, `「${camp.name}」的熔炉降好温了，恢复正常供热。`, 'good'); }
+    if (camp.odCool > 0) { camp.odCool = Math.max(0, camp.odCool - dt); if (!camp.odCool) logMsg(S, `"${camp.name}"의 용광로가 냉각되어 정상 가열을 재개했습니다.`, 'good'); }
   }
   if (camp.ovh < 70) camp.ovhWarn = false;
   // 极寒夜：燃料烧够了还冷三成五，烧不够冷得更多；封好门窗缝减半
@@ -1972,7 +1972,7 @@ function campStep(S, camp, dt, w) {
     if (k >= 1) {
       camp.wait -= k; camp.people += k;
       for (let i = 0; i < Math.min(k, 6); i++) R.fx.push({ kind: 'arrive', camp: camp.id });
-      logMsg(S, `「${camp.name}」有了空床位，${k} 个在窝棚里等着的人住了进来${camp.wait ? `（还有 ${camp.wait} 人在等）` : ''}。`, 'good');
+      logMsg(S, `「${camp.name}"빈 침대가 있고,${k}오두막에서 기다리고 있던 남자가 들어왔다${camp.wait ? `(게다가${camp.wait}사람들이 기다리고 있어요)` : ''}。`, 'good');
     }
   }
   const housed = Math.min(camp.people, housing);
@@ -2001,7 +2001,7 @@ function campStep(S, camp, dt, w) {
     const br = R.b[b.id] || (R.b[b.id] = {}), mx = maxWorkers(b.type, b.lvl), sf = mx ? Math.min(1, b.workers / mx) : 0;
     const share = ward.beds > 0 ? wardBeds(b.lvl) * sf / ward.beds : 0, pts = cr.treated * share;
     br.staff = sf; br.pts = pts; br.act = sf * (pts > 0.05 ? 1 : 0.4); br.rate = {};
-    br.status = !b.workers ? '没有派人' : sf < 0.99 ? '人手不足' : '运转中';
+    br.status = !b.workers ? '배치된 일손 없음' : sf < 0.99 ? '일손 부족' : '달리기';
   }
   // 医生：医务所开张、有人守着，过一阵何大夫会来投奔
   if (!S.meta.specs.he && ward.guard > 0) {
@@ -2009,12 +2009,12 @@ function campStep(S, camp, dt, w) {
     if (S.docT >= DOC_AFTER) {
       const sp = SPECS.find(x => x.id === 'he');
       S.meta.specs.he = { lvl: 1 };
-      logMsg(S, `一位背着药箱的老人走进了「${camp.name}」：专家「${sp.n}」（${sp.role}）加入了！${sp.story} 把 TA 安排进医务所。`, 'story', { act: 'tb', arg: 'specs', label: '去安排' });
+      logMsg(S, `약상자를 들고 있는 노인이 "${camp.name}"에 들어왔습니다: 전문가 "${sp.n}" (${sp.role})이(가) 합류했습니다! ${sp.story} TA를 진료소로 배열합니다.`, 'story', { act: 'tb', arg: 'specs', label: '정리하다' });
       R.fx.push({ kind: 'arrive', camp: camp.id });
     }
   }
   const sickN = Math.floor(camp.sick);
-  if (sickN >= 2 && !camp.sickWarn) { camp.sickWarn = true; logMsg(S, `「${camp.name}」有 ${sickN} 人冻病或饿病了，病人不能干活。让大家住进暖和的帐篷、吃饱饭，才会慢慢好起来。`, 'warn'); }
+  if (sickN >= 2 && !camp.sickWarn) { camp.sickWarn = true; logMsg(S, `"${camp.name}"에는 ${sickN}명이 동상이나 배고픔을 겪고 있어 환자가 작동할 수 없습니다. 모두가 따뜻한 곳에서 생활하고 음식을 충분히 섭취하게 하면 점차 나아질 것입니다.`, 'warn'); }
   if (sickN === 0) camp.sickWarn = false;
 
   // 人手
@@ -2045,7 +2045,7 @@ function campStep(S, camp, dt, w) {
     br.staff = staff; br.rp = r;
     const cur = S.tech && S.tech.cur;
     br.act = cur ? Math.min(1, staff * workEff) : 0;
-    br.status = !b.workers ? '没有派人' : !cur ? '等待研究课题' : staff < 0.99 ? '人手不足' : '研究中';
+    br.status = !b.workers ? '배치된 일손 없음' : !cur ? '연구 주제를 기다리는 중' : staff < 0.99 ? '일손 부족' : '연구중';
     if (cur) rp += r;
   }
   cr.rp = rp;
@@ -2061,7 +2061,7 @@ function campStep(S, camp, dt, w) {
     const br = R.b[b.id] || (R.b[b.id] = {});
     br.staff = staff; br.fed = fed; br.dogs = n * staff * fed; br.act = staff * fed;
     br.inRate = { game: n * BLD.kennel.feed * fed }; br.rate = {};
-    br.status = !b.workers ? '没有派人' : fed < 0.95 ? '缺生肉' : staff < 0.99 ? '人手不足' : '运转中';
+    br.status = !b.workers ? '배치된 일손 없음' : fed < 0.95 ? '누락생고기' : staff < 0.99 ? '일손 부족' : '달리기';
     dogs += br.dogs; dogFood += n * BLD.kennel.feed * fed; dogWant += n * BLD.kennel.feed;
   }
   cr.dogs = dogs; cr.dogFood = dogFood; cr.dogWant = dogWant;
@@ -2088,11 +2088,11 @@ function campStep(S, camp, dt, w) {
     const mult = levelMul(b.lvl) * (1 + prodBonus(S, b, camp, syn, beltB).sum) * staff * (gth ? effG : workEff) * prodMul * blaze * (ev && ev.kind === 'ice' && gth ? WXE_ICE_GATHER : 1) * (cRule === 'night' && gth ? RULE_FX.nightOut : 1) * ((cold || tide) && gth ? coldSlow : 1);
     const br = R.b[b.id] || (R.b[b.id] = {});
     br.staff = staff;
-    if (b.moveT > S.t) { br.act = 0; br.status = '在搬家'; br.haul = 0; br.rate = {}; br.inRate = {}; br.want = {}; br.dep = 0; continue; }
-    if (b.hitT > S.t) { br.act = 0; br.status = '被陨石砸了，在修'; br.haul = 0; br.rate = {}; br.inRate = {}; br.want = {}; br.dep = 0; continue; }
-    if (b.frz > S.t) { br.act = 0; br.status = '冻住了'; br.haul = 0; br.rate = {}; br.inRate = {}; br.want = {}; br.dep = 0; continue; }
-    if (b.altT > S.t) { br.act = 0; br.status = '在换配方'; br.haul = 0; br.rate = {}; br.inRate = {}; br.want = {}; br.dep = 0; continue; }
-    if (mult <= 0) { br.act = 0; br.status = b.workers ? '没人干活' : '没有派人'; br.haul = 0; continue; }
+    if (b.moveT > S.t) { br.act = 0; br.status = '움직이는'; br.haul = 0; br.rate = {}; br.inRate = {}; br.want = {}; br.dep = 0; continue; }
+    if (b.hitT > S.t) { br.act = 0; br.status = '운석에 부딪혀 수리 중입니다.'; br.haul = 0; br.rate = {}; br.inRate = {}; br.want = {}; br.dep = 0; continue; }
+    if (b.frz > S.t) { br.act = 0; br.status = '언'; br.haul = 0; br.rate = {}; br.inRate = {}; br.want = {}; br.dep = 0; continue; }
+    if (b.altT > S.t) { br.act = 0; br.status = '수식 변경'; br.haul = 0; br.rate = {}; br.inRate = {}; br.want = {}; br.dep = 0; continue; }
+    if (mult <= 0) { br.act = 0; br.status = b.workers ? '아무도 일하지 않아' : '배치된 일손 없음'; br.haul = 0; continue; }
     const dist = R.dist.get(b.id) || 1;
     let units = 0;
     for (const k in d.out) units += d.out[k] * (bo && bo[k] ? 1 - BELT[bo[k]].cut : 1);
@@ -2116,7 +2116,7 @@ function campStep(S, camp, dt, w) {
   const wons = [];
   for (const b of bs) {
     if (!isWonder(b.type)) continue;
-    if (wonderDone(b)) { const br = R.b[b.id] || (R.b[b.id] = {}); br.status = '建成了'; br.act = 0; br.haul = 0; br.rate = {}; br.inRate = {}; br.want = {}; continue; }
+    if (wonderDone(b)) { const br = R.b[b.id] || (R.b[b.id] = {}); br.status = '세워짐'; br.act = 0; br.haul = 0; br.rate = {}; br.inRate = {}; br.want = {}; continue; }
     const dem = wonderDem(S, b, (2 * (R.dist.get(b.id) || 1) / speed + 1.5) / carry);
     demand += dem; wons.push({ b, dem });
   }
@@ -2137,7 +2137,7 @@ function campStep(S, camp, dt, w) {
       for (const s of sp) { left += harvestLeft(S, s.i); if (isSapling(S, s.i)) young++; }
       const outK = Object.keys(d.out)[0];
       const want = d.out[outK] * f;
-      if (left <= 0) { lim = 0; why = young ? ({ tree: '等树苗长大', dead: '等风雪刮出新的枯木', fish: '等鱼群回来' }[SPOT_KEYS[getWorld(S.runSeed).spot[sp.find(q => isSapling(S, q.i)).i]]] || '等猎物回来') : '附近资源点已采空'; }
+      if (left <= 0) { lim = 0; why = young ? ({ tree: '묘목이 자랄 때까지 기다리십시오.', dead: '바람과 눈이 새로운 죽은 나무를 꺼내기를 기다리고 있습니다.', fish: '물고기가 돌아올 때까지 기다리세요' }[SPOT_KEYS[getWorld(S.runSeed).spot[sp.find(q => isSapling(S, q.i)).i]]] || '사냥감이 돌아올 때까지 기다립니다.') : '주변 자원 포인트가 소진되었습니다.'; }
       else if (want > left) lim = left / want;
       // 深井：地表采空后，往下挖还能按三成五的产量一直出（不消耗资源点）
       deepX = b.deep ? Math.max(0, DEEP_RATE - lim) : 0;
@@ -2148,7 +2148,7 @@ function campStep(S, camp, dt, w) {
       const need = d.in[k] * f;
       if (need <= 0) continue;
       const fk = fuelFeedFree(d, fuelFeed) ? 0 : fuelKeep(st, k, fuelKeepU), keep = keepOf(camp, k, cap) + fk, have = Math.max(0, (st[k] || 0) - keep);
-      if (have < need) { const r = have / need; if (r < lim) { lim = r; why = fk > 0 && (st[k] || 0) > need ? FUEL_KEEP_WHY : keep && (st[k] || 0) >= keep * 0.5 ? KEEP_WHY : `缺${RES[k].n}`; whyK = k; } }
+      if (have < need) { const r = have / need; if (r < lim) { lim = r; why = fk > 0 && (st[k] || 0) > need ? FUEL_KEEP_WHY : keep && (st[k] || 0) >= keep * 0.5 ? KEEP_WHY : `${RES[k].n} 누락됨`; whyK = k; } }
     }
     // 产出满仓则停（开了「满仓自动兑换」就不停，多出来的拿去换）
     let room = 1;
@@ -2158,7 +2158,7 @@ function campStep(S, camp, dt, w) {
       const r = Math.max(0, cap - (st[k] || 0)) / add;
       if (r < room) room = r;
     }
-    if (room < lim) { lim = room; why = '仓库满了'; }
+    if (room < lim) { lim = room; why = '창고가 가득 참'; }
     lim = Math.max(0, Math.min(1, lim));
     br.avail = lim;
     f *= lim;
@@ -2178,12 +2178,12 @@ function campStep(S, camp, dt, w) {
     br.dep = d.gather ? d.out[Object.keys(d.out)[0]] * p.mult * hf * lim * spotShare : 0; // 每分钟从资源点上挖走多少
     br.inRate = {}; if (d.in) for (const k in d.in) br.inRate[k] = d.in[k] * p.mult * hf * lim;
     // 想要的原料：只有卡住它的那一种按全速算，其它按实际
-    br.want = {}; if (d.in) for (const k in d.in) br.want[k] = k === whyK && (why.startsWith('缺') || why === KEEP_WHY || why === FUEL_KEEP_WHY) ? d.in[k] * p.mult * hf * Math.max(0, Math.min(1, gLim, room)) : br.inRate[k];
+    br.want = {}; if (d.in) for (const k in d.in) br.want[k] = k === whyK && (why.startsWith('부족') || why === KEEP_WHY || why === FUEL_KEEP_WHY) ? d.in[k] * p.mult * hf * Math.max(0, Math.min(1, gLim, room)) : br.inRate[k];
     br.haul = p.dem * hf * lim;
     br.dist = p.dist;
-    br.status = lim < 0.05 ? why : hf < 0.7 ? '搬运工不够' : lim < 0.95 ? why : br.staff < 0.99 ? '人手不足' : wE < 0.9 ? '太冷，干活慢' : '运转中';
+    br.status = lim < 0.05 ? why : hf < 0.7 ? '운반꾼 부족' : lim < 0.95 ? why : br.staff < 0.99 ? '일손 부족' : wE < 0.9 ? '너무 추워서 일이 느리다' : '달리기';
     br.deep = deepX > 0;
-    if (lim < 0.05 && why.startsWith('缺')) { if (br.stop0 == null) br.stop0 = S.t; } else br.stop0 = null; // 缺料停了多久（老向导提替代配方用）
+    if (lim < 0.05 && why.startsWith('부족')) { if (br.stop0 == null) br.stop0 = S.t; } else br.stop0 = null; // 缺料停了多久（老向导提替代配方用）
   }
 
   { const offK = R.offline && R.histOff ? R.histOff.rate : 1; // 离线时塔身按离线收益的比例吃货、长进度
@@ -2221,7 +2221,7 @@ function campStep(S, camp, dt, w) {
     camp.people--; S.stats.deaths++; bumpMood(camp, -2, 1);
     trimWorkers(S, camp);
     R.fx.push({ kind: 'death', camp: camp.id });
-    logMsg(S, `「${camp.name}」有人没能熬过去（${hunger > 0.05 ? '饥饿' : '严寒'}）。`, 'bad');
+    logMsg(S, `"${camp.name}" 누군가가 성공하지 못했습니다(${hunger > 0.05 ? '굶주림' : '심한 감기'}).`, 'bad');
   }
   // 新人投奔
   const free = Math.min(housing, popCap(S, camp)) - camp.people - away - (camp.wait || 0);
@@ -2377,14 +2377,14 @@ export function scoutCost(S, cid, tx, ty, kind = 'scout') {
 export function sendScout(S, cid, tx, ty, kind = 'scout', poiId = null) {
   const c = getCamp(S, cid);
   const sl = scoutSlots(S, cid);
-  if (!sl.n) return { ok: false, reason: '先建一座侦察营' };
-  if (sl.used >= sl.n) return { ok: false, reason: '侦察队都出去了，升级侦察营可多派一队' };
+  if (!sl.n) return { ok: false, reason: '먼저 정찰 막사를 구축하세요' };
+  if (sl.used >= sl.n) return { ok: false, reason: '정찰대는 모두 아웃되었으며 업그레이드정찰 막사는 추가 팀을 보낼 수 있습니다' };
   const range = scoutRange(S, cid);
-  if (Math.hypot(tx + 0.5 - c.x, ty + 0.5 - c.y) > range) return { ok: false, reason: `太远了：侦察营 ${sl.lvl} 级只能走 ${range} 格，升级侦察营或在更北处建营地` };
+  if (Math.hypot(tx + 0.5 - c.x, ty + 0.5 - c.y) > range) return { ok: false, reason: `너무 멀다: 정찰 막사 ${sl.lvl} 레벨은 ${range} 정사각형, 업그레이드정찰 막사로만 이동하거나 야영지를 더 북쪽으로 건설할 수 있습니다.` };
   const n = kind === 'rescue' ? 4 : 3;
-  if (c.people - n < MIN_PEOPLE) return { ok: false, reason: '营地人太少' };
+  if (c.people - n < MIN_PEOPLE) return { ok: false, reason: '야영지사람이 너무 적어요' };
   const cost = scoutCost(S, cid, tx, ty, kind);
-  if (!canAfford(c.stock, cost)) return { ok: false, reason: '缺：' + missing(c.stock, cost).join('，') };
+  if (!canAfford(c.stock, cost)) return { ok: false, reason: '부족: ' + missing(c.stock, cost).join(',') };
   pay(c.stock, cost);
   c.people -= n;
   trimWorkers(S, c); // 人手不够时从次要岗位上抽人
@@ -2392,7 +2392,7 @@ export function sendScout(S, cid, tx, ty, kind = 'scout', poiId = null) {
   return { ok: true };
 }
 // ---------- 矿挖完的出路：深井 + 勘探新矿脉 ----------
-export const DEEP_RATE = 0.35, DEEP_WHY = '深井作业中';
+export const DEEP_RATE = 0.35, DEEP_WHY = '심정 운영 진행 중';
 // 能挖深井的：矿和碎石（会长回来的树林、猎场不用）
 export function deepable(type) { const d = BLD[type]; return !!(d.gather && !d.gather.some(k => REGROW[k])); }
 export function gatherLeftFrac(S, b) {
@@ -2407,19 +2407,19 @@ export function deepCost(S, b) {
   return out;
 }
 export function deepBlock(S, b) {
-  if (!deepable(b.type)) return '只有矿场、采石场能挖深井';
-  if (b.deep) return '已经是深井了';
-  if (gatherLeftFrac(S, b) > 0.25) return '附近的矿还多，剩下不到四分之一再挖深井';
+  if (!deepable(b.type)) return '광산과 채석장만이 깊은 우물을 파낼 수 있습니다.';
+  if (b.deep) return '이미 깊은 우물이야';
+  if (gatherLeftFrac(S, b) > 0.25) return '근처에는 아직 광산이 많고, 깊은 우물을 파는 데는 1/4도 채 남지 않았습니다.';
   const c = getCamp(S, b.camp);
-  if (!canAfford(c.stock, deepCost(S, b))) return '缺：' + missing(c.stock, deepCost(S, b)).join('，');
+  if (!canAfford(c.stock, deepCost(S, b))) return '부족: ' + missing(c.stock, deepCost(S, b)).join(',');
   return '';
 }
 export function digDeep(S, id) {
-  const b = getB(S, id); if (!b) return { ok: false, reason: '建筑不在了' };
+  const b = getB(S, id); if (!b) return { ok: false, reason: '건물이 없어졌어요' };
   const why = deepBlock(S, b); if (why) return { ok: false, reason: why };
   pay(getCamp(S, b.camp).stock, deepCost(S, b));
   b.deep = 1; dirty(S);
-  logMsg(S, `「${getCamp(S, b.camp).name}」的${BLD[b.type].n}挖成了深井：地表采空以后，还能按三成五的产量一直挖下去。`, 'good');
+  logMsg(S, `"${getCamp(S, b.camp).name}"의 ${BLD[b.type].n}이(가) 깊은 우물에 파졌습니다. 표면이 채굴된 후에도 여전히 35% 생산량으로 파낼 수 있습니다.`, 'good');
   return { ok: true };
 }
 
@@ -2488,7 +2488,7 @@ function oreStep(S, dt) {
       if (o.frac >= ORE_WARN || o.deep || W0[k]) continue;
       W0[k] = 1;
       const t = gatherTypeFor(k);
-      logMsg(S, `「${c.name}」暖圈里的${SPOTS[k].n}只剩 ${Math.max(1, Math.round(o.frac * 100))}% 了${o.eta != null ? `，按现在的速度还能挖约 ${Math.max(1, Math.round(o.eta))} 分钟` : ''}。可以给${t ? BLD[t].n : '矿场'}挖深井（挖完还有三成五的产量），或者派勘探队找新矿脉（这种情况按最低价）。`, 'warn');
+      logMsg(S, `「${c.name}"난방권에서${SPOTS[k].n}오직${Math.max(1, Math.round(o.frac * 100))}% 위로${o.eta != null ? `, 현재 속도로 우리는 여전히 약을 채굴할 수 있습니다${Math.max(1, Math.round(o.eta))}분` : ''}. 줄 수 있다${t ? BLD[t].n : '내 거'}깊은 우물을 파거나(생산량의 35%는 파낸 후에도 여전히 사용 가능) 탐사팀을 보내 새로운 광맥을 찾으십시오(이 경우 최저 가격이 적용됩니다).`, 'warn');
     }
   }
 }
@@ -2609,25 +2609,25 @@ function surveyPick(S, camp) {
 }
 export function surveyBlock(S, camp) {
   const sl = scoutSlots(S, camp.id);
-  if (!sl.n) return '先在这个营地建一座侦察营';
-  if (S.scouts.some(s => s.camp === camp.id && s.kind === 'survey')) return '勘探队已经出发了';
-  if (sl.used >= sl.n) return '侦察队都出去了，等他们回来';
-  if (camp.people - SURVEY_N < MIN_PEOPLE) return '营地人太少';
-  if (!surveyKinds(S, camp).length) return '这里没有能勘探的矿';
-  if (!surveyPick(S, camp)) return '供热圈里没有空地放新矿场了，升级熔炉或管道扩大供热圈';
+  if (!sl.n) return '먼저 이 야영지에 정찰 막사를 빌드하세요.';
+  if (S.scouts.some(s => s.camp === camp.id && s.kind === 'survey')) return '탐사팀은 이미 출발했어요';
+  if (sl.used >= sl.n) return '정찰대는 모두 나가서 그들이 돌아오기를 기다리고 있다';
+  if (camp.people - SURVEY_N < MIN_PEOPLE) return '야영지사람이 너무 적어요';
+  if (!surveyKinds(S, camp).length) return '이곳에서는 탐사할 수 있는 광산이 없습니다.';
+  if (!surveyPick(S, camp)) return '난방권, 업그레이드용광로 또는 파이프라인 확장 난방권에 새로운 광산을 위한 공간이 없습니다.';
   const cost = surveyCost(S, camp);
-  if (!canAfford(camp.stock, cost)) return '缺：' + missing(camp.stock, cost).join('，');
+  if (!canAfford(camp.stock, cost)) return '부족: ' + missing(camp.stock, cost).join(',');
   return '';
 }
 export function startSurvey(S, cid) {
-  const camp = getCamp(S, cid); if (!camp) return { ok: false, reason: '营地不在了' };
+  const camp = getCamp(S, cid); if (!camp) return { ok: false, reason: '야영지가 사라짐' };
   const why = surveyBlock(S, camp); if (why) return { ok: false, reason: why };
   pay(camp.stock, surveyCost(S, camp));
   const pk = surveyPick(S, camp), kind = pk.kind, [c, c2] = pk.tiles;
   camp.people -= SURVEY_N; trimWorkers(S, camp);
   camp.surveys = (camp.surveys || 0) + 1;
   S.scouts.push({ id: S.nextId++, camp: cid, kind: 'survey', x: camp.x, y: camp.y, tx: c.x, ty: c.y, phase: 'out', n: SURVEY_N, carry: { people: 0, loot: {}, spec: null }, vein: { k: kind, at: [c.i, ...(c2 ? [c2.i] : [])] } });
-  logMsg(S, `勘探队出发了，去「${camp.name}」供热圈里找${SPOTS[kind].n}。`);
+  logMsg(S, `탐사팀은 "${camp.name}" 난방권에서 ${SPOTS[kind].n}을(를) 찾기 위해 출발했습니다.`);
   return { ok: true, kind };
 }
 // 找到的矿脉记在存档里，读档时补进地图
@@ -2649,9 +2649,9 @@ function foundVein(S, s) {
   applyVeins(S);
   if (got.length) {
     R.veinsDirty = true; dirty(S);
-    logMsg(S, `勘探队在「${camp.name}」挖到了 ${got.length} 处埋得很深的${SPOTS[v.k].n}！在旁边建${BLD[Object.keys(BLD).find(t => BLD[t].gather && BLD[t].gather.includes(v.k))].n}就能开采。`, 'good');
+    logMsg(S, `탐사팀이 "${camp.name}"에서 ${got.length} 깊이 묻혀 있는 ${SPOTS[v.k].n}을 발굴했습니다! 채굴하려면 옆에 ${BLD[Object.keys(BLD).find(t => BLD[t].gather && BLD[t].gather.includes(v.k))].n}을(를) 건설하세요.`, 'good');
     R.fx.push({ kind: 'vein', camp: camp.id, i: got[0] });
-  } else logMsg(S, `勘探队到了地方，可那里已经盖了房子，只好空手回来。`, 'warn');
+  } else logMsg(S, `탐사대가 그곳에 도착했지만 그곳에는 집이 지어져 있어 빈손으로 돌아와야 했다.`, 'warn');
 }
 
 function scoutsStep(S, dt) {
@@ -2681,11 +2681,11 @@ function scoutsStep(S, dt) {
       // 风险：越冷越危险
       const risk = coldRisk(S, s.camp, s.ty);
       const risk2 = s.kind === 'exp' ? expRiskOf(risk, s.sup) : risk;
-      if (hash3(s.id, 991, S.runSeed) < risk2) { s.n--; S.stats.deaths++; logMsg(S, `一名${s.kind === 'rescue' ? '救援队员' : s.kind === 'exp' ? '探险队员' : '侦察兵'}在严寒中失踪了。${s.kind === 'exp' && s.sup !== 'full' ? '补给带得太少了。' : ''}`, 'bad'); }
+      if (hash3(s.id, 991, S.runSeed) < risk2) { s.n--; S.stats.deaths++; logMsg(S, `${s.kind === 'rescue' ? '구조팀' : s.kind === 'exp' ? '탐험대 회원' : '정찰 군인'} 하나가 영하의 추위 속에서 실종되었습니다. ${s.kind === 'exp' && s.sup !== 'full' ? '준비물을 너무 적게 가져왔습니다.' : ''}`, 'bad'); }
       if (s.kind === 'exp') {
         const p = (w.sites || []).find(q => q.id === s.poi);
         s.phase = 'wait'; s.waitAt = S.t;
-        logMsg(S, `探险队抵达「${p ? SITES[p.kind].n : '目的地'}」，等你决定怎么做。`, 'story');
+        logMsg(S, `탐험대가 "${p ? SITES[p.kind].n : '목적지'}"에 도착하여 귀하가 무엇을 할지 결정하기를 기다리고 있습니다.`, 'story');
         R.fx.push({ kind: 'exp', id: s.id });
         continue;
       }
@@ -2696,7 +2696,7 @@ function scoutsStep(S, dt) {
         for (const p of w.pois) {
           if (S.poiDone[p.id] || S.poiFound[p.id]) continue;
           if (Math.hypot(p.x - s.x, p.y - s.y) > r) continue;
-          if (p.kind === 'survivors') { S.poiFound[p.id] = 1; logMsg(S, `侦察队发现了 ${p.n} 名被困的幸存者！派救援队去接他们回来。`, 'good'); R.fx.push({ kind: 'poi', id: p.id }); }
+          if (p.kind === 'survivors') { S.poiFound[p.id] = 1; logMsg(S, `정찰대가 갇힌 ${p.n} 생존자를 발견했습니다! 구조대를 보내 그들을 다시 데려오세요.`, 'good'); R.fx.push({ kind: 'poi', id: p.id }); }
           else if (p.kind === 'cache') { S.poiDone[p.id] = 1; const loot = cacheLoot(S, p); for (const k in loot) s.carry.loot[k] = (s.carry.loot[k] || 0) + loot[k]; }
           else if (p.kind === 'spec') { S.poiDone[p.id] = 1; s.carry.spec = p.spec; }
         }
@@ -2706,14 +2706,14 @@ function scoutsStep(S, dt) {
       home.people += s.n;
       const ad = s.carry.people ? addPeople(S, home, s.carry.people) : null;
       for (const k in s.carry.loot) home.stock[k] = (home.stock[k] || 0) + s.carry.loot[k];
-      const lootTxt = Object.keys(s.carry.loot).map(k => `${RES[k].n} ${s.carry.loot[k]}`).join('、');
-      if (s.carry.people) logMsg(S, `${s.kind === 'exp' ? '探险队' : '救援队'}带回了 ${s.carry.people} 名幸存者${ad.wait ? `，床位不够，${ad.wait} 人先在窝棚里等床位（多盖帐篷）` : ''}。`, 'good');
-      if (lootTxt) logMsg(S, `${s.kind === 'exp' ? '探险队' : '侦察队'}带回：${lootTxt}。`, 'good');
+      const lootTxt = Object.keys(s.carry.loot).map(k => `${RES[k].n} ${s.carry.loot[k]}`).join(',');
+      if (s.carry.people) logMsg(S, `${s.kind === 'exp' ? '탐험대' : '구조팀'}다시 가져옴${s.carry.people}이름 생존자${ad.wait ? `, 침대가 부족해요.${ad.wait}사람들은 먼저 오두막에서 침대를 기다립니다(Duogai 천막)` : ''}。`, 'good');
+      if (lootTxt) logMsg(S, `${s.kind === 'exp' ? '탐험대' : '정찰대'}이(가) 다시 가져왔습니다: ${lootTxt}.`, 'good');
       if (s.carry.hope) bumpMood(home, s.carry.hope, 0);
       if (s.carry.spec) {
         const sp = SPECS.find(x => x.id === s.carry.spec);
-        if (!S.meta.specs[sp.id]) { S.meta.specs[sp.id] = { lvl: 1 }; logMsg(S, `专家「${sp.n}」（${sp.role}）加入了！${sp.story} 把 TA 安排进合适的建筑。`, 'story'); }
-        else { S.meta.specs[sp.id].lvl++; logMsg(S, `又遇见了「${sp.n}」，TA 的经验更丰富了（${S.meta.specs[sp.id].lvl} 级）。`, 'good'); }
+        if (!S.meta.specs[sp.id]) { S.meta.specs[sp.id] = { lvl: 1 }; logMsg(S, `전문가「${sp.n}」(${sp.role}) 님이 가입했습니다! ${sp.story} TA를 적합한 건물에 배치하세요.`, 'story'); }
+        else { S.meta.specs[sp.id].lvl++; logMsg(S, `"${sp.n}"을(를) 다시 만났는데, 그 사람의 경험이 더 많습니다(${S.meta.specs[sp.id].lvl} 레벨).`, 'good'); }
       }
       S.scouts = S.scouts.filter(x => x !== s);
     }
@@ -2737,7 +2737,7 @@ export function siteAt(S, x, y, pad = 0) {
 
 // ---------- 掠夺者营地 ----------
 // 雾里藏着几处掠夺者营地。被侦察到以后，它会时不时派人到附近的营地索贡：纳贡、做买卖、或者硬顶回去。打赢两次他们就散了
-export const GANG_NAMES = ['黑旗帮', '狼牙帮', '铁钩子', '冻河帮', '灰鸦', '断刃'];
+export const GANG_NAMES = ['블랙 플래그 갱', '울프팡 갱', '쇠고리', '얼어붙은 강 갱단', '회색 까마귀', '부러진 칼날'];
 export const GANG_MINPPL = 30, GANG_R = 45, GANG_P = 7200, GANG_FIRST = 900, GANG_WAIT = 900, GANG_WINS = 2, GANG_GROW = 6;
 const GANG_GOODS = [null, { plank: 60 }, { iron: 30, plank: 30 }, { steel: 20, gear: 6 }, { steel: 30, seal: 8 }, { crystal: 15, battery: 5 }, { part: 8, alloy: 8 }, { part: 12, alloy: 12 }];
 export function gangsOf(S) { return getWorld(S.runSeed).gangs || []; }
@@ -2772,37 +2772,37 @@ function gangSettle(S, g, st, c, how) {
   st.dem = null; st.next = S.t + GANG_P;
   if (how === 'tribute') {
     const cost = gangTribute(S, g, c); pay(c.stock, cost); st.rel = (st.rel || 0) + 1; st.paid = (st.paid || 0) + 1;
-    return `「${c.name}」交了贡（${Object.keys(cost).map(k => `${RES[k].n} ${fmtN(cost[k])}`).join('、')}），「${nm}」的人扛着东西走了。`;
+    return `「${c.name}"조의를 표하다(${Object.keys(cost).map(k => `${RES[k].n} ${fmtN(cost[k])}`).join('、')}），「${nm}“그 사람은 물건을 들고 떠났어요.`;
   }
   const T = gangTrade(S, g, c); pay(c.stock, T.give);
   const cap = storeCap(S, c);
   for (const k in T.get) c.stock[k] = Math.min(Math.max(cap, c.stock[k] || 0), (c.stock[k] || 0) + T.get[k]);
   st.rel = (st.rel || 0) + 1; st.trades = (st.trades || 0) + 1;
-  return `「${c.name}」和「${nm}」做了一笔买卖：换来 ${Object.keys(T.get).map(k => `${RES[k].n} ${fmtN(T.get[k])}`).join('、')}。`;
+  return `「${c.name}"그리고"${nm}” 거래를 성사시켰습니다: 대가로${Object.keys(T.get).map(k => `${RES[k].n} ${fmtN(T.get[k])}`).join('、')}。`;
 }
 // 答复索贡：tribute 纳贡 / trade 做买卖 / fight 顶回去（到期时打过来）
 // 做买卖要多给口粮：给完不够大家吃 20 分钟就不让做
-export function gangTradeBlock(S, g, c) { const give = gangTrade(S, g, c).give; return (c.stock.food || 0) - (give.food || 0) < c.people * EAT * 20 ? '做完这笔买卖，口粮就不够大家吃了' : ''; }
+export function gangTradeBlock(S, g, c) { const give = gangTrade(S, g, c).give; return (c.stock.food || 0) - (give.food || 0) < c.people * EAT * 20 ? '이 거래를 완료한 후에는 배급만으로는 모든 사람에게 충분하지 않습니다.' : ''; }
 export function gangAnswer(S, id, how) {
   const g = gangOf(S, id), st = (S.gangs || {})[id];
-  if (!g || !st || !st.dem || st.gone) return { ok: false, reason: '眼下没有要答复的' };
-  const c = getCamp(S, st.dem.camp); if (!c) { st.dem = null; return { ok: false, reason: '营地不在了' }; }
-  if (st.dem.fight) return { ok: false, reason: '已经决定顶回去了' };
+  if (!g || !st || !st.dem || st.gone) return { ok: false, reason: '지금은 답장이 없습니다' };
+  const c = getCamp(S, st.dem.camp); if (!c) { st.dem = null; return { ok: false, reason: '야영지가 사라짐' }; }
+  if (st.dem.fight) return { ok: false, reason: '이미 돌아가기로 결정했어' };
   if (how === 'tribute' || how === 'trade') {
     const cost = how === 'tribute' ? gangTribute(S, g, c) : gangTrade(S, g, c).give;
-    if (!canAfford(c.stock, cost)) return { ok: false, reason: '缺：' + missing(c.stock, cost).join('，') };
+    if (!canAfford(c.stock, cost)) return { ok: false, reason: '부족: ' + missing(c.stock, cost).join(',') };
     if (how === 'trade' && gangTradeBlock(S, g, c)) return { ok: false, reason: gangTradeBlock(S, g, c) };
     logMsg(S, gangSettle(S, g, st, c, how), 'info');
     return { ok: true };
   }
   if (how === 'fight') {
     st.dem.fight = true;
-    logMsg(S, `「${c.name}」把「${gangName(g)}」的人赶了回去。他们撂下话：${fmtMin(st.dem.until - S.t)}后打过来（强度 ${gangStr(S, g)}，防御 ${campDefense(S, c)}）。`, 'warn', { act: 'gang', arg: id, label: '看看' });
+    logMsg(S, `"${c.name}"이(가) "${gangName(g)}"의 사람들을 다시 몰아냈습니다. 그들은 다음과 같이 말했습니다: ${fmtMin(st.dem.until - S.t)}(강도 ${gangStr(S, g)}, 방어 ${campDefense(S, c)}) 이후에 호출하세요.`, 'warn', { act: 'gang', arg: id, label: '보기' });
     return { ok: true };
   }
   return { ok: false };
 }
-const fmtMin = s => { s = Math.max(0, Math.round(s)); const m = Math.max(1, Math.round(s / 60)); return m >= 60 ? `${Math.floor(m / 60)} 小时 ${m % 60} 分钟` : `${m} 分钟`; };
+const fmtMin = s => { s = Math.max(0, Math.round(s)); const m = Math.max(1, Math.round(s / 60)); return m >= 60 ? `${Math.floor(m / 60)}시간 ${m % 60}분` : `${m}분`; };
 function gangFight(S, g, st, c) {
   const R = rt(S), nm = gangName(g), str = gangStr(S, g), def = campDefense(S, c);
   st.dem = null; st.next = S.t + GANG_P; S.stats.raids++;
@@ -2815,8 +2815,8 @@ function gangFight(S, g, st, c) {
     if (st.wins >= GANG_WINS) {
       st.gone = S.t; S.stats.gangs = (S.stats.gangs || 0) + 1; R.gangDirty = true;
       S.meta.embers += 3; S.meta.emberTotal += 3;
-      logMsg(S, `「${c.name}」又一次打退了「${nm}」（${def} 对 ${str}），缴获 ${Object.keys(loot).map(k => `${RES[k].n} ${loot[k]}`).join('、')}。掠夺者营地散伙了，再也不会来了。余烬 +3。`, 'good');
-    } else logMsg(S, `「${c.name}」打退了「${nm}」（${def} 对 ${str}），缴获 ${Object.keys(loot).map(k => `${RES[k].n} ${loot[k]}`).join('、')}。他们吃了亏，下次没那么凶了；再赢一次他们就该散了。`, 'good');
+      logMsg(S, `「${c.name}"또 거절했다"${nm}」（${def}오른쪽${str}), 압수${Object.keys(loot).map(k => `${RES[k].n} ${loot[k]}`).join('、')}. 약탈자야영지는 헤어졌고 다시는 오지 않을 것입니다. 잔불 +3.`, 'good');
+    } else logMsg(S, `「${c.name}"거부됨"${nm}」（${def}오른쪽${str}), 압수${Object.keys(loot).map(k => `${RES[k].n} ${loot[k]}`).join('、')}. 그들은 손실을 입었고 다음에는 그렇게 치열하지 않을 것입니다. 다시 이기면 해산해야합니다.`, 'good');
   } else {
     // 口粮大家会先藏起来：最多被抢一成，别的东西最多四分之一
     const r = 1 - def / str, loss = 0.25 * r;
@@ -2825,7 +2825,7 @@ function gangFight(S, g, st, c) {
     c.people -= kill; S.stats.deaths += kill; bumpMood(c, -8, 6); trimWorkers(S, c);
     st.rel = 0;
     R.fx.push({ kind: 'raid', camp: c.id, won: false, str, def, t: S.t, gang: g.id });
-    logMsg(S, `「${nm}」冲进了「${c.name}」（防御 ${def} 对 ${str}）：物资被抢走约 ${Math.round(loss * 100)}%（口粮藏住了大半）${kill ? `，${kill} 人遇难` : ''}。多建箭塔，或者下次先纳贡。`, 'bad');
+    logMsg(S, `「${nm}"급히 들어갔다"${c.name}"(방어${def}오른쪽${str}): 보급품이 약탈당했습니다.${Math.round(loss * 100)}% (배급는 대부분을 숨겼습니다)${kill ? `，${kill}사람이 죽었어요` : ''}. 더 많은 화살탑를 구축하거나 다음 번에 먼저 경의를 표하십시오.`, 'bad');
   }
 }
 // 贡凑不齐（或者交了就要挨饿）：有多少交多少（口粮最多交三成，还要留够吃的），他们不满意，下回来得早一些
@@ -2835,7 +2835,7 @@ function gangShort(S, g, st, c) {
   for (const k in cost) { const have = c.stock[k] || 0, a = Math.floor(Math.min(cost[k], k === 'food' ? Math.min(have * 0.3, have - keep) : have)); if (a > 0) { c.stock[k] -= a; got[k] = a; } }
   st.dem = null; st.next = S.t + GANG_P * 0.6; st.short = (st.short || 0) + 1;
   bumpMood(c, -2, 3);
-  return `没人答复，「${c.name}」打不过又凑不齐贡，只交了${Object.keys(got).length ? ` ${Object.keys(got).map(k => `${RES[k].n} ${fmtN(got[k])}`).join('、')}` : '一点零碎'}。「${gangName(g)}」骂骂咧咧地走了，说下回早点来。`;
+  return `"라고 대답하는 사람은 아무도 없었다.${c.name}"저는 그 사람을 이길 수도 없고 공물을 모을 수도 없어서 그냥 돈을 냈어요.${Object.keys(got).length ? ` ${Object.keys(got).map(k => `${RES[k].n} ${fmtN(got[k])}`).join('、')}` : '산산조각'}。「${gangName(g)}"라며 욕을 하며 다음번엔 일찍 오겠다고 하더군요.`;
 }
 function gangsStep(S) {
   const w = getWorld(S.runSeed); if (!w.gangs) return;
@@ -2846,7 +2846,7 @@ function gangsStep(S) {
     if (!st) {
       if (S.reveal[idx(g.x, g.y)] !== 1) continue;
       st = S.gangs[g.id] = { seen: S.t, next: S.t + GANG_FIRST, rel: 0, wins: 0, n: 0 };
-      logMsg(S, `🏴 侦察队在纬度 ${g.y} 一带发现了掠夺者营地「${nm}」：栅栏后面二十来个拿刀的人，营地上插着黑旗。${gangTarget(S, g) ? '离咱们的营地不远，他们迟早会找上门。' : '离咱们的营地还远。'}`, 'story', { act: 'gang', arg: g.id, label: '看看' });
+      logMsg(S, `🏴 정찰대는 위도 ${g.y}에서 약탈자야영지 "${nm}"을(를) 발견했습니다. 울타리 뒤에는 칼을 들고 있는 사람이 20명 정도 있었고, 야영지에는 검은 깃발이 있었습니다. ${gangTarget(S, g) ? '우리 야영지에서 멀지 않은 곳에 있으며 조만간 여러분의 집에 올 것입니다.' : '아직 야영지와는 거리가 멀습니다.'}`, 'story', { act: 'gang', arg: g.id, label: '보기' });
       continue;
     }
     if (st.gone) continue;
@@ -2857,7 +2857,7 @@ function gangsStep(S) {
       // 没人答复：守得住就顶回去，守不住、交得起就先交贡
       const str = gangStr(S, g), def = campDefense(S, c);
       const tb = gangTribute(S, g, c), fine = canAfford(c.stock, tb) && (c.stock.food || 0) - tb.food >= c.people * EAT * 20;
-      if (def < str && fine) logMsg(S, `没人答复，「${c.name}」的人怕打不过，自己凑了贡。${gangSettle(S, g, st, c, 'tribute')}`, 'info');
+      if (def < str && fine) logMsg(S, `아무도 대답하지 않았습니다. "${c.name}"의 사람들은 그들을 이길 수 없을까 두려워 스스로 조공을 모았습니다. ${gangSettle(S, g, st, c, 'tribute')}`, 'info');
       else if (def < str) logMsg(S, gangShort(S, g, st, c), 'warn'); // 交不起也打不过：能凑多少交多少，免得被抢光
       else gangFight(S, g, st, c);
       continue;
@@ -2868,7 +2868,7 @@ function gangsStep(S) {
       const c = gangTarget(S, g);
       if (!c) { st.next = S.t + 600; continue; }
       st.n = (st.n || 0) + 1; st.dem = { camp: c.id, until: S.t + GANG_WAIT, at: S.t };
-      logMsg(S, `🏴 「${nm}」派人到了「${c.name}」：要么纳贡，要么等着挨抢。${GANG_WAIT / 60} 分钟内答复（强度 ${gangStr(S, g)}，防御 ${campDefense(S, c)}）。`, 'warn', { act: 'gang', arg: g.id, label: '答复' });
+      logMsg(S, `🏴「${nm}」일손 배치가 「${c.name}」에 도착했습니다. 경의를 표하거나 도둑질을 기다리세요. ${GANG_WAIT / 60}분 이내에 응답하십시오(강도 ${gangStr(S, g)}, 방어 ${campDefense(S, c)}).`, 'warn', { act: 'gang', arg: g.id, label: '회신하다' });
     }
   }
 }
@@ -2898,20 +2898,20 @@ export function sendExpedition(S, cid, siteId, sup) {
   const w = getWorld(S.runSeed), p = (w.sites || []).find(q => q.id === siteId);
   if (!p) return { ok: false, reason: '' };
   const st = siteState(S, p);
-  if (st === 'done') return { ok: false, reason: '这里已经探索过了' };
-  if (st !== 'seen') return { ok: false, reason: '已经有探险队在路上了' };
+  if (st === 'done') return { ok: false, reason: '탐색이 여기를 통과했습니다' };
+  if (st !== 'seen') return { ok: false, reason: '도로에는 이미 탐험대가 있습니다' };
   const c = getCamp(S, cid), sl = scoutSlots(S, cid);
-  if (!sl.n) return { ok: false, reason: '先建一座侦察营' };
-  if (sl.used >= sl.n) return { ok: false, reason: '侦察队都出去了，升级侦察营可多派一队' };
+  if (!sl.n) return { ok: false, reason: '먼저 정찰 막사를 구축하세요' };
+  if (sl.used >= sl.n) return { ok: false, reason: '정찰대는 모두 아웃되었으며 업그레이드정찰 막사는 추가 팀을 보낼 수 있습니다' };
   const range = scoutRange(S, cid) + 10;
-  if (Math.hypot(p.x + 0.5 - c.x, p.y + 0.5 - c.y) > range) return { ok: false, reason: `太远了：从「${c.name}」最远能走 ${range} 格` };
-  if (c.people - 4 < MIN_PEOPLE) return { ok: false, reason: '营地人太少' };
+  if (Math.hypot(p.x + 0.5 - c.x, p.y + 0.5 - c.y) > range) return { ok: false, reason: `너무 멀다: "${c.name}"에서 갈 수 있는 가장 먼 거리는 ${range}제곱입니다.` };
+  if (c.people - 4 < MIN_PEOPLE) return { ok: false, reason: '야영지사람이 너무 적어요' };
   const cost = expCost(S, cid, p, sup);
-  if (!canAfford(c.stock, cost)) return { ok: false, reason: '缺：' + missing(c.stock, cost).join('，') };
+  if (!canAfford(c.stock, cost)) return { ok: false, reason: '부족: ' + missing(c.stock, cost).join(',') };
   pay(c.stock, cost);
   c.people -= 4; trimWorkers(S, c);
   S.scouts.push({ id: S.nextId++, camp: cid, kind: 'exp', poi: p.id, sup, x: c.x, y: c.y, tx: p.x, ty: p.y, phase: 'out', n: 4, carry: { people: 0, loot: {}, spec: null } });
-  logMsg(S, `探险队带着${sup === 'full' ? '充足的' : '少量'}补给，出发去「${SITES[p.kind].n}」。`);
+  logMsg(S, `탐험대는 ${sup === 'full' ? '충분한' : '소량'} 보급품을 가져와 "${SITES[p.kind].n}"(으)로 출발합니다.`);
   return { ok: true };
 }
 const LOOT_POOL = { 1: ['wood', 'plank', 'stone', 'food'], 2: ['coal', 'iron', 'plank', 'ore'], 3: ['steel', 'gear', 'iron', 'lime'], 4: ['seal', 'tar', 'steel', 'engine'], 5: ['battery', 'alloy', 'seal', 'crystal'], 6: ['part', 'alloy', 'battery', 'star'], 7: ['shard', 'part', 'alloy', 'star'] };
@@ -2922,7 +2922,7 @@ function siteLoot(S, p, m, n = 2, prefer) {
   return out;
 }
 const addLoot = (s, l) => { for (const k in l) s.carry.loot[k] = (s.carry.loot[k] || 0) + l[k]; };
-const lootTxt = l => Object.keys(l).map(k => `${RES[k].n} ${l[k]}`).join('、');
+const lootTxt = l => Object.keys(l).map(k => `${RES[k].n} ${l[k]}`).join(',');
 const bank = (S, n) => { const T = techState(S); T.bank = (T.bank || 0) + n; };
 export const bankPts = bank;
 function revealNextSite(S, p) {
@@ -2934,32 +2934,32 @@ function revealNextSite(S, p) {
 // 每种地点 2～3 个选项；need: 'full' 表示要带足补给才能选
 const SITE_OPTS = {
   depot: [
-    { t: '搬走能搬的', d: (S, p) => lootTxt(siteLoot(S, p, 1)), go: (S, s, p) => { addLoot(s, siteLoot(S, p, 1)); return '大家扛着能用的东西往回走。'; } },
-    { t: '翻找旧账本', d: (S, p) => `${lootTxt(siteLoot(S, p, 0.4))} · 找到下一处地点`, go: (S, s, p) => { addLoot(s, siteLoot(S, p, 0.4)); const nx = revealNextSite(S, p); return nx ? `账本上记着另一处地点：北边的「${SITES[nx.kind].n}」。` : '账本上的字都糊了。'; } },
-    { t: '扎营一晚，把仓库搬空', need: 'full', d: (S, p) => lootTxt(siteLoot(S, p, 1.9, 3)), go: (S, s, p) => { addLoot(s, siteLoot(S, p, 1.9, 3)); return '靠着带来的补给熬了一夜，把仓库翻了个底朝天。'; } },
+    { t: '움직일 수 있는 것은 움직여라', d: (S, p) => lootTxt(siteLoot(S, p, 1)), go: (S, s, p) => { addLoot(s, siteLoot(S, p, 1)); return '모두가 쓸만한 물건을 들고 돌아갔습니다.'; } },
+    { t: '오래된 장부를 뒤져보니', d: (S, p) => `${lootTxt(siteLoot(S, p, 0.4))} · 다음 위치 찾기`, go: (S, s, p) => { addLoot(s, siteLoot(S, p, 0.4)); const nx = revealNextSite(S, p); return nx ? `원장에는 북쪽에 "${SITES[nx.kind].n}"라는 또 다른 위치가 기록되어 있습니다.` : '장부의 단어가 모두 흐려졌습니다.'; } },
+    { t: '하룻밤 캠프를 준비하고 창고를 비우세요', need: 'full', d: (S, p) => lootTxt(siteLoot(S, p, 1.9, 3)), go: (S, s, p) => { addLoot(s, siteLoot(S, p, 1.9, 3)); return '가져온 물품에 의지해 밤새도록 창고를 뒤집어 놓았습니다.'; } },
   ],
   camp: [
-    { t: '邀请他们加入', d: (S, p) => `+${5 + 2 * p.t} 人 · 希望 +3`, go: (S, s, p) => { s.carry.people += 5 + 2 * p.t; s.carry.hope = 3; return '他们收拾好东西，跟着探险队回营地。'; } },
-    { t: '用口粮换他们的地图', need: 'full', d: () => '揭开北边一大片迷雾', go: (S, s, p) => { revealCircle(S, p.x, Math.min(H - 1, p.y + 24), 11); revealNextSite(S, p); return '他们在雪地上画出了一条往北的路。'; } },
-    { t: '和他们交换物资', d: (S, p) => lootTxt(siteLoot(S, p, 0.8)), go: (S, s, p) => { addLoot(s, siteLoot(S, p, 0.8)); return '两边都拿到了想要的东西，分别时互相道了平安。'; } },
+    { t: '참여하도록 초대하세요', d: (S, p) => `+${5 + 2 * p.t}명 · 희망 +3`, go: (S, s, p) => { s.carry.people += 5 + 2 * p.t; s.carry.hope = 3; return '그들은 물건을 싸고 탐험대를 따라 야영지로 돌아왔습니다.'; } },
+    { t: '지도를 배급으로 교체하세요', need: 'full', d: () => '북쪽에서 안개의 대형 조각을 공개하세요', go: (S, s, p) => { revealCircle(S, p.x, Math.min(H - 1, p.y + 24), 11); revealNextSite(S, p); return '그들은 눈 속에서 북쪽으로 길을 따라갔습니다.'; } },
+    { t: '그들과 보급품을 교환하다', d: (S, p) => lootTxt(siteLoot(S, p, 0.8)), go: (S, s, p) => { addLoot(s, siteLoot(S, p, 0.8)); return '양측은 원하는 것을 얻었고 헤어질 때 서로 화해했습니다.'; } },
   ],
   train: [
-    { t: '撬开货车厢', d: (S, p) => `${lootTxt(siteLoot(S, p, 1.4))} · 有人可能受伤`, go: (S, s, p) => { addLoot(s, siteLoot(S, p, 1.4)); if (hash3(p.id, 77, S.runSeed) < 0.35 && s.n > 1) { s.n--; S.stats.deaths++; return '车厢里的货堆塌了下来，一名队员没能回来。'; } return '车厢里塞满了旧时代的物资。'; } },
-    { t: '拆下车头的零件', d: (S, p) => `${lootTxt(siteLoot(S, p, 0.8, 1, ['gear', 'engine', 'iron', 'steel']))} · 图纸 ${12 * p.t} 研究点`, go: (S, s, p) => { addLoot(s, siteLoot(S, p, 0.8, 1, ['gear', 'engine', 'iron', 'steel'])); bank(S, 12 * p.t); return '车头里还夹着一叠泛黄的图纸。'; } },
-    { t: '生火化冰，一节节搜', need: 'full', d: (S, p) => `${lootTxt(siteLoot(S, p, 1.4))} · 图纸 ${12 * p.t} 研究点`, go: (S, s, p) => { addLoot(s, siteLoot(S, p, 1.4)); bank(S, 12 * p.t); return '带来的燃料够烧好几天，整列车都搜遍了。'; } },
+    { t: '트럭 칸을 살짝 열어보세요', d: (S, p) => `${lootTxt(siteLoot(S, p, 1.4))} · 누군가가 부상을 입을 수 있습니다`, go: (S, s, p) => { addLoot(s, siteLoot(S, p, 1.4)); if (hash3(p.id, 77, S.runSeed) < 0.35 && s.n > 1) { s.n--; S.stats.deaths++; return '객차에 있던 화물 더미가 무너져 팀원 한 명이 돌아오지 못했습니다.'; } return '마차에는 구시대의 보급품이 가득 차 있었습니다.'; } },
+    { t: '엔진 부품을 제거합니다', d: (S, p) => `${lootTxt(siteLoot(S, p, 0.8, 1, ['gear', 'engine', 'iron', 'steel']))} · ${12 * p.t} 연구 포인트 추첨`, go: (S, s, p) => { addLoot(s, siteLoot(S, p, 0.8, 1, ['gear', 'engine', 'iron', 'steel'])); bank(S, 12 * p.t); return '또한 차 앞쪽에 누렇게 변한 그림이 쌓여 있습니다.'; } },
+    { t: '불을 피우고 얼음을 녹여 모든 구역을 수색하세요', need: 'full', d: (S, p) => `${lootTxt(siteLoot(S, p, 1.4))} · ${12 * p.t} 연구 포인트 추첨`, go: (S, s, p) => { addLoot(s, siteLoot(S, p, 1.4)); bank(S, 12 * p.t); return '그들은 며칠 동안 태울 수 있을 만큼의 연료를 가져왔고 열차 전체를 수색했습니다.'; } },
   ],
   shrine: [
-    { t: '刻下我们的名字', d: () => '所有营地希望 +10', go: (S, s, p) => { for (const c of S.camps) bumpMood(c, 10, 0); return '队员们在冰上刻下了营地每个人的名字。消息传回去，大家都很振奋。'; } },
-    { t: '撬下上面的晶石', d: (S, p) => `${lootTxt(siteLoot(S, p, 1.2, 1, ['crystal', 'shard', 'star', 'iron', 'stone']))} · 所有营地希望 −4、不满 +6`, go: (S, s, p) => { addLoot(s, siteLoot(S, p, 1.2, 1, ['crystal', 'shard', 'star', 'iron', 'stone'])); for (const c of S.camps) bumpMood(c, -4, 6); return '晶石到手了，可有人说这会带来厄运。'; } },
+    { t: '우리의 이름을 새겨라', d: () => '모두야영지희망 +10', go: (S, s, p) => { for (const c of S.camps) bumpMood(c, 10, 0); return '팀원들은 야영지에 있는 모든 사람의 이름을 얼음 위에 새겼습니다. 그 소식이 돌아왔을 때 모두가 매우 흥분했습니다.'; } },
+    { t: '위의 크리스탈을 떼어내세요', d: (S, p) => `${lootTxt(siteLoot(S, p, 1.2, 1, ['crystal', 'shard', 'star', 'iron', 'stone']))} · 모두 야영지희망 −4, 불만 +6`, go: (S, s, p) => { addLoot(s, siteLoot(S, p, 1.2, 1, ['crystal', 'shard', 'star', 'iron', 'stone'])); for (const c of S.camps) bumpMood(c, -4, 6); return '크리스탈을 얻었는데 어떤 사람들은 그것이 불운을 가져올 것이라고 말했습니다.'; } },
   ],
   lab: [
-    { t: '抄下图纸', d: (S, p) => `图纸 ${25 * p.t} 研究点`, go: (S, s, p) => { bank(S, 25 * p.t); return '桌上的图纸被小心地卷起来，塞进了背包。'; } },
-    { t: '拆走仪器', d: (S, p) => lootTxt(siteLoot(S, p, 1, 2, ['gear', 'battery', 'engine', 'seal', 'part'])), go: (S, s, p) => { addLoot(s, siteLoot(S, p, 1, 2, ['gear', 'battery', 'engine', 'seal', 'part'])); return '能拆的零件都拆下来了。'; } },
-    { t: '住下来，能抄的全抄完', need: 'full', d: (S, p) => `图纸 ${45 * p.t} 研究点`, go: (S, s, p) => { bank(S, 45 * p.t); return '靠着带来的补给，队员们在观测站里抄了整整一周。'; } },
+    { t: '도면 복사', d: (S, p) => `${25 * p.t} 연구 포인트 추첨`, go: (S, s, p) => { bank(S, 25 * p.t); return '테이블 위의 그림을 조심스럽게 말아서 배낭에 넣었습니다.'; } },
+    { t: '악기 제거', d: (S, p) => lootTxt(siteLoot(S, p, 1, 2, ['gear', 'battery', 'engine', 'seal', 'part'])), go: (S, s, p) => { addLoot(s, siteLoot(S, p, 1, 2, ['gear', 'battery', 'engine', 'seal', 'part'])); return '탈부착 가능한 부품은 모두 제거되었습니다.'; } },
+    { t: '여기에 머물면서 가능한 모든 것을 복사하세요.', need: 'full', d: (S, p) => `${45 * p.t} 연구 포인트 추첨`, go: (S, s, p) => { bank(S, 45 * p.t); return '팀원들은 가져온 물품에 의지하여 일주일 내내 관측소에서 일했습니다.'; } },
   ],
   wreck: [
-    { t: '拆下合金骨架', d: (S, p) => lootTxt(siteLoot(S, p, 1.6, 2, ['alloy', 'star', 'steel', 'part'])), go: (S, s, p) => { addLoot(s, siteLoot(S, p, 1.6, 2, ['alloy', 'star', 'steel', 'part'])); return '冻硬的骨架一节节拆下来，雪橇都快拉不动了。'; } },
-    { t: '找驾驶舱里的航行日志', d: (S, p) => `揭开北边一大片迷雾 · 图纸 ${15 * p.t} 研究点`, go: (S, s, p) => { revealCircle(S, p.x, Math.min(H - 1, p.y + 26), 12); bank(S, 15 * p.t); return '日志里画着飞艇最后的航线，一路通往北方。'; } },
+    { t: '합금 프레임 제거', d: (S, p) => lootTxt(siteLoot(S, p, 1.6, 2, ['alloy', 'star', 'steel', 'part'])), go: (S, s, p) => { addLoot(s, siteLoot(S, p, 1.6, 2, ['alloy', 'star', 'steel', 'part'])); return '얼어붙은 뼈대는 한 조각씩 제거되었고, 썰매는 거의 당겨지지 않았습니다.'; } },
+    { t: '조종석에서 일지 찾기', d: (S, p) => `북쪽 안개의 넓은 지역을 발견 · ${15 * p.t} 연구 포인트 그리기`, go: (S, s, p) => { revealCircle(S, p.x, Math.min(H - 1, p.y + 26), 12); bank(S, 15 * p.t); return '기록에는 비행선의 최종 경로가 북쪽까지 표시되어 있었습니다.'; } },
   ],
 };
 export function expPending(S) { return S.scouts.find(s => s.kind === 'exp' && s.phase === 'wait') || null; }
@@ -3012,17 +3012,17 @@ function northChapter(S, i) {
   if (st.rule === 'rich' && st.rich) {
     const k = st.rich, r = SPOTS[k].res, g = Object.keys(BLD).find(t => (BLD[t].gather || []).includes(k));
     const rn = dm === 1 ? Math.round(4 * BLD[g].out[r]) : Math.max(1, rnd5(4 * BLD[g].out[r] * dm));
-    rich = { t: `${RES[r].n}产量稳住 ${rn}/分钟（富矿带）`, k: 'rate', r, n: rn };
+    rich = { t: `${RES[r].n}생산량 지속 ${rn}/분(부광대)`, k: 'rate', r, n: rn };
     const j = pair.indexOf(r); if (j >= 0) pair[j] = NORTH_HI.find(x => !pair.includes(x));
   }
   const raw = pair.map(r => (SPINE_RATE[r] || 6) * m), lab = raw.reduce((a, n, j) => a + n * laborPerUnit(pair[j]), 0);
   const f = lab > 0 ? Math.min(1, northBudget(N) / lab) : 1;
-  const tasks = pair.map((r, j) => { const n = Math.max(1, rnd5(raw[j] * f * dm)); return { t: `${RES[r].n}产量稳住 ${n}/分钟`, k: 'rate', r, n }; });
+  const tasks = pair.map((r, j) => { const n = Math.max(1, rnd5(raw[j] * f * dm)); return { t: `${RES[r].n}생산량Stable ${n}/분`, k: 'rate', r, n }; });
   if (rich) tasks.push(rich);
   else if (NORTH_TASK[st.rule]) { const q = { ...NORTH_TASK[st.rule] }; if (q.n >= 20 && dm !== 1) { const n = Math.round(q.n * dm / 10) * 10; q.t = q.t.replace(String(q.n), String(n)); q.n = n; } tasks.push(q); }
-  if (N <= TOWER_N) tasks.push({ t: `点亮${towerName(N)}`, k: 'tower', tn: N, n: 1 });
+  if (N <= TOWER_N) tasks.push({ t: `${towerName(N)} 불 켜기`, k: 'tower', tn: N, n: 1 });
   const pick = (L, salt) => L[Math.floor(hash3(S.runSeed, N, salt) * L.length) % L.length].replace('{n}', name);
-  return { n: `北境第 ${N} 站 · ${name}`, story: pick(NORTH_STORY, 77), end: pick(NORTH_END, 78), tasks, north: N, rule: st.rule,
+  return { n: `북방번째 역 ${N} · ${name}`, story: pick(NORTH_STORY, 77), end: pick(NORTH_END, 78), tasks, north: N, rule: st.rule,
     reward: { res: { [pair[0]]: Math.round(30 * rf), [pair[1]]: Math.round(30 * rf) }, hope: 8, people: Math.round(10 * rf), ...(pk && pk.bonus ? { bonus: pk.bonus, bd: pk.d } : {}) }, diff: pk ? pk.d : null };
 }
 export function chapterDef(S, i) {
@@ -3040,15 +3040,15 @@ export function chapIdx(S) {
 export const towerList = S => (S.tower || (S.tower = { list: [] })).list;
 export const towerLit = (S, n) => towerList(S).some(t => t.n === n);
 export const towersLit = S => towerList(S).length;
-export const towerName = n => n >= TOWER_N ? '天火塔' : `第 ${n} 座烽火塔`;
+export const towerName = n => n >= TOWER_N ? '천화탑' : `${n} 봉화탑 차단`;
 export const towerType = n => n >= TOWER_N ? 'skyfire' : 'pyre';
 export function towerLitAt(S, camp) { return towerList(S).some(t => t.camp === camp.id); }
 // 这一站能不能建塔：北境前十站各一座，第十站是天火塔
 export function towerLock(S, type) {
   const N = northN(journeyOf(S).stage);
-  if (!N || N > TOWER_N) return '北境前十站每站建一座烽火塔';
-  if (towerType(N) !== type) return type === 'skyfire' ? '北境第 10 站才建天火塔' : '这一站要建的是天火塔';
-  if (towerLit(S, N) || S.buildings.some(b => b.tn === N)) return '这一站的塔已经立起来了';
+  if (!N || N > TOWER_N) return '북방상위 10개 스테이션에 각각 봉화탑을 하나씩 건설하세요.';
+  if (towerType(N) !== type) return type === 'skyfire' ? '북방 10번째 스테이션 건설 천화탑' : '건설될 역은 천화탑이다';
+  if (towerLit(S, N) || S.buildings.some(b => b.tn === N)) return '이 역에 타워가 세워졌습니다.';
   return '';
 }
 // 这座塔要喂哪几种、每种多少/分钟、喂多久、点火要什么燃料。第一种和这一站的产能目标重叠
@@ -3065,8 +3065,8 @@ export function towerSpec(S, n) {
 function towerFeed(S, b, sp, dt, hf, offK, st, R, dem, fuelKeepU = 0) {
   const br = R.b[b.id] || (R.b[b.id] = {}), T = b.tw;
   br.rate = {}; br.inRate = {}; br.want = {}; br.haul = 0; br.act = 0; br.staff = 1;
-  if (T.p >= sp.dur) { br.status = '塔身建好了，等点火'; return; }
-  if (b.moveT > S.t) { br.status = '在搬家'; return; }
+  if (T.p >= sp.dur) { br.status = '타워가 건설되었으며 조명을 기다리고 있습니다.'; return; }
+  if (b.moveT > S.t) { br.status = '움직이는'; return; }
   const f = Math.min(dt * hf * offK * feedMul(S, getCamp(S, b.camp)), sp.dur - T.p), need = sp.rate * f / 60;
   let lim = 1, whyK = null;
   for (const k of sp.kinds) { const have = Math.max(0, (st[k] || 0) - fuelKeep(st, k, fuelKeepU)); if (have < need && have / need < lim) { lim = have / need; whyK = k; } }
@@ -3074,15 +3074,15 @@ function towerFeed(S, b, sp, dt, hf, offK, st, R, dem, fuelKeepU = 0) {
   if (lim < 0.999 && T.p > 0 && T.p < sp.dur / 2) T.cut = 1; // 塔身开始长了以后、长到一半以前断过货（成就用）
   T.p = Math.min(sp.dur, T.p + f * lim);
   br.act = lim; br.haul = dem * hf * lim;
-  br.status = lim < 0.95 ? (fuelKeep(st, whyK, fuelKeepU) > 0 && (st[whyK] || 0) > need ? FUEL_KEEP_WHY : `缺${RES[whyK].n}`) : hf < 0.7 ? '搬运工不够' : '塔身在长';
-  if (T.p >= sp.dur - 1e-6) { T.p = sp.dur; logMsg(S, `🔥 ${towerName(b.tn)}的塔身建好了：交齐${Object.entries(sp.fuel).map(([k, v]) => `${RES[k].n} ${v}`).join('、')}就能点火。`, 'good', { act: 'spot', arg: b.id, label: '去点火' }); }
+  br.status = lim < 0.95 ? (fuelKeep(st, whyK, fuelKeepU) > 0 && (st[whyK] || 0) > need ? FUEL_KEEP_WHY : `${RES[whyK].n} 누락됨`) : hf < 0.7 ? '운반꾼 부족' : '탑이 커지고 있어요';
+  if (T.p >= sp.dur - 1e-6) { T.p = sp.dur; logMsg(S, `🔥 ${towerName(b.tn)}타워 본체가 건설되었습니다 : 완료${Object.entries(sp.fuel).map(([k, v]) => `${RES[k].n} ${v}`).join('、')}불이 붙을 것입니다.`, 'good', { act: 'spot', arg: b.id, label: '불을 피우다' }); }
 }
 export function towerIgniteCheck(S, b) {
-  if (!b || !BLD[b.type].tower) return { ok: false, reason: '不是烽火塔' };
-  if (b.tw.lit) return { ok: false, reason: '已经点亮了' };
-  const sp = towerSpec(S, b.tn); if (b.tw.p < sp.dur) return { ok: false, reason: `塔身还差 ${Math.ceil((sp.dur - b.tw.p) / 60)} 分钟` };
+  if (!b || !BLD[b.type].tower) return { ok: false, reason: '봉화탑 아님' };
+  if (b.tw.lit) return { ok: false, reason: '이미 켜져 있음' };
+  const sp = towerSpec(S, b.tn); if (b.tw.p < sp.dur) return { ok: false, reason: `타워는 아직 ${Math.ceil((sp.dur - b.tw.p) / 60)}분 거리에 있습니다.` };
   const camp = getCamp(S, b.camp);
-  if (!canAfford(camp.stock, sp.fuel)) return { ok: false, reason: '缺：' + missing(camp.stock, sp.fuel).join('，'), fuel: sp.fuel };
+  if (!canAfford(camp.stock, sp.fuel)) return { ok: false, reason: '부족: ' + missing(camp.stock, sp.fuel).join(','), fuel: sp.fuel };
   return { ok: true, fuel: sp.fuel };
 }
 export function igniteTower(S, bid) {
@@ -3096,7 +3096,7 @@ export function igniteTower(S, bid) {
   bumpMood(camp, 8, -4);
   revealCircle(S, camp.x, camp.y, heatRadius(S, camp) + 2);
   dirty(S);
-  logMsg(S, `🔥 ${towerName(b.tn)}点亮了！光柱直冲天上，往南的人远远就能看见。「${camp.name}」希望 +${TOWER_FX.hope}、暖圈 +${TOWER_FX.warm} 格。`, 'story');
+  logMsg(S, `🔥 ${towerName(b.tn)}에 불이 들어왔습니다! 빛줄기가 곧장 하늘을 향해 쏘아 올려 남쪽을 바라보는 사람들은 멀리서도 그것을 볼 수 있다. 「${camp.name}」희망 +${TOWER_FX.hope}, 난방권 +${TOWER_FX.warm} 그리드.`, 'story');
   rt(S).fx.push({ kind: 'tower-lit', n: b.tn, x: b.x + s / 2, y: b.y + s / 2, bid });
   if (b.tn >= TOWER_N) skyfireEnd(S);
   return { ok: true };
@@ -3181,7 +3181,7 @@ export function rateGoals(S) {
     const ch = chapterDef(S, i); if (!ch) continue;
     ch.tasks.forEach((q, k) => { if (q.k === 'rate' && !C.ok[i + ':' + k]) out.push({ id: `c${i}:${k}`, r: q.r, n: q.n, t: q.t, ch: i }); });
   }
-  if (eternalCamp(S) && S.eternal.stage < ETERNAL_STAGES.length) out.push({ id: `e${S.eternal.stage}`, r: 'heart', n: ETERNAL_STAGES[S.eternal.stage], t: `永恒炉件稳住 ${ETERNAL_STAGES[S.eternal.stage]}/分钟`, eternal: true });
+  if (eternalCamp(S) && S.eternal.stage < ETERNAL_STAGES.length) out.push({ id: `e${S.eternal.stage}`, r: 'heart', n: ETERNAL_STAGES[S.eternal.stage], t: `영원의 용광로 부품안정 ${ETERNAL_STAGES[S.eternal.stage]}/분`, eternal: true });
   return out;
 }
 function holdStep(S, dt) {
@@ -3206,17 +3206,17 @@ export function chapters(S) {
 function chapterStep(S) {
   const C = chapState(S);
   for (const c of chapters(S)) {
-    c.tasks.forEach((t, k) => { if (t.ok && !C.ok[c.i + ':' + k]) { C.ok[c.i + ':' + k] = 1; logMsg(S, `【${c.ch.n}】完成：${t.t}`, 'good'); } });
-    if (c.done && !c.got && !C.told?.[c.i]) { C.told = C.told || {}; C.told[c.i] = 1; logMsg(S, `「${c.ch.n}」的任务都完成了，去领取奖励吧。`, 'story'); }
+    c.tasks.forEach((t, k) => { if (t.ok && !C.ok[c.i + ':' + k]) { C.ok[c.i + ':' + k] = 1; logMsg(S, `【${c.ch.n}】완료: ${t.t}`, 'good'); } });
+    if (c.done && !c.got && !C.told?.[c.i]) { C.told = C.told || {}; C.told[c.i] = 1; logMsg(S, `"${c.ch.n}"의 과제가 완료되었습니다. 가서 보상을 얻으세요.`, 'story'); }
   }
 }
 export const chapterEmbers = (S, i) => Math.round((10 + 5 * i) * (1 + relicSum(S, 'ember')) * diffOf(S).ember);
 export function chapterReward(S, i) {
-  const r = chapterDef(S, i).reward, out = i > SPINE ? [] : [`🔥 余烬 ${chapterEmbers(S, i)}`];
+  const r = chapterDef(S, i).reward, out = i > SPINE ? [] : [`🔥 잔불 ${chapterEmbers(S, i)}`];
   if (r.res) for (const k in r.res) if (RES[k].t <= Math.max(S.known, 1)) out.push(`${RES[k].n} ${r.res[k]}`);
-  if (r.people) out.push(`${r.people} 名新成员`);
-  if (r.hope) out.push(`所有营地希望 +${r.hope}`);
-  if (r.bank) out.push(`图纸 ${r.bank} 研究点`);
+  if (r.people) out.push(`${r.people}명의 신규 회원`);
+  if (r.hope) out.push(`전체야영지희망 +${r.hope}`);
+  if (r.bank) out.push(`${r.bank} 연구 포인트 추첨`);
   if (r.bonus) out.push(bonusTxt(r.bonus, r.bd));
   return out;
 }
@@ -3230,7 +3230,7 @@ export function claimChapter(S, i) {
   if (r.people) addPeople(S, camp, r.people);
   if (r.hope) for (const cc of S.camps) bumpMood(cc, r.hope, 0);
   if (r.bank) bank(S, r.bank);
-  if (r.bonus) { const m = forkBonus(S, r.bonus, r.bd, camp); if (m) logMsg(S, `【${c.ch.n}】路上带来的好处：${m}。`, 'good'); }
+  if (r.bonus) { const m = forkBonus(S, r.bonus, r.bd, camp); if (m) logMsg(S, `【${c.ch.n}】도로가 가져오는 이점: ${m}.`, 'good'); }
   S.log.push({ t: S.t, msg: `【${c.ch.n}】${c.ch.end}`, kind: 'story' }); if (S.log.length > 80) S.log.shift();
   return c.ch.end;
 }
@@ -3256,18 +3256,18 @@ export function raidDefense(S, camp, nr) {
 // 先烧不值钱的燃料
 export function burnUnits(st, need) { for (const f of [...FUEL_ORDER].reverse()) { if (need <= 0) break; const take = Math.min(st[f] || 0, need / FUEL[f]); st[f] = (st[f] || 0) - take; need -= take * FUEL[f]; } }
 export function doPrep(S, kind, auto) {
-  const nr = nextRaid(S); if (!nr || nr.in > RAID_PREP) return { ok: false, reason: '眼下没有袭击要来' };
+  const nr = nextRaid(S); if (!nr || nr.in > RAID_PREP) return { ok: false, reason: '지금은 공격이 들어오지 않습니다' };
   const camp = getCamp(S, nr.camp);
   const p = raidPrep(S, nr) || (S.rprep = { k: nr.k, camp: camp.id, t: nr.t });
-  if (p[kind]) return { ok: false, reason: '已经安排过了' };
+  if (p[kind]) return { ok: false, reason: '이미 준비되어 있음' };
   const cost = prepCost(S, camp, kind), until = nr.in + 60;
   if (kind === 'fire') {
-    if (fuelUnitsOf(camp.stock) < cost) return { ok: false, reason: `燃料不够：要 ${cost} 单位` };
+    if (fuelUnitsOf(camp.stock) < cost) return { ok: false, reason: `연료로는 충분하지 않습니다. ${cost} 단위가 필요합니다.` };
     burnUnits(camp.stock, cost);
   } else if (kind === 'mil') {
-    if ((camp.stock.food || 0) < cost) return { ok: false, reason: `熟食不够：要 ${cost}` };
-    camp.stock.food -= cost; addBuff(S, camp, 'prod', -0.2, until, '民兵上墙');
-  } else if (kind === 'hide') addBuff(S, camp, 'prod', -0.1, until, '收拢物资');
+    if ((camp.stock.food || 0) < cost) return { ok: false, reason: `요리로는 충분하지 않습니다. ${cost}이 필요합니다.` };
+    camp.stock.food -= cost; addBuff(S, camp, 'prod', -0.2, until, '벽에 민병대');
+  } else if (kind === 'hide') addBuff(S, camp, 'prod', -0.1, until, '보급품 모으기');
   else return { ok: false };
   p[kind] = auto ? 2 : 1;
   dirty(S);
@@ -3282,7 +3282,7 @@ function raidsStep(S, dt) {
   const c = getCamp(S, nr.camp), rn = raiderName(S, c);
   if (nr.in <= RAID_PREP && rw.prep !== nr.k) {
     rw.prep = nr.k;
-    logMsg(S, `🐺 侦察兵发现${rn}正朝「${c.name}」过来，大约 ${Math.round(nr.in / 60)} 分钟后到（强度 ${raidStrength(S, c, nr)}，防御 ${raidDefense(S, c, nr)}）。可以提前点火墙、召集民兵。`, 'warn', { act: 'raidp', label: '备战' });
+    logMsg(S, `🐺 정찰 군인이 ${rn}이 "${c.name}" 방향으로 다가오는 것을 발견했으며 약 ${Math.round(nr.in / 60)}분 후에 도착할 예정입니다(강도 ${raidStrength(S, c, nr)}, 방어 ${raidDefense(S, c, nr)}). 벽에 불을 지르고 미리 민병대를 부를 수 있습니다.`, 'warn', { act: 'raidp', label: '전쟁을 준비하세요' });
   }
   // 没人下令：守不住的话，守夜人自己备战（火墙要留够燃料，民兵要留够熟食）
   if (nr.in <= RAID_AUTO && S.rAuto !== false && rw.auto !== nr.k) {
@@ -3290,22 +3290,22 @@ function raidsStep(S, dt) {
     const str = raidStrength(S, c, nr), did = [];
     const p0 = raidPrep(S, nr);
     if (!p0 || !(p0.fire || p0.mil || p0.hide)) {
-      if (raidDefense(S, c, nr) < str && fuelUnitsOf(c.stock) >= prepCost(S, c, 'fire') * 3 && doPrep(S, 'fire', true).ok) did.push('点起了火墙');
-      if (raidDefense(S, c, nr) < str && (c.stock.food || 0) >= prepCost(S, c, 'mil') * 3 && doPrep(S, 'mil', true).ok) did.push('召集了民兵');
-      if (raidDefense(S, c, nr) < str && doPrep(S, 'hide', true).ok) did.push('把物资收进了地窖');
-      if (did.length) logMsg(S, `没人下令，「${c.name}」的守夜人自己${did.join('、')}。（防御 ${raidDefense(S, c, nr)} 对强度 ${str}）`, 'info');
+      if (raidDefense(S, c, nr) < str && fuelUnitsOf(c.stock) >= prepCost(S, c, 'fire') * 3 && doPrep(S, 'fire', true).ok) did.push('불의 벽에 불을 붙였다');
+      if (raidDefense(S, c, nr) < str && (c.stock.food || 0) >= prepCost(S, c, 'mil') * 3 && doPrep(S, 'mil', true).ok) did.push('민병대가 소집됐다.');
+      if (raidDefense(S, c, nr) < str && doPrep(S, 'hide', true).ok) did.push('지하실에 보급품을 모았습니다.');
+      if (did.length) logMsg(S, `아무도 명령을 내리지 않았습니다. "${c.name}"의 야간 경비원 ${did.join('、')}입니다. (방어 ${raidDefense(S, c, nr)} 대 강도 ${str})`, 'info');
     }
   }
   if (nr.in <= RAID_WARN && rw.warn !== nr.k) {
     rw.warn = nr.k;
-    logMsg(S, `${rn}正在逼近「${c.name}」！（强度 ${raidStrength(S, c, nr)}，防御 ${raidDefense(S, c, nr)}）`, 'warn', { act: 'raidp', label: '看看' });
+    logMsg(S, `${rn}이(가) "${c.name}"에 접근하고 있습니다! (강도 ${raidStrength(S, c, nr)}, 방어 ${raidDefense(S, c, nr)})`, 'warn', { act: 'raidp', label: '보기' });
   }
   if (nr.t >= S.t && nr.t < S.t + dt) {
     if (nr.x) (S.raidX ||= {})[nr.hk] = nr.j; else S.raidDone = nr.k;
     const camp = getCamp(S, nr.camp), p = raidPrep(S, nr) || {};
     const atMain = camp.id === journeyOf(S).main && !!ruleNow(S), ns = atMain ? nsOf(S) : null;
     const str = raidStrength(S, camp, nr), def = raidDefense(S, camp, nr);
-    const helped = [p.fire && '火墙', p.mil && '民兵'].filter(Boolean);
+    const helped = [p.fire && '방화벽', p.mil && '시민군'].filter(Boolean);
     S.stats.raids++;
     const name = raiderName(S, camp);
     (S.stats.raidKinds ||= {})[name] = (S.stats.raidKinds[name] || 0) + 1;
@@ -3315,13 +3315,13 @@ function raidsStep(S, dt) {
       guard.cd = S.t + BLD.colossus.guardCd / (1 + 0.15 * (guard.lvl - 1));
       S.stats.raidsWon++; bumpMood(camp, 6, -3);
       if (ns) { ns.raidW = (ns.raidW || 0) + 1; wolfSafe(S, camp, ns); }
-      logMsg(S, `🗿 巨像守卫站了起来，${name}（强度 ${str}）一个都没能进「${camp.name}」。守卫要歇 ${Math.round((guard.cd - S.t) / 60)} 分钟。`, 'good');
+      logMsg(S, `🗿 거상 수호자가 일어섰고 ${name}(강도 ${str}) 중 어느 것도 "${camp.name}"를 입력할 수 없습니다. 경비원은 ${Math.round((guard.cd - S.t) / 60)}분 동안 휴식을 취합니다.`, 'good');
       R.fx.push({ kind: 'raid', camp: camp.id, won: true, str, def: str, t: S.t, guard: guard.id });
     } else if (def < str && colossusScare(S)) {
       // 1.1 蒸汽巨像：每天替你吓退一次守不住的袭营
       S.stats.raidsWon++; bumpMood(camp, 4, -2);
       if (ns) { ns.raidW = (ns.raidW || 0) + 1; wolfSafe(S, camp, ns); }
-      logMsg(S, `🗿 蒸汽巨像拉响了汽笛，喷出一大团白汽，${name}（强度 ${str}）掉头就跑，「${camp.name}」毫发无伤。巨像今天不会再出手了。`, 'good');
+      logMsg(S, `🗿 증기 거상이 휘파람을 불며 커다란 흰 증기 구름을 뿜어냈습니다. ${name}(힘 ${str})은 "${camp.name}"을(를) 다치지 않은 채로 두고 돌아서 도망갔습니다. Colossus는 오늘 더 이상 움직이지 않을 것입니다.`, 'good');
       R.fx.push({ kind: 'raid', camp: camp.id, won: true, str, def: str, t: S.t, scare: 1 });
     } else if (def >= str) {
       S.stats.raidsWon++;
@@ -3329,7 +3329,7 @@ function raidsStep(S, dt) {
       const wolf = campRule(S, camp) === 'wolf', g = Math.round(str * 2 * (wolf ? RULE_FX.wolfLoot : 1) * (1 + buffOf(S, camp, 'loot')));
       camp.stock.game = Math.max(camp.stock.game || 0, Math.min(storeCap(S, camp), (camp.stock.game || 0) + g));
       bumpMood(camp, 4, -2);
-      logMsg(S, `${helped.length ? '箭塔和' + helped.join('、') : '箭塔'}击退了${name}（${def} 对 ${str}），收获生肉 ${g}${wolf ? '（狼群领地，战利品翻倍）' : ''}。`, 'good');
+      logMsg(S, `${helped.length ? '화살탑 및' + helped.join('、') : '화살탑'}이(가) ${name}(${def} 대 ${str})을(를) 이기고 생고기 ${g}${wolf ? '(늑대 무리 영역, 전리품 두 배)' : ''}을(를) 획득했습니다.`, 'good');
       R.fx.push({ kind: 'raid', camp: camp.id, won: true, str, def, t: S.t });
     } else {
       const r = 1 - def / str, loss = 0.3 * r * (p.hide ? 0.5 : 1); // 收拢过物资只丢一半
@@ -3339,7 +3339,7 @@ function raidsStep(S, dt) {
       camp.people -= kill; S.stats.deaths += kill; bumpMood(camp, -8, 6);
       if (ns) { ns.raidL = (ns.raidL || 0) + 1; ns.hurt = (ns.hurt || 0) + kill; }
       trimWorkers(S, camp);
-      logMsg(S, `${name}冲进了「${camp.name}」（防御 ${def} 对 ${str}）：物资被抢走约 ${Math.round(100 * loss)}%${p.hide ? '（收进地窖的保住了）' : ''}${kill ? `，${kill} 人遇难` : ''}。多建几座箭塔，下次提前点火墙、召集民兵。`, 'bad');
+      logMsg(S, `${name}급히 들어갔다"${camp.name}"(방어${def}오른쪽${str}): 보급품이 약탈당했습니다.${Math.round(100 * loss)}%${p.hide ? '(지하실에 갇힌 사람들은 구원받았습니다)' : ''}${kill ? `，${kill}사람이 죽었어요` : ''}. 화살탑를 몇 개 더 만들고 다음 번에는 벽에 불을 붙이고 민병대를 미리 부르세요.`, 'bad');
       R.fx.push({ kind: 'raid', camp: camp.id, won: false, str, def, t: S.t });
     }
   }
@@ -3361,15 +3361,15 @@ function lightEternal(S) {
     S.meta.graduated = true; S.ended = true;
     logMsg(S, STORY.ending, 'story');
     rt(S).fx.push({ kind: 'ending', first });
-  } else logMsg(S, `永恒之炉的第 ${E.stage} 层炉膛亮了起来。下一层要永恒炉件稳住 ${ETERNAL_STAGES[E.stage]}/分钟。`, 'story');
+  } else logMsg(S, `영원의 용광로의 ${E.stage}번째 용광로가 켜졌습니다. 다음 레벨에서는 ${ETERNAL_STAGES[E.stage]}/분으로 안정화하려면 영원의 용광로 부품이 필요합니다.`, 'story');
 }
 // 老界面的「投入炉件」按钮：现在炉子自己吃，按钮只告诉你还差多少
 export function deliverEternal(S) {
   const c = eternalCamp(S);
-  if (!c) return { ok: false, reason: '车队还没到永恒之炉' };
-  if (S.eternal.stage >= ETERNAL_STAGES.length) return { ok: false, reason: '已经点燃' };
+  if (!c) return { ok: false, reason: '행렬이 아직 도착하지 않았습니다 영원의 용광로' };
+  if (S.eternal.stage >= ETERNAL_STAGES.length) return { ok: false, reason: '이미 켜져 있음' };
   const n = ETERNAL_STAGES[S.eternal.stage];
-  return { ok: false, reason: `永恒炉件的产量稳住 ${n}/分钟 3 分钟，炉子会自己点亮这一层（现在 ${prodRate(S, 'heart').toFixed(1)}/分钟）` };
+  return { ok: false, reason: `영원의 용광로 부품의 생산량은 3분 동안 ${n}/분으로 안정적이며 스토브가 이 층을 스스로 밝힙니다(현재 ${prodRate(S, 'heart').toFixed(1)}/분).` };
 }
 
 // ---------- 北迁（重开）----------
@@ -3387,14 +3387,14 @@ export function emberGain(S) {
 export function migrate(S) {
   if (!S.meta.graduated) return S;
   const N = newRun(S.meta, 0);
-  logMsg(N, `新的北行开始了。上一程留下的 ${Math.floor(S.meta.embers)} 点余烬还在发烫。`, 'good');
+  logMsg(N, `새로운 북쪽 여행이 시작됩니다. 이전 여정에서 남은 ${Math.floor(S.meta.embers)}포인트 잔불은 여전히 뜨겁습니다.`, 'good');
   return N;
 }
 export function buyEmber(S, key) {
   const lvl = up(S, key);
-  if (lvl >= EMBER_UPS[key].max) return { ok: false, reason: '已满级' };
+  if (lvl >= EMBER_UPS[key].max) return { ok: false, reason: '이미 풀 레벨' };
   const c = emberCost(key, lvl);
-  if (S.meta.embers < c) return { ok: false, reason: `需要 ${c} 点余烬` };
+  if (S.meta.embers < c) return { ok: false, reason: `${c}포인트 필요잔불` };
   S.meta.embers -= c; S.meta.ups[key] = lvl + 1;
   dirty(S);
   return { ok: true };
@@ -3486,7 +3486,7 @@ export function serialize(S) {
 }
 export function deserialize(str) {
   const o = JSON.parse(str);
-  if (!o || o.v !== VERSION || !o.camps) throw new Error('存档格式不对');
+  if (!o || o.v !== VERSION || !o.camps) throw new Error('저장 형식이 잘못되었습니다.');
   o.rows = setRows(o.rows || BASE_H); // 地图往北接到了哪一行：先接好再读迷雾
   o.reveal = unrle(o.reveal, W * H);
   fixMeta(o.meta);
@@ -3540,34 +3540,34 @@ export function addBuff(S, camp, k, v, secs, n) { camp.buffs = (camp.buffs || []
 const fmtN = x => x >= 100 ? Math.round(x) : Math.round(x * 10) / 10;
 const rawOfTier = t => RES_KEYS.filter(k => RES[k].t === t && RES[k].raw && !RES[k].stage);
 const EVENTS = [
-  { id: 'wander', title: '雪地里的流浪者', w: 3,
+  { id: 'wander', title: '눈 속의 방랑자', w: 3,
     ctx: (S, c, r) => ({ n: 3 + Math.floor(r() * 5) }),
-    text: (S, c, x) => `${x.n} 个流浪者在营地外的雪地里徘徊，冻得说不出话。领头的人问，能不能让他们靠近火堆。`,
+    text: (S, c, x) => `${x.n}명의 방랑자들이 야영지 밖에서 눈 속에서 방황하고 있었습니다. 너무 추워서 말을 할 수 없었습니다. 지도자는 불에 더 가까이 다가갈 수 있는지 물었습니다.`,
     opts: [
-      { t: '收留他们', d: (S, c, x) => `+${x.n} 人 · 熟食 −${x.n * 15} · 希望 +4${freeBeds(S, c) < x.n ? ' · 床位不够的先在窝棚里等' : ''}`, ok: (S, c, x) => (c.stock.food || 0) >= x.n * 15, go: (S, c, x) => { c.stock.food -= x.n * 15; const a = addPeople(S, c, x.n); bumpMood(c, 4, 0); return `${x.n} 个流浪者留了下来${a.wait ? `，${a.wait} 人先在窝棚里等床位` : ''}。`; } },
-      { t: '分些吃的，请他们离开', d: (S, c, x) => `熟食 −${x.n * 6} · 余烬 +3`, ok: (S, c, x) => (c.stock.food || 0) >= x.n * 6, go: (S, c, x) => { c.stock.food -= x.n * 6; S.meta.embers += 3; S.meta.emberTotal += 3; return '他们道了谢，往南边走了。'; } },
-      { t: '拒之门外', d: () => '希望 −3', go: (S, c) => { bumpMood(c, -3, 0); return '他们在风雪里慢慢走远了，有人一直望着他们的背影。'; } },
+      { t: '그들을 받아들이다', d: (S, c, x) => `+${x.n}명 · 요리 −${x.n * 15} · 희망 +4${freeBeds(S, c) < x.n ? '· 침대가 부족할 경우 먼저 오두막에서 기다리세요.' : ''}`, ok: (S, c, x) => (c.stock.food || 0) >= x.n * 15, go: (S, c, x) => { c.stock.food -= x.n * 15; const a = addPeople(S, c, x.n); bumpMood(c, 4, 0); return `${x.n}노숙자가 머물렀다${a.wait ? `，${a.wait}사람들은 먼저 오두막에서 침대를 기다립니다` : ''}。`; } },
+      { t: '음식을 나눠주고 떠나라고 요청하세요', d: (S, c, x) => `요리 −${x.n * 6} · 잔불 +3`, ok: (S, c, x) => (c.stock.food || 0) >= x.n * 6, go: (S, c, x) => { c.stock.food -= x.n * 6; S.meta.embers += 3; S.meta.emberTotal += 3; return '그들은 그에게 감사를 표하고 남쪽으로 걸어갔습니다.'; } },
+      { t: '폐쇄하다', d: () => '희망 −3', go: (S, c) => { bumpMood(c, -3, 0); return '그들은 바람과 눈 속에서 천천히 걸어가고 있었고, 누군가는 그들의 뒷모습을 계속 지켜보고 있었다.'; } },
     ] },
-  { id: 'cache', title: '冰层下的旧箱子', w: 2, cond: S => S.t > 900,
+  { id: 'cache', title: '얼음 아래 오래된 상자', w: 2, cond: S => S.t > 900,
     ctx: (S, c, r) => ({ lucky: r() < 0.7, t: Math.max(1, Math.min(S.known, tierOfRow(c.y))) }),
-    text: () => '干活的人在冰层下挖到一个上了锁的铁皮箱，箱子上刻着看不懂的字。',
+    text: () => '노동자들은 얼음 아래에 잠긴 양철 상자를 파냈는데, 거기에는 이해할 수 없는 말이 새겨져 있었습니다.',
     opts: [
-      { t: '撬开看看', d: () => '可能有好东西，也可能白忙一场', go: (S, c, x) => {
-        if (!x.lucky) { addBuff(S, c, 'prod', -0.1, 180, '有人撬箱子划伤了手'); return '箱子是空的，还有人划伤了手，大家干活慢了一会儿。'; }
+      { t: '보기를 들어 올려 열어보세요.', d: () => '좋은 일이 있을 수도 있고, 시간낭비일 수도 있다', go: (S, c, x) => {
+        if (!x.lucky) { addBuff(S, c, 'prod', -0.1, 180, '누군가 상자를 들어 올려 손을 베었습니다.'); return '상자는 비어 있었고 누군가 손을 긁어서 모두가 잠시 동안 천천히 작업했습니다.'; }
         const cap = storeCap(S, c), got = [];
         for (const k of rawOfTier(x.t).slice(0, 2)) { const a = Math.round(cap * 0.08); c.stock[k] = Math.max(c.stock[k] || 0, Math.min(cap, (c.stock[k] || 0) + a)); got.push(`${RES[k].n} +${a}`); }
-        return `箱子里塞满了物资：${got.join('，')}。`; } },
-      { t: '交给侦察营研究', d: () => '余烬 +4', go: S => { S.meta.embers += 4; S.meta.emberTotal += 4; return '箱子上的字是一段旧路线，北行的人会记住它。'; } },
+        return `상자에는 소모품 ${got.join('，')}이(가) 들어 있습니다.`; } },
+      { t: '정찰 막사연구에게 주세요', d: () => '잔불 +4', go: S => { S.meta.embers += 4; S.meta.emberTotal += 4; return '상자에 적힌 글씨는 북쪽으로 여행하는 사람들이 기억할 옛 길이다.'; } },
     ] },
-  { id: 'sick', title: '有人病倒了', w: 2, cond: (S, c) => (rt(S).c[c.id] || {}).tH < 12 && c.people >= 8,
+  { id: 'sick', title: '누군가 아프다', w: 2, cond: (S, c) => (rt(S).c[c.id] || {}).tH < 12 && c.people >= 8,
     ctx: () => ({}),
-    text: () => '几个人发起了烧，咳嗽声在帐篷里此起彼伏。',
+    text: () => '여러 사람이 열이 나고 천막에서는 기침 소리가 잇달아 들렸습니다.',
     opts: [
-      { t: '用熟食和热汤照顾', d: (S, c) => `熟食 −${Math.ceil(c.people * 0.8)}`, ok: (S, c) => (c.stock.food || 0) >= Math.ceil(c.people * 0.8), go: (S, c) => { c.stock.food -= Math.ceil(c.people * 0.8); return '喝了几天热汤，病人都好起来了。'; } },
-      { t: '把熔炉烧旺一点', d: () => '体感 +6°，燃料消耗 +40%（8 分钟）', go: (S, c) => { addBuff(S, c, 'heat', 6, 480, '熔炉烧旺'); addBuff(S, c, 'fuel', 0.4, 480, '熔炉烧旺'); return '营地暖和了不少，病人慢慢退了烧。'; } },
-      { t: '让他们接着干活', d: () => '产量 −15%（8 分钟）· 不满 +5', go: (S, c) => { addBuff(S, c, 'prod', -0.15, 480, '带病干活'); bumpMood(c, 0, 5); return '大家硬撑着干活，速度慢了下来。'; } },
+      { t: '요리와 뜨거운 국물도 조심하세요', d: (S, c) => `요리 −${Math.ceil(c.people * 0.8)}`, ok: (S, c) => (c.stock.food || 0) >= Math.ceil(c.people * 0.8), go: (S, c) => { c.stock.food -= Math.ceil(c.people * 0.8); return '며칠 동안 뜨거운 국물을 마시고 나니 환자가 좋아졌습니다.'; } },
+      { t: '용광로를 조금 더 뜨겁게 굽기', d: () => '바디감 +6°, 연료 소비량 +40% (8분)', go: (S, c) => { addBuff(S, c, 'heat', 6, 480, '용광로가 격렬하게 타오른다'); addBuff(S, c, 'fuel', 0.4, 480, '용광로가 격렬하게 타오른다'); return '야영지는 훨씬 더 따뜻해지는 것을 느꼈고, 환자의 열은 천천히 가라앉았습니다.'; } },
+      { t: '그들이 일을 계속하도록 놔두세요', d: () => '생산량 −15% (8분) · 불만 +5', go: (S, c) => { addBuff(S, c, 'prod', -0.15, 480, '아플 때 일하기'); bumpMood(c, 0, 5); return '모두가 열심히 일했고 속도가 느려졌습니다.'; } },
     ] },
-  { id: 'caravan', title: '路过的雪橇商队', w: 3,
+  { id: 'caravan', title: '지나가는 썰매 캐러밴', w: 3,
     ctx: (S, c, r) => {
       const cap = storeCap(S, c), ks = RES_KEYS.filter(k => RES[k].t <= S.known);
       const give = ks.filter(k => (c.stock[k] || 0) >= cap * 0.6).sort((a, b) => (c.stock[b] || 0) - (c.stock[a] || 0));
@@ -3578,47 +3578,47 @@ const EVENTS = [
       const k2 = w[Math.floor(r() * w.length)], a1 = Math.round(cap * 0.25);
       return { g, a1, k2, a2: fmtN(a1 * resValue(g) / resValue(k2) * 0.6) };
     },
-    text: (S, c, x) => `一支雪橇商队在营地外停下。他们愿意用 ${x.a2} ${RES[x.k2].n} 换你 ${x.a1} ${RES[x.g].n}。`,
+    text: (S, c, x) => `썰매 캐러밴이 야영지 외부에 멈췄습니다. 그들은 ${x.a2} ${RES[x.k2].n}를 ${x.a1} ${RES[x.g].n}에 기꺼이 교환하려고 합니다.`,
     opts: [
-      { t: '成交', d: (S, c, x) => `${RES[x.g].n} −${x.a1} · ${RES[x.k2].n} +${x.a2}`, ok: (S, c, x) => (c.stock[x.g] || 0) >= x.a1, go: (S, c, x) => { c.stock[x.g] -= x.a1; c.stock[x.k2] = Math.min(storeCap(S, c), (c.stock[x.k2] || 0) + x.a2); return '商队清点完货物，拉着雪橇往东去了。'; } },
-      { t: '买条消息', d: () => '熟食 −30 · 揭开北边一片迷雾', ok: (S, c) => (c.stock.food || 0) >= 30, go: (S, c) => { c.stock.food -= 30; revealCircle(S, c.x + 6, c.y + 26, 8); return '商队画了张草图：北边有一片之前没人去过的地方。'; } },
-      { t: '不换', d: () => '什么也不会发生', go: () => '商队没多停留。' },
+      { t: '거래를 하다', d: (S, c, x) => `${RES[x.g].n} −${x.a1} · ${RES[x.k2].n} +${x.a2}`, ok: (S, c, x) => (c.stock[x.g] || 0) >= x.a1, go: (S, c, x) => { c.stock[x.g] -= x.a1; c.stock[x.k2] = Math.min(storeCap(S, c), (c.stock[x.k2] || 0) + x.a2); return '캐러밴은 물품 수를 세고 썰매를 동쪽으로 가져갔습니다.'; } },
+      { t: '메시지를 구매하세요', d: () => '요리 −30 · 북쪽에서 안개 조각을 발견하세요', ok: (S, c) => (c.stock.food || 0) >= 30, go: (S, c) => { c.stock.food -= 30; revealCircle(S, c.x + 6, c.y + 26, 8); return '캐러밴은 스케치를 그렸습니다. 북쪽에 이전에 아무도 가본 적이 없는 곳이 있습니다.'; } },
+      { t: '변경하지 않음', d: () => '아무 일도 일어나지 않을 것이다', go: () => '캐러밴은 오래 머물지 않았습니다.' },
     ] },
-  { id: 'howl', title: '夜里的狼嚎', w: 2, cond: S => { const n = nextRaid(S); return n && n.in < 1200 && n.in > 120; },
+  { id: 'howl', title: '밤에 울부짖다', w: 2, cond: S => { const n = nextRaid(S); return n && n.in < 1200 && n.in > 120; },
     ctx: S => ({ camp: nextRaid(S).camp }),
-    text: () => '这几天夜里，营地外总能听见狼嚎，而且越来越近。',
+    text: () => '지난 며칠 밤, 야영지 밖에서 늑대 울부짖는 소리가 항상 들리고, 늑대들이 점점 더 가까워지고 있습니다.',
     opts: [
-      { t: '加派守夜人', d: () => '木材 −60 · 防御 +40%（20 分钟）', ok: (S, c) => (c.stock.wood || 0) >= 60, go: (S, c) => { c.stock.wood -= 60; addBuff(S, c, 'def', 0.4, 1200, '守夜人'); return '营地四周多了几堆篝火和守夜的人。'; } },
-      { t: '不理会', d: () => '什么也不会发生', go: () => '狼嚎声在天亮前停了。' },
+      { t: '야간경비원을 보내라', d: () => '목재 −60 · 방어 +40% (20분)', ok: (S, c) => (c.stock.wood || 0) >= 60, go: (S, c) => { c.stock.wood -= 60; addBuff(S, c, 'def', 0.4, 1200, '야간 경비원'); return '모닥불 주변에는 모닥불과 야간 경비원이 몇 명 더있었습니다.'; } },
+      { t: '무시하다', d: () => '아무 일도 일어나지 않을 것이다', go: () => '늑대의 울부짖음은 새벽이 되기 전에 그쳤습니다.' },
     ] },
-  { id: 'furnace', title: '熔炉的异响', w: 2, cond: (S, c) => getB(S, c.furnace).lvl >= 2,
+  { id: 'furnace', title: '용광로의 비정상적인 소음', w: 2, cond: (S, c) => getB(S, c.furnace).lvl >= 2,
     ctx: () => ({}),
-    text: () => '熔炉深处传来一阵阵沉闷的敲击声，炉膛里的火忽明忽暗。',
+    text: () => '용광로 안쪽 깊은 곳에서 둔탁한 노크 소리가 들리고 화로의 불이 깜빡거렸다.',
     opts: [
-      { t: '停火检修', d: (S, c) => `${S.known >= 2 ? '铁锭' : '木板'} −40 · 之后 15 分钟熔炉省 25% 燃料`, ok: (S, c) => (c.stock[S.known >= 2 ? 'iron' : 'plank'] || 0) >= 40, go: (S, c) => { c.stock[S.known >= 2 ? 'iron' : 'plank'] -= 40; addBuff(S, c, 'fuel', -0.25, 900, '熔炉检修过'); return '换掉几块裂开的炉砖，熔炉烧得又稳又省。'; } },
-      { t: '先不管它', d: () => '之后 10 分钟熔炉多烧 20% 燃料', go: (S, c) => { addBuff(S, c, 'fuel', 0.2, 600, '熔炉漏风'); return '熔炉还在响，烧得比平时快。'; } },
+      { t: '휴전 유지', d: (S, c) => `${S.known >= 2 ? '철괴' : '목판'} −40 · 다음 15분 동안 연료 25% 할인 용광로`, ok: (S, c) => (c.stock[S.known >= 2 ? 'iron' : 'plank'] || 0) >= 40, go: (S, c) => { c.stock[S.known >= 2 ? 'iron' : 'plank'] -= 40; addBuff(S, c, 'fuel', -0.25, 900, '용광로가 정밀 검사되었습니다.'); return '깨진 용광로 벽돌 몇 개를 교체한 후 용광로는 안정적이고 경제적으로 연소되었습니다.'; } },
+      { t: '내버려둬', d: () => '10분 후 용광로는 연료를 20% 더 태웁니다.', go: (S, c) => { addBuff(S, c, 'fuel', 0.2, 600, '용광로 공기 누출'); return '용광로는 여전히 평소보다 더 빨리 울리고 불타고 있습니다.'; } },
     ] },
-  { id: 'feast', title: '长夜篝火会', w: 2, cond: (S, c) => (c.stock.food || 0) >= c.people * 12 && c.people >= 10,
+  { id: 'feast', title: '장야모닥불은', w: 2, cond: (S, c) => (c.stock.food || 0) >= c.people * 12 && c.people >= 10,
     ctx: () => ({}),
-    text: () => '有人提议办一场篝火会：唱歌、烤肉、讲南方的故事。',
+    text: () => '누군가 모닥불 파티를 열자고 제안했습니다. 노래하고, 바베큐하고, 남부에 대한 이야기를 나누는 것이었습니다.',
     opts: [
-      { t: '办一场', d: (S, c) => `熟食 −${Math.ceil(c.people * 3)} · 产量 +12%（10 分钟）· 不满 −5`, ok: (S, c) => (c.stock.food || 0) >= Math.ceil(c.people * 3), go: (S, c) => { c.stock.food -= Math.ceil(c.people * 3); addBuff(S, c, 'prod', 0.12, 600, '篝火会之后干劲十足'); bumpMood(c, 0, -5); return '歌声一直唱到半夜。第二天大家干劲十足。'; } },
-      { t: '改天吧', d: () => '希望 −2', go: (S, c) => { bumpMood(c, -2, 0); return '大家有点失望，但还是回去干活了。'; } },
+      { t: '하나 잡아', d: (S, c) => `요리 −${Math.ceil(c.people * 3)} · 생산량 +12% (10분) · 불만 −5`, ok: (S, c) => (c.stock.food || 0) >= Math.ceil(c.people * 3), go: (S, c) => { c.stock.food -= Math.ceil(c.people * 3); addBuff(S, c, 'prod', 0.12, 600, '모닥불은 회의 후 매우 의욕이 넘쳤습니다.'); bumpMood(c, 0, -5); return '노래는 자정까지 계속됐다. 다음날 모두가 매우 의욕이 넘쳤습니다.'; } },
+      { t: '또 다른 날', d: () => '희망 −2', go: (S, c) => { bumpMood(c, -2, 0); return '다들 조금 실망했지만 다시 일을 시작했습니다.'; } },
     ] },
-  { id: 'child', title: '北方来的孩子', w: 1, cond: S => S.t > 1800,
+  { id: 'child', title: '북쪽에서 아이', w: 1, cond: S => S.t > 1800,
     ctx: () => ({}),
-    text: () => '一个孩子从北方独自走来，手里攥着一张被雪水泡皱的旧地图。',
+    text: () => '아이가 눈과 물로 주름진 낡은 지도를 손에 들고 북쪽에서 홀로 걸어왔다.',
     opts: [
-      { t: '收留她', d: () => '+1 人 · 揭开北边一片迷雾 · 希望 +3', go: (S, c) => { addPeople(S, c, 1); bumpMood(c, 3, 0); revealCircle(S, c.x - 5, c.y + 30, 9); return '她把地图交给了侦察营，上面标着一条北上的路。'; } },
-      { t: '问清路，送她去南边', d: () => '揭开北边一片迷雾 · 余烬 +2', go: (S, c) => { revealCircle(S, c.x - 5, c.y + 30, 9); S.meta.embers += 2; S.meta.emberTotal += 2; return '她指了指北边，然后跟着商队往南去了。'; } },
+      { t: '그녀를 데려가세요', d: () => '+1명 · 북쪽 안개 조각을 발견하세요 · 희망 +3', go: (S, c) => { addPeople(S, c, 1); bumpMood(c, 3, 0); revealCircle(S, c.x - 5, c.y + 30, 9); return '그녀는 북상으로 향하는 도로가 표시된 지도를 정찰 막사에게 건네주었습니다.'; } },
+      { t: '그녀에게 길을 물어보고 남쪽으로 보내라', d: () => '북쪽에서 안개 조각을 발견하세요 · 잔불 +2', go: (S, c) => { revealCircle(S, c.x - 5, c.y + 30, 9); S.meta.embers += 2; S.meta.emberTotal += 2; return '그녀는 북쪽을 가리킨 다음 캐러밴 남쪽을 따라갔습니다.'; } },
     ] },
-  { id: 'storm', title: '暴风雪前夕', w: 4, cond: S => weatherAt(S, S.t).warn,
+  { id: 'storm', title: '눈보라 이브', w: 4, cond: S => weatherAt(S, S.t).warn,
     ctx: () => ({}),
-    text: () => '天边压过来一道灰白的墙。暴风雪就要到了。',
+    text: () => '수평선에 회색 벽이 눌려져 있습니다. 눈보라가 출시됩니다.',
     opts: [
-      { t: '加固房屋', d: () => '木材 −80 · 这场暴风雪的降温减半', ok: (S, c) => (c.stock.wood || 0) >= 80, go: (S, c) => { c.stock.wood -= 80; const w = weatherAt(S, S.t); addBuff(S, c, 'shield', 0.5, (w.slot ? w.slot.end - S.t : 1800) + 60, '房屋加固过'); return '所有人一起钉木板、堵缝隙。'; } },
-      { t: '烧旺熔炉', d: () => '体感 +8°，燃料消耗 +50%（15 分钟）', go: (S, c) => { addBuff(S, c, 'heat', 8, 900, '熔炉烧旺'); addBuff(S, c, 'fuel', 0.5, 900, '熔炉烧旺'); return '熔炉的火光把半边天都映红了。'; } },
-      { t: '照常干活', d: () => '什么也不会发生', go: () => '大家裹紧外套，继续干活。' },
+      { t: '집을 강화하다', d: () => '목재 −80 · 이 눈보라의 냉각 성능이 절반으로 줄어듭니다.', ok: (S, c) => (c.stock.wood || 0) >= 80, go: (S, c) => { c.stock.wood -= 80; const w = weatherAt(S, S.t); addBuff(S, c, 'shield', 0.5, (w.slot ? w.slot.end - S.t : 1800) + 60, '집이 강화되었습니다.'); return '모두가 목판을 함께 못으로 박고 틈을 막았습니다.'; } },
+      { t: '샤오왕 용광로', d: () => '바디감 +8°, ​​연료 소모량 +50% (15분)', go: (S, c) => { addBuff(S, c, 'heat', 8, 900, '용광로가 격렬하게 타오른다'); addBuff(S, c, 'fuel', 0.5, 900, '용광로가 격렬하게 타오른다'); return '용광로의 불은 하늘의 절반을 붉게 물들였습니다.'; } },
+      { t: '평소처럼 일하세요', d: () => '아무 일도 일어나지 않을 것이다', go: () => '모두들 외투를 단단히 감싸고 계속 일했습니다.' },
     ] },
 ];
 export const EVENT_GAP = [600, 1020]; // 两次事件之间 10～17 分钟
@@ -3647,7 +3647,7 @@ export function rollSurprise(S, spawn = true) {
   if (S.sur && S.t > S.sur.until) { S.sur = null; }
   // 极光夜：每个极光夜可以一起看一次
   const sky = skyAt(S, S.t), night = Math.floor(S.t / DAY_LEN);
-  if (sky.aurora > 0.25 && S.aurSeen !== night) { S.aurSeen = night; S.aurOpen = night; R.fx.push({ kind: 'aurora' }); logMsg(S, '🌌 夜空亮起了极光，营地里的人都跑出来看。', 'good', { act: 'aurora', label: '一起看' }); }
+  if (sky.aurora > 0.25 && S.aurSeen !== night) { S.aurSeen = night; S.aurOpen = night; R.fx.push({ kind: 'aurora' }); logMsg(S, '🌌 밤하늘이 오로라를 밝혔고, 야영지의 모든 사람들이 달려와 구경했습니다.', 'good', { act: 'aurora', label: '함께 시청하기' }); }
   if (S.aurOpen != null && (S.aurOpen !== night || sky.aurora < 0.15)) S.aurOpen = null;
   if (!spawn) return null;
   if (S.surNext == null) S.surNext = Math.max(S.t + 600, 1200);
@@ -3670,7 +3670,7 @@ export function surReward(S, sur) {
   return { res, embers: 1 + Math.floor(t / 2) };
 }
 export function claimSurprise(S) {
-  const sur = S.sur; if (!sur) return { ok: false, reason: '已经不见了' };
+  const sur = S.sur; if (!sur) return { ok: false, reason: '이미 사라졌어' };
   const c = getCamp(S, sur.camp) || S.camps[0], rw = surReward(S, sur);
   for (const k in rw.res) c.stock[k] = (c.stock[k] || 0) + rw.res[k];
   if (rw.embers) S.meta.embers = (S.meta.embers || 0) + rw.embers;
@@ -3680,18 +3680,18 @@ export function claimSurprise(S) {
   (S.stats.surKinds ||= {})[sur.kind] = (S.stats.surKinds[sur.kind] || 0) + 1;
   if (sur.kind === 'meteor' && c.id === journeyOf(S).main && ruleNow(S)) { const ns = nsOf(S); ns.crater = (ns.crater || 0) + 1; }
   rt(S).fx.push({ kind: 'surdone', sur, camp: c.id });
-  const got = Object.keys(rw.res).map(k => `${RES[k].n} +${rw.res[k]}`).concat(rw.embers ? [`余烬 +${rw.embers}`] : [], rw.hope ? [`希望 +${rw.hope}`] : []).join('，');
-  logMsg(S, sur.kind === 'deer' ? `🦌 走失的驯鹿跟着大家回了「${c.name}」，褡裢里还有干粮：${got}。` : `☄ 大家从流星坑里挖出了好东西：${got}。`, 'good');
+  const got = Object.keys(rw.res).map(k => `${RES[k].n} +${rw.res[k]}`).concat(rw.embers ? [`잔불 +${rw.embers}`] : [], rw.hope ? [`희망 +${rw.hope}`] : []).join(',');
+  logMsg(S, sur.kind === 'deer' ? `🦌 길을 잃은 순록은 모두를 따라 "${c.name}"으로 돌아갔고, 가방에는 여전히 건조식품 ${got}이(가) 남아 있었습니다.` : `☄ 모두가 운석 구덩이에서 좋은 것을 발굴했습니다: ${got}.`, 'good');
   return { ok: true, rw };
 }
 export function watchAurora(S) {
-  if (S.aurOpen == null) return { ok: false, reason: '极光已经散了' };
+  if (S.aurOpen == null) return { ok: false, reason: '오로라가 흩어졌습니다' };
   S.aurOpen = null;
   for (const c of S.camps) c.hope = Math.min(100, (c.hope ?? 50) + 4);
   S.meta.embers = (S.meta.embers || 0) + 1;
   S.stats.aurora = (S.stats.aurora || 0) + 1;
   if (ruleNow(S) === 'night') { const ns = nsOf(S); ns.aur = (ns.aur || 0) + 1; if (ns.aur >= 5) flag13(S, 'aur5'); }
-  logMsg(S, '🌌 大家放下手里的活，一起看了一会儿极光：所有营地希望 +4，余烬 +1。', 'good');
+  logMsg(S, '🌌 다들 하던 일을 내려놓고 한동안 함께 오로라를 시청했습니다. 모두 야영지희망 +4, 잔불 +1.', 'good');
   return { ok: true };
 }
 
@@ -3700,35 +3700,35 @@ export const FEST_LEN = 90, FEST_CD = 1440, FEST_MIN = 20, FEST_AFTER = 720;
 export function festCost(S, c) { return { food: Math.ceil(c.people * 2), wood: 40 + Math.ceil(c.people / 2) }; }
 export function festLeft(S, c) { return c.festAt == null ? 0 : Math.max(0, c.festAt + FEST_CD - S.t); }
 export function festBlock(S, c) {
-  if (c.fest) return '庆典正在进行';
-  if (c.people < FEST_MIN) return `营地要有 ${FEST_MIN} 个人才热闹得起来`;
-  if (weatherAt(S, S.t).blizzard) return '暴风雪里办不了庆典';
-  const left = festLeft(S, c); if (left > 0) return `上一场刚办完，${Math.ceil(left / 60)} 分钟后才能再办`;
+  if (c.fest) return '축하행사가 진행되고 있어요';
+  if (c.people < FEST_MIN) return `야영지가 활성화되려면 ${FEST_MIN}명의 개인이 필요합니다.`;
+  if (weatherAt(S, S.t).blizzard) return '눈보라에서는 축하 행사를 열 수 없습니다.';
+  const left = festLeft(S, c); if (left > 0) return `마지막 세션이 방금 완료되었으며 ${Math.ceil(left / 60)}분 동안 다른 세션을 사용할 수 없습니다.`;
   const cost = festCost(S, c), miss = Object.keys(cost).filter(k => (c.stock[k] || 0) < cost[k]);
-  if (miss.length) return '缺' + miss.map(k => RES[k].n).join('、');
-  if ((c.stock.food || 0) - cost.food < c.people * EAT * 30) return '办完庆典，口粮就不够大家吃半小时了';
+  if (miss.length) return '부족' + miss.map(k => RES[k].n).join(',');
+  if ((c.stock.food || 0) - cost.food < c.people * EAT * 30) return '축하 행사가 끝난 후 배급은 모든 사람이 30분 동안 식사하기에 충분하지 않습니다.';
   return null;
 }
 export function startFest(S, cid) {
-  const c = getCamp(S, cid); if (!c) return { ok: false, reason: '没有这个营地' };
+  const c = getCamp(S, cid); if (!c) return { ok: false, reason: '그런 야영지는 없습니다' };
   const why = festBlock(S, c); if (why) return { ok: false, reason: why };
   const cost = festCost(S, c);
   for (const k in cost) c.stock[k] -= cost[k];
   c.fest = { t0: S.t, until: S.t + FEST_LEN };
   c.festAt = S.t;
   if (S.buildings.some(b => b.camp === c.id && b.type === 'icefish')) flag13(S, 'icefest');
-  addBuff(S, c, 'prod', -0.5, FEST_LEN, '篝火庆典（大家都去跳舞了）');
+  addBuff(S, c, 'prod', -0.5, FEST_LEN, '모닥불 축하 (모두 춤추러 갔습니다)');
   rt(S).fx.push({ kind: 'fest', camp: c.id });
-  logMsg(S, `「${c.name}」的篝火庆典开始了！大家放下手里的活，围着篝火跳起舞来。`, 'good');
+  logMsg(S, `"${c.name}"의 모닥불 축하 행사가 시작되었습니다! 모두들 하던 일을 내려놓고 모닥불 주변에서 춤을 추기 시작했습니다.`, 'good');
   return { ok: true };
 }
 function endFest(S, c) {
   c.fest = null;
   bumpMood(c, 15, -10);
-  addBuff(S, c, 'prod', 0.15, FEST_AFTER, '庆典余温');
+  addBuff(S, c, 'prod', 0.15, FEST_AFTER, '축하잔열');
   S.stats.fests = (S.stats.fests || 0) + 1;
   rt(S).fx.push({ kind: 'festdone', camp: c.id });
-  logMsg(S, `「${c.name}」的庆典散场了：希望 +15，不满 −10，之后 ${FEST_AFTER / 60} 分钟产量 +15%。`, 'good');
+  logMsg(S, `"${c.name}" 축하 행사가 끝났습니다. ${FEST_AFTER / 60}분 후에 희망 +15, 불만 −10, 생산량 +15%입니다.`, 'good');
 }
 
 // ---------- 人物委托：营地里有名有姓的人提的小心愿，做到了人心更稳，还有回报（只在玩家在线时冒出来）----------
@@ -3756,7 +3756,7 @@ export function rollRequest(S) {
   for (const r of [...S.reqs]) if (S.t > r.until || (r.kind === 'upgrade' && !getB(S, r.bid))) {
     S.reqs = S.reqs.filter(x => x !== r);
     const c = getCamp(S, r.camp); if (c) c.hope = Math.max(0, (c.hope ?? 50) - 2);
-    logMsg(S, `没来得及帮上忙：${reqTitle(S, r)}。`, 'warn');
+    logMsg(S, `도움을 주기에는 너무 늦었습니다: ${reqTitle(S, r)}.`, 'warn');
   }
   if (S.reqNext == null) S.reqNext = Math.max(S.t + 600, 900);
   if (S.t < S.reqNext || S.reqs.length >= REQ_MAX) return null;
@@ -3772,10 +3772,10 @@ export function rollRequest(S) {
   return r;
 }
 export function reqTitle(S, r) {
-  if (r.kind === 'build') return r.n > 1 ? `再建一座${BLD[r.type].n}` : `建一座${BLD[r.type].n}`;
-  if (r.kind === 'upgrade') return `把${BLD[r.type].n}升到 ${r.lvl} 级`;
-  if (r.kind === 'stock') return `攒够 ${r.n} ${RES[r.k].n}交给大家`;
-  return `腾出 ${r.n} 张空床，没人睡窝棚`;
+  if (r.kind === 'build') return r.n > 1 ? `또 다른 ${BLD[r.type].n} 만들기` : `${BLD[r.type].n} 만들기`;
+  if (r.kind === 'upgrade') return `${BLD[r.type].n}을(를) ${r.lvl} 레벨로 업그레이드하세요`;
+  if (r.kind === 'stock') return `${r.n} ${RES[r.k].n}을(를) 충분히 저축하여 모두에게 나눠주세요`;
+  return `${r.n}개의 빈 침대를 만드세요. 아무도 오두막에서 자지 않을 것입니다.`;
 }
 export function reqProgress(S, r) {
   const c = getCamp(S, r.camp); if (!c) return { cur: 0, need: 1, done: false };
@@ -3787,8 +3787,8 @@ export function reqProgress(S, r) {
   return { cur: Math.min(cur, need), need, done: cur >= need };
 }
 export function claimReq(S, id) {
-  const r = (S.reqs || []).find(x => x.id === id); if (!r) return { ok: false, reason: '委托不在了' };
-  const p = reqProgress(S, r); if (!p.done) return { ok: false, reason: '还没做到' };
+  const r = (S.reqs || []).find(x => x.id === id); if (!r) return { ok: false, reason: '커미션이 없어졌어요' };
+  const p = reqProgress(S, r); if (!p.done) return { ok: false, reason: '아직 완료되지 않음' };
   const c = getCamp(S, r.camp);
   if (r.kind === 'stock') c.stock[r.k] = Math.max(0, (c.stock[r.k] || 0) - r.n);
   const rw = r.rw || {};
@@ -3798,7 +3798,7 @@ export function claimReq(S, id) {
   if (rw.disc) c.disc = Math.max(0, (c.disc ?? 10) + rw.disc);
   S.reqs = S.reqs.filter(x => x !== r);
   S.stats.reqs = (S.stats.reqs || 0) + 1;
-  logMsg(S, `委托完成：${reqTitle(S, r)}。`, 'good');
+  logMsg(S, `위임 완료: ${reqTitle(S, r)}.`, 'good');
   rt(S).fx.push({ kind: 'reqdone', camp: c.id });
   return { ok: true, rw };
 }
@@ -3860,29 +3860,29 @@ export function chainOf(S, b) {
 
 // ---------- 收集册：建筑、物资、地标、人物、风物，外加成就。记在 meta.book 里，北迁后也保留 ----------
 export const SIGHTS = [
-  { id: 'aurora', n: '极光夜', ic: '🌌', d: '北方夜空里流动的光。极光出来时，营地里的人都会跑出来抬头看。', how: '在线时等一个极光夜' },
-  { id: 'icefog', n: '冰雾早晨', ic: '🌫', d: '天亮前后升起的冰雾，空气里闪着细小的冰晶，远处看不太清。', how: '某些早晨会起冰雾' },
-  { id: 'blizzard', n: '暴风雪', ic: '❄', d: '气温骤降几十度的寒潮。熔炉超载、燃料和熟食备足才撑得过去。', how: '挺过一场暴风雪' },
-  { id: 'wx:ice', n: '冰风暴', ic: '🧊', d: '冻雨落地就结冰，树枝、帐篷、管道全裹上一层亮晶晶的冰壳。', how: '经历一场冰风暴' },
-  { id: 'wx:cold', n: '极寒夜', ic: '🌡', d: '连呼出的气都会冻成冰碴的一夜。熔炉要烧到天亮，谁都不敢睡死。', how: '熬过一个极寒夜' },
-  { id: 'wx:crack', n: '冰湖开裂', ic: '💧', d: '冰面下传来闷雷似的响声，一道道黑水沟把湖面切开，几天后才重新冻上。', how: '遇上一次冰湖开裂' },
-  { id: 'gang', n: '掠夺者营地', ic: '🏴', d: '栅栏围着几顶黑帐篷，营地上插着黑旗。他们不种地也不打猎，靠别人的营地过冬。', how: '侦察到一处掠夺者营地' },
-  { id: 'herd', n: '驯鹿群', ic: '🦌', d: '在雪原上低头吃草的鹿群，人一走近就跑开。猎人小屋靠它们过冬。', how: '建一座猎人小屋' },
-  { id: 'lostdeer', n: '走失的驯鹿', ic: '🦌', d: '从别的营地走散的驯鹿，脖子上系着红布和铃铛，背上的褡裢里还有干粮。', how: '在线时偶尔会出现在营地边上' },
-  { id: 'meteor', n: '流星坑', ic: '☄', d: '落在营地附近的流星砸出的浅坑，碎石还在发烫，坑底埋着金属和稀有矿物。', how: '在线时偶尔会有流星落下' },
-  { id: 'caravan', n: '雪橇商队', ic: '🛷', d: '在营地之间来回的商队，拉着雪橇扎营几天，用稀罕货换你多余的物资。', how: '商队会不时路过' },
-  { id: 'fest', n: '篝火庆典', ic: '🔥', d: '围着篝火跳舞、拉琴、敲鼓。散场以后，大家好几天都还在说这件事。', how: '在熔炉面板里办一场庆典' },
-  { id: 'vein', n: '新矿脉', ic: '⛏', d: '勘探队在供热圈里找到的矿脉。矿挖空了，就派人再找。', how: '派勘探队找一次矿' },
-  { id: 'raid:雪狼群', n: '雪狼群', ic: '🐺', d: '饿极了的狼群，暴风雪前后最常摸到营地边上。', how: '在南方的营地守一次夜' },
-  { id: 'raid:掠夺者', n: '掠夺者', ic: '🐺', d: '在冰原上游荡的人，靠抢别的营地过冬。', how: '在铁岭以北守一次夜' },
-  { id: 'raid:霜兽', n: '霜兽', ic: '🐺', d: '霜晶废墟一带出没的怪兽，皮毛上结着冰晶。', how: '在霜晶废墟一带守一次夜' },
-  { id: 'raid:遗迹守卫', n: '遗迹守卫', ic: '🐺', d: '残骸里醒过来的旧时代自动机，还在执行早就没有意义的命令。', how: '在星铁残骸以北守一次夜' },
+  { id: 'aurora', n: '오로라 밤', ic: '🌌', d: '북쪽 밤하늘에 흐르는 빛. 오로라가 나오면 야영지의 모든 사람들이 달려가 찾아볼 것입니다.', how: '온라인 상태에서 오로라 밤을 기다리세요' },
+  { id: 'icefog', n: '얼음 안개 아침', ic: '🌫', d: '새벽 무렵에는 얼음안개가 생기고, 작은 얼음 결정들이 공중에 반짝거리기 때문에 멀리서 보면 선명하게 보이지 않는다.', how: '일부 아침에는 얼음과 안개가 끼겠습니다' },
+  { id: 'blizzard', n: '눈보라', ic: '❄', d: '온도가 수십도나 떨어진 한파. 용광로는 과부하 상태이며 연료 및 요리는 생존을 위해 완벽하게 준비되어 있습니다.', how: '눈보라에서 살아남으세요' },
+  { id: 'wx:ice', n: '얼음 폭풍', ic: '🧊', d: '얼어붙는 비가 땅에 닿으면 얼어붙고, 나뭇가지, 나무, 파이프가 모두 반짝이는 얼음 껍질로 덮여 있습니다.', how: '얼음 폭풍을 경험해보세요' },
+  { id: 'wx:cold', n: '매우 추운 밤', ic: '🌡', d: '내쉬는 숨마저 얼어붙는 밤. 용광로는 새벽까지 불에 타서 아무도 감히 잠을 자지 못합니다.', how: '매우 추운 밤을 살아남으세요' },
+  { id: 'wx:crack', n: '얼음호수 크래킹', ic: '💧', d: '얼음 아래에서 천둥같은 소리가 났고, 검은 도랑이 호수 표면을 가르다가 며칠 후에 다시 얼어붙었습니다.', how: '얼음호수의 크랙이 한 번 발생했습니다.' },
+  { id: 'gang', n: '약탈자야영지', ic: '🏴', d: '울타리 주변에는 검은 깃발이 달린 검은 모자가 여러 개 있습니다. 그들은 농사도 사냥도 하지 않고, 남의 야영지에 의존하여 겨울을 살아갑니다.', how: '정찰을 한 곳으로약탈자야영지' },
+  { id: 'herd', n: '순록 떼', ic: '🦌', d: '설원에 풀을 뜯고 있는 사슴 떼는 사람이 다가가자마자 도망가곤 했다. 사냥꾼 오두막은 그들에게 의지하여 겨울을 살아갑니다.', how: '사냥꾼 오두막 구축' },
+  { id: 'lostdeer', n: '잃어버린 순록', ic: '🦌', d: '다른 동물들과 분리된 순록은 목에 빨간 천과 방울을 묶고, 등에는 마른 먹이를 배낭에 짊어지고 있었다.', how: '온라인일 때 가끔 야영지 옆에 나타납니다.' },
+  { id: 'meteor', n: '유성 분화구', ic: '☄', d: '야영지 근처에 떨어진 운석에 의해 만들어진 얕은 분화구에는 자갈이 여전히 뜨겁고, 분화구 바닥에는 금속과 희귀 광물이 묻혀있습니다.', how: '온라인 상태에서 가끔 유성이 떨어지기도 합니다.' },
+  { id: 'caravan', n: '썰매 캐러밴', ic: '🛷', d: '야영지 사이를 오가는 캐러밴은 썰매를 데리고 며칠 동안 캠핑을 하며 희귀한 물품을 여분의 보급품으로 교환합니다.', how: '캐러밴은 수시로 지나갈 것입니다.' },
+  { id: 'fest', n: '모닥불 축하', ic: '🔥', d: '모닥불 주변에서 춤추고, 피아노를 연주하고, 드럼을 연주해보세요. 쇼가 끝난 후에도 모든 사람들은 며칠 동안 그 이야기를 계속했습니다.', how: '용광로 패널에서 축하 행사를 열어보세요' },
+  { id: 'vein', n: '새로운 정맥', ic: '⛏', d: '난방권에서 탐사팀이 발견한 광맥. 광산이 비어 있으면 일손 배치를 다시 찾으십시오.', how: '탐사대를 보내 광산을 찾으세요' },
+  { id: '습격:눈늑대 무리', n: '눈늑대 무리', ic: '🐺', d: '극도로 배고픈 늑대들은 눈보라 전후에 야영지의 측면을 가장 자주 만졌습니다.', how: '남쪽 야영지의 야간순찰' },
+  { id: '습격:약탈자', n: '약탈자', ic: '🐺', d: '빙상 위를 떠도는 사람들은 다른 야영지를 붙잡고 겨울을 살아남는다.', how: '철령 북쪽에서 하룻밤 묵으세요' },
+  { id: '습격:서리 짐승', n: '서리 짐승', ic: '🐺', d: '서리수정 폐허 털에 얼음 결정을 달고 해당 지역에 나타나는 몬스터입니다.', how: '서리수정 폐허 지역에서 하룻밤을 묵으세요' },
+  { id: '습격:유적 수호자', n: '유적 수호자', ic: '🐺', d: '구시대 오토마톤은 잔해에서 깨어나 여전히 오랫동안 무의미했던 명령을 수행했습니다.', how: '성철 잔해 북쪽에서 하룻밤 묵으세요' },
   // 1.1 站点奇遇：走完一件记一件
-  ...QY_KEYS.map(k => ({ id: 'qy:' + k, n: '奇遇·' + QY[k].n, ic: QY[k].ic, d: QY[k].d, how: '在北境的站上碰到这件奇遇，并走到结尾' })),
+  ...QY_KEYS.map(k => ({ id: 'qy:' + k, n: '기연·' + QY[k].n, ic: QY[k].ic, d: QY[k].d, how: '북방 사이트에서 이 기연을 발견하고 끝까지 봤습니다.' })),
   // 1.1 奇观、城镇
-  ...WONDER_KEYS.map(k => ({ id: 'w:' + k, n: WONDERS[k].n, ic: WONDERS[k].ic, d: BLD[k].desc, how: '建成这座奇观' })),
-  { id: 'town', n: '第一座镇子', ic: '🏘️', d: '帐篷换成了木屋，路边点起了路灯。', how: '研究「城镇规划」，把一座营地升成镇' },
-  { id: 'city', n: '大城', ic: '🏙️', d: '蒸汽公寓一栋挨一栋，街上的人比雪花还多。', how: '把一座营地升成大城' },
+  ...WONDER_KEYS.map(k => ({ id: 'w:' + k, n: WONDERS[k].n, ic: WONDERS[k].ic, d: BLD[k].desc, how: '이 불가사의를 구축' })),
+  { id: 'town', n: '첫 번째 마을', ic: '🏘️', d: '천막은 목조주택으로 교체되었고, 길가에는 가로등이 조명을 밝혔습니다.', how: '연구 "도시 계획", 야영지를 마을로 업그레이드하세요.' },
+  { id: 'city', n: '대도시', ic: '🏙️', d: '증기 아파트가 연달아 지어지고 거리에는 눈꽃보다 사람이 더 많습니다.', how: '야영지를 대도시로 업그레이드' },
 ];
 const nBuilt = (S, f) => S.buildings.filter(f).length;
 const maxFurnace = S => Math.max(0, ...S.camps.map(c => (getB(S, c.furnace) || {}).lvl || 0));
@@ -3890,72 +3890,72 @@ const maxPeople = S => Math.max(0, ...S.camps.map(c => c.people));
 const yes = v => (v ? 1 : 0);
 // 每个成就：cur(S, B) 现在到多少，need 要多少（是/否的条件 need 为 1）
 export const ACH = [
-  { id: 'first', n: '第一缕火', d: '建起第一栋建筑', rw: 1, need: 1, cur: S => yes(nBuilt(S, b => b.type !== 'furnace')) },
-  { id: 'town', n: '小镇初成', d: '一座营地住下 50 人', rw: 1, need: 50, cur: maxPeople },
-  { id: 'city', n: '人丁兴旺', d: '一座营地住下 150 人', rw: 2, need: 150, cur: maxPeople },
-  { id: 'busy', n: '百业兴旺', d: '一程里同时有 40 栋建筑', rw: 2, need: 40, cur: S => S.buildings.length },
-  { id: 'fire10', n: '熊熊炉火', d: '熔炉升到 10 级', rw: 2, need: 10, cur: maxFurnace },
-  { id: 'fire20', n: '炉火冲天', d: '熔炉升到 20 级', rw: 3, need: 20, cur: maxFurnace },
-  { id: 'camp2', n: '第二个家', d: '点起第一座前哨熔炉', rw: 2, need: 2, cur: S => S.camps.length },
-  { id: 'camp4', n: '星火连营', d: '一程里同时有 4 座营地', rw: 3, need: 4, cur: S => S.camps.length },
-  { id: 'north3', n: '北行者', d: '在黑油冻原点起营火', rw: 2, need: 1, cur: S => yes(S.founded.some(i => i >= 3)) },
-  { id: 'north5', n: '星铁之下', d: '在星铁残骸点起营火', rw: 3, need: 1, cur: S => yes(S.founded.some(i => i >= 5)) },
-  { id: 'eternal', n: '永恒之炉', d: '重新点燃永恒之炉', rw: 5, need: 1, cur: S => yes(S.meta.graduated) },
-  { id: 'far1', n: '看见远方', d: '找到永恒之炉以北的一处远方地标', rw: 2, need: 1, cur: S => yes(((S.far || {}).seen || []).length) },
-  { id: 'gang', n: '赶走掠夺者', d: '打退同一伙掠夺者两次，让他们散伙', rw: 3, need: 1, cur: S => S.stats.gangs || 0 },
-  { id: 'wx3', n: '天有不测', d: '一程里遇上冰风暴、极寒夜和冰湖开裂', rw: 2, need: 3, cur: S => WXE_KEYS.filter(k => S.stats.wxe && S.stats.wxe[k]).length },
-  { id: 'bliz5', n: '风雪不倒', d: '一程里挺过 5 场暴风雪', rw: 2, need: 5, cur: S => S.stats.blizzards },
-  { id: 'nodeath', n: '一个都不能少', d: '一程走过 3 小时，没有一个人遇难', rw: 3, need: 180, cur: S => S.stats.deaths ? 0 : Math.floor(S.t / 60) },
-  { id: 'guard3', n: '守夜人', d: '一程里击退 3 次袭营', rw: 2, need: 3, cur: S => S.stats.raidsWon },
-  { id: 'req5', n: '好邻居', d: '一程里完成 5 个委托', rw: 2, need: 5, cur: S => S.stats.reqs || 0 },
-  { id: 'req20', n: '有求必应', d: '一程里完成 20 个委托', rw: 3, need: 20, cur: S => S.stats.reqs || 0 },
-  { id: 'trade10', n: '老主顾', d: '一程里给商队交 10 张订单', rw: 2, need: 10, cur: S => S.stats.carOrders || 0 },
-  { id: 'aur3', n: '守望极光', d: '一程里和大家一起看 3 次极光', rw: 2, need: 3, cur: S => S.stats.aurora || 0 },
-  { id: 'met3', n: '追星人', d: '一程里挖开 3 个流星坑', rw: 2, need: 3, cur: S => (S.stats.surKinds || {}).meteor || 0 },
-  { id: 'photo', n: '定格此刻', d: '在拍照模式里拍下一张营地的照片', rw: 1, need: 1, cur: S => S.meta.photos || 0 },
-  { id: 'dogs12', n: '狗拉雪橇', d: '一座营地养着 12 只喂饱的雪橇犬', rw: 2, need: 12, cur: S => Math.floor(Math.max(0, ...S.camps.map(c => dogsOf(S, c.id)))) },
-  { id: 'fest3', n: '夜夜笙歌', d: '一程里办 3 场篝火庆典', rw: 2, need: 3, cur: S => S.stats.fests || 0 },
-  { id: 'deep', n: '往下挖', d: '挖一口深井', rw: 1, need: 1, cur: S => yes(S.buildings.some(b => b.deep)) },
-  { id: 'vein3', n: '勘探家', d: '一程里找到 3 处新矿脉', rw: 2, need: 3, cur: S => (S.veins || []).length },
-  { id: 'belt5', n: '流水线', d: '一程里铺好 5 条传送带', rw: 2, need: 5, cur: S => (S.belts || []).length },
-  { id: 'rail', n: '蒸汽时代', d: '把一条传送带升级成蒸汽轨道', rw: 2, need: 1, cur: S => yes((S.belts || []).some(b => b.lvl >= 2)) },
-  { id: 'spec5', n: '群贤毕至', d: '身边聚齐 5 位专家', rw: 2, need: 5, cur: S => Object.keys(S.meta.specs || {}).length },
-  { id: 'allres', n: '万物皆备', d: '物资一栏全部收集', rw: 3, need: RES_KEYS.length, cur: (S, B) => RES_KEYS.filter(k => B.r[k]).length },
-  { id: 'allbld', n: '营造大师', d: '建筑一栏全部收集', rw: 5, need: Object.keys(BLD).length, cur: (S, B) => Object.keys(BLD).filter(k => B.b[k]).length },
-  { id: 'allsight', n: '见多识广', d: '风物一栏全部收集', rw: 3, need: SIGHTS.length, cur: (S, B) => SIGHTS.filter(x => B.s[x.id]).length },
+  { id: 'first', n: '첫 번째 불의 광선', d: '첫 번째 건물을 건설하세요', rw: 1, need: 1, cur: S => yes(nBuilt(S, b => b.type !== 'furnace')) },
+  { id: 'town', n: '작은 마을의 시작', d: '야영지 한 대는 50명을 수용할 수 있습니다.', rw: 1, need: 50, cur: maxPeople },
+  { id: 'city', n: '인구가 급증하고 있어요', d: '야영지 1대는 150명을 수용할 수 있습니다.', rw: 2, need: 150, cur: maxPeople },
+  { id: 'busy', n: '모든 산업이 번영한다', d: '한 번의 여정에는 동시에 40개의 건물이 있습니다.', rw: 2, need: 40, cur: S => S.buildings.length },
+  { id: 'fire10', n: '활활 타오르는 불', d: '용광로가 레벨 10으로 상승했습니다.', rw: 2, need: 10, cur: maxFurnace },
+  { id: 'fire20', n: '불이 한창이다', d: '용광로가 레벨 20으로 상승했습니다.', rw: 3, need: 20, cur: maxFurnace },
+  { id: 'camp2', n: '두 번째 집', d: '첫 번째 전초기지 용광로를 밝히세요', rw: 2, need: 2, cur: S => S.camps.length },
+  { id: 'camp4', n: '스타파이어컴퍼니', d: '한 번의 여정에는 동시에 4개의 야영지가 있습니다.', rw: 3, need: 4, cur: S => S.camps.length },
+  { id: 'north3', n: '북행자', d: '검은 기름 동토 지점 모닥불에서', rw: 2, need: 1, cur: S => yes(S.founded.some(i => i >= 3)) },
+  { id: 'north5', n: '성철 아래', d: '성철 잔해 지점 모닥불에서', rw: 3, need: 1, cur: S => yes(S.founded.some(i => i >= 5)) },
+  { id: 'eternal', n: '영원의 용광로', d: '리킨들영원의 용광로', rw: 5, need: 1, cur: S => yes(S.meta.graduated) },
+  { id: 'far1', n: '거리를 보아라', d: '영원의 용광로 북쪽의 먼 랜드마크 찾기', rw: 2, need: 1, cur: S => yes(((S.far || {}).seen || []).length) },
+  { id: 'gang', n: '약탈자 제거', d: '같은 무리의 약탈자를 두 번 처치하고 해산시키세요.', rw: 3, need: 1, cur: S => S.stats.gangs || 0 },
+  { id: 'wx3', n: '예상치 못한 일이 발생합니다', d: '얼음 폭풍, 극도로 추운 밤, 도중에 얼음호수 균열 발생', rw: 2, need: 3, cur: S => WXE_KEYS.filter(k => S.stats.wxe && S.stats.wxe[k]).length },
+  { id: 'bliz5', n: '바람도 눈도 내리지 않아', d: '한 번의 여정에서 5게임을 생존했습니다눈보라', rw: 2, need: 5, cur: S => S.stats.blizzards },
+  { id: 'nodeath', n: '누구도 빠질 수 없어', d: '여행은 3시간 동안 진행됐고 사망자는 없었다.', rw: 3, need: 180, cur: S => S.stats.deaths ? 0 : Math.floor(S.t / 60) },
+  { id: 'guard3', n: '야간 경비원', d: '한 번의 여정에서 습격을 3번 격파하세요', rw: 2, need: 3, cur: S => S.stats.raidsWon },
+  { id: 'req5', n: '좋은 이웃', d: '한 번의 여정에서 5개의 미션을 완료하세요', rw: 2, need: 5, cur: S => S.stats.reqs || 0 },
+  { id: 'req20', n: '요청에 응답', d: '한 번의 여정으로 20개의 커미션을 완료하세요', rw: 3, need: 20, cur: S => S.stats.reqs || 0 },
+  { id: 'trade10', n: '일반 고객', d: '한 번의 여행 동안 캐러밴에 10개의 주문을 제출하세요.', rw: 2, need: 10, cur: S => S.stats.carOrders || 0 },
+  { id: 'aur3', n: '시계오로라', d: '여행 중에 모두와 함께 오로라를 3번 시청하세요', rw: 2, need: 3, cur: S => S.stats.aurora || 0 },
+  { id: 'met3', n: '스타 체이서', d: '길을 따라 3개의 유성 분화구를 파세요', rw: 2, need: 3, cur: S => (S.stats.surKinds || {}).meteor || 0 },
+  { id: 'photo', n: '지금 이 순간 얼어붙어', d: '사진 모드에서 야영지의 사진을 찍으세요.', rw: 1, need: 1, cur: S => S.meta.photos || 0 },
+  { id: 'dogs12', n: '개 풀 썰매', d: '야영지에는 잘 먹은 썰매 개 12마리가 있습니다.', rw: 2, need: 12, cur: S => Math.floor(Math.max(0, ...S.camps.map(c => dogsOf(S, c.id)))) },
+  { id: 'fest3', n: '매일 밤 노래를 틀어', d: '한 번의 여행으로 3개의 모닥불 축하 행사 개최', rw: 2, need: 3, cur: S => S.stats.fests || 0 },
+  { id: 'deep', n: '파헤치다', d: '깊은 우물을 파다', rw: 1, need: 1, cur: S => yes(S.buildings.some(b => b.deep)) },
+  { id: 'vein3', n: '광부', d: '도중에 새로운 광맥 3개 발견', rw: 2, need: 3, cur: S => (S.veins || []).length },
+  { id: 'belt5', n: '조립 라인', d: '한 번의 여행으로 5개의 컨베이어 벨트를 설치하세요', rw: 2, need: 5, cur: S => (S.belts || []).length },
+  { id: 'rail', n: '증기 시대', d: '컨베이어 벨트 업그레이드를 증기 트랙으로 전환', rw: 2, need: 1, cur: S => yes((S.belts || []).some(b => b.lvl >= 2)) },
+  { id: 'spec5', n: '재능이 다 왔네', d: '주변에 전문가 5개 모으기', rw: 2, need: 5, cur: S => Object.keys(S.meta.specs || {}).length },
+  { id: 'allres', n: '모든 것이 준비되었습니다', d: '재료란에 있는 모든 재료를 수집하세요.', rw: 3, need: RES_KEYS.length, cur: (S, B) => RES_KEYS.filter(k => B.r[k]).length },
+  { id: 'allbld', n: '건설 마스터', d: '건물 열에서 모두 수집', rw: 5, need: Object.keys(BLD).length, cur: (S, B) => Object.keys(BLD).filter(k => B.b[k]).length },
+  { id: 'allsight', n: '잘 알고', d: '풍경란에 모두 모아보세요', rw: 3, need: SIGHTS.length, cur: (S, B) => SIGHTS.filter(x => B.s[x.id]).length },
   // ---------- 第十三版：只换装扮、不给余烬（cat 分类，gift 解锁的东西，hid 做到之前是「？？？」）----------
-  { id: 'n1', cat: '北境', n: '破冰者', d: '走到北境第 1 站', rw: 0, need: 1, cur: S => S.meta.northMax || 0, gift: { title: 'ice', deco: 'icesculpt' } },
-  { id: 'n5', cat: '北境', n: '北境旅人', d: '走到北境第 5 站', rw: 0, need: 5, cur: S => S.meta.northMax || 0, gift: { title: 'walker', flag: 'star' } },
-  { id: 'n10', cat: '北境', n: '十站之外', d: '走到北境第 10 站', rw: 0, need: 10, cur: S => S.meta.northMax || 0, gift: { flame: 'blue' } },
-  { id: 'n20', cat: '北境', n: '极北之人', d: '走到北境第 20 站', rw: 0, need: 20, cur: S => S.meta.northMax || 0, gift: { title: 'far', frame: 'map' } },
-  { id: 'qy1', v: 11, cat: '北境', n: '听过奇遇的人', d: '在北境走完一件奇遇', rw: 0, need: 1, cur: S => Object.keys(S.meta.qy || {}).length, gift: { title: 'tale' } },
-  { id: 'qy12', v: 11, cat: '北境', n: '十二奇遇', d: '十二种奇遇都走完过', rw: 0, need: QY_KEYS.length, cur: S => Object.keys(S.meta.qy || {}).length, gift: { title: 'tales' } },
-  { id: 'wolfking', v: 11, cat: '隐藏', hid: 1, n: '狼王', d: '在奇遇里打倒狼王', rw: 0, need: 1, cur: S => yes((S.meta.f13 || {}).wolfking), gift: { deco: 'wolfrug' } },
-  { id: 'wonder', v: 11, cat: '北境', n: '奇观建造者', d: '建成一座奇观', rw: 0, need: 1, cur: S => S.meta.wMax || 0, gift: { title: 'wonder' } },
-  { id: 'wonders3', v: 11, cat: '北境', n: '三奇观', d: '一程里建成三座奇观', rw: 0, need: 3, cur: S => S.meta.wMax || 0, gift: { title: 'wonders' } },
-  { id: 'mayor', v: 11, cat: '营地', n: '大城之主', d: '把一座营地一级级升成大城', rw: 0, need: 3, cur: S => S.meta.town || 0, gift: { title: 'mayor' } },
-  { id: 'peak', v: 11, cat: '产线', n: '炉火鼎盛', d: '一座营地的产线全稳在三星，炉火烧成金色', rw: 0, need: 1, cur: S => S.meta.peakN || 0, gift: { title: 'peak' } },
-  { id: 'tide5', v: 11, cat: '北境', n: '永冬守火人', d: '挺过永冬潮第 5 波（没人冻伤，霜巨兽没闯进来）', rw: 0, need: 5, cur: S => S.meta.tideBest || 0, gift: { title: 'tide5', flame: 'frost' } },
-  { id: 'tide10', v: 11, cat: '北境', n: '十潮不灭', d: '挺过永冬潮第 10 波', rw: 0, need: 10, cur: S => S.meta.tideBest || 0, gift: { title: 'tide10', flame: 'eternal' } },
-  { id: 'rules', cat: '北境', n: '十种地貌', d: '十种北境地貌都走过一遍', rw: 0, need: 10, cur: S => rulesSeen(S), gift: { deco: 'bonearch' } },
-  { id: 'tw1', cat: '烽火塔', n: '点灯人', d: '点亮第一座烽火塔', rw: 0, need: 1, cur: S => Math.max(S.meta.towerMax || 0, towersLit(S)), gift: { title: 'lamp', deco: 'pyremem' } },
-  { id: 'tw5', cat: '烽火塔', n: '连成一线', d: '一程里点亮 5 座烽火塔', rw: 0, need: 5, cur: S => Math.max(S.meta.towerMax || 0, towersLit(S)), gift: { flag: 'flame' } },
-  { id: 'sky', cat: '烽火塔', n: '天火', d: '点燃北境第 10 站的天火塔', rw: 0, need: 1, cur: S => S.meta.skyfire || 0, gift: { title: 'sky', flame: 'gold', deco: 'skymem' } },
-  { id: 'nocut', cat: '烽火塔', n: '一口气', d: '一座塔从开始长到一半，一次都没断过货', rw: 0, need: 1, cur: S => yes(towerList(S).some(t => !t.cut) || (S.meta.f13 || {}).nocut), gift: { frame: 'copper' } },
-  { id: 'hi3', cat: '产线', n: '群星闪耀', d: '六种高级材料的产线都升到三星', rw: 0, need: 6, cur: S => NORTH_HI.filter(k => plinesOf(S).some(l => l.r === k && l.star >= 3)).length, gift: { flame: 'purple' } },
-  { id: 'wolfsafe', cat: '生存', n: '狼口无伤', d: '在狼群领地打退 3 次袭营，一个人都没伤着', rw: 0, need: 1, cur: S => yes((S.meta.f13 || {}).wolfsafe), gift: { title: 'wolf', flag: 'wolf' } },
-  { id: 'storm4', cat: '生存', n: '风暴不倒', d: '在风暴走廊挺过 4 场暴风雪，没人冻伤', rw: 0, need: 4, cur: S => (S.meta.f13 || {}).storm4 ? 4 : ruleNow(S) === 'storm' ? Math.min(4, nsOf(S).blizOk || 0) : 0, gift: { title: 'storm', deco: 'snowman' } },
-  { id: 'deco8', cat: '营地', n: '张灯结彩', d: '一座营地里摆上 8 种不同的装饰', rw: 0, need: 8, cur: S => Math.max(0, ...S.camps.map(c => new Set(S.buildings.filter(b => b.camp === c.id && BLD[b.type].cat === 'deco').map(b => b.type)).size)), gift: { deco: 'lanterns' } },
-  { id: 'flamec', cat: '营地', n: '换个颜色', d: '给一座营地的炉火换一次颜色', rw: 0, need: 1, cur: S => yes((S.meta.cos || {}).fc), gift: { title: 'keeper' } },
-  { id: 'mover', cat: '营地', n: '挪挪更顺', d: '一共挪 10 次建筑的位置', rw: 0, need: 10, cur: S => S.meta.moves || 0, gift: { flag: 'compass' } },
-  { id: 'ruins10', cat: '营地', n: '拆古城的人', d: '一共拆掉 10 处古城废墟', rw: 0, need: 10, cur: S => S.meta.ruinsN || 0, gift: { frame: 'ruin' } },
-  { id: 'decoall', cat: '营地', n: '北境装扮', d: '八种北境装饰都建过', rw: 0, need: NDECO.length, cur: (S, B) => NDECO.filter(k => B.b[k]).length, gift: { flame: 'aurora' } },
-  { id: 'aur5', cat: '隐藏', hid: 1, n: '永夜极光', d: '在永夜的站和大家看 5 次极光', rw: 0, need: 5, cur: S => (S.meta.f13 || {}).aur5 ? 5 : ruleNow(S) === 'night' ? Math.min(5, nsOf(S).aur || 0) : 0, gift: { deco: 'windchime', flame: 'green' } },
-  { id: 'photo20', cat: '隐藏', hid: 1, n: '随手拍', d: '拍 20 张照片', rw: 0, need: 20, cur: S => S.meta.photos || 0, gift: { frame: 'film' } },
-  { id: 'icefest', cat: '隐藏', hid: 1, n: '冰湖庆典', d: '在有冰钓屋的营地办一场篝火庆典', rw: 0, need: 1, cur: S => yes((S.meta.f13 || {}).icefest), gift: { deco: 'deerstatue' } },
+  { id: 'n1', cat: '북방', n: '얼음을 깨는 자', d: '첫 번째 정류장 북방까지 도보로 이동하세요.', rw: 0, need: 1, cur: S => S.meta.northMax || 0, gift: { title: 'ice', deco: 'icesculpt' } },
+  { id: 'n5', cat: '북방', n: '북방의 나그네', d: '5번째 정류장까지 도보 이동 북방', rw: 0, need: 5, cur: S => S.meta.northMax || 0, gift: { title: 'walker', flag: 'star' } },
+  { id: 'n10', cat: '북방', n: '10정거장 거리', d: '10번째 정류장까지 도보 이동 북방', rw: 0, need: 10, cur: S => S.meta.northMax || 0, gift: { flame: 'blue' } },
+  { id: 'n20', cat: '북방', n: '극북에 닿은 자', d: '20번째 정류장까지 도보 이동 북방', rw: 0, need: 20, cur: S => S.meta.northMax || 0, gift: { title: 'far', frame: 'map' } },
+  { id: 'qy1', v: 11, cat: '북방', n: '기연을 들은 사람', d: '북방에서 기연 착용완료', rw: 0, need: 1, cur: S => Object.keys(S.meta.qy || {}).length, gift: { title: 'tale' } },
+  { id: 'qy12', v: 11, cat: '북방', n: '열두 기연', d: '기연 12종 완성', rw: 0, need: QY_KEYS.length, cur: S => Object.keys(S.meta.qy || {}).length, gift: { title: 'tales' } },
+  { id: 'wolfking', v: 11, cat: '숨기기', hid: 1, n: '늑대왕', d: '기연에서 늑대왕을 처치하세요', rw: 0, need: 1, cur: S => yes((S.meta.f13 || {}).wolfking), gift: { deco: 'wolfrug' } },
+  { id: 'wonder', v: 11, cat: '북방', n: '불가사의 건설자', d: '불가사의 구축', rw: 0, need: 1, cur: S => S.meta.wMax || 0, gift: { title: 'wonder' } },
+  { id: 'wonders3', v: 11, cat: '북방', n: '세 불가사의', d: '1마일당 3개의 불가사의가 제작되었습니다.', rw: 0, need: 3, cur: S => S.meta.wMax || 0, gift: { title: 'wonders' } },
+  { id: 'mayor', v: 11, cat: '야영지', n: '대도시의 주인', d: '야영지를 대도시로 업그레이드', rw: 0, need: 3, cur: S => S.meta.town || 0, gift: { title: 'mayor' } },
+  { id: 'peak', v: 11, cat: '생산 라인', n: '불이 한창이다', d: '야영지 생산 라인은 삼성에서 완전히 안정적이며 용광로는 금색으로 연소됩니다.', rw: 0, need: 1, cur: S => S.meta.peakN || 0, gift: { title: 'peak' } },
+  { id: 'tide5', v: 11, cat: '북방', n: '영동의 불지킴이', d: '영동조의 5번째 웨이브에서 살아남으세요. (동상은 아무도 없고, 서리 괴물이 침입하지 않았습니다.)', rw: 0, need: 5, cur: S => S.meta.tideBest || 0, gift: { title: 'tide5', flame: 'frost' } },
+  { id: 'tide10', v: 11, cat: '북방', n: '열 번의 물결에도 꺼지지 않는 자', d: '영동조의 10번째 웨이브에서 살아남으세요', rw: 0, need: 10, cur: S => S.meta.tideBest || 0, gift: { title: 'tide10', flame: 'eternal' } },
+  { id: 'rules', cat: '북방', n: '10가지 지형', d: '북방 지형 10곳을 모두 방문했습니다.', rw: 0, need: 10, cur: S => rulesSeen(S), gift: { deco: 'bonearch' } },
+  { id: 'tw1', cat: '봉화탑', n: '불을 켜는 사람', d: '첫 번째 봉화탑을 켜십시오.', rw: 0, need: 1, cur: S => Math.max(S.meta.towerMax || 0, towersLit(S)), gift: { title: 'lamp', deco: 'pyremem' } },
+  { id: 'tw5', cat: '봉화탑', n: '줄을 서서', d: '한 번의 여행으로 5인승 봉화탑을 밝히세요', rw: 0, need: 5, cur: S => Math.max(S.meta.towerMax || 0, towersLit(S)), gift: { flag: 'flame' } },
+  { id: 'sky', cat: '봉화탑', n: '하늘의 불', d: '북방의 10번째 스테이션에서 천화탑을 점화하세요', rw: 0, need: 1, cur: S => S.meta.skyfire || 0, gift: { title: 'sky', flame: 'gold', deco: 'skymem' } },
+  { id: 'nocut', cat: '봉화탑', n: '한숨에', d: '타워가 반쯤 자라기 시작할 때부터 재고가 없어지는 일이 없었습니다.', rw: 0, need: 1, cur: S => yes(towerList(S).some(t => !t.cut) || (S.meta.f13 || {}).nocut), gift: { frame: 'copper' } },
+  { id: 'hi3', cat: '생산 라인', n: '별빛나다', d: '첨단소재 6개 생산라인 삼성으로 업그레이드', rw: 0, need: 6, cur: S => NORTH_HI.filter(k => plinesOf(S).some(l => l.r === k && l.star >= 3)).length, gift: { flame: 'purple' } },
+  { id: 'wolfsafe', cat: '생존', n: '늑대의 입은 무해하다', d: '늑대 무리 영역에서 습격을 3번 격파했고, 아무도 다치지 않았습니다.', rw: 0, need: 1, cur: S => yes((S.meta.f13 || {}).wolfsafe), gift: { title: 'wolf', flag: 'wolf' } },
+  { id: 'storm4', cat: '생존', n: '폭풍우가 내리지 않을 것이다', d: '폭풍 회랑, 눈보라, 아무도 동상의 4 게임에서 살아남았습니다.', rw: 0, need: 4, cur: S => (S.meta.f13 || {}).storm4 ? 4 : ruleNow(S) === 'storm' ? Math.min(4, nsOf(S).blizOk || 0) : 0, gift: { title: 'storm', deco: 'snowman' } },
+  { id: 'deco8', cat: '야영지', n: '등불과 꽃줄', d: '하나의 야영지에 8개의 서로 다른 장식을 넣습니다.', rw: 0, need: 8, cur: S => Math.max(0, ...S.camps.map(c => new Set(S.buildings.filter(b => b.camp === c.id && BLD[b.type].cat === 'deco').map(b => b.type)).size)), gift: { deco: 'lanterns' } },
+  { id: 'flamec', cat: '야영지', n: '색깔을 바꾸다', d: '야영지 스토브 불의 색상 변경', rw: 0, need: 1, cur: S => yes((S.meta.cos || {}).fc), gift: { title: 'keeper' } },
+  { id: 'mover', cat: '야영지', n: '더욱 원활하게 이동하세요', d: '건물 위치를 총 10번 옮겼습니다.', rw: 0, need: 10, cur: S => S.meta.moves || 0, gift: { flag: 'compass' } },
+  { id: 'ruins10', cat: '야영지', n: '고성을 분해한 사람', d: '고성 폐허의 총 10개 부품이 제거되었습니다.', rw: 0, need: 10, cur: S => S.meta.ruinsN || 0, gift: { frame: 'ruin' } },
+  { id: 'decoall', cat: '야영지', n: '북방 드레스업', d: '8가지 유형의 북방장식이 제작되었습니다.', rw: 0, need: NDECO.length, cur: (S, B) => NDECO.filter(k => B.b[k]).length, gift: { flame: 'aurora' } },
+  { id: 'aur5', cat: '숨기기', hid: 1, n: '영야오로라', d: '영야 사이트의 모든 사람과 함께 오로라를 5번 시청하세요.', rw: 0, need: 5, cur: S => (S.meta.f13 || {}).aur5 ? 5 : ruleNow(S) === 'night' ? Math.min(5, nsOf(S).aur || 0) : 0, gift: { deco: 'windchime', flame: 'green' } },
+  { id: 'photo20', cat: '숨기기', hid: 1, n: '아무렇지도 않게 사진을 찍는다', d: '사진 20장 찍기', rw: 0, need: 20, cur: S => S.meta.photos || 0, gift: { frame: 'film' } },
+  { id: 'icefest', cat: '숨기기', hid: 1, n: '얼음호수 축하', d: '얼음낚시 오두막이 있는 야영지에서 모닥불 축하 행사를 개최하세요.', rw: 0, need: 1, cur: S => yes((S.meta.f13 || {}).icefest), gift: { deco: 'deerstatue' } },
 ];
-export const ACH_CATS = ['北境', '烽火塔', '产线', '生存', '营地', '隐藏', '旅程'];
-export const achCat = a => a.cat || '旅程';
+export const ACH_CATS = ['북방', '봉화탑', '생산 라인', '생존', '야영지', '숨기기', '여행'];
+export const achCat = a => a.cat || '여행';
 // 成就里记的一次性条件
 function flag13(S, k) { (S.meta.f13 ||= {})[k] = 1; }
 // 狼群领地：打退第 3 次袭营的时候，这一站一个人都没伤着
@@ -3968,7 +3968,7 @@ export function rulesSeen(S) {
 }
 // ---------- 装扮：成就送的东西（从成就记录里推出来，老存档读进来就有）----------
 export const GIFT_KINDS = { title: TITLES, flame: FLAMES, flag: FLAGS, frame: FRAMES };
-export const GIFT_LABEL = { title: '称号', flame: '炉火', flag: '旗子', frame: '相框', deco: '装饰' };
+export const GIFT_LABEL = { title: '칭호', flame: '불', flag: '깃발', frame: '사진 프레임', deco: '장식' };
 export const GIFT_ICON = { title: '🎖', flame: '🔥', flag: '🚩', frame: '🖼', deco: '🗿' };
 export function cosOf(S) { const C = S.meta.cos || (S.meta.cos = {}); C.seen ||= {}; return C; }
 export function giftFrom(kind, id) { return ACH.find(a => a.gift && a.gift[kind] === id) || null; }

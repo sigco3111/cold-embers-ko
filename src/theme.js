@@ -5,7 +5,7 @@
 import * as Sim from './sim.js';
 
 const PREF = 'hanjin-beixing-v1-theme';
-export const THEMES = [['auto', '跟着天气', '风雪来时冷，平时暖'], ['cold', '冷', '极寒末日'], ['warm', '暖', '温馨安全']];
+export const THEMES = [['auto', '날씨를 따라가다', '바람이 불고 눈이 오면 춥지만 평소에는 따뜻해요'], ['cold', '추운', '극한의 종말'], ['warm', '따뜻한', '따뜻하고 안전함']];
 const HOLD = 30, DIP = 550; // 回暖前等几秒；淡下去用多久（毫秒）
 
 export class Theme {

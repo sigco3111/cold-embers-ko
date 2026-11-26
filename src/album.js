@@ -64,8 +64,8 @@ export function toJpeg(cv, max = 1280) {
   });
 }
 export async function albumSave(rec) {
-  const name = `寒烬北行-相册-${stamp(new Date(rec.t))}.jpg`;
-  return saveFile(name, rec.blob, name.replace('寒烬北行', 'hanjin'));
+  const name = `차가운 잔불의 북행-앨범-${stamp(new Date(rec.t))}.jpg`;
+  return saveFile(name, rec.blob, name.replace('차가운 잔불의 북행', 'hanjin'));
 }
 
 // 大图：照片、说明、日期，保存 / 删除（点两下才删）/ 关闭
@@ -73,15 +73,15 @@ export class AlbumView {
   constructor(onDel) {
     this.onDel = onDel;
     const el = this.el = document.createElement('div'); el.id = 'albumview';
-    el.innerHTML = '<div class="pvin"><img alt="相册里的照片"><div class="avcap"></div><div class="pvbar"><button class="btn go" data-av="save">保存图片</button><button class="btn" data-av="del">删除</button><button class="btn ghost" data-av="x">关闭</button></div><small>保存不了的话：电脑上右键图片「另存为」，手机上长按图片保存。</small></div>';
+    el.innerHTML = '<div class="pvin"><img alt="앨범의 사진"><div class="avcap"></div><div class="pvbar"><button class="btn go" data-av="save">사진 저장</button><button class="btn" data-av="del">삭제</button><button class="btn ghost" data-av="x">닫기</button></div><small>저장할 수 없는 경우: 컴퓨터에서 이미지를 마우스 오른쪽 버튼으로 클릭하고 "다른 이름으로 저장"한 다음 휴대폰에서 이미지를 길게 눌러 저장하세요. </small></div>';
     el.addEventListener('click', async e => {
       const b = e.target.closest('[data-av]');
       if (!b) { if (e.target === el) this.hide(); return; }
       const k = b.dataset.av;
       if (k === 'x') this.hide();
-      else if (k === 'save') { const r = await albumSave(this.rec); b.textContent = r === 'saved' ? '✓ 存好了' : r === 'busy' ? '还在问要不要保存…' : '保存图片'; }
+      else if (k === 'save') { const r = await albumSave(this.rec); b.textContent = r === 'saved' ? '✓ 저장됨' : r === 'busy' ? '아직도 저장하겠냐고 물어보는데...' : '이미지 저장'; }
       else if (k === 'del') {
-        if (!this.armed) { this.armed = true; b.textContent = '再点一次删除'; b.classList.add('warn'); return; }
+        if (!this.armed) { this.armed = true; b.textContent = '삭제하려면 다시 클릭하세요.'; b.classList.add('warn'); return; }
         await albumDel(this.rec.id); this.hide(); this.onDel && this.onDel(this.rec.id);
       }
     });
@@ -91,9 +91,9 @@ export class AlbumView {
     this.rec = rec; this.armed = false;
     this.el.querySelector('img').src = url;
     const d = new Date(rec.t), p = n => String(n).padStart(2, '0');
-    this.el.querySelector('.avcap').textContent = `${rec.cap || ''}  ·  ${d.getMonth() + 1}月${d.getDate()}日 ${p(d.getHours())}:${p(d.getMinutes())}${rec.auto ? '  ·  自动拍的' : ''}`;
-    const del = this.el.querySelector('[data-av="del"]'); del.textContent = '删除'; del.classList.remove('warn');
-    this.el.querySelector('[data-av="save"]').textContent = '保存图片';
+    this.el.querySelector('.avcap').textContent = `${rec.cap || ''} · ${d.getMonth() + 1}월${d.getDate()}일 ${p(d.getHours())}:${p(d.getMinutes())}${rec.auto ? '· 자동으로 촬영' : ''}`;
+    const del = this.el.querySelector('[data-av="del"]'); del.textContent = '삭제'; del.classList.remove('warn');
+    this.el.querySelector('[data-av="save"]').textContent = '이미지 저장';
     this.el.classList.add('show');
   }
   hide() { this.el.classList.remove('show'); }

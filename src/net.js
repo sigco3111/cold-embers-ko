@@ -10,15 +10,15 @@ import { journeyOf, mainCamp, tripPlan, ruleNow, nsOf } from './journey.js';
 import { wonderRoad, wonderNeeds } from './wonder.js';
 
 export const ROAD = {
-  sled: { n: '雪橇道', cap: 30, spd: 3 },
-  trunk: { n: '北行主干道', cap: 60, spd: 3 },
-  rail: { n: '铁路', cap: 120, spd: 8 },
+  sled: { n: '썰매 도로', cap: 30, spd: 3 },
+  trunk: { n: '북쪽으로 향하는 주요 도로', cap: 60, spd: 3 },
+  rail: { n: '철도', cap: 120, spd: 8 },
 };
 export const ROAD_MAX = 5, NET_TICK = 10, NET_BATCH = 10, BASE_FILL = 200, FEED_MAX = 6, SHOW_SLEDS = 6;
 export const BASE_KS = ['wood', 'plank', 'stone', 'iron'];
 export const RAIL_COST = { steel: 150, seal: 40, engine: 10 };
 // 缺口的七档：前面的先满足
-export const TIER = ['', '保命', '手动送的', '建造队列', '长期供货', '产线缺料', '主营地大事', '补底'];
+export const TIER = ['', '당신의 생명을 구하십시오', '수동으로 전달됨', '건설 대기열', '장기공급', '생산라인에 자재가 부족하다', '본영 빅 이벤트', '바닥을 덮다'];
 const FUEL_SHIP = ['coke', 'coal', 'wood', 'battery']; // 补燃料时先送热值高又不太金贵的
 
 // 研究、号令、奇观以后往这里加：cap 运力倍数、spd 雪橇速度、rail 铁路速度、thrift 修路省料、tick 调度间隔
@@ -78,9 +78,9 @@ function payEnds(S, r, cost, view) {
   return 0;
 }
 function applyPend(S, r, what) {
-  if (what === 'build') { logMsg(S, `🛷 ${netRoadName(S, r)}的雪橇道修好了。`, 'good'); }
-  else if (what === 'rail') { r.kind = 'rail'; r.lvl = 1; logMsg(S, `🚂 ${netRoadName(S, r)}改建成铁路，运得多、跑得快。`, 'good'); }
-  else { r.lvl++; logMsg(S, `🛷 ${netRoadName(S, r)}的${roadKindName(r)}升到 ${r.lvl} 级。`, 'good'); }
+  if (what === 'build') { logMsg(S, `🛷 ${netRoadName(S, r)}의 썰매 트랙이 수리되었습니다.`, 'good'); }
+  else if (what === 'rail') { r.kind = 'rail'; r.lvl = 1; logMsg(S, `🚂 ${netRoadName(S, r)}이(가) 철도로 변환되어 더 많이 운반하고 더 빠르게 실행할 수 있습니다.`, 'good'); }
+  else { r.lvl++; logMsg(S, `🛷 ${netRoadName(S, r)}의 ${roadKindName(r)}이(가) ${r.lvl} 레벨로 업그레이드되었습니다.`, 'good'); }
   delete r.pend; dirty(S);
 }
 function payOrQueue(S, r, what, cost, view) {
@@ -89,25 +89,25 @@ function payOrQueue(S, r, what, cost, view) {
   const ends = [r.a, r.b], who = ends.includes(view) ? view : ends.includes(mainCamp(S).id) ? mainCamp(S).id : r.a;
   r.pend = { what, cost, by: who };
   dirty(S);
-  return { ok: true, queued: true, by: who, reason: `两头的料都不够（${missing(getCamp(S, who).stock, cost).join('，')}），先排进「${getCamp(S, who).name}」的建造队列，物流网会把料运过去` };
+  return { ok: true, queued: true, by: who, reason: `양쪽 끝(${missing(getCamp(S, who).stock, cost).join('，')})에 재료가 충분하지 않습니다. 먼저 "${getCamp(S, who).name}"의 건설 대기열에 대기열을 추가하면 물류망이 자료를 그곳으로 운송합니다.` };
 }
 export function buildRoad(S, a, b, view) {
-  if (a === b) return { ok: false, reason: '同一个营地' };
-  if (!getCamp(S, a) || !getCamp(S, b)) return { ok: false, reason: '营地不在了' };
-  if (roadBetween(S, a, b)) return { ok: false, reason: '这两个营地之间已经有路了' };
+  if (a === b) return { ok: false, reason: '동일한 야영지' };
+  if (!getCamp(S, a) || !getCamp(S, b)) return { ok: false, reason: '야영지가 사라짐' };
+  if (roadBetween(S, a, b)) return { ok: false, reason: '이 둘 사이에는 이미 도로가 있습니다 야영지' };
   const r = addRoadRaw(S, a, b, 'sled', 1, { pend: { what: 'build' } });
   return payOrQueue(S, r, 'build', roadCost(S, a, b), view);
 }
 export function upgradeRoad(S, rid, view) {
-  const r = roadOf(S, rid); if (!r) return { ok: false, reason: '路不在了' };
-  if (r.pend) return { ok: false, reason: '这条路已经在排队等料' };
-  const cost = roadUpCost(S, r); if (!cost) return { ok: false, reason: `已经 ${ROAD_MAX} 级了` };
+  const r = roadOf(S, rid); if (!r) return { ok: false, reason: '길이 없어졌어' };
+  if (r.pend) return { ok: false, reason: '이 도로에는 이미 자재를 기다리는 줄이 있습니다' };
+  const cost = roadUpCost(S, r); if (!cost) return { ok: false, reason: `이미 ${ROAD_MAX} 레벨` };
   return payOrQueue(S, r, 'up', cost, view);
 }
 export function railRoad(S, rid, view) {
-  const r = roadOf(S, rid); if (!r) return { ok: false, reason: '路不在了' };
-  if (r.pend) return { ok: false, reason: '这条路已经在排队等料' };
-  if (!railOk(S, r)) return { ok: false, reason: '到「油与铁路」这一层、路升到 3 级以后才能改铁路' };
+  const r = roadOf(S, rid); if (!r) return { ok: false, reason: '길이 없어졌어' };
+  if (r.pend) return { ok: false, reason: '이 도로에는 이미 자재를 기다리는 줄이 있습니다' };
+  if (!railOk(S, r)) return { ok: false, reason: '철도로 변경하기 전에 "석유와 철도" 레벨로 이동하여 레벨 3으로 업그레이드하세요.' };
   return payOrQueue(S, r, 'rail', { ...RAIL_COST }, view);
 }
 export function cancelRoad(S, rid) {
@@ -195,10 +195,10 @@ function deliver(S, s) {
   const R = rt(S), N = R.net || (R.net = {});
   (N.got || (N.got = [])).push({ k: s.k, n: s.n, to: to.id, from: s.from, src: s.src, t: S.t });
   if (N.got.length > 40) N.got.shift();
-  if (!to.gotFirst && !to.depot && to.id !== (mainCamp(S) || {}).id) { to.gotFirst = 1; logMsg(S, `🛷 第一批货运到了「${to.name}」：${RES[s.k].n} ${Math.round(s.n)}。以后缺什么，物流网会自己送来。`, 'good', { act: 'netview', arg: to.id, label: '看物流' }); }
+  if (!to.gotFirst && !to.depot && to.id !== (mainCamp(S) || {}).id) { to.gotFirst = 1; logMsg(S, `🛷 첫 번째 배송이 "${to.name}": ${RES[s.k].n} ${Math.round(s.n)}에 도착했습니다. 앞으로 필요한 것이 있으면 물류망이 직접 배달해 드립니다.`, 'good', { act: 'netview', arg: to.id, label: '물류를 보세요' }); }
   if (s.bid) {
     const b = sends(S).find(x => x.id === s.bid);
-    if (b) { b.arr = (b.arr || 0) + s.n; if (b.left <= 0.5 && b.arr >= b.n - 0.5) { S.sends = sends(S).filter(x => x !== b); logMsg(S, `🛷 送到了：${RES[b.k].n} ${Math.round(b.n)} 从「${(getCamp(S, b.from) || {}).name}」运到了「${to.name}」。`, 'good'); } }
+    if (b) { b.arr = (b.arr || 0) + s.n; if (b.left <= 0.5 && b.arr >= b.n - 0.5) { S.sends = sends(S).filter(x => x !== b); logMsg(S, `🛷 배송지: ${RES[b.k].n} ${Math.round(b.n)}이(가) "${(getCamp(S, b.from) || {}).name}"에서 "${to.name}"(으)로 배송되었습니다.`, 'good'); } }
   }
 }
 
@@ -232,25 +232,25 @@ export function campGaps(S, c, inc = inbound(S, c.id)) {
   // 1 保命：燃料、口粮不到 20 分钟就补到 30 分钟
   const burn = cr.burnPerMin || 0, units = fuelUnitsOf(st) + fuelU(inc);
   const fk = fuelKeepMin(S); // 寒潮报出来了：先补到能烧过寒潮那一天
-  if (burn > 0 && units < burn * (fk > 30 ? fk : 20)) out.push({ c: c.id, k: '@fuel', n: burn * fk - units, tier: 1, why: fk > 30 ? (((z => z && !z.on && z.fc)(tideAt(S))) ? '备永冬潮' : '备寒潮') : '燃料', main: isMain });
+  if (burn > 0 && units < burn * (fk > 30 ? fk : 20)) out.push({ c: c.id, k: '@fuel', n: burn * fk - units, tier: 1, why: fk > 30 ? (((z => z && !z.on && z.fc)(tideAt(S))) ? '영동조 준비' : '한파 준비') : '연료', main: isMain });
   const eat = c.people * EAT;
-  if (eat > 0 && avail.food < eat * 20) need('food', eat * 30, 1, '口粮');
+  if (eat > 0 && avail.food < eat * 20) need('food', eat * 30, 1, '배급');
   // 3 建造队列、排队的升级、排队的路
   const qn = queueNeeds(S, c);
-  for (const k in qn) need(k, qn[k], 3, '建造队列');
-  { const wn = wonderNeeds(S, c.id); for (const k in wn) need(k, wn[k], 3, '奇观工地'); }
+  for (const k in qn) need(k, qn[k], 3, '건설 대기열');
+  { const wn = wonderNeeds(S, c.id); for (const k in wn) need(k, wn[k], 3, '불가사의 건설 현장'); }
   // 5 产线缺料：建筑想用却拿不到的，补到十分钟的量
-  for (const k of RES_KEYS) { const f = fl[k]; if (f && f.want - f.c > Math.max(0.05, f.want * 0.08)) need(k, f.want * 10, 5, '产线缺料'); }
+  for (const k of RES_KEYS) { const f = fl[k]; if (f && f.want - f.c > Math.max(0.05, f.want * 0.08)) need(k, f.want * 10, 5, '생산라인에 자재가 부족하다'); }
   // 6 主营地的大事：熔炉下一级、北迁要带的货、塔身建好等点火的燃料
   if (isMain) {
     const fc = upgradeCost(S, getB(S, c.furnace));
-    if (!Object.keys(fc).some(k => RES[k].t > S.known)) for (const k in fc) need(k, fc[k], 6, '熔炉下一级');
+    if (!Object.keys(fc).some(k => RES[k].t > S.known)) for (const k in fc) need(k, fc[k], 6, '용광로 다음 레벨');
     const J = journeyOf(S);
-    if (!J.trip) { try { const p = tripPlan(S); if (p && p.need) for (const k in p.need) need(k, p.need[k], 6, '北迁要带的'); } catch (e) { /* 没有下一站 */ } }
-    for (const b of S.buildings) if (b.camp === c.id && b.tw && !b.tw.lit) { const sp = towerSpec(S, b.tn); if (b.tw.p >= sp.dur) for (const k in sp.fuel) need(k, sp.fuel[k], 6, '烽火塔点火'); }
+    if (!J.trip) { try { const p = tripPlan(S); if (p && p.need) for (const k in p.need) need(k, p.need[k], 6, '북상과 함께 가져갈 것'); } catch (e) { /* 没有下一站 */ } }
+    for (const b of S.buildings) if (b.camp === c.id && b.tw && !b.tw.lit) { const sp = towerSpec(S, b.tn); if (b.tw.p >= sp.dur) for (const k in sp.fuel) need(k, sp.fuel[k], 6, '봉화탑 점화'); }
   }
   // 7 补底：木材、木板、石料、铁锭补到 200，新营地起步就有料盖房
-  for (const k of BASE_KS) if (RES[k].t <= S.known) need(k, BASE_FILL, 7, '补底');
+  for (const k of BASE_KS) if (RES[k].t <= S.known) need(k, BASE_FILL, 7, '바닥을 덮다');
   return out;
 }
 // 这个营地能拿出来的：库存减去自己要留的（半小时燃料口粮、产线十分钟原料、建造队列、留料给建造，木材木板石料铁锭至少留 200）；不外送的不算
@@ -387,7 +387,7 @@ function dispatch(S, win) {
     const r = fill(S, { c: b.to, k: b.k, n: b.left, tier: 2, src: 'manual', bid: b.id }, sp, bud, N, Math.min(NB, Math.max(1, Math.floor(b.left))), b.from);
     const sent = b.left - r.left; b.left = r.left;
     if (spare[b.from] && spare[b.from][b.k] != null) spare[b.from][b.k] -= sent;
-    if (r.left >= 1) note({ c: b.to, k: b.k, tier: 2, why: '手动送的' }, r);
+    if (r.left >= 1) note({ c: b.to, k: b.k, tier: 2, why: '수동으로 전달됨' }, r);
   }
   runTier(3, 3);
   // 4 长期供货：每分钟 N 件，攒够一车就发
@@ -434,20 +434,20 @@ export function netStep(S, dt) {
 // ---------- 手动 ----------
 export function sendBatch(S, from, to, k, n) {
   const fc = getCamp(S, from), tc = getCamp(S, to);
-  if (!fc || !tc || from === to) return { ok: false, reason: '选两个不同的营地' };
-  if (!RES[k]) return { ok: false, reason: '选一样货' };
+  if (!fc || !tc || from === to) return { ok: false, reason: '두 가지 다른 야영지를 선택하십시오.' };
+  if (!RES[k]) return { ok: false, reason: '제품을 선택하세요' };
   const sp = campSpare(S, fc, {}, true)[k] || 0;
   const amt = n === 'all' ? Math.floor(campSpare(S, fc, {}, false)[k] || 0) : Math.min(+n, Math.floor(sp));
-  if (amt < 1) return { ok: false, reason: `「${fc.name}」没有多余的${RES[k].n}` };
-  if (!pathsTo(S, to, INF(S))[from]) return { ok: false, reason: '两个营地之间没有路，先修一条' };
+  if (amt < 1) return { ok: false, reason: `"${fc.name}"에는 추가 ${RES[k].n}이(가) 없습니다.` };
+  if (!pathsTo(S, to, INF(S))[from]) return { ok: false, reason: '두 야영지 사이에는 도로가 없습니다. 먼저 하나를 만들어보세요.' };
   sends(S).push({ id: S.nextId++, from, to, k, n: amt, left: amt, arr: 0, t: S.t });
   dirty(S);
   return { ok: true, n: amt };
 }
 export function cancelSend(S, id) { S.sends = sends(S).filter(b => b.id !== id); dirty(S); }
 export function addFeed(S, from, to, k, rate) {
-  if (from === to || !getCamp(S, from) || !getCamp(S, to)) return { ok: false, reason: '选两个不同的营地' };
-  if (feeds(S).filter(f => f.from === from).length >= FEED_MAX) return { ok: false, reason: `一个营地最多 ${FEED_MAX} 条长期供货` };
+  if (from === to || !getCamp(S, from) || !getCamp(S, to)) return { ok: false, reason: '두 가지 다른 야영지를 선택하십시오.' };
+  if (feeds(S).filter(f => f.from === from).length >= FEED_MAX) return { ok: false, reason: `야영지 1개는 최대 ${FEED_MAX} 장기 공급 가능` };
   const f = feeds(S).find(x => x.from === from && x.to === to && x.k === k);
   if (f) { f.rate = rate; dirty(S); return { ok: true }; }
   feeds(S).push({ id: S.nextId++, from, to, k, rate, owed: 0 });

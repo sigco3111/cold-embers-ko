@@ -209,13 +209,13 @@ async function load12() {
     const holder = document.createElement('div');
     holder.innerHTML = `<svg id="iconSprite12" xmlns="http://www.w3.org/2000/svg" style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true">${txt}</svg>`;
     sp.after(holder.firstChild);
-  } catch (e) { console.warn('新图标没解开，用旧的', e); }
+  } catch (e) { console.warn('새 아이콘이 잠금 해제되지 않았습니다. 이전 아이콘을 사용하세요.', e); }
 }
 // 把一个图标画成图片（给 3D 场景里的贴图用）：id 是 symbol 的 id，比如 'i-wood'；新图标还没解开时等它
 const IMG = {};
 export function iconImage(id) {
   return IMG[id] ||= iconsReady.then(() => new Promise((ok, no) => {
-    const sym = document.getElementById(id); if (!sym) { no(new Error('没有图标 ' + id)); return; }
+    const sym = document.getElementById(id); if (!sym) { no(new Error('아이콘 없음' + id)); return; }
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${sym.getAttribute('viewBox')}" width="128" height="128">${sym.innerHTML}</svg>`;
     const im = new Image(); im.onload = () => ok(im); im.onerror = no;
     im.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);

@@ -11,7 +11,7 @@ import { iconize, ico, has12 } from './icons.js';
 import { fmt, fmtTime, RICON } from './ui.js';
 
 const PREF_Z = 'hanjin-beixing-v1-uiscale', PREF_PIN = 'hanjin-beixing-v1-pins';
-export const ZOOMS = [['auto', '自动', '按屏幕大小'], ['90', '90%', ''], ['100', '100%', ''], ['125', '125%', '']];
+export const ZOOMS = [['auto', '오토매틱', '화면 크기별'], ['90', '90%', ''], ['100', '100%', ''], ['125', '125%', '']];
 // 小信息窗（左下）里开的面板；其余的面板在屏幕中间开大窗口
 const INSP = new Set(['bld', 'queue', 'site', 'landmark', 'far', 'person', 'spot']);
 const HUB_KEYS = ['camp', 'prod', 'build', 'research', 'north'];
@@ -53,14 +53,14 @@ export class PC {
     // 钉住的物资、速度开关、菜单（顶栏右边）
     this.pinEl = el('div', 'pcPins', 'pcx'); top.appendChild(this.pinEl);
     this.spdEl = el('div', 'pcSpd', 'pcx');
-    this.spdEl.innerHTML = [['p', '<svg class="hic" aria-hidden="true"><use href="#c-ui_pause"/></svg>', '暂停（P）'], ['1', '1×', '1 倍速'], ['2', '2×', '2 倍速'], ['4', '4×', '4 倍速（F 换倍速）']].map(([k, n, t]) => `<button data-pcs="${k}" title="${t}">${n}</button>`).join('');
+    this.spdEl.innerHTML = [['p', '<svg class="hic" aria-hidden="true"><use href="#c-ui_pause"/></svg>', '일시정지(P)'], ['1', '1×', '1배속'], ['2', '2×', '2배속'], ['4', '4×', '4배속(F는 2배속으로 변경)']].map(([k, n, t]) => `<button data-pcs="${k}" title="${t}">${n}</button>`).join('');
     top.appendChild(this.spdEl);
     this.spdEl.addEventListener('click', e => { const b = e.target.closest('[data-pcs]'); if (!b) return; const k = b.dataset.pcs; if (k === 'p') this.g.togglePause(); else this.g.setSpeed(+k); this.spd(); });
     // 天数天气牌
     this.dayEl = el('div', 'pcDay', 'pcx u-plate'); document.body.appendChild(this.dayEl);
     this.dayEl.dataset.act = 'wx';
     // 小地图
-    this.miniEl = el('div', 'pcMini', 'pcx'); this.miniEl.innerHTML = '<canvas width="336" height="336"></canvas><b class="mn">北</b>';
+    this.miniEl = el('div', 'pcMini', 'pcx'); this.miniEl.innerHTML = '<canvas width="336" height="336"></canvas><b class="mn">북쪽</b>';
     document.body.appendChild(this.miniEl);
     this.mcv = this.miniEl.querySelector('canvas');
     const go = e => { const r = this.mcv.getBoundingClientRect(), u = (e.clientX - r.left) / r.width, v = (e.clientY - r.top) / r.height; const c = this.mcen; if (!c) return; this.g.view.focus(c.x + (u - 0.5) * 2 * MINI_R, c.y - (v - 0.5) * 2 * MINI_R); };
@@ -120,7 +120,7 @@ export class PC {
     const S = this.S, c = this.g.ui.camp(), cr = Sim.rt(S).c[c.id] || {};
     const info = this.g.ui.resInfo(c, cr, this.pinList());
     const h = info.filter(x => x.k !== 'food' || this.pinList().includes('food')).map(x => {
-      const n = Math.round(x.net * 10) / 10, rate = `${n > 0 ? '+' : ''}${Math.abs(n) >= 10 ? Math.round(n) : n}/分`;
+      const n = Math.round(x.net * 10) / 10, rate = `${n > 0 ? '+' : ''}${Math.abs(n) >= 10 ? Math.round(n) : n}/분`;
       return `<button class="pin ${x.short ? 'short' : ''} ${x.full ? 'full' : ''}" data-act="res" data-arg="${x.k}" data-tip="pin:${x.k}">${RICON[x.k]}<span><b>${fmt(x.have)}</b><small class="${n < -0.05 ? 'neg' : n > 0.05 ? 'pos' : ''}">${rate}</small></span></button>`;
     }).join('');
     if (force || h !== this.pinH) { this.pinH = h; this.pinEl.innerHTML = iconize(h); this.fit(); }
@@ -141,11 +141,11 @@ export class PC {
     const S = this.S, d = dayCycle(S.t), n = Math.floor(S.t / DAY_LEN) + 1;
     const mins = Math.floor(((6 / 24 + d.p) % 1) * 24 * 60), clock = `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
     const w = Sim.weatherAt(S, S.t), cs = Sim.coldAt(S), z = Sim.tideAt(S);
-    const wx = w.blizzard ? ['bad', `暴风雪 · 还有 ${fmtTime(w.until - S.t)}`] : z && z.on ? ['bad', `永冬潮 · 还有 ${fmtTime(z.left)}`] : cs && cs.on ? ['bad', `寒潮季 · 还有 ${fmtTime(cs.left)}`]
-      : w.warn ? ['warn', `暴风雪 ${fmtTime(w.inSec)} 后到`] : z && z.fc && z.inSec <= DAY_LEN ? ['warn', `永冬潮 ${fmtTime(z.inSec)} 后到`] : cs && cs.fc ? ['warn', `寒潮 ${fmtTime(cs.inSec)} 后到`]
-      : ['', `${d.name} · 天气平稳`];
-    const ic = d.name === '白天' ? 'sun' : d.name === '黄昏' ? 'dusk' : d.name === '夜晚' ? 'moon' : 'dawn';
-    const h = `${ico('i', ic, 'dic')}<span><b>第 ${n} 天 · ${clock}</b><small class="${wx[0]}">${wx[0] ? ico('i', 'snowcloud') : ''}${wx[1]}</small></span>`;
+    const wx = w.blizzard ? ['bad', `눈보라 · 및 ${fmtTime(w.until - S.t)}`] : z && z.on ? ['bad', `영동조 · 및 ${fmtTime(z.left)}`] : cs && cs.on ? ['bad', `한파 시즌 및 ${fmtTime(cs.left)}`]
+      : w.warn ? ['warn', `눈보라 ${fmtTime(w.inSec)}이(가) 나중에 도착합니다`] : z && z.fc && z.inSec <= DAY_LEN ? ['warn', `영동조 ${fmtTime(z.inSec)}이(가) 나중에 도착합니다`] : cs && cs.fc ? ['warn', `한파 ${fmtTime(cs.inSec)}이(가) 나중에 도착합니다`]
+      : ['', `${d.name} · 온화한 날씨`];
+    const ic = d.name === '낮' ? 'sun' : d.name === '해질녘' ? 'dusk' : d.name === '밤' ? 'moon' : 'dawn';
+    const h = `${ico('i', ic, 'dic')}<span><b>일 ${n} · ${clock}</b><small class="${wx[0]}">${wx[0] ? ico('i', 'snowcloud') : ''}${wx[1]}</small></span>`;
     if (h !== this.dayH) { this.dayH = h; this.dayEl.innerHTML = iconize(h); }
   }
 
@@ -219,16 +219,16 @@ export class PC {
     let tabs = '';
     for (let t = 1; t <= 7; t++) tabs += `<button class="pct ${t === this.tier ? 'on' : ''} ${t > S.known ? 'lk' : ''} ${t !== this.tier && ui.newBld(t).length ? 'hasnew' : ''}" data-pct="${t}">${t > S.known ? ico('i', 'lock') : ''}${TIER_NAMES[t]}</button>`;
     const qn = (S.queue || []).filter(q => q.camp === c.id).length;
-    const right = `<span class="pcsp"></span><button class="pcbx ${deco ? 'on' : ''}" data-pct="deco">${ico('i', 'palette')}装饰</button><button class="pcbx" data-act="htab" data-arg="wonder">${ico('i', 'trophy')}奇观</button><button class="pcbx" data-act="htab" data-arg="bqueue">${ico('i', 'hourglass')}队列${qn ? ` <b>${qn}</b>` : ''}</button><button class="pcbx" data-act="htab" data-arg="plan">${ico('i', 'compass')}规划<kbd>J</kbd></button>`;
+    const right = `<span class="pcsp"></span><button class="pcbx ${deco ? 'on' : ''}" data-pct="deco">${ico('i', 'palette')}장식</button><button class="pcbx" data-act="htab" data-arg="wonder">${ico('i', 'trophy')}불가사의</button><button class="pcbx" data-act="htab" data-arg="bqueue">${ico('i', 'hourglass')}대기줄${qn ? ` <b>${qn}</b>` : ''}</button><button class="pcbx" data-act="htab" data-arg="plan">${ico('i', 'compass')}기획<kbd>J</kbd></button>`;
     let cells = '';
     for (const k of list) {
       const d = BLD[k], locked = !Sim.unlocked(S, k), n = Sim.countType(S, c.id, k);
       const cost = k === 'furnace' ? Sim.buildCost(S, k, c.id, Math.round(c.y + 20)) : Sim.buildCost(S, k, c.id, c.y);
       const fresh = !locked && !seen[k], short = !locked && !Sim.canAfford(c.stock, cost);
       if (fresh) shown.push(k);
-      cells += `<button class="pbc ${locked ? 'lk' : ''} ${short ? 'short' : ''}" ${locked ? '' : `data-act="place" data-arg="${k}"`} data-tip="b:${k}">${ui.pic(k, k === 'furnace' ? 2 : 1)}${fresh ? '<i class="cnew">新</i>' : ''}${n ? `<i class="pn">${n}</i>` : ''}${locked ? `<i class="plk">${ico('i', 'lock')}</i>` : ''}</button>`;
+      cells += `<button class="pbc ${locked ? 'lk' : ''} ${short ? 'short' : ''}" ${locked ? '' : `data-act="place" data-arg="${k}"`} data-tip="b:${k}">${ui.pic(k, k === 'furnace' ? 2 : 1)}${fresh ? '<i class="cnew">새로운</i>' : ''}${n ? `<i class="pn">${n}</i>` : ''}${locked ? `<i class="plk">${ico('i', 'lock')}</i>` : ''}</button>`;
     }
-    if (!cells) cells = `<div class="pbe">${this.tier > S.known ? `往北派侦察队，看到「${TIER_NAMES[this.tier]}」所在的纬度后解锁。` : '这一类还没有能建的。'}</div>`;
+    if (!cells) cells = `<div class="pbe">${this.tier > S.known ? `북쪽으로 정찰대를 보내 「${TIER_NAMES[this.tier]}」이(가) 있는 위도를 발견하면 잠금 해제됩니다.` : '이 유형의 제품은 아직 구축할 수 없습니다.'}</div>`;
     ui.bNewShown = [...new Set([...(ui.bNewShown || []), ...shown])];
     const h = `<div class="pbt">${tabs}${right}</div><div class="pbr">${cells}</div>`;
     if (force || h !== this.bH) { this.bH = h; this.bEl.innerHTML = iconize(h); }
@@ -256,11 +256,11 @@ export class PC {
     if (kind === 'pin') {
       const x = ui.resInfo(c, cr, [id]).find(y => y.k === id); if (!x) return '';
       const q = (S.queue || []).filter(q => q.camp === c.id).reduce((s, q) => s + (Sim.buildCost(S, q.type, q.camp, q.y)[id] || 0), 0);
-      return `<div class="tth">${RICON[id]}<b>${RES[id].n}</b><em>${fmt(x.have)} / ${fmt(cr.cap || 0)}</em></div>${row('每分钟产', '+' + fmt(x.f.p), 'pos')}${row('每分钟用', '−' + fmt(x.f.c), 'neg')}${q ? row('建造队列还要', fmt(q)) : ''}${x.short ? '<p class="bad">供不上：用它的建筑在等</p>' : x.full ? '<p class="warn">快满了：满了相关建筑会停工</p>' : ''}<p>点一下看生产；在生产窗口里点图钉可以换这里钉的物资。</p>`;
+      return `<div class="tth">${RICON[id]}<b>${RES[id].n}</b><em>${fmt(x.have)} / ${fmt(cr.cap || 0)}</em></div>${row('분당 출력', '+' + fmt(x.f.p), 'pos')}${row('분당 사용', '−' + fmt(x.f.c), 'neg')}${q ? row('건설 대기열에는 여전히 필요합니다.', fmt(q)) : ''}${x.short ? '<p class="bad">사용 불가: 이를 사용하는 건물이 대기 중입니다.</p>' : x.full ? '<p class="warn">거의 가득 참: 가득 차면 관련 건물 폐쇄</p>' : ''}<p>생산을 보려면 클릭하세요. 생산 창에 있는 압정을 클릭하면 여기에 고정된 소모품으로 교환할 수 있습니다. </p>`;
     }
     if (kind === 'vt') {
       const tt = (t.dataset.tt || '').split(' · ');
-      const nm = { tmp: '体感温度', ppl: '人口', fuel: '燃料', food: '熟食' }[id];
+      const nm = { tmp: '체성감각 온도', ppl: '인구', fuel: '연료', food: '요리' }[id];
       return `<div class="tth"><b>${nm}</b><em>${t.querySelector('b') ? t.querySelector('b').innerHTML : ''}</em></div>${tt.map(s => `<div class="ttr"><span>${esc(s)}</span></div>`).join('')}`;
     }
     if (kind === 'b') {
@@ -268,15 +268,15 @@ export class PC {
       const locked = !Sim.unlocked(S, id), n = Sim.countType(S, c.id, id);
       const cost = id === 'furnace' ? Sim.buildCost(S, id, c.id, Math.round(c.y + 20)) : Sim.buildCost(S, id, c.id, c.y);
       const cat = CATS[d.cat] || '';
-      let h = `<div class="tth">${ui.pic(id, id === 'furnace' ? 2 : 1)}<span><b>${id === 'furnace' ? '前哨熔炉' : d.n}</b><small>${TIER_NAMES[d.t]}${typeof cat === 'string' && cat ? ' · ' + cat : ''}${n ? ` · 已有 ${n} 座` : ''}</small></span></div><p>${esc(d.desc)}</p>`;
-      if (locked) return h + `<p class="warn">${d.t <= S.known ? '🔒 ' + esc(Sim.stageLock(S, id)) : `需要侦察到「${TIER_NAMES[d.t]}」纬度`}</p>`;
+      let h = `<div class="tth">${ui.pic(id, id === 'furnace' ? 2 : 1)}<span><b>${id === 'furnace' ? '전초기지 용광로' : d.n}</b><small>${TIER_NAMES[d.t]}${typeof cat === 'string' && cat ? ' · ' + cat : ''}${n ? ` · 보유 ${n}채` : ''}</small></span></div><p>${esc(d.desc)}</p>`;
+      if (locked) return h + `<p class="warn">${d.t <= S.known ? '🔒 ' + esc(Sim.stageLock(S, id)) : `「${TIER_NAMES[d.t]}」 위도를 정찰해야 합니다`}</p>`;
       const cst = Object.keys(cost).map(r => `<span class="${(c.stock[r] || 0) >= cost[r] ? '' : 'miss'}">${RICON[r]}${fmt(cost[r])}</span>`).join(' ');
-      h += row('造价', cst || '不要材料');
-      if (d.out) h += row('每分钟', `${d.in ? Object.keys(d.in).map(r => `<span class="neg">${RICON[r]}−${d.in[r]}</span>`).join(' ') + ' → ' : ''}${Object.keys(d.out).map(r => `<span class="pos">${RICON[r]}+${d.out[r]}</span>`).join(' ')}`);
-      if (d.cat === 'deco') h += row('装饰', `希望 +${d.hope}`);
-      if (d.w) h += row('人手', `👷 ${d.w}（空闲 ${Math.max(0, Sim.idleLabor(S, c))} 人）`);
-      h += row('占地', `${d.size}×${d.size} 格`);
-      return h + '<div class="ttf">左键放下 · 按住拖出一排 · 右键取消</div>';
+      h += row('비용', cst || '재료가 필요하지 않습니다');
+      if (d.out) h += row('분당', `${d.in ? Object.keys(d.in).map(r => `<span class="neg">${RICON[r]}−${d.in[r]}</span>`).join(' ') + ' → ' : ''}${Object.keys(d.out).map(r => `<span class="pos">${RICON[r]}+${d.out[r]}</span>`).join(' ')}`);
+      if (d.cat === 'deco') h += row('장식', `희망 +${d.hope}`);
+      if (d.w) h += row('일손', `👷 ${d.w} (${Math.max(0, Sim.idleLabor(S, c))}명 무료)`);
+      h += row('토지 면적', `${d.size}×${d.size} 그리드`);
+      return h + '<div class="ttf">왼쪽 클릭 및 드롭 · 행을 길게 누른 채 드래그 · 취소하려면 오른쪽 클릭</div>';
     }
     return '';
   }

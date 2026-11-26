@@ -9,8 +9,8 @@ export const BK_EVERY = 600;            // 玩着每 10 分钟备份一次（秒
 const AUTO_EDGES = [15, 60, 240, 1440]; // 定时备份的分档（分钟）：[0,15) [15,60) [60,240) [240,1440) [1440,∞)
 const MARK_KEEP = 4;
 export const BK_WHY = {
-  auto: ['🕒', '定时备份'], open: ['📂', '打开游戏时'], depart: ['🛷', '北迁出发前'], import: ['📥', '导入存档码前'],
-  wipe: ['🔄', '重开前'], del: ['🗑', '删除存档前'], restore: ['↩', '读取备份前'], journey: ['🧭', '新的北行前'],
+  auto: ['🕒', '정기 백업'], open: ['📂', '게임을 열 때'], depart: ['🛷', '북상출발 전'], import: ['📥', '저장 코드를 가져오기 전'],
+  wipe: ['🔄', '다시 열기 전에'], del: ['🗑', '저장을 삭제하기 전에'], restore: ['↩', '백업을 읽기 전에'], journey: ['🧭', '새로운 북행 여행을 앞두고'],
 };
 const isAuto = r => r.why === 'auto' || r.why === 'open';
 
@@ -50,7 +50,7 @@ export function bkInfo(o, campName) {
   try {
     const c = o.camps.find(x => x.id === o.active) || o.camps[0];
     return { name: campName ? campName(o) : c.name, people: o.camps.reduce((a, x) => a + x.people, 0), t: o.t || 0, runs: (o.meta && o.meta.runs) || 1 };
-  } catch (e) { return { name: '？', people: 0, t: 0, runs: 1 }; }
+  } catch (e) { return { name: '?', people: 0, t: 0, runs: 1 }; }
 }
 
 // 留哪些：出事前的留最近 4 份；定时的最新一份必留，其余按年龄分档，每档留一份

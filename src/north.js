@@ -39,7 +39,7 @@ export function forkStep(S) {
   if (forkOf(S) || !forkReady(S)) return;
   const J = journeyOf(S), k = J.stage + 1;
   J.fork = { k, opts: forkOptions(S, k), pick: null, t: S.t };
-  logMsg(S, `🧭 侦察兵回来了：去「${stopOf(S, k).n}」有 ${forkN(S)} 条路，地貌、会碰上的事和好处都不一样。出发前在「北行 › 北迁」里选一条（不选就走第一条）。`, 'story', { act: 'tb', arg: 'migrate', label: '去选路' });
+  logMsg(S, `🧭 정찰 군인이 돌아왔습니다: "${stopOf(S, k).n}"으로 가는 ${forkN(S)}가지 방법이 있으며, 지형, 마주하게 될 것, 혜택이 다릅니다. 출발 전 "북쪽방향 › 북상" 경로 중 하나를 선택하세요(선택하지 않을 경우 첫 번째 경로 이용).`, 'story', { act: 'tb', arg: 'migrate', label: '경로를 선택하려면' });
   rt(S).fx.push({ kind: 'fork' });
 }
 // 一条路的特产（北境的站按地貌定，富矿带按那种矿）
@@ -49,14 +49,14 @@ export function forkSpec(o) {
 }
 export function bonusTxt(kind, d) {
   const rf = FORK.rew[d ?? 1];
-  const base = kind === 'embers' ? `余烬 ${Math.round(FORK.embers * rf)}` : FORK_BONUS[kind].n;
-  return kind !== 'embers' && rf > 1 ? `${base} + 余烬 ${FORK.hardEmbers}` : base;
+  const base = kind === 'embers' ? `잔불 ${Math.round(FORK.embers * rf)}` : FORK_BONUS[kind].n;
+  return kind !== 'embers' && rf > 1 ? `${base} + 잔불 ${FORK.hardEmbers}` : base;
 }
 // 选一条路：下一站那片地马上按新地貌重新生成（地图上就能看到）；出发前还能改
 export function pickFork(S, i, auto) {
   const J = journeyOf(S), F = forkOf(S);
-  if (!F || !(i >= 0 && i < forkN(S))) return { ok: false, reason: '没有可选的路' };
-  if (J.trip) return { ok: false, reason: '车队已经在路上' };
+  if (!F || !(i >= 0 && i < forkN(S))) return { ok: false, reason: '대안이 없다' };
+  if (J.trip) return { ok: false, reason: '행렬이 이미 진행 중입니다.' };
   const o = F.opts[i], N = F.k - SPINE, st = northStop(S.runSeed, N);
   const changed = st.rule !== o.rule || (st.rich || null) !== (o.rich || null);
   F.pick = i;
@@ -68,7 +68,7 @@ export function pickFork(S, i, auto) {
   if (R.tspec) delete R.tspec[N];
   dirty(S);
   const rl = NORTH_RULES[o.rule];
-  logMsg(S, `🧭 ${auto ? '没人选路，车队按侦察兵推荐的第一条走' : '选好了路'}：「${stopOf(S, F.k).n}」是${rl.ic}${rl.n}，${FORK.dn[o.d]}。`, 'story');
+  logMsg(S, `🧭 ${auto ? '아무도 경로를 선택하지 않고 행렬는 정찰 병사가 추천한 첫 번째 경로를 따릅니다.' : '길을 택했다'}: "${stopOf(S, F.k).n}"은(는) ${rl.ic}${rl.n}, ${FORK.dn[o.d]}입니다.`, 'story');
   return { ok: true, changed };
 }
 // 读档：把这一程选过的地貌交给地图生成（选法和上次不一样就重新生成）
@@ -83,10 +83,10 @@ export function pickOf(S, k) { return ((journeyOf(S).picks || {})[k]) || null; }
 export function forkBonus(S, kind, d, camp) {
   const rf = FORK.rew[d ?? 1];
   let msg = '';
-  if (kind === 'bp') { const w = giveBp(S); if (w) msg = `奇观图纸「${WONDERS[w].n}」`; else kind = 'embers'; }
+  if (kind === 'bp') { const w = giveBp(S); if (w) msg = `불가사의 그림 "${WONDERS[w].n}"`; else kind = 'embers'; }
   if (kind === 'spec') { const m = giveSpec(S, camp); if (m) msg = m; else kind = 'embers'; }
-  if (kind === 'embers') { const n = Math.round(FORK.embers * rf); ember(S, n); msg = `余烬 ${n}`; }
-  else if (rf > 1) { ember(S, FORK.hardEmbers); msg += `，难走的路多给余烬 ${FORK.hardEmbers}`; }
+  if (kind === 'embers') { const n = Math.round(FORK.embers * rf); ember(S, n); msg = `잔불 ${n}`; }
+  else if (rf > 1) { ember(S, FORK.hardEmbers); msg += `, 험난한 길에는 잔불 ${FORK.hardEmbers}로 향하는 도로가 더 있습니다.`; }
   return msg;
 }
 // 奇观图纸：挑一张还没有的（研究给的也算有）
@@ -104,13 +104,13 @@ export function giveSpec(S, camp) {
   const id = L.find(x => !M[x]) || L.find(x => M[x].lvl < SPEC_MAX);
   if (!id) return '';
   const sp = SPECS.find(x => x.id === id);
-  if (!M[id]) { M[id] = { lvl: 1 }; return `专家「${sp.n}」（${sp.role}）加入了`; }
-  M[id].lvl++; return `专家「${sp.n}」升到 ${M[id].lvl} 级`;
+  if (!M[id]) { M[id] = { lvl: 1 }; return `전문가「${sp.n}」(${sp.role}) 가입됨`; }
+  M[id].lvl++; return `전문가「${sp.n}」이(가) ${M[id].lvl} 레벨로 업그레이드되었습니다.`;
 }
 
 // ---------- 站点奇遇 ----------
-const lack = o => (S, c) => { const m = Object.keys(o).filter(k => (c.stock[k] || 0) < o[k]); return m.length ? `缺${m.map(k => RES[k].n).join('、')}` : ''; };
-const hands = n => (S, c) => c.people - n < Math.max(MIN_PEOPLE, 10) ? `人手不够（派 ${n} 个人以后营地里至少要留 10 个）` : '';
+const lack = o => (S, c) => { const m = Object.keys(o).filter(k => (c.stock[k] || 0) < o[k]); return m.length ? `${m.map(k => RES[k].n).join('、')} 누락됨` : ''; };
+const hands = n => (S, c) => c.people - n < Math.max(MIN_PEOPLE, 10) ? `일손로는 충분하지 않습니다. (${n}명을 보낸 후 야영지에는 최소 10명이 남습니다.)` : '';
 const both = (...f) => (S, c) => { for (const g of f) { const r = g(S, c); if (r) return r; } return ''; };
 const take = (c, o) => { for (const k in o) c.stock[k] = Math.max(0, (c.stock[k] || 0) - o[k]); };
 const give = (c, o) => { for (const k in o) c.stock[k] = (c.stock[k] || 0) + o[k]; };
@@ -119,181 +119,181 @@ const allHope = (S, n) => { for (const c of S.camps) bumpMood(c, n, 0); };
 const revealN = (S, c, r) => { revealCircle(S, c.x, c.y + 18, r); rt(S).revealDirty = true; };
 const wolfStr = (S, c) => Math.round(raidStrength(S, c, { var: 0.75 }) * 1.3);
 const flag = (S, k) => { (S.meta.f13 ||= {})[k] = 1; };
-const wolfWin = (S, c) => { flag(S, 'wolfking'); give(c, { game: 300 }); addBuff(S, c, 'loot', 1, DAY_LEN, '狼王倒下了'); bumpMood(c, 5, -2); return { m: '狼王倒在了雪地里。它的皮毛绷在木架上，挂到了熔炉边（装饰「狼王皮」解锁）。生肉 +300，接下来一天打退袭营的战利品翻倍。' }; };
-const wolfLose = (S, c) => { const n = Math.min(200, Math.floor(c.stock.food || 0)); take(c, { food: n }); bumpMood(c, -3, 3); return { m: `狼王撞开仓房，叼走了一大块肉，消失在风雪里。熟食 −${n}。` }; };
+const wolfWin = (S, c) => { flag(S, 'wolfking'); give(c, { game: 300 }); addBuff(S, c, 'loot', 1, DAY_LEN, '늑대왕이 넘어졌다'); bumpMood(c, 5, -2); return { m: '늑대왕이 눈에 떨어졌습니다. 털은 나무 프레임에 늘어져 용광로 곁에 걸려 있었습니다(장식 "늑대왕 가죽"로 잠금 해제됨). 생고기 +300, 습격을 처치하면 다음 날 전리품이 두 배가 됩니다.' }; };
+const wolfLose = (S, c) => { const n = Math.min(200, Math.floor(c.stock.food || 0)); take(c, { food: n }); bumpMood(c, -3, 3); return { m: `늑대왕은 창고를 부수고 열고 큰 고기 조각을 빼앗아 바람과 눈 속으로 사라졌습니다. 요리 −${n}.` }; };
 
 // 每件奇遇：st 是一段一段；每段 x 是这段的话，o 是选项；g 是「奇遇向导」研究多给的一个选项（都在第一段）
 // 选项：t 名字，d 说明，need 不够时返回原因，go 做完返回 { m 结果, nx 下一段, w 过多久出现, away 派出去几个人（下一段出现时回来）}
 export const QE = {
   wolfking: { st: [
-    { x: '夜里，一头比马还高的白狼在暖圈外转了三圈，雪地上的脚印有脸盆那么大。老猎人说，那是狼王，它在挑今晚从哪儿下口。',
+    { x: '밤에는 말보다 키가 큰 흰 늑대가 난방권 밖에서 세 바퀴를 돌았습니다. 눈 위의 발자국은 세면대만큼 컸습니다. 늙은 사냥꾼은 늑대왕라고 말하며 오늘 밤 먹을 곳을 고르고 있었습니다.',
       o: [
-        { t: '埋伏起来，等它进圈', d: '箭塔今晚不睡，过一会儿见分晓', go: () => ({ m: '大家把火把熄了一半，箭塔上的人屏住了气。', nx: 1, w: 90 }) },
-        { t: '扔给它一扇肉', d: '生肉 −150 · 希望 +2', need: lack({ game: 150 }), go: (S, c) => { take(c, { game: 150 }); bumpMood(c, 2, 0); return { m: '狼王叼起肉，回头看了营地一眼，慢慢走进了风雪里。' }; } },
+        { t: '매복하고 서클에 들어갈 때까지 기다립니다.', d: '화살탑 오늘 밤은 잠이 안 온다 나중에 보자', go: () => ({ m: '모두들 횃불을 반쯤 꺼냈고, 화살탑에 탄 사람들은 숨을 죽였다.', nx: 1, w: 90 }) },
+        { t: '고기 한 점 투척', d: '생고기 −150 · 희망 +2', need: lack({ game: 150 }), go: (S, c) => { take(c, { game: 150 }); bumpMood(c, 2, 0); return { m: '늑대왕은 고기를 집어들고 야영지를 돌아보며 천천히 눈 속으로 걸어갔다.' }; } },
       ],
-      g: { t: '跟着脚印去找狼窝', d: '派 8 个人去 4 分钟', need: hands(8), go: () => ({ m: '老向导带着 8 个人，顺着脚印往山里摸。', nx: 2, w: 240, away: 8 }) } },
-    { x: '后半夜，狼王果然来了。它绕开亮着的地方，直奔堆肉的仓房。',
+      g: { t: '발자국을 따라가면 늑대 굴을 찾을 수 있습니다', d: '4분간 8명 보내기', need: hands(8), go: () => ({ m: '늙은 길잡이는 8명을 데리고 발자국을 따라 산으로 들어갔습니다.', nx: 2, w: 240, away: 8 }) } },
+    { x: '한밤중에 예상대로 늑대왕이 왔습니다. 조명이 켜진 곳을 우회해 바로 고기가 쌓여 있는 창고로 향했다.',
       o: [
-        { t: '箭塔放箭', d: (S, c) => `营地防御 ${campDefense(S, c)}，狼王大约 ${wolfStr(S, c)}：防御够就能打倒它`, go: (S, c) => campDefense(S, c) >= wolfStr(S, c) ? wolfWin(S, c) : wolfLose(S, c) },
-        { t: '举着火把冲上去', d: '一半对一半：赢了拿狼王皮，输了丢一些熟食', go: (S, c, q) => hash3(S.runSeed, q.k, 77) < 0.5 ? wolfWin(S, c) : wolfLose(S, c) },
+        { t: '화살탑이 화살을 쏜다', d: (S, c) => `야영지방어 ${campDefense(S, c)}, 늑대왕 약 ${wolfStr(S, c)}: 방어가 패배할 수 있음`, go: (S, c) => campDefense(S, c) >= wolfStr(S, c) ? wolfWin(S, c) : wolfLose(S, c) },
+        { t: '횃불을 들고 앞으로 달려가세요', d: '반 대 반: 승리하면 늑대왕 가죽을 얻고, 패배하면 일부 요리를 잃습니다.', go: (S, c, q) => hash3(S.runSeed, q.k, 77) < 0.5 ? wolfWin(S, c) : wolfLose(S, c) },
       ] },
-    { x: '狼窝在一处背风的石缝里，狼王不在。里面堆着它攒了一冬的猎物，还有三只没睁眼的小狼。',
+    { x: '늑대 굴은 바람이 불어오는 쪽 바위 틈새에 있었는데 늑대왕은 거기에 없었습니다. 그 안에는 그가 겨울 내내 구한 사냥감 더미와 눈을 뜨지 못한 세 마리의 작은 늑대가 있었습니다.',
       o: [
-        { t: '把猎物都搬回去', d: '生肉 +600', go: (S, c) => { give(c, { game: 600 }); return { m: '8 个人扛着冻肉回来了，够吃好一阵子。' }; } },
-        { t: '什么都不动，悄悄离开', d: '希望 +6 · 一天里打退袭营的战利品翻倍', go: (S, c) => { bumpMood(c, 6, 0); addBuff(S, c, 'loot', 1, DAY_LEN, '狼王的回礼'); return { m: '大家什么都没拿。第二天清早，营地门口放着一头冻鹿。' }; } },
+        { t: '모든 사냥감을 뒤로 이동', d: '생고기 +600', go: (S, c) => { give(c, { game: 600 }); return { m: '여덟 명이 한동안 먹을 만큼 얼린 고기를 들고 돌아왔다.' }; } },
+        { t: '아무것도 움직이지 말고 조용히 나가세요', d: '희망 +6 · 하루 안에 습격을 처치하면 전리품이 두 배로 늘어납니다.', go: (S, c) => { bumpMood(c, 6, 0); addBuff(S, c, 'loot', 1, DAY_LEN, '늑대왕의 답례품'); return { m: '아무도 아무것도 가져가지 않았습니다. 다음 날 이른 아침, 야영지의 문 앞에는 얼어붙은 사슴이 있었습니다.' }; } },
       ] },
   ] },
   undercity: { st: [
-    { x: '侦察兵趴在冰湖上往下看：冰底下有屋顶、街道和一座钟楼，一整座城被冻在了冰里。',
+    { x: '군인 정찰은 얼음호수에 누워 아래를 내려다보았습니다. 얼음 아래에는 지붕과 거리, 종탑이 있었고 도시 전체가 얼음 속에 얼어붙었습니다.',
       o: [
-        { t: '派 10 个人凿冰下去', d: '10 个人去 10 分钟', need: hands(10), go: () => ({ m: '十个人带着冰镐和绳子下去了。', nx: 1, w: 600, away: 10 }) },
-        { t: '在冰面上开个洞看看', d: '古代构件 +30', go: (S, c) => { give(c, { part: 30 }); return { m: '从洞口勾上来几块刻着花纹的金属。' }; } },
+        { t: '얼음을 자르기 위해 10명의 남자를 보내세요', d: '10명이 10분간 간다', need: hands(10), go: () => ({ m: '10명의 남자가 얼음 송곳과 밧줄을 가지고 내려갔습니다.', nx: 1, w: 600, away: 10 }) },
+        { t: '얼음에 구멍을 뚫어라 보기', d: '고대 부품 +30', go: (S, c) => { give(c, { part: 30 }); return { m: '여러 개의 새겨진 금속 조각이 구멍에 연결되었습니다.' }; } },
       ],
-      g: { t: '请老向导带路', d: '他认得路：只要 5 个人去 5 分钟', need: hands(5), go: () => ({ m: '老向导说他小时候听过这座城的故事，带着 5 个人下去了。', nx: 1, w: 300, away: 5 }) } },
-    { x: '冰下的城比想象的大。灯油只够再撑一会儿，只来得及带走一样东西。',
+      g: { t: '늙은 길잡이가 앞장서 주세요', d: '그는 길을 알고 있습니다: 5분 안에 5명만 가면 갈 수 있습니다', need: hands(5), go: () => ({ m: '늙은 길잡이는 어렸을 때 이 도시에 대한 이야기를 듣고 5명과 함께 그곳으로 내려갔다고 합니다.', nx: 1, w: 300, away: 5 }) } },
+    { x: '얼음 아래 도시는 상상 이상으로 크다. 등유는 조금 더 오래 쓸 수 있을 정도밖에 없었고, 한 가지만 가져갈 시간도 없었습니다.',
       o: [
-        { t: '拆古代构件', d: '古代构件 +120', go: (S, c) => { give(c, { part: 120 }); return { m: '雪橇上堆满了古城的零件。' }; } },
-        { t: '去钟楼里找设计图', d: '一张奇观图纸（都有了就换成古代构件 120）', go: (S, c) => { const w = giveBp(S, 1); if (w) return { m: `钟楼顶上压着一卷图纸：是「${WONDERS[w].n}」的图纸！` }; give(c, { part: 120 }); return { m: '图纸都已经有了，大家顺手拆回了 120 件古代构件。' }; } },
+        { t: '고대 부품 분해', d: '고대 부품 +120', go: (S, c) => { give(c, { part: 120 }); return { m: '썰매는 고성의 부품으로 채워져 있습니다.' }; } },
+        { t: '시계탑으로 가서 설계도를 찾으세요', d: '불가사의 도면 한 장 (둘 다 있는 경우 고대 부품 120으로 교체)', go: (S, c) => { const w = giveBp(S, 1); if (w) return { m: `종탑 꼭대기에 그림 두루마리가 압착되어 있습니다. 바로 "${WONDERS[w].n}" 그림입니다!` }; give(c, { part: 120 }); return { m: '도면은 모두 사용 가능했으며 고대 부품 120개는 쉽게 분해되었습니다.' }; } },
       ] },
   ] },
   geyser: { st: [
-    { x: '营地边上的雪地裂开一道口子，喷出一股冒白汽的热泉，周围的雪眨眼就化了。',
+    { x: '야영지 옆에 눈밭에 구멍이 뚫리더니 하얀 김이 솟아오르는 온천이 뿜어져 나왔다. 주변의 눈이 눈 깜짝할 사이에 녹았습니다.',
       o: [
-        { t: '围着它取暖', d: '这座营地体感 +5° · 一天', go: (S, c) => { addBuff(S, c, 'heat', 5, DAY_LEN, '地热喷发'); return { m: '大家把被褥都搬到了热泉边上。' }; } },
-        { t: '驯服它', d: '钢材 −80 · 10 个人去 5 分钟', need: both(lack({ steel: 80 }), hands(10)), go: (S, c) => { take(c, { steel: 80 }); return { m: '十个人扛着钢管去接热泉。', nx: 1, w: 300, away: 10 }; } },
+        { t: '주변을 따뜻하게 유지하세요', d: '이 야영지 몸의 느낌은 +5° · 어느 날', go: (S, c) => { addBuff(S, c, 'heat', 5, DAY_LEN, '지열 분출'); return { m: '모두가 침구를 온천 가장자리로 옮겼습니다.' }; } },
+        { t: '길들여라', d: '강재 −80 · 10명 5분 이동', need: both(lack({ steel: 80 }), hands(10)), go: (S, c) => { take(c, { steel: 80 }); return { m: '10명의 사람들이 온천을 연결하기 위해 쇠파이프를 운반했습니다.', nx: 1, w: 300, away: 10 }; } },
       ],
-      g: { t: '顺着热气找源头', d: '6 个人去 3 分钟，揭开周围的迷雾', need: hands(6), go: (S, c) => { revealN(S, c, 12); return { m: '热气是从北边的山脚下冒出来的。', nx: 1, w: 180, away: 6 }; } } },
-    { x: '管子接好了，阀门一拧，热泉稳稳地往外冒热气。',
+      g: { t: '열을 따라 근원을 찾아라', d: '6명은 주변을 파헤치기 위해 3분 동안 이동한다 안개', need: hands(6), go: (S, c) => { revealN(S, c, 12); return { m: '더위는 산기슭에서 북쪽으로 옵니다.', nx: 1, w: 180, away: 6 }; } } },
+    { x: '배관을 연결하고 밸브를 돌리면 온천에서 뜨거운 증기가 꾸준히 나옵니다.',
       o: [
-        { t: '修成一座地热井', d: '这座营地能免费建一座地热井（不是地热谷也行）', go: (S, c) => { (c.freeB ||= {}).geowell = (c.freeB.geowell || 0) + 1; return { m: '热泉口留好了：在建造菜单里能免费建一座地热井。' }; } },
-        { t: '把热气接进熔炉', d: '这座营地燃料消耗 −20% · 两天', go: (S, c) => { addBuff(S, c, 'fuel', -0.2, DAY_LEN * 2, '地热接进熔炉'); return { m: '熔炉烧得更省了。' }; } },
+        { t: '지열정 구축', d: '이 야영지는 지열정을 무료로 구축할 수 있습니다(지열 골짜기가 아니더라도 상관없습니다).', go: (S, c) => { (c.freeB ||= {}).geowell = (c.freeB.geowell || 0) + 1; return { m: '온천 입구가 저장되었습니다. 건설 메뉴에서 무료로 지열정을 만들 수 있습니다.' }; } },
+        { t: '뜨거운 공기를 용광로에 연결하십시오', d: '이 야영지연료는 -20% · 2일을 소비합니다.', go: (S, c) => { addBuff(S, c, 'fuel', -0.2, DAY_LEN * 2, '용광로에 연결된 지열'); return { m: '용광로는 더욱 효율적으로 연소됩니다.' }; } },
       ] },
   ] },
   whale: { st: [
-    { x: '冰原上鼓起一座灰色的小山。走近了才看清，是一头冻在冰里的巨鲸，比熔炉还长。',
+    { x: '회색 언덕이 빙원 밖으로 솟아오른다. 가까이 다가가보니 용광로보다 길이가 긴 얼음 속에 얼어붙은 거대한 고래인 것이 분명하게 보였습니다.',
       o: [
-        { t: '全营地出动切肉', d: '20 个人去 8 分钟', need: hands(20), go: () => ({ m: '二十个人拖着锯子和雪橇出发了。', nx: 1, w: 480, away: 20 }) },
-        { t: '切能切到的', d: '生肉 +400', go: (S, c) => { give(c, { game: 400 }); return { m: '露在外面的那一截切下来，也有小山那么一堆。' }; } },
+        { t: '고기 자르기 위해 전체 야영지 파견됨', d: '20명이 8분에 갑니다', need: hands(20), go: () => ({ m: '20명의 사람들이 톱질과 썰매를 끌기 시작했습니다.', nx: 1, w: 480, away: 20 }) },
+        { t: '닥치는 대로 잘라라', d: '생고기 +400', go: (S, c) => { give(c, { game: 400 }); return { m: '노출된 부분을 잘라내면 언덕만큼 커질 것이다.' }; } },
       ],
-      g: { t: '老向导教大家怎么下刀', d: '只要 10 个人去 8 分钟', need: hands(10), go: () => ({ m: '老向导年轻时在海边住过，知道从哪儿下刀最省力。', nx: 1, w: 480, away: 10 }) } },
-    { x: '鲸肉堆成了小山，鲸油也装了好几桶。雪橇只拉得动一样。',
+      g: { t: '늙은 길잡이는 모두에게 칼 조작 방법을 가르칩니다.', d: '8분에 10명만 가요', need: hands(10), go: () => ({ m: '늙은 길잡이는 어렸을 때 바닷가에 살았으며 최소한의 노력으로 어디를 잘라야 할지 알고 있었습니다.', nx: 1, w: 480, away: 10 }) } },
+    { x: '고래 고기가 산더미처럼 쌓여 있었고 고래 기름 통도 있었습니다. 썰매는 동일한 것만 당길 수 있습니다.',
       o: [
-        { t: '把肉都拉回来', d: '生肉 +2000', go: (S, c) => { give(c, { game: 2000 }); return { m: '冻鲸肉塞满了仓房，厨房要忙好几天了。' }; } },
-        { t: '把鲸油拉回来烧', d: '煤 +800（鲸油顶煤烧）', go: (S, c) => { give(c, { coal: 800 }); return { m: '鲸油倒进熔炉，火苗蹿得老高。' }; } },
+        { t: '고기를 다 뒤로 빼내세요', d: '생고기 +2000', go: (S, c) => { give(c, { game: 2000 }); return { m: '창고에는 냉동 고래 고기가 가득하고 부엌은 며칠 동안 바쁠 것입니다.' }; } },
+        { t: '고래기름을 가져와서 태워버리세요', d: '석탄 +800 (고래기름탑 석탄 연소)', go: (S, c) => { give(c, { coal: 800 }); return { m: '용광로에 고래기름을 부으니 불길이 치솟았습니다.' }; } },
       ] },
   ] },
   aurora: { st: [
-    { x: '天上的极光像帘子一样垂到雪地上，罗盘乱转，工程站的仪器却亮得出奇。',
+    { x: '하늘에는 오로라가 커튼처럼 눈에 드리워져 있고, 나침반은 빙글빙글 돌고 있는데, 공학 작업장의 기구는 놀라울 정도로 밝다.',
       o: [
-        { t: '工程站通宵记录', d: '研究速度 ×2 · 一天', go: S => { gBuffAdd(S, 'res', 1, DAY_LEN, '极光风暴'); return { m: '工程站的灯亮了一整夜。', nx: 1, w: DAY_LEN }; } },
-        { t: '全营地出来看', d: '所有营地希望 +8', go: S => { allHope(S, 8); return { m: '大人孩子都跑到雪地上，仰着头看了半夜。' }; } },
+        { t: '공학 작업장 밤새 기록', d: '연구 속도 ×2 · 1일', go: S => { gBuffAdd(S, 'res', 1, DAY_LEN, '오로라 폭풍'); return { m: '공학 작업장의 빛은 밤새도록 켜져 있었습니다.', nx: 1, w: DAY_LEN }; } },
+        { t: '나와서 야영지 전체를 살펴보세요', d: '모두야영지희망 +8', go: S => { allHope(S, 8); return { m: '어른들 아이는 모두 눈밭으로 달려가 밤새도록 올려다보았습니다.' }; } },
       ],
-      g: { t: '把极光的光引进熔炉', d: '研究速度 ×2 一天，所有营地希望 +4', go: S => { gBuffAdd(S, 'res', 1, DAY_LEN, '极光风暴'); allHope(S, 4); return { m: '熔炉的火苗染成了绿色，工程站的仪器也跟着亮。', nx: 1, w: DAY_LEN }; } } },
-    { x: '极光散了。记下来的东西堆了一桌子，有一半谁也看不懂。',
+      g: { t: '오로라의 빛을 용광로에 도입하세요', d: '연구 속도 ×2 어느 날, 모두 야영지희망 +4', go: S => { gBuffAdd(S, 'res', 1, DAY_LEN, '오로라 폭풍'); allHope(S, 4); return { m: '용광로의 불꽃은 녹색으로 물들었고, 공학 작업장의 기구에도 불이 들어왔습니다.', nx: 1, w: DAY_LEN }; } } },
+    { x: '오로라가 흩어져 있습니다. 내가 적어 놓은 것들이 테이블 여기저기에 쌓여 있었는데, 그 중 절반도 알아듣는 사람이 없었다.',
       o: [
-        { t: '整理成图纸', d: '研究点 +300', go: S => { bankPts(S, 300); return { m: '工程师们熬了两夜，整理出一摞图纸。' }; } },
-        { t: '刻在熔炉边的石头上', d: '这座营地希望 +6', go: (S, c) => { bumpMood(c, 6, 0); return { m: '石头上刻满了弯弯曲曲的光带，路过的人都要看两眼。' }; } },
+        { t: '도면으로 정리', d: '연구 포인트 +300', go: S => { bankPts(S, 300); return { m: '기술자는 이틀 밤을 새워가며 그림 더미를 정리했습니다.' }; } },
+        { t: '돌에 새겨진 용광로 곁', d: '이 야영지희망 +6', go: (S, c) => { bumpMood(c, 6, 0); return { m: '돌에는 빛의 곡선 모양의 띠가 새겨져 있어 지나가는 사람이 다시 한 번 살펴보게 됩니다.' }; } },
       ] },
   ] },
   caravan: { st: [
-    { x: '风雪里传来一串铃铛声：一支商队迷了路，拉车的雪牛冻得直打哆嗦。',
+    { x: '바람과 눈 속에서 종소리가 울렸다. 대상은 길을 잃었고 수레를 끄는 설소는 추위에 떨고 있었다.',
       o: [
-        { t: '派人把他们领回来', d: '熟食 −60 · 8 个人去 4 分钟', need: both(lack({ food: 60 }), hands(8)), go: (S, c) => { take(c, { food: 60 }); return { m: '八个人背着热汤出发了。', nx: 1, w: 240, away: 8 }; } },
-        { t: '远远给他们指路', d: '余烬 +5', go: S => { ember(S, 5); return { m: '商队朝着火光的方向拐了过去，铃铛声越来越远。' }; } },
+        { t: '일손 배치다시 가져가세요', d: '요리 −60 · 8명이 4분 갔습니다', need: both(lack({ food: 60 }), hands(8)), go: (S, c) => { take(c, { food: 60 }); return { m: '여덟 명이 뜨거운 국물을 들고 나섰습니다.', nx: 1, w: 240, away: 8 }; } },
+        { t: '멀리서부터 길을 보여주세요', d: '잔불 +5', go: S => { ember(S, 5); return { m: '대상은 불이 있는 방향으로 방향을 틀었고, 종소리는 점점 더 멀어졌다.' }; } },
       ],
-      g: { t: '点起信号火，让他们自己找过来', d: '木材 −100，不用派人', need: lack({ wood: 100 }), go: (S, c) => { take(c, { wood: 100 }); return { m: '一堆大火在营地北边烧起来。', nx: 1, w: 240 }; } } },
-    { x: '商队的人暖过来了。领队说他们是北方商会的，欠营地一个人情。',
+      g: { t: '봉화를 켜고 스스로 찾도록 하세요.', d: '목재 −100, 일손 배치를 사용하지 마십시오', need: lack({ wood: 100 }), go: (S, c) => { take(c, { wood: 100 }); return { m: '야영지 북쪽에서 화재가 발생했습니다.', nx: 1, w: 240 }; } } },
+    { x: '캐러밴 안의 사람들은 몸을 녹였습니다. 팀장은 자신들이 북방 상회 소속이고 야영지에게 은혜를 입었다고 말했습니다.',
       o: [
-        { t: '请他们在商会里说句话', d: '商会收货价 +20% · 一天', go: S => { gBuffAdd(S, 'guild', 0.2, DAY_LEN, '商队的人情'); return { m: '领队拍着胸脯说，这一天商会收你们的货多给两成。' }; } },
-        { t: '换一车货', d: txt({ steel: 150, alloy: 60, battery: 40 }), go: (S, c) => { give(c, { steel: 150, alloy: 60, battery: 40 }); return { m: '商队卸下一车货当谢礼。' }; } },
+        { t: '상회로 말하도록 요청하세요.', d: '상회 배송비 +20% · 1일', go: S => { gBuffAdd(S, 'guild', 0.2, DAY_LEN, '캐러밴 호의'); return { m: '팀장은 가슴을 두드리며 \'상회가 이날 상품을 접수하면 20%를 더 주겠다\'고 말했다.' }; } },
+        { t: '한 트럭분의 상품을 교환하세요', d: txt({ steel: 150, alloy: 60, battery: 40 }), go: (S, c) => { give(c, { steel: 150, alloy: 60, battery: 40 }); return { m: '캐러밴은 감사의 선물로 많은 물건을 내렸습니다.' }; } },
       ] },
   ] },
   sleepers: { st: [
-    { x: '冰洞深处躺着十几个人，裹着厚厚的毛毡，胸口还在微微起伏：他们在冬眠。',
+    { x: '얼음동굴 깊은 곳에는 십여 명이 넘는 사람들이 두꺼운 담요에 싸인 채 누워 있었고, 가슴은 살짝 부풀려 동면 중이었다.',
       o: [
-        { t: '抬回暖圈', d: '熟食 −120 · 8 个人去 3 分钟', need: both(lack({ food: 120 }), hands(8)), go: (S, c) => { take(c, { food: 120 }); return { m: '八个人用雪橇把冬眠的人一个个拉了回来。', nx: 1, w: 180, away: 8 }; } },
-        { t: '封好洞口，留下记号', d: '希望 +3', go: (S, c) => { bumpMood(c, 3, 0); return { m: '洞口用冰砖封好，插上了一面旗子。' }; } },
+        { t: '리프트 백 난방권', d: '요리 −120 · 8명 3분 이동', need: both(lack({ food: 120 }), hands(8)), go: (S, c) => { take(c, { food: 120 }); return { m: '8명은 썰매를 이용해 동면 중인 사람들을 한 명씩 끌어내렸다.', nx: 1, w: 180, away: 8 }; } },
+        { t: '구멍을 막고 표시를 남깁니다.', d: '희망 +3', go: (S, c) => { bumpMood(c, 3, 0); return { m: '동굴 입구는 얼음벽돌로 막고 깃발을 꽂았다.' }; } },
       ],
-      g: { t: '用熔炉的热气慢慢唤醒他们', d: '煤 −150，不用派人', need: lack({ coal: 150 }), go: (S, c) => { take(c, { coal: 150 }); return { m: '一根长管子把熔炉的热气送进了冰洞。', nx: 1, w: 180 }; } } },
-    { x: '冬眠的人一个个醒了，饿得说不出话。领头的老人说，他们本来是要往南走的。',
+      g: { t: '용광로의 열을 사용하여 천천히 깨우세요.', d: '석탄 −150, 일손 배치를 사용하지 마십시오', need: lack({ coal: 150 }), go: (S, c) => { take(c, { coal: 150 }); return { m: '긴 파이프가 용광로의 뜨거운 공기를 얼음 동굴로 보냅니다.', nx: 1, w: 180 }; } } },
+    { x: '동면하던 사람들은 너무 배고파서 말을 할 수 없을 정도로 하나 둘 깨어났다. 선두 노인은 남쪽으로 가고 있다고 말했습니다.',
       o: [
-        { t: '请他们留下', d: '+12 人', go: (S, c) => { const a = addPeople(S, c, 12); return { m: `十二个人留了下来${a && a.wait ? `，床位不够，${a.wait} 人先在窝棚里等` : ''}。` }; } },
-        { t: '送他们往南走', d: '余烬 +12', go: S => { ember(S, 12); return { m: '他们带着干粮往南走了，临走前把一袋余烬塞给了守火人。' }; } },
+        { t: '그들에게 머물라고 해라', d: '+12명', go: (S, c) => { const a = addPeople(S, c, 12); return { m: `12명이 묵었어요${a && a.wait ? `, 침대가 부족해요.${a.wait}사람들은 먼저 오두막에서 기다려요` : ''}。` }; } },
+        { t: '그들을 남쪽으로 보내세요', d: '잔불 +12', go: S => { ember(S, 12); return { m: '그들은 건조한 음식을 가지고 남쪽으로 갔고, 떠나기 전에 불지킴이에게 잔불 한 봉지를주었습니다.' }; } },
       ] },
   ] },
   starfall: { st: [
-    { x: '半夜一道火光划过天空，落在营地北边，砸出一个还在冒烟的大坑。',
+    { x: '한밤중에 불줄기가 하늘을 가로질러 야영지의 북쪽에 떨어지면서 여전히 연기가 나는 커다란 분화구가 생겼습니다.',
       o: [
-        { t: '趁热去挖', d: '10 个人去 5 分钟（坑里还烫，可能有人烫伤）', need: hands(10), go: (S, c) => { c.sick = (c.sick || 0) + 2; return { m: '十个人冒着热气下了坑，两个人手上烫起了泡。', nx: 1, w: 300, away: 10 }; } },
-        { t: '等它凉了再说', d: '等半天', go: () => ({ m: '大家远远围着看，等坑里的烟散了。', nx: 1, w: DAY_LEN / 2 }) },
+        { t: '더울 때 파세요', d: '10명이 5분간 진행 (구덩이는 아직 뜨거워서 누군가 화상을 입을 수도 있음)', need: hands(10), go: (S, c) => { c.sick = (c.sick || 0) + 2; return { m: '열 명이 더위를 견디며 구덩이에 들어갔고, 일손 두 대에 물집이 생겼습니다.', nx: 1, w: 300, away: 10 }; } },
+        { t: '식을 때까지 기다리세요', d: '오랫동안 기다리세요', go: () => ({ m: '모두들 모여서 멀리서 지켜보며 구덩이 속의 연기가 사라지기를 기다리고 있었습니다.', nx: 1, w: DAY_LEN / 2 }) },
       ],
-      g: { t: '先拿雪把坑填上再挖', d: '10 个人去 5 分钟，不会烫伤人', need: hands(10), go: () => ({ m: '雪一铲铲倒进坑里，滋滋地冒白汽。', nx: 1, w: 300, away: 10 }) } },
-    { x: '坑底躺着一块拳头大的石头，发着蓝光，捧在手里还是温的。',
+      g: { t: '먼저 구멍을 눈으로 채운 다음 파십시오.', d: '10명이 5분 동안 화상을 입지 않고 갈 수 있습니다.', need: hands(10), go: () => ({ m: '눈이 구덩이에 쏟아져 하얗게 김이 피어올랐습니다.', nx: 1, w: 300, away: 10 }) } },
+    { x: '구덩이 바닥에는 주먹만한 크기의 돌이 놓여 있는데, 그 돌은 파란색으로 빛나고 손에 닿으면 여전히 따뜻합니다.',
       o: [
-        { t: '敲碎了带回去', d: '星核 +12', go: (S, c) => { give(c, { starcore: 12 }); return { m: '一锤下去，碎成了十二块星核。' }; } },
-        { t: '整块供在熔炉边上', d: '这座营地希望 +8 · 余烬 +10', go: (S, c) => { bumpMood(c, 8, 0); ember(S, 10); return { m: '发光的石头摆在熔炉边，夜里像一盏小灯。' }; } },
+        { t: '조각조각 나눠서 다시 가져가세요', d: '별핵 +12', go: (S, c) => { give(c, { starcore: 12 }); return { m: '망치 하나로 12개의 조각으로 부서졌습니다 별핵.' }; } },
+        { t: '전체 블록은 용광로 곁에 제공됩니다.', d: '이야영지희망 +8 · 잔불 +10', go: (S, c) => { bumpMood(c, 8, 0); ember(S, 10); return { m: '빛나는 돌은 밤의 작은 램프처럼 용광로 곁에 배치됩니다.' }; } },
       ] },
   ] },
   wreck: { st: [
-    { x: '一艘破冰船冻在冰湖中间，船身还完好，锅炉上结了一层红锈。',
+    { x: '얼음호수 중간에 쇄빙선이 얼어붙었습니다. 선체는 그대로 남아 있었지만 보일러에 붉은 녹이 묻어 있었습니다.',
       o: [
-        { t: '拆零件', d: '钢材 +200 · 古代构件 +30', go: (S, c) => { give(c, { steel: 200, part: 30 }); return { m: '船壳一块块撬下来，雪橇拉了好几趟。' }; } },
-        { t: '把它修好', d: '钢材 −120 · 蒸汽机 −6 · 8 个人去 6 分钟', need: both(lack({ steel: 120, engine: 6 }), hands(8)), go: (S, c) => { take(c, { steel: 120, engine: 6 }); return { m: '八个人钻进了锅炉房。', nx: 1, w: 360, away: 8 }; } },
+        { t: '부품 분해', d: '강재 +200 · 고대 부품 +30', go: (S, c) => { give(c, { steel: 200, part: 30 }); return { m: '선체는 한 조각씩 벗겨졌고, 썰매는 그것을 여러 번 잡아당겼습니다.' }; } },
+        { t: '고치다', d: '강재 −120 · 증기기관 −6 · 8명 6분 이동', need: both(lack({ steel: 120, engine: 6 }), hands(8)), go: (S, c) => { take(c, { steel: 120, engine: 6 }); return { m: '보일러실에는 8명이 들어갔습니다.', nx: 1, w: 360, away: 8 }; } },
       ],
-      g: { t: '翻翻船长室', d: '揭开北边一大片迷雾 · 研究点 +120', go: (S, c) => { revealN(S, c, 16); bankPts(S, 120); return { m: '船长的航海图上，画着北边的冰湖和山口。' }; } } },
-    { x: '锅炉重新冒烟了！破冰船突突地开回了营地边上。',
+      g: { t: '선장의 객실을 살펴보고 있습니다.', d: '북쪽의 넓은 지역을 발견하세요 안개 · 연구 포인트 +120', go: (S, c) => { revealN(S, c, 16); bankPts(S, 120); return { m: '선장의 항법도에는 얼음호수와 산길이 북쪽에 그려져 있습니다.' }; } } },
+    { x: '보일러에서 또 연기가 나요! 쇄빙선은 야영지로 돌아갔습니다.',
       o: [
-        { t: '留着当发电站', d: '这座营地燃料消耗 −15% · 两天', go: (S, c) => { addBuff(S, c, 'fuel', -0.15, DAY_LEN * 2, '破冰船的锅炉'); return { m: '船上的锅炉帮熔炉分担了一部分活。' }; } },
-        { t: '拆了换成好零件', d: '古代构件 +80 · 齿轮 +120', go: (S, c) => { give(c, { part: 80, gear: 120 }); return { m: '修好的零件拆下来，个个都能用。' }; } },
+        { t: '발전소로 유지하세요', d: '이 야영지연료는 -15% · 2일을 소비합니다.', go: (S, c) => { addBuff(S, c, 'fuel', -0.15, DAY_LEN * 2, '쇄빙선 보일러'); return { m: '선박의 보일러는 용광로가 작업의 일부를 공유하는 데 도움이 되었습니다.' }; } },
+        { t: '분해해서 좋은 부품으로 교체했습니다', d: '고대 부품 +80 · 톱니바퀴 +120', go: (S, c) => { give(c, { part: 80, gear: 120 }); return { m: '수리된 부품은 분해하여 모두 사용할 수 있습니다.' }; } },
       ] },
   ] },
   hermit: { st: [
-    { x: '一个老人住在雪窝子里，胡子上全是冰碴。他说他在这儿等了四十年，就为了等往北走的人。',
+    { x: '눈이 쌓인 집에는 한 노인이 살고 있었는데, 그의 수염은 얼음으로 뒤덮여 있었습니다. 그는 사람들이 북쪽으로 가기만을 40년 동안 이곳에서 기다렸다고 말했습니다.',
       o: [
-        { t: '请他讲讲北边', d: '揭开北边一片迷雾', go: (S, c) => { revealN(S, c, 10); return { m: '老人用手指在雪上画了一张地图。', nx: 1, w: 120 }; } },
-        { t: '送他些吃的', d: '熟食 −40 · 希望 +2', need: lack({ food: 40 }), go: (S, c) => { take(c, { food: 40 }); bumpMood(c, 2, 0); return { m: '老人接过热汤，手抖得厉害。', nx: 1, w: 120 }; } },
+        { t: '그에게 북쪽에 대해 말해 달라고 하세요', d: '북쪽에서 안개 조각 공개', go: (S, c) => { revealN(S, c, 10); return { m: '노인은 손가락으로 눈 위에 지도를 그렸습니다.', nx: 1, w: 120 }; } },
+        { t: '그에게 음식을 좀 줘', d: '요리 −40 · 희망 +2', need: lack({ food: 40 }), go: (S, c) => { take(c, { food: 40 }); bumpMood(c, 2, 0); return { m: '노인은 손이 심하게 떨리며 뜨거운 국물을 받아들었다.', nx: 1, w: 120 }; } },
       ],
-      g: { t: '请他到熔炉边坐坐', d: '熟食 −40，他会多讲一些', need: lack({ food: 40 }), go: (S, c) => { take(c, { food: 40 }); return { m: '老人在熔炉边坐下，烤着手，话匣子打开了。', nx: 2, w: 120 }; } } },
-    { x: '老人从怀里摸出一卷发黄的笔记，说是他年轻时一路记下的。',
+      g: { t: '그를 용광로 곁에 앉도록 초대하세요', d: '요리 −40, 그는 더 많은 이야기를 할 것입니다', need: lack({ food: 40 }), go: (S, c) => { take(c, { food: 40 }); return { m: '노인은 용광로 곁에 앉아 손을 따뜻하게 하고 이야기를 시작했다.', nx: 2, w: 120 }; } } },
+    { x: '노인은 팔에서 누렇게 변한 쪽지를 꺼내더니 어렸을 때 그걸 적어 두었다고 말했습니다.',
       o: [
-        { t: '收下笔记', d: '研究点 +200', go: S => { bankPts(S, 200); return { m: '笔记里记着北边每一站的矿和风。' }; } },
-        { t: '请他留下来', d: '一位专家（都请到了就换成余烬 15）', go: (S, c) => { const m = giveSpec(S, c); if (m) return { m: `老人认识一位能人：${m}。` }; ember(S, 15); return { m: '老人笑着摇头，塞给守火人一袋余烬。' }; } },
+        { t: '메모 받기', d: '연구 포인트 +200', go: S => { bankPts(S, 200); return { m: '북쪽 각 역의 지뢰와 바람이 노트에 기록됩니다.' }; } },
+        { t: '그에게 머물러달라고 부탁해', d: '전문가 한 명(모두 요청하면 잔불 15로 교체)', go: (S, c) => { const m = giveSpec(S, c); if (m) return { m: `그 노인은 유능한 사람 ${m}을(를) 알고 있습니다.` }; ember(S, 15); return { m: '노인은 미소를 지으며 고개를 저은 다음 불지킴이에게 잔불 한 봉지를 주었다.' }; } },
       ] },
-    { x: '老人在火边坐了一整夜，把北边每一站的风雪、狼群和冰湖都讲了一遍。',
+    { x: '노인은 밤새도록 난로 옆에 앉아 북쪽의 각 정류장에서 눈보라, 늑대, 얼음호수에 대한 이야기를 들려주었습니다.',
       o: [
-        { t: '把他讲的都记下来', d: '研究点 +200 · 一位专家', go: (S, c) => { bankPts(S, 200); const m = giveSpec(S, c); if (!m) ember(S, 15); return { m: `记了满满一本${m ? `，还请来了帮手：${m}` : ''}。` }; } },
-        { t: '请他给孩子们讲故事', d: '所有营地希望 +6', go: S => { allHope(S, 6); return { m: '孩子们围着老人，听到半夜都不肯睡。' }; } },
+        { t: '그가 말하는 모든 것을 적어라', d: '연구 포인트 +200 · 전문가 한 명', go: (S, c) => { bankPts(S, 200); const m = giveSpec(S, c); if (!m) ember(S, 15); return { m: `책 한권을 다 외웠다${m ? `, 그리고 초대된 도우미:${m}` : ''}。` }; } },
+        { t: '그에게 아이에게 이야기를 들려달라고 요청하세요.', d: '모두야영지희망 +6', go: S => { allHope(S, 6); return { m: '아이 사람들은 노인을 에워싸고 한밤중에 그 소리를 듣고 잠을 자지 않았습니다.' }; } },
       ] },
   ] },
   stormeye: { st: [
-    { x: '侦察兵跑回来报信：一团风暴正朝营地压过来，可风暴正中间是平静的，连雪都不下。',
+    { x: '군인 정찰은 다시 달려가 보고했습니다. 야영지를 향해 폭풍이 다가오고 있었지만 폭풍 한가운데에는 고요했고 눈도 내리지 않았습니다.',
       o: [
-        { t: '全营地躲进屋里', d: '木材 −200 多烧一阵，稳稳当当', need: lack({ wood: 200 }), go: (S, c) => { take(c, { wood: 200 }); return { m: '风暴从头顶滚了过去，屋里的人一夜没睡踏实。' }; } },
-        { t: '趁风暴眼抢工', d: '这座营地产量 +50% · 10 分钟，之后风暴的尾巴会扫过来', go: (S, c) => { addBuff(S, c, 'prod', 0.5, 600, '风暴之眼'); return { m: '趁着这片平静，大家一刻不停地干活。', nx: 1, w: 600 }; } },
+        { t: 'Quan야영지는 집에 숨어 있습니다', d: '목재 −200은 잠시 동안 연소되며 안정적입니다.', need: lack({ wood: 200 }), go: (S, c) => { take(c, { wood: 200 }); return { m: '폭풍이 머리 위로 휘몰아쳤고, 그 집 사람들은 밤새 잠을 이루지 못했습니다.' }; } },
+        { t: '폭풍의 눈 속에서 일자리를 빼앗아라', d: '이 야영지생산량 +50% · 10분 후 폭풍의 꼬리가 휩쓸 것입니다.', go: (S, c) => { addBuff(S, c, 'prod', 0.5, 600, '폭풍의 눈'); return { m: '이 평온함을 이용하여 모두가 쉬지 않고 일했습니다.', nx: 1, w: 600 }; } },
       ],
-      g: { t: '跟着风暴眼往北走一段', d: '揭开北边一大片迷雾，不耽误干活', go: (S, c) => { revealN(S, c, 18); return { m: '侦察兵跟着风暴眼走了老远，把北边看了个清楚。' }; } } },
-    { x: '风暴的尾巴扫过来了，屋顶上的雪板被掀得哗哗响。',
+      g: { t: '폭풍의 눈을 따라 북쪽으로 잠시 걸어가세요', d: '작업을 지연시키지 않고 북쪽 안개의 넓은 지역을 발견하십시오', go: (S, c) => { revealN(S, c, 18); return { m: '정찰 병사들은 폭풍의 눈을 멀리 따라가며 북쪽을 선명하게 볼 수 있었습니다.' }; } } },
+    { x: '폭풍의 꼬리가 휩쓸고 지붕에 있던 스노우 보드가 날아갔습니다.',
       o: [
-        { t: '拿木板加固', d: '木板 −150', need: lack({ plank: 150 }), go: (S, c) => { take(c, { plank: 150 }); return { m: '屋顶钉得结结实实，风暴过去了。' }; } },
-        { t: '硬扛过去', d: '这座营地希望 −4，别的没什么损失', go: (S, c) => { bumpMood(c, -4, 2); return { m: '掀了几块雪板，吓哭了几个孩子，好在人都没事。' }; } },
+        { t: '목판으로 강화', d: '목판 −150', need: lack({ plank: 150 }), go: (S, c) => { take(c, { plank: 150 }); return { m: '지붕은 단단히 못으로 박혀 있었고 폭풍은 지나갔습니다.' }; } },
+        { t: '그것을 통해 수행', d: '이 야영지희망 −4에는 다른 손실이 없습니다.', go: (S, c) => { bumpMood(c, -4, 2); return { m: '스노보드 몇 개를 뒤집고 아이 몇 개를 울렸습니다. 다행히 다들 괜찮았어요.' }; } },
       ] },
   ] },
   altar: { st: [
-    { x: '雪下挖出一座石头火坛，坛底的炭居然还是温的，像在等人来添一把火。',
+    { x: '눈 아래에 돌로 만든 제단이 파헤쳐졌습니다. 제단 밑에 있는 숯불은 마치 누군가가 불에 불을 더해 주기를 기다리는 것처럼 여전히 따뜻했습니다.',
       o: [
-        { t: '用余烬重新点燃它', d: '余烬 −15', need: S => (S.meta.embers || 0) < 15 ? '余烬不够' : '', go: S => { ember(S, -15); return { m: '一把余烬撒进去，火坛轰地亮了。', nx: 1, w: 60 }; } },
-        { t: '把它搬回营地', d: '10 个人去 4 分钟', need: hands(10), go: () => ({ m: '十个人用雪橇拖着火坛往回走。', nx: 2, w: 240, away: 10 }) },
+        { t: '잔불으로 다시 불붙여보세요', d: '잔불 −15', need: S => (S.meta.embers || 0) < 15 ? '잔불로는 충분하지 않습니다' : '', go: S => { ember(S, -15); return { m: '잔불 한 줌이 던져지자, 불의 제단이 굉음과 함께 빛났다.', nx: 1, w: 60 }; } },
+        { t: '야영지로 다시 이동하세요.', d: '10명이 4분 갑니다', need: hands(10), go: () => ({ m: '10명은 썰매를 이용해 불제단을 뒤로 끌고 갔다.', nx: 2, w: 240, away: 10 }) },
       ],
-      g: { t: '在火坛边守一夜', d: '什么也不花，等半天', go: () => ({ m: '守火人在坛边坐了一夜，天亮时炭火自己旺了起来。', nx: 1, w: DAY_LEN / 2 }) } },
-    { x: '火坛里窜起一团金色的火苗，烧得又稳又安静。',
+      g: { t: '불 제단 옆에서 하룻밤을 보내세요', d: '비용은 전혀 들지 않습니다. 조금만 기다리시면 됩니다.', go: () => ({ m: '불지킴이는 밤새도록 제단 곁에 앉아 있었는데, 새벽이 되자 숯불이 피기 시작했습니다.', nx: 1, w: DAY_LEN / 2 }) } },
+    { x: '금색 불꽃 덩어리가 불 제단에서 터져 나오며 조용하고 안정적으로 타올랐습니다.',
       o: [
-        { t: '把火引进熔炉', d: '这座营地燃料消耗 −20% · 两天', go: (S, c) => { addBuff(S, c, 'fuel', -0.2, DAY_LEN * 2, '金色的火'); return { m: '熔炉里多了一缕金色的火苗。' }; } },
-        { t: '分给每一座营地', d: '所有营地希望 +5', go: S => { allHope(S, 5); return { m: '金色的火种送到了每一座营地。' }; } },
+        { t: '화재 용광로를 소개합니다', d: '이 야영지연료는 -20% · 2일을 소비합니다.', go: (S, c) => { addBuff(S, c, 'fuel', -0.2, DAY_LEN * 2, '금색 화재'); return { m: '용광로에는 금색의 불꽃이 있습니다.' }; } },
+        { t: '각 야영지 제공', d: '전체야영지희망 +5', go: S => { allHope(S, 5); return { m: '금색의 불씨는 모든 야영지에 전달되었습니다.' }; } },
       ] },
-    { x: '火坛立在了熔炉旁边。孩子们围着它，说里面能看见以前的人。',
+    { x: '불의 제단은 용광로 옆에 서있었습니다. 아이 사람들은 안에서 과거의 사람들을 볼 수 있다며 둘러쌌다.',
       o: [
-        { t: '就让它立在那儿', d: '这座营地希望 +6', go: (S, c) => { bumpMood(c, 6, 0); return { m: '火坛成了营地里最热闹的地方。' }; } },
-        { t: '在坛前刻下这一站的名字', d: '余烬 +8 · 希望 +3', go: (S, c) => { ember(S, 8); bumpMood(c, 3, 0); return { m: '石头上又多了一个名字。' }; } },
+        { t: '그냥 거기 세워두세요', d: '이 야영지희망 +6', go: (S, c) => { bumpMood(c, 6, 0); return { m: '불제단은 야영지에서 가장 활기 넘치는 곳이 되었습니다.' }; } },
+        { t: '제단 앞에 이 정류장의 이름을 새깁니다.', d: '잔불 +8 · 희망 +3', go: (S, c) => { ember(S, 8); bumpMood(c, 3, 0); return { m: '돌에는 또 다른 이름이 있습니다.' }; } },
       ] },
   ] },
 };
@@ -318,8 +318,8 @@ export function qyView(S) {
   return { id: q.id, n: QY[q.id].n, ic: QY[q.id].ic, text: typeof st.x === 'function' ? st.x(S, c, q) : st.x, opts, st: q.st, camp: c.name };
 }
 export function qyChoose(S, i) {
-  const q = qyPending(S); if (!q) return { ok: false, reason: '没有要拿主意的奇遇' };
-  const o = optsOf(S, q)[i]; if (!o) return { ok: false, reason: '没有这个选项' };
+  const q = qyPending(S); if (!q) return { ok: false, reason: '결정하지 않아도 돼요 기연' };
+  const o = optsOf(S, q)[i]; if (!o) return { ok: false, reason: '그런 옵션은 없습니다' };
   const c = qyCamp(S, q), why = o.need ? o.need(S, c, q) : '';
   if (why) return { ok: false, reason: why };
   const r = o.go(S, c, q) || { m: '' };
@@ -334,7 +334,7 @@ export function qyChoose(S, i) {
 function qyBack(S, q, quiet) {
   if (!q.away) return;
   const c = qyCamp(S, q), n = q.away; q.away = 0; c.people += n;
-  if (!quiet) logMsg(S, `${QY[q.id].ic} 去「${QY[q.id].n}」的 ${n} 个人回来了。`, 'good');
+  if (!quiet) logMsg(S, `${QY[q.id].ic} "${QY[q.id].n}"(으)로 갔던 ${n}명이 돌아왔습니다.`, 'good');
 }
 function qyEnd(S, q) {
   q.done = 1; qyBack(S, q, true);
@@ -346,7 +346,7 @@ function qyEnd(S, q) {
 export function qyLeave(S) {
   const q = S.qy; if (!q || q.done) return;
   qyBack(S, q, true); q.done = 1; q.miss = 1;
-  logMsg(S, `${QY[q.id].ic}「${QY[q.id].n}」没来得及做完，车队就出发了。`);
+  logMsg(S, `${QY[q.id].ic}「${QY[q.id].n}」이(가) 끝나기도 전에 행렬이 출발했습니다.`);
 }
 // 派出去的人数（占着床位，不干活）
 export const qyAway = (S, camp) => S.qy && S.qy.away && S.qy.camp === camp.id ? S.qy.away : 0;
@@ -356,6 +356,6 @@ export function qyStep(S) {
   if (q.away && S.t >= q.at) qyBack(S, q);
   if (q.done || q.k !== journeyOf(S).stage || S.t < q.at || q.told === q.st || rt(S).offline) return;
   q.told = q.st;
-  logMsg(S, `${QY[q.id].ic} 奇遇「${QY[q.id].n}」${q.st ? '有了下文' : '：' + QY[q.id].d}`, 'story', { act: 'qyopen', label: '去看看' });
+  logMsg(S, `${QY[q.id].ic} 기연「${QY[q.id].n}」${q.st ? '다음과 함께' : '：' + QY[q.id].d}`, 'story', { act: 'qyopen', label: '가 보기' });
   rt(S).fx.push({ kind: 'qy', id: q.id });
 }

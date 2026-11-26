@@ -39,9 +39,9 @@ export class BigMap {
     g.cancelModes(); g.ui.close();
     this.open = true;
     this.el.classList.add('show');
-    this.el.innerHTML = iconize(`<div class="bmbox u-paper"><div class="phead"><b>北行地图 <small>${northRec(S) ? `🧭 ${northRec(S)} · ` : ''}点一处，镜头就飞过去</small></b><button class="x" data-act="mapclose">✕</button></div>
+    this.el.innerHTML = iconize(`<div class="bmbox u-paper"><div class="phead"><b>북쪽 방향 지도 <small>${northRec(S) ? `🧭 ${northRec(S)} · ` : ''}장소를 클릭하면 카메라가 위로 날아갑니다.</small></b><button class="x" data-act="mapclose">✕</button></div>
       <div class="bmscroll"><div class="bmin"><canvas></canvas><div class="bmmk"></div></div></div>
-      <div class="bmleg"><span>🔥 营地</span>${S.camps.some(c => c.depot) ? "<span>📦 补给站</span>" : ""}${(Sim.journeyOf(S).ruins || []).length ? "<span>🏚 熄火的老营地</span>" : ""}<span><i class="rt"></i>探好的路</span><span>📍 发现的地标</span><span>❔ 未知</span><span>🧭 雾里的地点</span><span>🆘 幸存者</span>${S.gangs && Object.keys(S.gangs).length ? "<span>🏴 掠夺者</span>" : ""}<span><i class="vw"></i>镜头</span></div></div>`);
+      <div class="bmleg"><span>🔥 야영지</span>${S.camps.some(c => c.depot) ? "<span>📦 보급소</span>" : ""}${(Sim.journeyOf(S).ruins || []).length ? "<span>🏚 멈춘 오래된 야영지</span>" : ""}<span><i class="rt"></i>탐방한 도로</span><span>📍 발견한 랜드마크</span><span>❔ 알 수 없음</span><span>🧭 안개 속 위치</span><span>🆘 생존자</span>${S.gangs && Object.keys(S.gangs).length ? "<span>🏴 약탈자</span>" : ""}<span><i class="vw"></i>렌즈</span></div></div>`);
     this.render(true);
     clearInterval(this.timer);
     this.timer = setInterval(() => { if (this.open) this.render(false); }, 1000);
@@ -159,7 +159,7 @@ export class BigMap {
       if (row > maxRow) break;
       ctx.strokeStyle = 'rgba(200,150,78,.55)'; ctx.lineWidth = 1; ctx.setLineDash([6, 5]);
       ctx.beginPath(); ctx.moveTo(0, Y(row)); ctx.lineTo(cw, Y(row)); ctx.stroke(); ctx.setLineDash([]);
-      const txt = t < 0 ? `北境 · 世界之脊以北 · ${Math.round(baseTempOfRow(row))}°` : `${TIER_NAMES[t]}带 · ${Math.round(baseTempOfRow(row))}°`;
+      const txt = t < 0 ? `북방 · 세계의 척추의 북쪽 · ${Math.round(baseTempOfRow(row))}°` : `${TIER_NAMES[t]} 벨트 · ${Math.round(baseTempOfRow(row))}°`;
       ctx.fillStyle = 'rgba(20,16,12,.7)'; const tw = ctx.measureText(txt).width; ctx.fillRect(4, Y(row) - k * 1.7, tw + 10, k * 1.6);
       ctx.fillStyle = '#f2cf8f'; ctx.fillText(txt, 9, Y(row) - k * 0.25);
     }
@@ -187,7 +187,7 @@ export class BigMap {
     for (const p of w.north || []) {
       const k2 = Sim.SPINE + p.k, done = J.stage >= k2, nx = J.stage + 1 === k2;
       if (p.y > maxRow || taken(p.x, p.y) || (!done && !nx && S.reveal[idx(p.x, p.y)] !== 1)) continue;
-      add(p.x + 0.5, p.y + 0.5, 'lm ' + (done ? 'done' : 'seen'), `<i>${done ? '🏁' : '📍'}</i><span>北境第 ${p.k} 站·${esc(p.name)} ${NORTH_RULES[p.rule].ic}</span>`);
+      add(p.x + 0.5, p.y + 0.5, 'lm ' + (done ? 'done' : 'seen'), `<i>${done ? '🏁' : '📍'}</i><span>북방 역 ${p.k}·${esc(p.name)} ${NORTH_RULES[p.rule].ic}</span>`);
     }
     for (const t of Sim.towerList(S)) add(t.x, t.y, 'lm done tw', `<i>🔥</i><span>${Sim.towerName(t.n)}</span>`);
     for (const s of w.sites) {
@@ -204,12 +204,12 @@ export class BigMap {
       add(p.x + 0.5, p.y + 0.5, 'poi', `<i>🆘</i>`);
     }
     for (const sc2 of S.scouts) add(sc2.x, sc2.y, 'scout', `<i>${sc2.kind === 'exp' ? '🧭' : sc2.kind === 'rescue' ? '🆘' : sc2.kind === 'survey' ? '⛏' : '🚩'}</i>`);
-    for (const r of J.ruins || []) if (r.y <= maxRow) add(r.x, r.y, 'ruin', `<i>🏚</i><span>${esc(r.n)}</span>`, `data-tip="熄了火的老营地"`);
+    for (const r of J.ruins || []) if (r.y <= maxRow) add(r.x, r.y, 'ruin', `<i>🏚</i><span>${esc(r.n)}</span>`, `data-tip="타버린 오래된 야영지"`);
     for (const c of S.camps) {
       const main = Sim.isMain(S, c);
-      add(c.x, c.y, 'camp' + (c.id === S.active ? ' on' : '') + (main ? ' main' : c.depot ? ' depot' : ''), `<i>${main || !c.depot ? '🔥' : '📦'}</i><span>${main ? '<b>主营地</b> ' : c.depot ? '<b>补给站</b> ' : ''}${esc(c.name)}</span>`, `data-camp="${c.id}"`);
+      add(c.x, c.y, 'camp' + (c.id === S.active ? ' on' : '') + (main ? ' main' : c.depot ? ' depot' : ''), `<i>${main || !c.depot ? '🔥' : '📦'}</i><span>${main ? '<b>본영</b>' : c.depot ? '<b>공급 창고</b>' : ''}${esc(c.name)}</span>`, `data-camp="${c.id}"`);
     }
-    if (J.trip) { const p = Sim.tripPos(J.trip); add(p.x, p.y, 'trip', `<i>🛷</i><span>车队 · 往「${esc(Sim.stopOf(S, J.trip.to).n)}」</span>`); }
+    if (J.trip) { const p = Sim.tripPos(J.trip); add(p.x, p.y, 'trip', `<i>🛷</i><span>행렬 · "${esc(Sim.stopOf(S, J.trip.to).n)}"(으)로 이동</span>`); }
     const html = iconize(mk.join(''));
     const box = inner.querySelector('.bmmk'); if (box.dataset.h !== html) { box.dataset.h = html; box.innerHTML = html; }
     if (first) {

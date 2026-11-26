@@ -52,7 +52,7 @@ class Game {
     this.theme.apply(this.theme.want(), false); // 读完存档按眼下的天气定一次，不用淡入
     if (this.brokenSave) this.bk.list(this.slot).then(L => { // 存档坏了但备份还在：问要不要退回去
       if (!L.length) return;
-      this.modalOrLater(`<h2>存档读不出来了</h2><p>存档位 ${this.slot} 里的存档坏了，读不出来，可能是浏览器存储出了问题。</p><p>自动备份还在：最近一份是 <b>${this.ui.agoText(L[0].at)}</b> 存的（${this.ui.bkLine(L[0])}）。退回去就能接着玩。</p>`, [{ t: '查看备份', a: 'backups', cls: 'go' }, { t: '从头开始', a: 'close-modal' }]);
+      this.modalOrLater(`<h2>저장을 읽을 수 없습니다.</h2><p>저장 비트 ${this.slot}의 저장이 손상되어 읽을 수 없습니다. 브라우저 저장공간에 문제가 있을 수 있습니다. </p><p>자동 백업이 아직 남아 있습니다. 최신 백업은 <b>${this.ui.agoText(L[0].at)}</b>(${this.ui.bkLine(L[0])})님이 저장했습니다. 그냥 돌아가서 계속 플레이하세요. </p>`, [{ t: '백업 보기', a: 'backups', cls: 'go' }, { t: '처음부터 시작하세요', a: 'close-modal' }]);
     });
     this.setQuality(this.quality);
     if (this.titleOn) this.ui.showTitle(this.hadSave);
@@ -86,7 +86,7 @@ class Game {
       this.S = Sim.newRun(meta, 0);
       this.view.bind(this.S);
       this.view.zoom(0.9);
-      this.modalOrLater(`<h2>序 · 余烬</h2><p class="story">${STORY.intro}</p><p>你带着几个人来到<b>灰烬营地</b>。先让熔炉烧起来，盖帐篷、伐木、打猎，然后一程一程往北走。</p><p class="hint">提示：点底部的「建造」开始；不知道怎么玩时打开「菜单 → 帮助」。难度：${Sim.diffOf(this.S).n}（菜单里随时能改）。</p>`, [{ t: '点起篝火', a: 'start', cls: 'go' }]);
+      this.modalOrLater(`<h2>서문 · 잔불</h2><p class="story">${STORY.intro}</p><p>당신은 몇몇 사람들과 함께 <b>잿빛 야영지</b>에 왔습니다. 먼저 용광로를 불태우고, 천막을 만들고, 나무를 자르고, 사냥을 한 후, 하나씩 북쪽으로 가세요. </p><p class="hint">팁: 시작하려면 하단의 "건설"를 클릭하세요. 플레이 방법을 모르시면 "메뉴 → 도움말"을 여세요. 난이도: ${Sim.diffOf(this.S).n}(메뉴에서 언제든지 변경 가능). </p>`, [{ t: '모닥불을 시작하려면 클릭하세요.', a: 'start', cls: 'go' }]);
     }
   }
   // 标题画面还开着时，弹窗先存起来，点「继续」后再弹
@@ -125,10 +125,10 @@ class Game {
     try { raw = await this.bk.raw(this.slot, id); } catch (e) { console.warn(e); }
     let o = null;
     try { if (raw) { Sim.deserialize(raw); o = JSON.parse(raw); } } catch (e) { o = null; }
-    if (!o) { this.ui.toast('这份备份读不出来了，换一份试试。', 'bad'); return; }
+    if (!o) { this.ui.toast('이 백업을 읽을 수 없습니다. 다른 백업을 시도해 보십시오.', 'bad'); return; }
     if (!this.brokenSave) await this.backup('restore');
     o.savedAt = Date.now();
-    try { localStorage.setItem(slotKey(this.slot), JSON.stringify(o)); } catch (e) { this.ui.toast('恢复失败：' + e.message, 'bad'); return; }
+    try { localStorage.setItem(slotKey(this.slot), JSON.stringify(o)); } catch (e) { this.ui.toast('복구 실패:' + e.message, 'bad'); return; }
     this.noSave = true;
     location.reload();
   }
@@ -147,7 +147,7 @@ class Game {
     try {
       if (diff) { localStorage.removeItem(slotKey(n)); localStorage.setItem(KEY + '-newdiff', diff); }
       localStorage.setItem(KEY + '-slot', String(n));
-    } catch (e) { this.ui.toast('存档位切换失败：' + e.message, 'bad'); return; }
+    } catch (e) { this.ui.toast('저장 비트 전환 실패:' + e.message, 'bad'); return; }
     this.noSave = true;
     location.reload();
   }
@@ -157,7 +157,7 @@ class Game {
     await this.backup('del', n); // 删之前留一份：删错了能从备份里找回来
     if (n !== this.slot) { try { localStorage.removeItem(slotKey(n)); } catch (e) {} return; }
     const nx = this.nextSlot(n);
-    try { localStorage.removeItem(slotKey(n)); localStorage.setItem(KEY + '-slot', String(nx || n)); } catch (e) { this.ui.toast('删除失败：' + e.message, 'bad'); return; }
+    try { localStorage.removeItem(slotKey(n)); localStorage.setItem(KEY + '-slot', String(nx || n)); } catch (e) { this.ui.toast('삭제 실패:' + e.message, 'bad'); return; }
     this.noSave = true;
     location.reload();
   }
@@ -169,15 +169,14 @@ class Game {
     const gained = Object.keys(sum.res).filter(k => sum.res[k] > 0).sort((a, b) => RES[b].t - RES[a].t || sum.res[b] - sum.res[a]).slice(0, 8);
     const lost = Object.keys(sum.res).filter(k => sum.res[k] < 0).slice(0, 5);
     if (secs < 120) return;
-    this.modalOrLater(`<h3>离开了 ${fmtTime(secs)}</h3>
-      <p>营地一直在运转${sum.capped ? `，算到第 12 小时为止（之后营地停在那时的样子）` : ''}。这段时间物资平均按 <b>${Math.round(sum.rate * 100)}%</b> 入库（前 1 小时 40%，到 4 小时 20%，到 12 小时 10%；人照样要吃饭烧火），在线玩收益最高：</p>
-      <div class="sumgrid">${gained.map(k => `<span>${RICON[k]} +${fmt(sum.res[k])}</span>`).join('')}${lost.map(k => `<span class="miss">${RICON[k]} ${fmt(sum.res[k])}</span>`).join('')}</div>
-      <p>👥 人口 ${sum.people >= 0 ? '+' : ''}${sum.people}（投奔 ${sum.arrivals}，遇难 ${sum.deaths}）</p>
-      ${sum.blizzards ? `<p>❄ 经历了 ${sum.blizzards} 场暴风雪</p>` : ''}
-      ${sum.raids ? `<p>🐺 袭营 ${sum.raids} 次，击退 ${sum.raidsWon} 次</p>` : ''}
-      ${sum.lines && sum.lines.length ? `<div class="sec">产线</div><div class="offl">${sum.lines.map(l => `<div><span>${RICON[l.r]} ${RES[l.r].n}${l.main ? '主线' : '支线'}</span><span>入库 ${fmt(l.got)}（满速 ${fmt(l.per)}/分，按 ${Math.round(l.rk * 100)}%${l.rk > sum.rate + 1e-6 ? '，三星多拿一半' : ''}）</span><span class="st">${l.star > l.star0 ? `升到 ${'★'.repeat(l.star)}` : '★'.repeat(l.star) || '还没有星'}</span></div>`).join('')}</div>` : ''}
-      ${sum.stage !== sum.stage0 ? `<p>🛷 车队到了「${Sim.stopOf(S, sum.stage).n}」，新熔炉已经点着了。</p>` : ''}
-      <p class="hint">（结算用了 ${Math.round(performance.now() - t0)} 毫秒）</p>`);
+    this.modalOrLater(`<h3>왼쪽${fmtTime(secs)}</h3>
+      <p>야영지가 실행 중입니다.${sum.capped ? `, 12시까지 계산(이후 야영지는 해당 시간에 멈춤)` : ''}. 이 기간 동안 공급량은 평균 <b>${Math.round(sum.rate * 100)}%</b> 저장 공간(처음 1시간 동안 40%, 4시간 동안 20%, 12시간 동안 10%; 사람들은 여전히 먹고 불을 피워야 함), 가장 높은 수입은 온라인 플레이에서 발생합니다: </p>
+      <div 클래스="sumgrid">${gained.map(k => `<span>${RICON[k]} +${fmt(sum.res[k])}</span>`).join('')}${lost.map(k => `<span class="miss">${RICON[k]} ${fmt(sum.res[k])}</span>`).join('')}</div>
+      <p>👥 인구${sum.people >= 0 ? '+' : ''}${sum.people}(디자인${sum.arrivals}, 고민 중${sum.deaths}）</p>
+      ${sum.blizzards ? `<p>❄ 경험이 풍부함${sum.blizzards}필드 눈보라</p>` : ''}
+      ${sum.raids ? `<p>🐺 습격${sum.raids}번, 격퇴하다${sum.raidsWon}횟수</p>` : ''}
+      ${sum.lines && sum.lines.length ? `<div class="sec">생산 라인</div><div class="offl">${sum.lines.map(l => `<div><span>${RICON[l.r]} ${RES[l.r].n}${l.main ? '본선' : '지선'}</span><span>창고로${fmt(l.got)}(전속력${fmt(l.per)}/분, 누르기${Math.round(l.rk * 100)}%${l.rk > sum.rate + 1e-6 ? ', 삼성은 절반 더 얻습니다' : ''}）</span><span class="st">${l.star > l.star0 ? `상승하다${'★'.repeat(l.star)}` : '★'.repeat(l.star) || '아직 별표 없음'}</span></div>`).join('')}</div>` : ''}
+      ${sum.stage !== sum.stage0 ? `<p>🛷 행렬가 도착했습니다 「${Sim.stopOf(S, sum.stage).n}”, 새로운 용광로에 불이 들어왔습니다.</p>` : ''}<p class="hint">(결제에 사용됨${Math.round(performance.now() - t0)}밀리초)</p>`);
   }
   resume() {
     const now = performance.now();
@@ -197,22 +196,22 @@ class Game {
       code = 'HJZ1:' + btoa(bin);
     } catch (e) { code = 'HJB1:' + btoa(unescape(encodeURIComponent(raw))); }
     this.lastCode = code;
-    this.ui.modal(`<p>存档码（${fmt(code.length)} 字）：在另一台设备上「导入存档码」。复制不了的话可以存成文件，到另一台设备上选这个文件导入。</p><textarea id="exportBox" rows="6" readonly>${code}</textarea>`, [{ t: '复制', a: 'copy', cls: 'go' }, { t: '💾 存成文件', a: 'savecode' }, { t: '关闭', a: 'close-modal' }]);
+    this.ui.modal(`<p>저장 코드(${fmt(code.length)}자): 다른 기기에서 "저장 코드를 가져옵니다." 복사할 수 없는 경우 파일로 저장하고 이 파일을 선택하여 다른 장치에서 가져올 수 있습니다. </p><textarea id="exportBox"rows="6" 읽기 전용>${code}</textarea>`, [{ t: '복사', a: 'copy', cls: 'go' }, { t: '💾 파일로 저장', a: 'savecode' }, { t: '폐쇄', a: 'close-modal' }]);
   }
   // 存档码存成文件 / 从文件读回来（剪贴板在有些地方用不了）
   async saveCodeFile() {
     if (!this.lastCode) return;
-    const t = stamp(), r = await saveFile(`寒烬北行-存档码-${t}.txt`, this.lastCode, `hanjin-save-${t}.txt`);
-    if (r === 'saved') this.ui.toast('存档码文件存好了。', 'good');
-    else if (r === 'busy') this.ui.toast('上一个文件还在问要不要保存。', 'info');
+    const t = stamp(), r = await saveFile(`차가운 잔불의 북행-저장 코드-${t}.txt`, this.lastCode, `hanjin-save-${t}.txt`);
+    if (r === 'saved') this.ui.toast('저장 코드 파일이 저장되었습니다.', 'good');
+    else if (r === 'busy') this.ui.toast('이전 파일에서 저장할지 묻는 메시지가 계속 표시됩니다.', 'info');
   }
   async pickCodeFile() {
     let txt = null;
-    try { txt = await pickTextFile('.txt,text/plain'); } catch (e) { this.ui.toast('读不了这个文件：' + e.message, 'bad'); return; }
+    try { txt = await pickTextFile('.txt,text/plain'); } catch (e) { this.ui.toast('이 파일을 읽을 수 없습니다:' + e.message, 'bad'); return; }
     if (txt == null) return;
     const box = document.getElementById('importBox');
     if (box) box.value = txt.trim();
-    if (!/^HJ[ZB]1:/.test(txt.trim())) this.ui.toast('这个文件里不是存档码。', 'warn');
+    if (!/^HJ[ZB]1:/.test(txt.trim())) this.ui.toast('이 파일에는 저장 코드가 포함되어 있지 않습니다.', 'warn');
   }
   async importCode(code) {
     code = (code || '').trim();
@@ -222,7 +221,7 @@ class Game {
         const bin = atob(code.slice(5)); const u8 = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
         raw = await new Response(new Blob([u8]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).text();
       } else if (code.startsWith('HJB1:')) raw = decodeURIComponent(escape(atob(code.slice(5))));
-      else throw new Error('不是存档码');
+      else throw new Error('저장 코드 아님');
       const S = Sim.deserialize(raw);
       await this.backup('import'); // 导入会盖掉现在这一局：先备份
       this.S = S; this.view.bind(S); this.cancelModes();
@@ -230,8 +229,8 @@ class Game {
       const away = (Date.now() - S.savedAt) / 1000;
       if (away > 20) this.offline(away);
       this.save();
-      this.ui.toast('存档已导入', 'good');
-    } catch (e) { this.ui.toast('导入失败：' + e.message, 'bad'); }
+      this.ui.toast('저장이 수입되었습니다', 'good');
+    } catch (e) { this.ui.toast('가져오기 실패:' + e.message, 'bad'); }
   }
   async wipe(diff) {
     await this.backup('wipe'); // 重开之前留一份：点错了能从备份里找回来
@@ -256,7 +255,7 @@ class Game {
     if (avg > 1 / 22) {
       const to = this.quality === 'ultra' ? 'high' : 'low';
       this.setQuality(to, true);
-      this.ui.toast(`画面有点卡，已自动切到「${to === 'high' ? '标准' : '流畅'}」画质（菜单里可以改回来）。`, 'info');
+      this.ui.toast(`화면이 약간 멈췄으며 자동으로 "${to === 'high' ? '표준' : '매끄러운'}" 화질로 전환되었습니다(메뉴에서 다시 변경할 수 있음).`, 'info');
       if (this.ui.panel && this.ui.panel.kind === 'menu') this.ui.renderPanel(true);
     }
   }
@@ -267,7 +266,7 @@ class Game {
     this.S = N; this.cancelModes();
     this.view.bind(this.S);
     this.save();
-    this.ui.toast('新的北行开始了：从灰烬营地重新出发。', 'story');
+    this.ui.toast('북쪽으로의 새로운 여행이 시작됩니다. 잿빛 야영지에서 다시 시작됩니다.', 'story');
   }
 
   // ---------- 暂停 / 倍速 ----------
@@ -278,7 +277,7 @@ class Game {
   syncSpeed() {
     document.body.classList.toggle('paused', !!this.paused);
     const b = document.getElementById('speedBtn'); b.classList.toggle('on', this.speed > 1); b.classList.toggle('x4', this.speed === 4); b.querySelector('i').textContent = this.speed + '×';
-    b.title = this.paused ? '已暂停（点一下继续，电脑按 P）' : (this.speed === 4 ? '正在 4 倍速（点一下回到 1 倍速' : this.speed === 2 ? '正在 2 倍速（点一下换 4 倍速' : '加速到 2 倍速（点一下') + '，按住暂停；电脑按 F 换倍速、P 暂停）';
+    b.title = this.paused ? '일시중지됨(계속하려면 클릭, 컴퓨터에서 P 누르기)' : (this.speed === 4 ? '현재 4배속입니다(1배속으로 돌아가려면 클릭하세요)' : this.speed === 2 ? '현재 2배속으로 재생 중입니다(4배속으로 전환하려면 클릭하세요).' : '2배속으로 가속(클릭') + ', 길게 누르면 일시 정지됩니다. 컴퓨터에서는 F를 눌러 속도를 변경하고 P를 눌러 일시 정지하세요.)';
     this.view.timeScale = this.paused ? 0 : this.speed;
     if (this.photo && this.photo.on) this.photo.draw();
   }
@@ -289,7 +288,7 @@ class Game {
     const key = Math.round(this.S.t + nr.in);
     if (this.raidSlowKey === key) return;
     this.raidSlowKey = key; this.setSpeed(1);
-    this.ui.toast('🐺 袭击快到了，已切回 1 倍速。', 'warn');
+    this.ui.toast('🐺 공격이 거의 다 왔습니다. 다시 1배속으로 전환했습니다.', 'warn');
   }
 
   // ---------- 主循环 ----------
@@ -333,7 +332,7 @@ class Game {
         // 停在世界之脊的老存档：看完直接打开北迁面板，下一站是北境第 1 站
         this.whatsNew = false; S.meta.ver = WHATS_NEW;
         const spine = Sim.journeyOf(S).stage === Sim.SPINE && !Sim.journeyOf(S).trip;
-        this.ui.modal(whatsNewHtml(S, this.whatsFrom, this.theme.pref), spine ? [{ t: '去北境', a: 'wn-north', cls: 'go' }, { t: '知道了', a: 'close-modal' }] : [{ t: '知道了', a: 'close-modal', cls: 'go' }]);
+        this.ui.modal(whatsNewHtml(S, this.whatsFrom, this.theme.pref), spine ? [{ t: '북방으로 이동', a: 'wn-north', cls: 'go' }, { t: '알고 있었다', a: 'close-modal' }] : [{ t: '알고 있었다', a: 'close-modal', cls: 'go' }]);
       }
       else if (free && this.skyLater && !this.cine) { this.skyLater = false; this.skyCine(); }
       else if (free && Sim.roadView(S)) { if (this.ui.roadModal()) this.sfx('event'); }
@@ -356,21 +355,21 @@ class Game {
       else if (f.kind === 'qbuilt') { if (!quiet) this.sfx('build'); }
       else if (f.kind === 'far') { if (!quiet) { this.sfx(f.lit ? 'win' : 'event'); if (f.lit && !f.had) this.ui.relicModal(f.i); } }
       else if (f.kind === 'vein') { if (!quiet) { this.sfx('event'); const x = f.i % W, y = Math.floor(f.i / W); this.view.burst('dust', x + 0.5, y + 0.5, 30, 0.8, 1.2); this.view.ringFx && this.view.ringFx(x + 0.5, y + 0.5, 1.4); } }
-      else if (f.kind === 'req') { if (!quiet) { this.sfx('tap'); const r = (this.S.reqs || []).find(x => x.id === f.id); if (r) this.ui.toast(`📜 ${this.ui.reqWho(r).name}有个心愿：${Sim.reqTitle(this.S, r)}`, 'info', { act: 'req', arg: r.id, label: '看看' }); } }
+      else if (f.kind === 'req') { if (!quiet) { this.sfx('tap'); const r = (this.S.reqs || []).find(x => x.id === f.id); if (r) this.ui.toast(`📜 ${this.ui.reqWho(r).name}에게 소원이 있습니다: ${Sim.reqTitle(this.S, r)}`, 'info', { act: 'req', arg: r.id, label: '보기' }); } }
       else if (f.kind === 'reqdone') { if (!quiet) { this.sfx('win'); const c = Sim.getCamp(this.S, f.camp); if (c) this.view.ringFx && this.view.ringFx(c.x, c.y, 2.5); } }
       else if (f.kind === 'aurora') { if (!quiet) this.sfx('event'); }
-      else if (f.kind === 'sur') { if (!quiet) { this.sfx('event'); const u = f.sur; if (u.kind === 'meteor') this.view.meteorFx = { t: 0, x: u.x, y: u.y }; this.ui.toast(u.kind === 'deer' ? '🦌 营地边上来了一头走失的驯鹿，去把它领回来' : '☄ 一颗流星落在营地附近，坑里可能有好东西', 'info', { act: 'surgo', label: '去看看' }); } }
+      else if (f.kind === 'sur') { if (!quiet) { this.sfx('event'); const u = f.sur; if (u.kind === 'meteor') this.view.meteorFx = { t: 0, x: u.x, y: u.y }; this.ui.toast(u.kind === 'deer' ? '🦌 야영지A 길 잃은 순록이 왔어요, 가서 되찾으세요.' : '☄ 야영지 근처에 운석이 떨어졌습니다. 구덩이에 좋은 일이 있을 수도 있습니다.', 'info', { act: 'surgo', label: '가 보기' }); } }
       else if (f.kind === 'surdone') { if (!quiet) { this.sfx('win'); this.view.ringFx && this.view.ringFx(f.sur.x + 0.5, f.sur.y + 0.5, 1.6); this.view.burst(f.sur.kind === 'deer' ? 'dust' : 'spark', f.sur.x + 0.5, f.sur.y + 0.5, 24, 0.8, 1.2); } }
       else if (f.kind === 'book') this.bookFx(f);
       else if (f.kind === 'meteor') { if (!quiet) { this.sfx(f.hit ? 'lose' : 'event'); if (!this.view.meteorFx) this.view.meteorFx = { t: 0, x: f.x - 0.5, y: f.y - 0.5 }; } }
       else if (f.kind === 'ruin') { if (!quiet) { this.view.burst('dust', f.x, f.y, 40, 1.2, 1.4); this.view.ringFx && this.view.ringFx(f.x, f.y, 1.5); } }
       else if (f.kind === 'fest') { if (!quiet) { this.sfx('win'); const c = Sim.getCamp(this.S, f.camp), L = c && this.view.lifeSpots(c); if (L && L.fest) for (let k = 0; k < 4; k++) setTimeout(() => this.view.burst('spark', L.fest[0] + (Math.random() - 0.5) * 2, L.fest[1] + (Math.random() - 0.5) * 2, 30, 0.3, 2.5 + Math.random()), k * 450); } }
       else if (f.kind === 'festdone') { if (!quiet) { this.sfx('up'); const c = Sim.getCamp(this.S, f.camp); if (c) this.view.ringFx && this.view.ringFx(c.x, c.y, 3); } } // 离线补算时达成的也报一下
-      else if (f.kind === 'skill') { if (!quiet) { const b = Sim.getB(this.S, f.b); if (b && b.camp === this.S.active) { const h = BLD[b.type].size / 2; this.view.burst('spark', b.x + h, b.y + h, 10, 0.5, 0.9); if (f.lvl >= 3 && !(this.skT > Date.now() - 60000)) this.skT = Date.now(), this.ui.toast(`${BLD[b.type].n}的工人熟练到 ${f.lvl} 级了：产量 +${Math.round(f.lvl * Sim.SKILL_PER * 100)}%`, 'good'); } } }
+      else if (f.kind === 'skill') { if (!quiet) { const b = Sim.getB(this.S, f.b); if (b && b.camp === this.S.active) { const h = BLD[b.type].size / 2; this.view.burst('spark', b.x + h, b.y + h, 10, 0.5, 0.9); if (f.lvl >= 3 && !(this.skT > Date.now() - 60000)) this.skT = Date.now(), this.ui.toast(`${BLD[b.type].n}의 일꾼이 ${f.lvl} 레벨에 도달했습니다: 생산량 +${Math.round(f.lvl * Sim.SKILL_PER * 100)}%`, 'good'); } } }
       else if (f.kind === 'odstall') { if (!quiet) { this.sfx('lose'); const c = Sim.getCamp(this.S, f.camp); if (c) this.view.burst('dust', c.x, c.y, 30, 1.2, 2.5); } }
-      else if (f.kind === 'star' || f.kind === 'mile') { if (!quiet) { this.sfx('win'); const c = Sim.mainCamp(this.S); if (c) this.fireworks(c.x, c.y, f.kind === 'star' ? 3 + f.star * 2 : 4); if (f.kind === 'star' && f.star >= 3 && !this.S.meta.alb3) { this.S.meta.alb3 = 1; this.albumShot(`${RES[f.r] ? RES[f.r].n : ''}产线三星`, 2200); } } }
+      else if (f.kind === 'star' || f.kind === 'mile') { if (!quiet) { this.sfx('win'); const c = Sim.mainCamp(this.S); if (c) this.fireworks(c.x, c.y, f.kind === 'star' ? 3 + f.star * 2 : 4); if (f.kind === 'star' && f.star >= 3 && !this.S.meta.alb3) { this.S.meta.alb3 = 1; this.albumShot(`${RES[f.r] ? RES[f.r].n : ''}생산 라인 삼성`, 2200); } } }
       else if (f.kind === 'depart') { if (!quiet) this.sfx('horn'); }
-      else if (f.kind === 'qy-end') { if (!quiet) this.albumShot(`奇遇·${QY[f.id].n}`, 1500); }
+      else if (f.kind === 'qy-end') { if (!quiet) this.albumShot(`기연·${QY[f.id].n}`, 1500); }
       else if (f.kind === 'fork') { if (!quiet) this.sfx('horn'); }
       else if (f.kind === 'cmd') { if (!quiet) { this.sfx('horn'); const c = Sim.getCamp(this.S, f.camp); if (c) { this.view.shakeT = 0.7; this.view.burst('spark', c.x, c.y, 40, 0.6, 2.2); this.view.burst('dust', c.x, c.y, 16, 1.2, 1.2); this.view.ringFx && this.view.ringFx(c.x, c.y, f.id === 'shelter' ? 4 : 3); } } }
       else if (f.kind === 'road') { if (!quiet) { if (this.speed > 1) this.setSpeed(1); if (!document.getElementById('modal').classList.contains('show') && !this.titleOn && this.ui.roadModal()) this.sfx('event'); } }
@@ -380,15 +379,15 @@ class Game {
       else if (f.kind === 'trip-arrived') { if (!quiet) { if (this.speed > 1) this.setSpeed(1); this.sfx('horn'); if (!document.getElementById('modal').classList.contains('show') && !this.titleOn && !this.place) this.startArrive(); } }
       else if (f.kind === 'skyfire') this.skyCine();
       else if (f.kind === 'wonder-ph') { if (!quiet) { this.sfx('up'); this.view.burst('spark', f.x, f.y, 40, 1.4, 2.4); this.view.burst('dust', f.x, f.y, 30, 1.6); this.view.ringFx && this.view.ringFx(f.x, f.y, 3); } }
-      else if (f.kind === 'wonder-done') { if (!quiet) { this.sfx('tower'); this.view.focus(f.x, f.y); this.view.cam.tdist = Math.max(this.view.cam.tdist, 26); this.fireworks(f.x, f.y, 9); this.view.ringFx && this.view.ringFx(f.x, f.y, 4); } this.albumShot(`奇观·${WONDERS[f.w] ? WONDERS[f.w].n : ''}落成`, 3200); }
-      else if (f.kind === 'town') { if (!quiet) { this.sfx('win'); this.view.focus(f.x, f.y); this.fireworks(f.x, f.y, 5 + f.lvl * 2); this.view.ringFx && this.view.ringFx(f.x, f.y, 3); } const c = Sim.getCamp(this.S, f.camp); this.albumShot(`「${c ? c.name : ''}」升成${TOWN[f.lvl] ? TOWN[f.lvl].n : ''}`, 3200); }
-      else if (f.kind === 'peak') { if (!quiet) { this.sfx('win'); this.view.burst('spark', f.x, f.y, 50, 1.2, 3); this.view.ringFx && this.view.ringFx(f.x, f.y, 3); if (f.first) { this.view.focus(f.x, f.y); this.fireworks(f.x, f.y, 4); } } if (f.first) { const c = Sim.getCamp(this.S, f.camp); this.albumShot(`「${c ? c.name : ''}」炉火鼎盛`, 2600); } }
+      else if (f.kind === 'wonder-done') { if (!quiet) { this.sfx('tower'); this.view.focus(f.x, f.y); this.view.cam.tdist = Math.max(this.view.cam.tdist, 26); this.fireworks(f.x, f.y, 9); this.view.ringFx && this.view.ringFx(f.x, f.y, 4); } this.albumShot(`불가사의·${WONDERS[f.w] ? WONDERS[f.w].n : ''} 완료`, 3200); }
+      else if (f.kind === 'town') { if (!quiet) { this.sfx('win'); this.view.focus(f.x, f.y); this.fireworks(f.x, f.y, 5 + f.lvl * 2); this.view.ringFx && this.view.ringFx(f.x, f.y, 3); } const c = Sim.getCamp(this.S, f.camp); this.albumShot(`"${c ? c.name : ''}"이(가) ${TOWN[f.lvl] ? TOWN[f.lvl].n : ''}(으)로 업그레이드되었습니다.`, 3200); }
+      else if (f.kind === 'peak') { if (!quiet) { this.sfx('win'); this.view.burst('spark', f.x, f.y, 50, 1.2, 3); this.view.ringFx && this.view.ringFx(f.x, f.y, 3); if (f.first) { this.view.focus(f.x, f.y); this.fireworks(f.x, f.y, 4); } } if (f.first) { const c = Sim.getCamp(this.S, f.camp); this.albumShot(`"${c ? c.name : ''}"이(가) 한창 진행 중입니다.`, 2600); } }
       else if (f.kind === 'tide') { if (!quiet) this.sfx('horn'); }
       else if (f.kind === 'tide-end') { if (!quiet) { this.sfx(f.win ? 'win' : 'lose'); if (f.win) { const c = Sim.mainCamp(this.S); if (c) this.fireworks(c.x, c.y, 3 + Math.min(6, f.n)); } } }
-      else if (f.kind === 'tower-lit') { if (!quiet && f.n < Sim.TOWER_N) { this.sfx('tower'); this.view.focus(f.x, f.y); this.view.cam.tdist = Math.max(this.view.cam.tdist, 34); this.fireworks(f.x, f.y, 8); this.view.burst('spark', f.x, f.y, 40, 1.2, 1.6); this.view.ringFx && this.view.ringFx(f.x, f.y, 3); this.albumShot(`${Sim.towerName(f.n)}点亮`, 3200); } }
-      else if (f.kind === 'arrive-stop') { if (!quiet) { this.sfx('win'); const c = Sim.mainCamp(this.S); if (c) { this.view.focus(c.x, c.y); this.fireworks(c.x, c.y, 6); } const st = Sim.stopOf(this.S, f.k); this.albumShot(`抵达${st ? st.n : '新的一站'}`, 3600); } }
-      else if (f.kind === 'trueend') { if (!quiet) { this.sfx('win'); const c = Sim.mainCamp(this.S); if (c) this.fireworks(c.x, c.y, 10); } this.modalOrLater(`<h2>🏔 世界之脊</h2><p class="story">${STORY.trueEnd}</p><p>旧地图到这里就画完了，可路还在往北：北境一站接一站，没有尽头，前十站各有一座烽火塔等着点亮，第十座是天火塔。你也可以在菜单里开始一次新的北行，余烬、专家、收集册、成就和装扮都会留着。</p>`, [{ t: '往北看看', a: 'wn-north', cls: 'go' }, { t: '先留在这里', a: 'ending' }]); }
-      else if (f.kind === 'ending') this.ui.modal(`<h2>🌟 永恒之炉重燃</h2><p class="story">${STORY.ending}</p><p>你用了 ${this.S.meta.runs} 次北行完成了旅程。车队可以接着往北走，世界之脊还在更远的地方；也可以在菜单里开始一次新的北行。</p>`, [{ t: '继续', a: 'ending', cls: 'go' }]);
+      else if (f.kind === 'tower-lit') { if (!quiet && f.n < Sim.TOWER_N) { this.sfx('tower'); this.view.focus(f.x, f.y); this.view.cam.tdist = Math.max(this.view.cam.tdist, 34); this.fireworks(f.x, f.y, 8); this.view.burst('spark', f.x, f.y, 40, 1.2, 1.6); this.view.ringFx && this.view.ringFx(f.x, f.y, 3); this.albumShot(`${Sim.towerName(f.n)} 켜짐`, 3200); } }
+      else if (f.kind === 'arrive-stop') { if (!quiet) { this.sfx('win'); const c = Sim.mainCamp(this.S); if (c) { this.view.focus(c.x, c.y); this.fireworks(c.x, c.y, 6); } const st = Sim.stopOf(this.S, f.k); this.albumShot(`${st ? st.n : '새로운 정류장'}에 도착`, 3600); } }
+      else if (f.kind === 'trueend') { if (!quiet) { this.sfx('win'); const c = Sim.mainCamp(this.S); if (c) this.fireworks(c.x, c.y, 10); } this.modalOrLater(`<h2>🏔 세계의 척추</h2><p class="story">${STORY.trueEnd}</p><p>낡은 지도는 여기서 끝났지만 도로는 여전히 북쪽으로 가고 있습니다. 북방은 끝도 없이 차례로 멈춥니다. 처음 10개 정류장에는 각각 점등을 기다리는 봉화탑이 있고, 10번째 정류장은 천화탑입니다. 메뉴에서 새로운 북쪽 여행을 시작할 수도 있으며, 잔불, 전문가, 컬렉션북, 업적 및 의상은 그대로 유지됩니다. </p>`, [{ t: '북쪽으로 보기', a: 'wn-north', cls: 'go' }, { t: '먼저 여기 있어라', a: 'ending' }]); }
+      else if (f.kind === 'ending') this.ui.modal(`<h2>🌟 영원의 용광로 재점화</h2><p class="story">${STORY.ending}</p><p>여행을 완료하는 데 북쪽으로 ${this.S.meta.runs} 여행이 걸렸습니다. 행렬은 계속 북쪽으로 갈 수 있으며 세계의 척추는 아직 더 멀리 떨어져 있습니다. 메뉴에서 새로운 북쪽 방향 여행을 시작할 수도 있습니다. </p>`, [{ t: '계속하다', a: 'ending', cls: 'go' }]);
     }
   }
   // ---------- 终章：天火塔点亮 ----------
@@ -400,7 +399,7 @@ class Game {
     this.cancelModes(); this.ui.close(); this.ui.closeModal();
     if (this.bigmap.open) this.bigmap.hide(); if (this.chainmap.open) this.chainmap.hide(); if (this.photo.on) this.photo.close();
     const pts = L.map(t => ({ x: t.x, y: t.y, n: t.n, cap: `${Sim.towerName(t.n)} · ${Sim.stopOf(S, Sim.SPINE + t.n).short}` }));
-    pts.push({ x: Sim.ETERNAL_PT.x, y: Sim.ETERNAL_PT.y, n: 0, cap: '永恒之炉 · 一路走过来的路，现在都亮着' });
+    pts.push({ x: Sim.ETERNAL_PT.x, y: Sim.ETERNAL_PT.y, n: 0, cap: '영원의 용광로 · 지금까지 온 길은 밝아' });
     const segs = []; let t = 2.8; // 先在天火塔上停一会儿，看光柱升起来
     for (let i = 1; i < pts.length; i++) { const d = Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y), dur = 0.75 + d / 190; segs.push({ a: pts[i - 1], b: pts[i], t0: t, t1: t + dur }); t += dur + (i < pts.length - 1 ? 0.3 : 0); }
     const c = v.cam;
@@ -409,8 +408,8 @@ class Game {
     Object.assign(this.cine, { y0: c.yaw, yaw: Math.round((c.yaw + Math.PI / 2) / (Math.PI * 2)) * Math.PI * 2 - Math.PI / 2, p0: v.photoPitch ?? 0.78 + (c.dist - 9) / 81 * 0.42 });
     c.tdist = 58; v.eternalHold = true; v.focus(pts[0].x, pts[0].y);
     let bar = document.getElementById('cinebar');
-    if (!bar) { bar = document.createElement('div'); bar.id = 'cinebar'; bar.innerHTML = '<div class="cap"></div><button class="btn" data-skip>跳过 ›</button>'; document.body.appendChild(bar); bar.querySelector('[data-skip]').onclick = () => this.cineEnd(); }
-    document.body.classList.add('cine'); this.cineCap('🔥 天火塔点亮了');
+    if (!bar) { bar = document.createElement('div'); bar.id = 'cinebar'; bar.innerHTML = '<div class="cap"></div><button class="btn" data-skip>건너뛰기 ›</button>'; document.body.appendChild(bar); bar.querySelector('[data-skip]').onclick = () => this.cineEnd(); }
+    document.body.classList.add('cine'); this.cineCap('🔥 천화탑이 켜집니다');
     this.sfx('sky'); this.fireworks(pts[0].x, pts[0].y, 10); v.ringFx && v.ringFx(pts[0].x, pts[0].y, 4);
   }
   cineCap(t) { const el = document.querySelector('#cinebar .cap'); if (!el) return; el.classList.remove('in'); void el.offsetWidth; el.textContent = t; el.classList.add('in'); }
@@ -444,7 +443,7 @@ class Game {
     // 跳过的话直接到最后那个镜头：永恒之炉，朝北，光柱排到天边
     if (C.t < C.last + 3.4) { const p = C.pts.at(-1), v = this.view, c = v.cam; for (; C.i < C.segs.length; C.i++) { const q = C.segs[C.i].b; if (q.n) v.flashPillar(q.n); } v.focus(p.x, p.y, true); c.dist = c.tdist = 46 * (innerWidth < innerHeight ? 1.5 : 1); c.yaw = c.tyaw = C.yaw + Math.PI / 2 - 0.3; v.photoPitch = 0.16; v.pillarWide = 1; v.camera.far = 2000; v.camera.updateProjectionMatrix(); }
     this.skyBackTo = C.back;
-    if (!Sim.skyEnded(this.S) || !this.S.tower.end.seen) this.albumShot('天火点燃 · 十道光柱连回永恒之炉', 700, true);
+    if (!Sim.skyEnded(this.S) || !this.S.tower.end.seen) this.albumShot('하늘의 불이 점화됨 · 10개의 빛줄기가 영원의 용광로로 돌아옴', 700, true);
     this.ui.skyEndModal();
   }
   skyBack() {
@@ -474,7 +473,7 @@ class Game {
           if (!j) return;
           await albumAdd({ blob: j.blob, w: j.w, h: j.h, cap, auto: 1 });
           this.ui.albumDirty && this.ui.albumDirty();
-          if (!this.cine && !this.skyBackTo) this.ui.toast(`📔 收进相册：${cap}`, 'info', { act: 'album', label: '看看' });
+          if (!this.cine && !this.skyBackTo) this.ui.toast(`📔 앨범에 추가: ${cap}`, 'info', { act: 'album', label: '보기' });
         } catch (e) { /* 拍不了就算了 */ }
       };
     }, delay);
@@ -484,11 +483,11 @@ class Game {
     if ((this.photo && this.photo.on) || this.cine || this.skyBackTo) { (this.bookLater ||= []).push(f); return; } // 拍照、终章镜头时不弹提示，退出后再报
     if (this.titleOn || performance.now() - this.bootT < 2500) { (this.bookLater ||= []).push(f); if (!this.titleOn) this.flushBook(1500); return; }
     const ach = f.add.filter(a => a[0] === 'a'), ent = f.add.filter(a => a[0] !== 'a');
-    if (f.first) { if (f.add.length > 8 || ach.length) this.ui.toast(`🏆 收集册开张了：补记了 ${ent.length} 项收集${ach.length ? `、${ach.length} 个成就（余烬 +${f.em}）` : ''}`, 'good', { act: 'book', arg: ach.length ? 'a' : 'b', label: '翻翻看' }); return; }
+    if (f.first) { if (f.add.length > 8 || ach.length) this.ui.toast(`🏆 컬렉션 북 오픈: 추가 항목 추가${ent.length}아이템 수집${ach.length ? `、${ach.length}업적 (잔불 +${f.em}）` : ''}`, 'good', { act: 'book', arg: ach.length ? 'a' : 'b', label: '살펴보기' }); return; }
     // 第十三版的成就不给余烬，给装扮：提示里写解锁了什么，点一下去换上
-    for (const [, id] of ach.slice(0, 3)) { const a = Sim.ACH.find(x => x.id === id); if (a.gift) this.ui.toast(`🏆 成就达成「${a.n}」：解锁${Sim.giftList(a).map(([k, v]) => `${Sim.GIFT_LABEL[k]}「${Sim.giftName(k, v)}」`).join('、')}`, 'good', { act: 'dress', label: '去换上' }); else this.ui.toast(`🏆 成就达成「${a.n}」：${a.d}（余烬 +${a.rw}）`, 'good', { act: 'ach', label: '看看' }); }
+    for (const [, id] of ach.slice(0, 3)) { const a = Sim.ACH.find(x => x.id === id); if (a.gift) this.ui.toast(`🏆 업적 달성 "${a.n}": 잠금 해제${Sim.giftList(a).map(([k, v]) => `${Sim.GIFT_LABEL[k]}「${Sim.giftName(k, v)}」`).join('、')}`, 'good', { act: 'dress', label: '가서 갈아입어' }); else this.ui.toast(`🏆 업적이 "${a.n}" 달성: ${a.d} (잔불 +${a.rw})`, 'good', { act: 'ach', label: '보기' }); }
     if (ach.length) this.sfx('win');
-    if (ent.length) this.ui.toast(`📖 收集册新添：${ent.slice(0, 3).map(([c, id]) => Sim.bookName(c, id)).join('、')}${ent.length > 3 ? ` 等 ${ent.length} 项` : ''}`, 'info', { act: 'book', arg: ent[0][0], label: '看看' });
+    if (ent.length) this.ui.toast(`📖 컬렉션에 새로 추가되었습니다:${ent.slice(0, 3).map(([c, id]) => Sim.bookName(c, id)).join('、')}${ent.length > 3 ? `기다리다${ent.length}목` : ''}`, 'info', { act: 'book', arg: ent[0][0], label: '보기' });
   }
   flushBook(ms) {
     clearTimeout(this.bookT);
@@ -527,7 +526,7 @@ class Game {
     this.mode = 'place';
     { const rb = document.getElementById('placeRow'); rb.style.display = this.isTouch() && type !== 'furnace' ? '' : 'none'; rb.classList.toggle('on', this.place.rowMode); }
     document.body.classList.add('placing');
-    document.getElementById('placeName').textContent = type === 'furnace' ? '前哨熔炉' : BLD[type].n;
+    document.getElementById('placeName').textContent = type === 'furnace' ? '전초기지용광로' : BLD[type].n;
     document.getElementById('placePic').innerHTML = this.ui.pic(type, type === 'furnace' ? 2 : 1);
     this.updateGhost();
   }
@@ -540,7 +539,7 @@ class Game {
     this.mode = 'place';
     document.getElementById('placeRow').style.display = 'none';
     document.body.classList.add('placing');
-    document.getElementById('placeName').textContent = `挪${BLD[b.type].n}`;
+    document.getElementById('placeName').textContent = `이동${BLD[b.type].n}`;
     document.getElementById('placePic').innerHTML = this.ui.pic(b.type, Math.min(b.lvl, 20));
     const s = BLD[b.type].size; this.view.focus(b.x + s / 2, b.y + s / 2);
     this.updateGhost();
@@ -548,14 +547,14 @@ class Game {
   // 车队到了：在地标附近挑一块地放下新熔炉（预览先放在推荐的位置）
   startArrive() {
     const S = this.S, T = Sim.journeyOf(S).trip;
-    if (!T || T.phase !== 'arrive') { this.ui.toast('车队还没到', 'warn'); return; }
+    if (!T || T.phase !== 'arrive') { this.ui.toast('행렬이 아직 도착하지 않았습니다', 'warn'); return; }
     this.cancelModes(true); this.ui.close();
     const st = Sim.stopOf(S, T.to), a = Sim.arriveSpot(S) || { x: Math.floor(st.x) - 1, y: Math.floor(st.y) - 7 };
     this.place = { type: 'furnace', arrive: true, x: a.x, y: a.y, rec: Sim.arriveSpot(S), check: null, end: null, rowMode: false };
     this.mode = 'place';
     document.getElementById('placeRow').style.display = 'none';
     document.body.classList.add('placing');
-    document.getElementById('placeName').textContent = `在「${st.n}」点起新熔炉`;
+    document.getElementById('placeName').textContent = `새 용광로를 시작하려면 "${st.n}"을(를) 클릭하세요.`;
     document.getElementById('placePic').innerHTML = this.ui.pic('furnace', 2);
     this.view.followTrip = false;
     this.view.focus(a.x + 1.5, a.y + 1.5);
@@ -567,25 +566,25 @@ class Game {
     P.check = Sim.arriveCheck(S, P.x, P.y);
     this.view.setGhost({ type: 'furnace', x: P.x, y: P.y, ok: P.check.ok, soft: false, storage: null });
     const btn = document.getElementById('placeOk');
-    btn.disabled = !P.check.ok; btn.classList.remove('q'); btn.title = '在这里点起新熔炉';
+    btn.disabled = !P.check.ok; btn.classList.remove('q'); btn.title = '새로운 용광로를 시작하려면 여기를 클릭하십시오.';
     const left = Math.max(0, Math.ceil(Sim.ARRIVE_AUTO - (S.t - T.at))), touch = this.isTouch();
     const atRec = P.rec && P.rec.x === P.x && P.rec.y === P.y;
-    const why = P.check.ok ? `<span class="pok">${atRec ? '推荐的位置 · ' : ''}${touch ? '再点一次或按 ✓' : '点击地面'}在这里点起新熔炉</span>` : `<span class="pbad">${P.check.reason}</span>`;
-    document.getElementById('placeCost').innerHTML = iconize(`👥${T.people} 人和车上的货都卸在这里 · ${left} 秒后自动放在推荐的位置<br>${why}`);
+    const why = P.check.ok ? `<span class="pok">${atRec ? '추천 위치 ·' : ''}${touch ? '다시 탭하거나 ✓를 누르세요.' : '땅을 클릭하세요'} 새로운 용광로를 시작하려면 여기를 클릭하세요</span>` : `<span class="pbad">${P.check.reason}</span>`;
+    document.getElementById('placeCost').innerHTML = iconize(`👥${T.people} 자동차에 탄 사람과 물품이 여기에 하역됩니다. · ${left}초 후에 권장 위치에 자동으로 배치됩니다.<br>${why}`);
   }
   // 一键复制产线：整组蓝图跟着手指 / 鼠标走，放下就排进建造队列
   startCopy(r) {
     const bp = Sim.lineBlueprint(this.S, r);
-    if (!bp) { this.ui.toast('这条线还没有建好的建筑可以复制。', 'warn'); return; }
+    if (!bp) { this.ui.toast('이 라인은 아직 복제할 수 있도록 구축되지 않았습니다.', 'warn'); return; }
     this.cancelModes(true); this.ui.close();
     const v = this.view;
     this.place = { type: 'bp', bp, x: Math.round(v.cam.tx - bp.w / 2), y: Math.round(v.cam.ty - bp.h / 2), check: null, plan: null, end: null };
     this.mode = 'place';
     document.getElementById('placeRow').style.display = 'none';
     document.body.classList.add('placing');
-    document.getElementById('placeName').textContent = `复制${RES[r].n}线（${bp.items.length} 栋）`;
+    document.getElementById('placeName').textContent = `${RES[r].n} 라인 복사(${bp.items.length} 건물)`;
     document.getElementById('placePic').innerHTML = iconize(RICON[r]);
-    this.ui.toast('把蓝图拖到供热圈里的空地上：绿色马上建，黄色排队等材料，红色放不下。', 'info');
+    this.ui.toast('청사진을 난방권의 열린 공간으로 드래그하세요. 녹색은 즉시 제작되고, 노란색은 재료 대기열에 추가되며, 빨간색은 내려놓을 수 없습니다.', 'info');
     this.updateGhost();
   }
   updateBlueprint() {
@@ -594,13 +593,13 @@ class Game {
     this.view.setGhost(null);
     this.view.setBlueprint(pl.plan.map(e => ({ type: e.type, x: e.x, y: e.y, ok: e.st === 'ok', soft: e.st === 'q' })));
     const btn = document.getElementById('placeOk');
-    btn.disabled = !pl.ok && !pl.q; btn.classList.toggle('q', !pl.ok && pl.q > 0); btn.title = '按这张蓝图建';
+    btn.disabled = !pl.ok && !pl.q; btn.classList.toggle('q', !pl.ok && pl.q > 0); btn.title = '이 청사진에 따라 구축';
     const camp = Sim.getCamp(S, pl.camp ?? S.active) || { stock: {} };
     const costHtml = Object.keys(pl.total).map(k => `<span class="${(camp.stock[k] || 0) >= pl.total[k] ? '' : 'miss'}">${RICON[k]}${fmt(pl.total[k])}</span>`).join(' ');
     const bad = pl.plan.find(e => e.st === 'bad');
-    const parts = [pl.ok && `<span class="pok">马上建 ${pl.ok} 栋</span>`, pl.q && `<span class="pwarn">排队 ${pl.q} 栋</span>`, pl.bad && `<span class="pbad">${pl.bad} 栋放不下${bad ? `（${bad.reason}）` : ''}</span>`].filter(Boolean).join(' · ');
-    const ppl = pl.workers ? ` · 要 ${pl.workers} 人${pl.idle < pl.workers ? `<span class="pwarn">（空闲只有 ${pl.idle} 人）</span>` : ''}` : '';
-    document.getElementById('placeCost').innerHTML = iconize(`${costHtml}<br>${parts || '<span class="pbad">这里放不下</span>'}${ppl}`);
+    const parts = [pl.ok && `<span class="pok">즉시 ${pl.ok}개의 건물 건설</span>`, pl.q && `<span class="pwarn">큐 ${pl.q} 생성</span>`, pl.bad && `<span class="pbad">${pl.bad}놓을 수 없어${bad ? `（${bad.reason}）` : ''}</span>`].filter(Boolean).join(' · ');
+    const ppl = pl.workers ? `· 원하다${pl.workers}사람들${pl.idle < pl.workers ? `<span class="pwarn">(유휴 상태에서만${pl.idle}사람)</span>` : ''}` : '';
+    document.getElementById('placeCost').innerHTML = iconize(`${costHtml}<br>${parts || '<span class="pbad">여기에는 공간이 없습니다</span>'}${ppl}`);
   }
   isTouch() { return this.touchSeen || this.view.lowEnd || matchMedia('(pointer:coarse)').matches; }
   // 拖出来的一排（第一栋就是预览本身）
@@ -632,17 +631,17 @@ class Game {
     this.view.setGhost({ type: P.type, x: P.x, y: P.y, ok: P.check.ok && !blk, soft: P.check.soft || (P.check.ok && blk), storage });
     const btn = document.getElementById('placeOk');
     const canQ = !P.check.ok && P.check.soft && P.type !== 'furnace';
-    btn.disabled = !P.check.ok && !canQ; btn.classList.toggle('q', canQ); btn.title = canQ ? '加入建造队列' : '确认建造';
+    btn.disabled = !P.check.ok && !canQ; btn.classList.toggle('q', canQ); btn.title = canQ ? '건설 대기열에 참여' : '건설 확인';
     const costHtml = P.check.cost ? Object.keys(P.check.cost).map(k => `<span class="${(this.S.camps.find(c => c.id === P.check.camp) || {stock: {}}).stock[k] >= P.check.cost[k] ? '' : 'miss'}">${RICON[k]}${fmt(P.check.cost[k])}</span>`).join(' ') : '';
     const touch = this.view.lowEnd || matchMedia('(pointer:coarse)').matches;
     if (P.move) {
-      const mb = Sim.getB(this.S, P.move), extra = [P.check.belts && `连着的 ${P.check.belts} 条传送带会拆掉（退一半材料）`, mb && mb.deep && '深井留在原地，挪过去就是普通矿场了', blk && `会挡住旁边的${P.check.blocks.join('、')}`].filter(Boolean);
-      document.getElementById('placeCost').innerHTML = iconize(`<span class="pok">不花材料，挪过去停工 ${Sim.MOVE_PAUSE} 秒，等级和工人都留着</span><br>${P.check.ok ? (extra.length ? `<span class="pwarn">${extra.join('；')}</span>` : `<span class="pok">${touch ? '再点一次或按 ✓ 挪过去' : '点击地面挪过去'}</span>`) : `<span class="pbad">${P.check.reason}</span>`}`);
+      const mb = Sim.getB(this.S, P.move), extra = [P.check.belts && `연결된 ${P.check.belts} 컨베이어 벨트가 제거됩니다. (재료의 절반이 반환됩니다.)`, mb && mb.deep && '깊은 수갱은 그 자리에 그대로 남아 있고, 그것을 위로 옮기면 평범한 광산이 될 것이다.', blk && `옆에 있는 ${P.check.blocks.join('、')}를 차단합니다.`].filter(Boolean);
+      document.getElementById('placeCost').innerHTML = iconize(`<span class="pok">재료 소모, 이동 및 작업 중단 필요 없음${Sim.MOVE_PAUSE}초, 성적, 일꾼가 모두 유지됩니다.</span><br>${P.check.ok ? (extra.length ? `<span class="pwarn">${extra.join('；')}</span>` : `<span class="pok">${touch ? '다시 클릭하거나 ✓를 눌러 이동하세요.' : '이동하려면 땅을 클릭하세요.'}</span>`) : `<span class="pbad">${P.check.reason}</span>`}`);
       return;
     }
-    const why = P.check.ok ? (blk ? `<span class="pwarn">会挡住旁边的${P.check.blocks.join('、')}：放下以后那里再也放不下采集建筑</span>` : P.check.clears ? `<span class="pwarn">会清掉 ${P.check.clears} 处树木/碎石</span>` : `<span class="pok">${touch ? '再点一次或按 ✓ 建造' : '点击地面建造'}</span>`)
-      : canQ ? `<span class="pwarn">${P.check.reason} · ${touch ? '再点一次或按 ✓' : '点击地面'}排进建造队列，材料到了自动开工</span>` : `<span class="pbad">${P.check.reason}</span>`;
-    const rowTip = P.type !== 'furnace' && (P.check.ok || canQ) ? (touch ? (P.rowMode ? ' · 拖动拉出一排' : '') : ' · 按住拖动连成一排') : '';
+    const why = P.check.ok ? (blk ? `<span class="pwarn">옆에 있는 ${P.check.blocks.join('、')}를 차단합니다. 해당 건물을 내려놓은 후에는 채집 건물을 더 이상 그곳에 배치할 수 없습니다.</span>` : P.check.clears ? `<span class="pwarn">${P.check.clears}개의 나무/잔해물을 제거합니다</span>` : `<span class="pok">${touch ? '다시 탭하거나 ✓ 건설를 누릅니다.' : '땅을 클릭하세요 건설'}</span>`)
+      : canQ ? `<span class="pwarn">${P.check.reason} · ${touch ? '다시 탭하거나 ✓를 누르세요.' : '땅을 클릭하세요'}이(가) 건설 대기열에 추가되었으며 자료가 도착하면 작업이 자동으로 시작됩니다.</span>` : `<span class="pbad">${P.check.reason}</span>`;
+    const rowTip = P.type !== 'furnace' && (P.check.ok || canQ) ? (touch ? (P.rowMode ? '· 행을 끌어당기려면 드래그하세요.' : '') : '· 누르고 드래그하여 행을 형성합니다.') : '';
     document.getElementById('placeCost').innerHTML = iconize(`${costHtml}<br>${why}${rowTip ? `<span class="pok">${rowTip}</span>` : ''}`);
   }
   // 一排的预览：每栋各自显示能建（绿）/ 排队（黄）/ 不能建（红），底下合计花费
@@ -652,21 +651,21 @@ class Game {
     const st = e => ({ ok: e.st === 'ok', soft: e.st === 'q' });
     this.view.setGhost({ type: P.type, x: P.x, y: P.y, ...st(pl.plan[0]), row: pl.plan.slice(1).map(e => ({ x: e.x, y: e.y, ...st(e) })) });
     const btn = document.getElementById('placeOk');
-    btn.disabled = !pl.ok && !pl.q; btn.classList.toggle('q', !pl.ok && pl.q > 0); btn.title = '把这一排都建上';
+    btn.disabled = !pl.ok && !pl.q; btn.classList.toggle('q', !pl.ok && pl.q > 0); btn.title = '이 행을 모두 작성하세요.';
     const camp = Sim.getCamp(S, (pl.plan.find(e => e.camp != null) || {}).camp ?? S.active) || { stock: {} };
     const costHtml = Object.keys(pl.total).map(k => `<span class="${(camp.stock[k] || 0) >= pl.total[k] ? '' : 'miss'}">${RICON[k]}${fmt(pl.total[k])}</span>`).join(' ');
-    const parts = [pl.ok && `<span class="pok">马上建 ${pl.ok} 栋</span>`, pl.q && `<span class="pwarn">排队 ${pl.q} 栋</span>`, pl.bad && `<span class="pbad">${pl.bad} 处不能建</span>`].filter(Boolean).join(' · ');
+    const parts = [pl.ok && `<span class="pok">즉시 ${pl.ok}개의 건물 건설</span>`, pl.q && `<span class="pwarn">큐 ${pl.q} 생성</span>`, pl.bad && `<span class="pbad">${pl.bad}에 빌드할 수 없습니다</span>`].filter(Boolean).join(' · ');
     const touch = this.isTouch();
-    document.getElementById('placeCost').innerHTML = iconize(`一排 ${slots.length} 栋 · ${costHtml}<br>${parts}${pl.ok || pl.q ? ` · ${touch ? '按 ✓ 建这一排' : '松开就建'}` : ''}`);
+    document.getElementById('placeCost').innerHTML = iconize(`행${slots.length}건물 ·${costHtml}<br>${parts}${pl.ok || pl.q ? ` · ${touch ? '이 행을 작성하려면 ✓를 누르세요.' : '그냥 긴장을 풀고 빌드하세요'}` : ''}`);
   }
   confirmRow() {
     const P = this.place, slots = this.rowSlots(); if (!slots) return false;
     const r = Sim.placeRow(this.S, P.type, slots), n = BLD[P.type].n;
     P.end = null;
-    if (!r.built && !r.queued) { this.ui.toast(r.reason || '这一排都建不了', 'warn'); this.sfx('warn'); this.updateGhost(); return true; }
+    if (!r.built && !r.queued) { this.ui.toast(r.reason || '이 행을 작성할 수 없습니다.', 'warn'); this.sfx('warn'); this.updateGhost(); return true; }
     this.sfx(r.built ? 'build' : 'tap');
-    const msg = [r.built && `建好 ${r.built} 栋${n}`, r.queued && `${r.queued} 栋排进建造队列（材料到齐自动开工）`, r.failed && `${r.failed} 处建不了`].filter(Boolean).join('，');
-    this.ui.toast(msg + '。', r.failed ? 'warn' : 'good');
+    const msg = [r.built && `${r.built} ${n} 건물 완료`, r.queued && `${r.queued} 건물이 건설 대기열에 대기 중입니다(모든 자재가 수신되면 건설이 자동으로 시작됩니다).`, r.failed && `${r.failed}은(는) 어디에도 지을 수 없습니다`].filter(Boolean).join(',');
+    this.ui.toast(msg + '.', r.failed ? 'warn' : 'good');
     this.updateGhost();
     return true;
   }
@@ -689,38 +688,38 @@ class Game {
     const P = this.place; if (!P) return;
     if (P.arrive) {
       const r = Sim.arrive(this.S, P.x, P.y);
-      if (!r.ok) { this.ui.toast(r.reason || '不能放在这里', 'warn'); this.sfx('warn'); return; }
+      if (!r.ok) { this.ui.toast(r.reason || '여기에 넣으면 안 돼요', 'warn'); this.sfx('warn'); return; }
       this.sfx('build'); this.cancelModes();
       const c = Sim.getCamp(this.S, r.camp); if (c) this.view.focus(c.x, c.y);
       return;
     }
     if (P.type === 'bp') {
       const r = Sim.placeBlueprint(this.S, P.bp, P.x, P.y), n = RES[P.bp.r].n;
-      if (!r.built && !r.queued) { this.ui.toast(r.reason || '这里放不下', 'warn'); this.sfx('warn'); return; }
+      if (!r.built && !r.queued) { this.ui.toast(r.reason || '여기에는 들어갈 수 없습니다', 'warn'); this.sfx('warn'); return; }
       this.sfx(r.built ? 'build' : 'tap');
-      this.ui.toast([`${n}线复制好了`, r.built && `马上建 ${r.built} 栋`, r.queued && `${r.queued} 栋排进建造队列`, r.failed && `${r.failed} 栋放不下`].filter(Boolean).join('，') + '。', r.failed ? 'warn' : 'good');
+      this.ui.toast([`${n} 줄이 복사되었습니다.`, r.built && `${r.built}개의 건물을 즉시 건설하세요`, r.queued && `${r.queued}이(가) 건설 대기열에 추가되었습니다.`, r.failed && `${r.failed}은(는) 건물에 들어갈 수 없습니다`].filter(Boolean).join(',') + '.', r.failed ? 'warn' : 'good');
       this.cancelModes();
       return;
     }
     if (P.move) {
       const id = P.move, r = Sim.moveBuilding(this.S, id, P.x, P.y);
-      if (!r.ok) { this.ui.toast(r.reason || '不能挪到这里', 'warn'); this.sfx('warn'); return; }
+      if (!r.ok) { this.ui.toast(r.reason || '여기서는 이동할 수 없습니다', 'warn'); this.sfx('warn'); return; }
       this.sfx('move'); this.cancelModes();
       const b = Sim.getB(this.S, id);
-      this.ui.toast(`${BLD[b.type].n}挪好了，停工 ${Sim.MOVE_PAUSE} 秒后接着干活。${r.belts ? `拆掉了 ${r.belts} 条传送带。` : ''}`, 'good');
+      this.ui.toast(`${BLD[b.type].n}이사하고 일을 중단하다${Sim.MOVE_PAUSE}몇 초 후에 다시 작업을 시작하세요.${r.belts ? `철거${r.belts}컨베이어 벨트.` : ''}`, 'good');
       this.view.select(id); this.ui.open('bld', id);
       return;
     }
     if (this.confirmRow()) return;
     const r = P.type === 'furnace' ? Sim.place(this.S, P.type, P.x, P.y) : Sim.queueBuild(this.S, P.type, P.x, P.y);
-    if (!r.ok) { this.ui.toast(r.reason || '不能建在这里', 'warn'); this.sfx('warn'); return; }
-    if (r.queued) { this.sfx('tap'); this.ui.toast(`${BLD[P.type].n}已排进建造队列：材料到齐自动开工。点地上的蓝图可以取消。`, 'info'); this.updateGhost(); return; }
+    if (!r.ok) { this.ui.toast(r.reason || '여기에는 지을 수 없습니다', 'warn'); this.sfx('warn'); return; }
+    if (r.queued) { this.sfx('tap'); this.ui.toast(`${BLD[P.type].n}이(가) 건설 대기열에 추가되었습니다. 자료를 사용할 수 있게 되면 작업이 자동으로 시작됩니다. 취소하려면 지상에 있는 청사진을 클릭하세요.`, 'info'); this.updateGhost(); return; }
     this.sfx('build');
     if (P.type === 'furnace') { this.cancelModes(); const c = Sim.getCamp(this.S, r.camp); this.view.focus(c.x, c.y); return; }
     // 连续建同一种：保持预览，方便再放一个
     this.updateGhost();
     const b = Sim.getB(this.S, r.id);
-    if (b && Sim.maxWorkers(b.type, 1) && b.workers === 0) this.ui.toast(`${BLD[b.type].n}建好了，但没有空闲的人手：多建帐篷吸引新人，或在别的建筑减人。`, 'warn');
+    if (b && Sim.maxWorkers(b.type, 1) && b.workers === 0) this.ui.toast(`${BLD[b.type].n}이(가) 건설되었지만 무료 일손이 없습니다. 천막을 더 건설하여 새로운 사람을 유치하거나 다른 건물의 사람을 줄이세요.`, 'warn');
   }
   // 摆放模式下点地图：鼠标点哪建哪；触屏先把预览挪过去，再点一次同一处（或按 ✓）才建
   placeTap(px, py, mouse) {
@@ -730,17 +729,17 @@ class Game {
     const same = P.x === ox && P.y === oy;
     if (!same && P.end) { P.end = null; this.updateGhost(); }
     if (!mouse && same && this.rowSlots()) { this.confirmRow(); return; }
-    if (P.type === 'bp') { if (mouse || same) { if (P.bpPlan && (P.bpPlan.ok || P.bpPlan.q)) this.confirmPlace(); else this.ui.toast('这里放不下这条线', 'warn'); } return; }
+    if (P.type === 'bp') { if (mouse || same) { if (P.bpPlan && (P.bpPlan.ok || P.bpPlan.q)) this.confirmPlace(); else this.ui.toast('여기에는 이 줄이 들어갈 자리가 없어요', 'warn'); } return; }
     if (mouse || same) {
       if (P.check && (P.check.ok || (P.check.soft && P.type !== 'furnace'))) this.confirmPlace();
-      else if (P.check) this.ui.toast(P.check.reason || '不能建在这里', 'warn');
+      else if (P.check) this.ui.toast(P.check.reason || '여기에는 지을 수 없습니다', 'warn');
     }
   }
   startScoutPick() {
     this.cancelModes(true);
     this.mode = 'scout';
     this.ui.open('scout');
-    this.ui.toast('在地图上点一个目标（迷雾里也可以）。', 'info');
+    this.ui.toast('지도에서 대상을 클릭합니다(안개에서도 가능).', 'info');
   }
   // 摆放提示（采集建筑）：营地暖圈里能采的资源点画圈，放得下、又够得着资源点的格子铺一层浅绿
   placeHints() {
@@ -924,7 +923,7 @@ class Game {
       const P = this.place; if (!P) return;
       P.rowMode = this.rowPref = !P.rowMode; if (!P.rowMode) P.end = null;
       document.getElementById('placeRow').classList.toggle('on', P.rowMode);
-      if (P.rowMode) this.ui.toast('一排模式：按住预览往外拖，拉出一排同样的建筑，再按 ✓ 一起建。', 'info');
+      if (P.rowMode) this.ui.toast('행 모드: 미리보기를 누른 상태에서 끌어서 동일한 건물의 행을 끌어낸 다음 ✓를 눌러 함께 건설합니다.', 'info');
       this.updateGhost();
     });
     document.getElementById('homeBtn').addEventListener('click', () => { const c = Sim.getCamp(this.S, this.S.active); v.focus(c.x, c.y); v.cam.tyaw = Math.round(v.cam.tyaw / (Math.PI * 2)) * Math.PI * 2; });
