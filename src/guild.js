@@ -1,6 +1,6 @@
 // 寒烬北行 · 1.1 北方商会：任何一座营地盖了商会驿站，商会的车队每天来一趟
 // 卖货换银币（每天的价钱上下浮动四成，同一天卖得越多越便宜）、接订单（限时送一批货，给银币和余烬）、
-// 用银币买商会装饰的图纸、买余烬（每天最多 20），缺建材时还能按三倍价钱买一点救急。银币算在主营地，跟着北迁走
+// 用银币买商会装饰的图纸、买余烬（每天最多 20），缺建材时还能按三倍价钱买一点救急.银币算在主营地，跟着北迁走
 import { RES, RES_KEYS, BLD, GUILD, DAY_LEN } from './data.js';
 import { rt, getCamp, logMsg, techDone, prodRate, gBuff } from './sim.js';
 import { mainCamp } from './journey.js';

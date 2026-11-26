@@ -10,15 +10,15 @@ const RES_BY_NAME = Object.fromEntries(Object.entries(RES).map(([k, r]) => [r.n,
 // 建筑状态归成几类，决定节点颜色
 export function statusKind(st) {
   if (!st) return 'idle';
-  if (st === '달리기' || st === Sim.DEEP_WHY || st === '연구중') return 'ok';
+  if (st === '가동 중' || st === Sim.DEEP_WHY || st === '연구 중') return 'ok';
   if (st === '창고가 가득 참') return 'full';
   if (st.startsWith('부족') || st === Sim.KEEP_WHY || st === Sim.FUEL_KEEP_WHY) return 'short';
-  if (st === '배치된 일손 없음' || st === '아무도 일하지 않아') return 'idle';
-  if (st.includes('멍청이') || st.startsWith('기다리다')) return 'depl';
+  if (st === '일손 미배치' || st === '일하는 사람 없음') return 'idle';
+  if (st.includes('고갈') || st.startsWith('대기')) return 'depl';
   return 'slow';
 }
 const RANK = { ok: 0, full: 1, slow: 2, idle: 3, depl: 4, short: 5 };
-export const KIND_TXT = { ok: '달리다', full: '전체 창고', slow: '속도를 늦추다', idle: '아무도', depl: '멍청이', short: '재료 부족' };
+export const KIND_TXT = { ok: '가동', full: '만재', slow: '느려짐', idle: '인원 없음', depl: '고갈', short: '재료 부족' };
 
 // 图：节点 = 同类建筑合在一起（外加熔炉、居民两个去处），边 = 一种物资从上游流到下游
 export function chainGraph(S, cid) {
@@ -255,12 +255,12 @@ export class ChainMap {
           ${Sim.lineBlueprint(S, cur.r) ? `<button class="small" data-plcopy="${cur.r}" title="이 선을 따라 있는 전체 건물 그룹을 다른 위치로 복사">이 선 복사</button>` : ''}
           ${cur.main ? '' : `<button class="small ghostb" data-pldrop="${cur.id}">제거</button>`}</div>
         <div class="plrate ${cur.on ? 'up' : ''}"><span class="plbar"><i style="width:${(pct * 100).toFixed(1)}%"></i></span><b>${fr(P.rate)}</b>/${fr(cur.n)}분당</div>
-        <div 클래스="pltimers">${goal ? `<span class="${h.done ? 'ok' : ''}">${h.done ? '✓ 이미 표준을 달성했습니다.' : `규정 준수: 잠깐만요${mmss(h.p)} / 3:00${cur.on ? '' : '(넘어졌다가 뒤로 물러난다)'}`}</span>` : ''}
+        <div class="pltimers">${goal ? `<span class="${h.done ? 'ok' : ''}">${h.done ? '✓ 이미 표준을 달성했습니다.' : `유지 필요: ${mmss(h.p)} / 3:00${cur.on ? '' : '(중단되면 다시 계산)'}`}</span>` : ''}
           <span>${cur.star >= 3 ? '이미 삼성' : `${'★'.repeat(cur.star + 1)}: 가만히 있어라${mmss(nextStar)}${cur.on ? '' : '(정지시키다)'}`}</span>
           <span class="plfx">${['', '이 라인에 있는 건물 생산량 +15%', '각 건물에는 최소 1개의 일꾼이 필요합니다.', '생산량 +30% 더 보기'].slice(1, cur.star + 1).join('，') || '아직 별표 없음'}</span></div>
         ${(() => { const a = Sim.advisor(S); return a && a.act === 'plan' && a.arg === cur.r ? `<div class="pladv"><span class="gmd"><svg class="gpf" aria-hidden="true"><use href="#c-spec_guide"/></svg></span><span>${esc(a.text)}</span></div>` : ''; })()}
         <div class="plnodes">${P.nodes.map(x => this.planNode(x, P)).join('')}</div>
-        <div class="plfoot"><span>이 줄은 <b>를 사용합니다.${P.people}</b> 사람 </span><span>본영인구 <b>${P.pop}</b>/${P.cap},게으른${Math.max(0, P.idle)}사람</span><span>난방권 공터 약 <비>${P.free}</b> 차단</span></div>`;
+        <div class="plfoot"><span>사용 인원 <b>${P.people}</b>명</span><span>본영 인구 <b>${P.pop}</b>/${P.cap} · 유휴 ${Math.max(0, P.idle)}명</span><span>난방 범위 여유 약 <b>${P.free}</b>칸</span></div>`
     }
     const html = `<div class="cmbox plbox u-paper"><div class="phead"><b>계획 <small>방향만 참조: 몇 개를 만들고 어디에 놓을지 결정하세요.</small></b><button class="x" data-act="chainclose">✕</button></div>
       ${tabsHtml('plan')}<div class="pllines">${chips}<button class="plchip add ${this.adding ? 'on' : ''}" data-pladdopen="1">+ 수직 분기선 <small>${side}/${smax}</small></button></div>
@@ -272,7 +272,7 @@ export class ChainMap {
   planNode(x, P) {
     const S = this.g.S, need = x.need, pct = need > 0 ? Math.min(1, x.prod / need) : 1, t = x.type;
     const go = x.ids.length ? `<button class="small" data-plgo="${x.ids[0]}">가 보기</button>` : t && Sim.unlocked(S, t) ? `<button class="small go" data-act="place" data-arg="${t}">${BLD[t].n} 빌드</button>` : t ? `<small class="bad">${BLD[t].n}은(는) 아직 잠금 해제되지 않았습니다. 북쪽으로 이동하세요 정찰</small>` : '';
-    const stat = Object.entries(x.stat).filter(([k]) => k !== '달리기').map(([k, n]) => `${k} ${n}`).join(',');
+    const stat = Object.entries(x.stat).filter(([k]) => k !== '가동 중').map(([k, n]) => `${k} ${n}`).join(',');
     // 原料快挖完：标出来
     let low = '';
     if (t && BLD[t].gather) for (const k of BLD[t].gather) { const o = Sim.oreInfo(S, Sim.mainCamp(S), k); if (o && !o.deep && o.frac < Sim.ORE_WARN) low = `<small class="plh plow">⛏ 난방권${SPOTS[k].n}오직${Math.round(o.frac * 100)}%${o.eta ? `,에 대한${Math.max(1, Math.round(o.eta))}분` : ''}: 깊은 우물을 파거나 탐사</small>`; }

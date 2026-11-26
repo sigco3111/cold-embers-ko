@@ -108,7 +108,7 @@ class Game {
     try { this.S.savedAt = Date.now(); localStorage.setItem(slotKey(this.slot), Sim.serialize(this.S)); } catch (e) { console.warn('save failed', e); }
   }
   // ---------- 自动备份（src/backup.js）----------
-  // 存一份备份：raw 不给就用这个存档位现在的进度（正在玩的就是内存里的这一局）。存档正文当场拿好，之后再变也不影响
+  // 存一份备份：raw 不给就用这个存档位现在的进度（正在玩的就是内存里的这一局）.存档正文当场拿好，之后再变也不影响
   backup(why, n = this.slot, raw = null) {
     try {
       const cur = raw == null && n === this.slot && this.S;
@@ -171,7 +171,7 @@ class Game {
     if (secs < 120) return;
     this.modalOrLater(`<h3>왼쪽${fmtTime(secs)}</h3>
       <p>야영지가 실행 중입니다.${sum.capped ? `, 12시까지 계산(이후 야영지는 해당 시간에 멈춤)` : ''}. 이 기간 동안 공급량은 평균 <b>${Math.round(sum.rate * 100)}%</b> 저장 공간(처음 1시간 동안 40%, 4시간 동안 20%, 12시간 동안 10%; 사람들은 여전히 먹고 불을 피워야 함), 가장 높은 수입은 온라인 플레이에서 발생합니다: </p>
-      <div 클래스="sumgrid">${gained.map(k => `<span>${RICON[k]} +${fmt(sum.res[k])}</span>`).join('')}${lost.map(k => `<span class="miss">${RICON[k]} ${fmt(sum.res[k])}</span>`).join('')}</div>
+      <div class="sumgrid">${gained.map(k => `<span>${RICON[k]} +${fmt(sum.res[k])}</span>`).join('')}${lost.map(k => `<span class="miss">${RICON[k]} ${fmt(sum.res[k])}</span>`).join('')}</div>
       <p>👥 인구${sum.people >= 0 ? '+' : ''}${sum.people}(디자인${sum.arrivals}, 고민 중${sum.deaths}）</p>
       ${sum.blizzards ? `<p>❄ 경험이 풍부함${sum.blizzards}필드 눈보라</p>` : ''}
       ${sum.raids ? `<p>🐺 습격${sum.raids}번, 격퇴하다${sum.raidsWon}횟수</p>` : ''}

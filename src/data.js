@@ -1,5 +1,5 @@
 // 寒烬北行 · 静态数据（资源、建筑、专家、余烬强化、地标）
-// 速率单位：每分钟；模拟内部换算为每秒。
+// 速率单位：每分钟；模拟内部换算为每秒.
 
 export const RES = {
   wood:      { n: '목재',     t: 1, c: '#a0703c', raw: true },
@@ -87,7 +87,7 @@ export const FAR_MARKS = [
   { n: '세계의 척추', row: 800, r: 3.6, desc: '고대 짐승의 척추처럼 거대한 뼈 능선이 빙상 끝에서 솟아올랐습니다. 뒤집어 보면 더 이상 아무도 가본 적이 없는 길이 없습니다.',
     relic: { k: 'ember', v: 0.25, n: '등뼈 불씨', d: '북상 +25%일 때 잔불 제거' } },
 ];
-// 北境：世界之脊以北，一站接一站没有尽头。每站约 80 行，带一条地貌规则和一个地标
+// 北境：世界之脊以北，一站接一站没有尽头.每站约 80 行，带一条地貌规则和一个地标
 export const SPINE_ROW = 800;
 export const NORTH_GAP = 80;
 // 地貌规则：一好一坏，只管当前这一站（效果在 sim / worldgen 里按 id 生效）
@@ -144,7 +144,7 @@ export const CAMP_SPEC = {
   herd:    { n: '사냥감', b: ['hunter', 'kitchen'] },
 };
 export const CSPEC_FX = 0.5, CSPEC_FX2 = 0.75;
-// 1.1 替代配方：在建筑面板上换，换一次停工 20 秒。研究「替代配方·一」开 1–3 级建筑的，「替代配方·二」开 4–7 级的
+// 1.1 替代配方：在建筑面板上换，换一次停工 20 秒.研究「替代配方·一」开 1–3 级建筑的，「替代配方·二」开 4–7 级的
 export const ALT = {
   sawmill:    { in: { wood: 3, tar: 1 }, out: { plank: 3 } },
   coker:      { in: { wood: 10 }, out: { coke: 1 } },
@@ -178,8 +178,8 @@ export const CMDS = {
 // 1.1 分岔北境：路的难度（目标 ×0.9 / ×1.0 / ×1.15）和对应的奖励倍数；好处三选一
 export const FORK = { diff: [0.9, 1, 1.15], rew: [0.75, 1, 1.5], dn: ['수월한 길', '보통', '험난한 길'], embers: 40, hardEmbers: 20 };
 export const FORK_BONUS = { embers: { n: '잔불', ic: '🔥' }, bp: { n: '불가사의 도면 한 장', ic: '📜' }, spec: { n: '전문가 한 명', ic: '🧑' } };
-// 1.1 奇观：4×4，三期施工，每期几种材料一起喂（像烽火塔身，喂满一期进下一期）。建成以后这一程一直有效，所有营地都算；
-// 每种一程只能建一座，一座营地最多一座。图纸从研究（奇观图纸·一/二）和北境的奇遇、分岔里拿
+// 1.1 奇观：4×4，三期施工，每期几种材料一起喂（像烽火塔身，喂满一期进下一期）.建成以后这一程一直有效，所有营地都算；
+// 每种一程只能建一座，一座营地最多一座.图纸从研究（奇观图纸·一/二）和北境的奇遇、分岔里拿
 export const WONDER_PH = [{ n: '기초 공사', dur: 720 }, { n: '골조 공사', dur: 1080 }, { n: '상량', dur: 1200 }];
 export const WONDER_FX = { prod: 0.15, cap: 2, warm: 2, fuel: 0.85, res: 0.5, hope: 5, road: 1.5, trip: 1.3, star: 0.3 };
 export const WONDERS = {
@@ -344,7 +344,7 @@ export const BLD = {
   icefish:   { n: '얼음낚시 오두막', t: 5, rule: 'lakes', size: 2, cat: 'gather', w: 2, gather: ['fish'], out: { food: 6 }, reach: 3, desc: '얼음에 구멍을 뚫어 낚시하면 생선을 구워서 먹을 수 있습니다. 요리는 부엌 없이 직접 생산됩니다. 얼음낚시터 옆에 건설하려면 얼음호수 지대에만 있습니다.', cost: { plank: 80, steel: 30 }, syn: ['tent', 'kitchen'] },
   forge:     { n: '노심 단조소', t: 7, size: 2, cat: 'make', w: 6, in: { shard: 3, part: 2, alloy: 2 }, out: { heart: 0.6 }, desc: '영원의 용광로 부품을 제작하고 이를 사용하여 영원의 용광로를 다시 점화하세요.', cost: { alloy: 250, part: 120, core: 5 }, syn: ['excavator'] },
 
-  // 装饰：不产东西，让营地好看一点、大家心里亮一点（希望）。同一座营地的装饰合计最多 +16 希望
+  // 装饰：不产东西，让营地好看一点、大家心里亮一点（希望）.同一座营地的装饰合计最多 +16 希望
   lamp:      { n: '가로등', t: 1, size: 1, cat: 'deco', w: 0, hope: 1, desc: '밤에 야영지의 길을 밝히기 위해 철제 기둥에 기름등이 걸려 있습니다. 장식: 희망 +1, 업그레이드 이후 더 밝아집니다.', cost: { wood: 20, stone: 10 } },
   flagpole:  { n: '깃대', t: 1, size: 1, cat: 'deco', w: 0, hope: 1.5, desc: '야영지에 깃발을 꽂으면 멀리서도 집이 어디인지 알 수 있습니다. 장식: 희망 +1.5.', cost: { wood: 40, plank: 10 } },
   statue:    { n: '선구자 동상', t: 2, size: 1, cat: 'deco', w: 0, hope: 3, desc: '최초로 북쪽으로 걸어간 사람들을 기념하는 횃불을 들고 있는 인물. 장식: 희망 +3.', cost: { stone: 150, plank: 30, iron: 20 } },
@@ -527,7 +527,7 @@ export const TECHS = [
   { id: 'cmd1', br: 4, n: '용광로 지령 1', ic: '📯', t: 7, pts: 520, cost: { part: 150, core: 30 }, d: '잠금 해제 명령 "용광로 격연" "긴급 수송"', req: ['afterglow'], fx: {}, star: 1 },
   { id: 'guide', br: 4, n: '', ic: '🗺️', t: 7, pts: 540, cost: { alloy: 260, battery: 160 }, d: '사이트 기연의 각 단계마다 옵션이 하나 더 추가됩니다.', req: ['fork3'], fx: {} },
   { id: 'wonder1', br: 4, n: '', ic: '🏛️', t: 7, pts: 600, cost: { alloy: 300, part: 120 }, d: '불가사의 구축 가능: 증기 거상, 만년 얼음창고, 꺼지지 않는 등대', req: ['cmd1'], fx: {}, star: 1 },
-  { id: 'wintprep', br: 4, n: '', ic: '❄️', t: 7, pts: 600, cost: { alloy: 300, battery: 200 }, d: '영동조 4일 사전 예보(원래는 2일); 프로스트 베히모스 −20%', req: ['guide'], fx: {} },
+  { id: 'wintprep', br: 4, n: '', ic: '❄️', t: 7, pts: 600, cost: { alloy: 300, battery: 200 }, d: '영동조 4일 사전 예보(원래는 2일); 서리 괴물 강도 −20%', req: ['guide'], fx: {} },
   { id: 'cmd2', br: 4, n: '', ic: '📯', t: 7, pts: 640, cost: { part: 200, core: 40 }, d: '잠금 해제 명령 "전원 일심" "용광로의 가호"', req: ['wonder1'], fx: {}, star: 1 },
   { id: 'wonder2', br: 4, n: '', ic: '🏛️', t: 7, pts: 720, cost: { alloy: 400, core: 50 }, d: '불가사의 구축 가능: 오로라 탑, 철도 중앙역, 별의 용광로', req: ['wintprep'], fx: {}, star: 1 },
 ];

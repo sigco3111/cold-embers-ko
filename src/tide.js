@@ -1,8 +1,8 @@
 // 1.1 炉火鼎盛 + 永冬潮
-// 炉火鼎盛：一座营地上的产线（至少两条）全都稳在三星水准，营地产量 +25%，炉火烧成金色；哪条线掉下来就熄，提醒里点名是哪条。
-// 永冬潮：走到北境第 4 站以后，大约每 2 小时来一波，一波比一波冷。提前 2 天报（研究「永冬准备」提前 4 天），
-// 持续一天半：气温再降、熔炉烧 2.5 倍燃料、户外采集变慢；最后一夜霜巨兽冲主营地。挺过去给余烬，第 5、10 波还有专属炉火和称号。
-// 挺不过去：有人冻伤、几座建筑冻住一阵，不会输掉这一局。
+// 炉火鼎盛：一座营地上的产线（至少两条）全都稳在三星水准，营地产量 +25%，炉火烧成金色；哪条线掉下来就熄，提醒里点名是哪条.
+// 永冬潮：走到北境第 4 站以后，大约每 2 小时来一波，一波比一波冷.提前 2 天报（研究「永冬准备」提前 4 天），
+// 持续一天半：气温再降、熔炉烧 2.5 倍燃料、户外采集变慢；最后一夜霜巨兽冲主营地.挺过去给余烬，第 5、10 波还有专属炉火和称号.
+// 挺不过去：有人冻伤、几座建筑冻住一阵，不会输掉这一局.
 import { BLD, RES, DAY_LEN } from './data.js';
 import { rt, dirty, getCamp, logMsg, techDone, bumpMood, campDefense, raidStrength, trimWorkers } from './sim.js';
 import { journeyOf, northN, mainCamp } from './journey.js';
@@ -141,7 +141,7 @@ function beastAttack(S, z) {
   const hurt = Math.max(1, Math.round(camp.people * TIDE.sick));
   camp.sick = Math.min(camp.people * 0.3, (camp.sick || 0) + hurt);
   bumpMood(camp, -8, 6); trimWorkers(S, camp); dirty(S);
-  logMsg(S, `🧊 서리 괴물이 침입했어요 "${camp.name}"(방어${def}오른쪽${str}）：${froze.length ? `${[...new Set(froze.map(b => BLD[b.type].n))].join('、')}얼었다${TIDE.frz / 60}분,` : ''}${hurt}사람 동상가 병에 걸렸습니다. 아무도 죽지 않았습니다. 얼음이 녹도록 두십시오.`, 'bad');
+  logMsg(S, `🧊 서리 괴물이 "${camp.name}"에 들이닥쳤습니다(방어 ${def} 대 강도 ${str}). ${froze.length ? `${[...new Set(froze.map(b => BLD[b.type].n))].join('、')}이(가) ${TIDE.frz / 60}분간 얼어붙고, ` : ''}${hurt}명이 동상으로 쓰러졌습니다. 사망자는 없으며 얼음이 녹으면 괜찮아집니다.`, 'bad');
   R.fx.push({ kind: 'raid', camp: camp.id, won: false, str, def, t: S.t, beast: 1 });
 }
 function tideEnd(S, n) {
@@ -156,7 +156,7 @@ function tideEnd(S, n) {
     S.stats.tideOk = (S.stats.tideOk || 0) + 1;
     logMsg(S, `🌌 영동조의 ${n} 파동이 통과되었으며 모든 야영지가 살아 남았습니다. 잔불 +${e}, 각 야영지희망 +${TIDE.hope}. ${n >= 10 ? '영원한 겨울의 10번의 파도가 이 화재를 진압하는데 실패했습니다.' : n >= 5 ? '다섯 번째 공격에서 살아남은 후 북방는 이 화재를 기억했습니다.' : ''}`, 'good');
   } else {
-    const why = [hit.length && `${hit.map(x => `「${x.name}」`).join('')}누군가동상`, C.bw === 0 && '서리 괴물이 본영에 침입했습니다.'].filter(Boolean).join(',');
+    const why = [hit.length && `${hit.map(x => `「${x.name}」`).join('')}에서 동상 환자 발생`, C.bw === 0 && '서리 괴물이 본영에 침입했습니다.'].filter(Boolean).join(',');
     logMsg(S, `🌌 영동조 ${n}번째 웨이브가 지났습니다. ${why}, 이 웨이브에는 잔불이 없습니다. 다음 파도는 더 추울 것입니다. 연료 및 업그레이드천막을 일찍 준비하여 따뜻하게 유지하고 더 많은 화살탑을 구축하십시오.`, 'warn');
   }
   rt(S).fx.push({ kind: 'tide-end', n, win });

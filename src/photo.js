@@ -129,7 +129,7 @@ export class Photo {
     this.bar.innerHTML = iconize(`<div class="phrow"><span class="phl">시간</span>${seg('tod', PH_TIMES, this.tod)}</div>
       <div class="phrow"><span class="phl">필터</span>${seg('f', PH_FILTERS.map(x => [x.id, x.n]), this.f)}</div>
       ${(() => { const S = g.S, L = Object.keys(FRAMES).filter(id => Sim.cosHave(S, 'frame', id)); return L.length > 1 ? `<div class="phrow"><span class="phl">액자</span>${seg('fr', L.map(id => [id, FRAMES[id].n]), this.frame())}</div>` : ''; })()}<div class="phrow"><span class="phl">렌즈</span><span class="phrng"><small>헤드업</small><input type="range" min="0" max="100" value="${this.pitch}" data-ph="pitch"><small>아래를 내려다 보면서</small></span>
-        <버튼 클래스="phtg${g.paused ? 'on' : ''}" data-ph="freeze" title="시간 정지, 사람과 자동차 정지">정지</button><button class="phtg${this.ring ? 'on' : ''}" data-ph="ring" title="용광로난방권">난방권 표시</button></div>
+        <button class="phtg${g.paused ? 'on' : ''}" data-ph="freeze" title="시간 정지: 사람과 차량이 멈춥니다">정지</button><button class="phtg${this.ring ? 'on' : ''}" data-ph="ring" title="용광로 난방 범위">난방권 표시</button></div>
       <div class="phrow phact"><button class="phx" data-ph="x">✕ 종료</button><button class="phx" data-ph="hide">툴바 숨기기</button><button class="phshot" data-ph="shot">📸 사진 찍기</button></div>
       <div class="phtip">이미지를 드래그하여 각도를 찾으세요 ·${matchMedia('(pointer:coarse)').matches ? '핀치하여 확대/축소 및 회전' : '휠 확대/축소 · 마우스 오른쪽 버튼을 클릭하고 드래그하여 회전'}· 사진 모드로 더 가까이 다가갈 수 있습니다</div>`);
   }

@@ -37,7 +37,7 @@ export function merge(parts) {
 }
 
 // ---------- 会动的部件 ----------
-// 顶点里记下它属于哪一块、绕哪个点转；着色器按每个实例的动作参数（aAnim）把手臂、腿、工具摆起来。
+// 顶点里记下它属于哪一块、绕哪个点转；着色器按每个实例的动作参数（aAnim）把手臂、腿、工具摆起来.
 // aPart：0 不动，1 上半身（弯腰），2/3 左/右臂（人朝 -z，右手在 +x），4/5 左/右腿，
 //        6~9 四足的前左/前右/后左/后右腿，10 尾巴，11 头
 // aTool：0 总是画；1 斧 2 镐 3 锤 4 篮子 5 火把 —— 只有实例手里拿着这件工具时才画（其余缩成一点）
@@ -459,7 +459,7 @@ function foundation(K, s, vt) {
   if (vt >= 4) for (const [sx, sz, x, z] of [[s - 0.02, 0.05, 0, s / 2 - 0.03], [s - 0.02, 0.05, 0, -s / 2 + 0.03], [0.05, s - 0.02, s / 2 - 0.03, 0], [0.05, s - 0.02, -s / 2 + 0.03, 0]]) box(p.trim, sx, 0.045, sz, x, 0.13, z);
 }
 
-// 1.1 奇观：4×4 的大模型。st = 已完工的期数（0 刚圈起工地、1 地基好了、2 主体起来了、3 落成）。
+// 1.1 奇观：4×4 的大模型.st = 已完工的期数（0 刚圈起工地、1 地基好了、2 主体起来了、3 落成）.
 // 没落成时围着脚手架、一台塔吊和几堆料；落成以后撤掉，亮起来
 function wonderGeo(K, type, st) {
   const { add, lit, box, hi, mover, seg, crate, barrel, drift, rocks, parts } = K;
@@ -766,7 +766,7 @@ function wonderGeo(K, type, st) {
   if (done) { drift(-1.6, 1.6, 0.5, 0.3); drift(1.65, -1.5, 0.45, 0.3); }
 }
 
-// 1.1 城镇的房子：镇 → 木屋，城 → 石屋，大城 → 蒸汽公寓。占地和帐篷一样（2×2），门口多一盏路灯
+// 1.1 城镇的房子：镇 → 木屋，城 → 石屋，大城 → 蒸汽公寓.占地和帐篷一样（2×2），门口多一盏路灯
 function townHouseGeo(t, lvl) {
   const K = kit(t), { p, add, lit, box, hi, wall, roof, flatRoof, door, win, doorLamp, house, chimney, vpipe, pipe, logs, woodpile, shovel, barrel, crate, seg, drift } = K;
   foundation(K, 2, t);
@@ -1859,7 +1859,7 @@ export function buildingGeo(type, lvl, deep = false, opt = '') {
       wonderGeo(K, type, Math.max(0, Math.min(3, lvl - 1))); // lvl 当阶段用：1 刚圈工地 … 4 落成
       break;
     case 'pyre': case 'skyfire': {
-      // 烽火塔：八角石台 → 一圈圈砌上去的石塔（没砌完时围着脚手架和吊杆）→ 塔顶一口铁火盆。lvl 当阶段用：1 地基，2–5 塔身 1/4…满，6 点亮
+      // 烽火塔：八角石台 → 一圈圈砌上去的石塔（没砌完时围着脚手架和吊杆）→ 塔顶一口铁火盆.lvl 当阶段用：1 地基，2–5 塔身 1/4…满，6 点亮
       const stage = Math.min(6, lvl), f = stage >= 5 ? 1 : (stage - 1) / 4, sky = type === 'skyfire', on = stage >= 6;
       const R0 = sky ? 1.45 : 1.05, FULL = sky ? 5.4 : 3.9, base = 0.42, rAt = y => R0 * (1 - 0.3 * Math.max(0, y - base) / FULL);
       groundPad(s, parts);
@@ -2342,7 +2342,7 @@ function festFlame() {
   out.push(P(G.cone5, '#ffc04a', { sx: 0.2, sy: 0.6, sz: 0.2, y: 0.45, ry: 0.5 }), P(G.cone5, '#fff0b0', { sx: 0.11, sy: 0.36, sz: 0.11, y: 0.36, ry: 1.1 }));
   return merge(out);
 }
-// 篝火庆典：一堆大篝火（石圈 + 柴堆），外圈四根杆子拉着灯笼绳，旁边一面鼓。R 是整个场子的半径
+// 篝火庆典：一堆大篝火（石圈 + 柴堆），外圈四根杆子拉着灯笼绳，旁边一面鼓.R 是整个场子的半径
 export function festGeo(R = 2.3) {
   const parts = [], glow = [], add = (g, c, o) => parts.push(P(g, c, o)), wood = '#5a3e26', wood2 = '#4a3220';
   for (let k = 0; k < 10; k++) { const a = k / 10 * Math.PI * 2; add(G.dode, k % 2 ? '#6a6e76' : '#7a7e86', { s: 0.15, x: Math.cos(a) * 0.42, y: 0.06, z: Math.sin(a) * 0.42, jit: 0.2 }); }
@@ -2583,7 +2583,7 @@ function decorLo(kind) {
 }
 
 // ---------- 小人 ----------
-// 人朝 -z（和狗、雪橇一样），右手在 +x。手臂、腿、上半身分块，着色器里按动作摆动。
+// 人朝 -z（和狗、雪橇一样），右手在 +x.手臂、腿、上半身分块，着色器里按动作摆动.
 // hi：拉近时用的精细模型（手套、脖子上的围巾、靴子、护目镜、皮毛领……）；默认是拉远时用的简单模型
 const armPiv = sg => [sg * FIG.SH[0], FIG.SH[1], 0], legPiv = sg => [sg * FIG.HIP[0], FIG.HIP[1], 0];
 // 外套部分（白色，由实例颜色染色）
@@ -2818,7 +2818,7 @@ export function caravanGeo() {
   return merge(parts);
 }
 // ---------- 新模型（暂时还没有地方调用） ----------
-// 雪橇棚（2×2，和其他 2×2 建筑一样的占地、地基和门朝 +z）：敞口的木棚里停着一架雪橇，后墙挂着挽具，门口一盏灯。
+// 雪橇棚（2×2，和其他 2×2 建筑一样的占地、地基和门朝 +z）：敞口的木棚里停着一架雪橇，后墙挂着挽具，门口一盏灯.
 // 返回值和 buildingGeo 一样：{ geo, glow, movers, flame, flameY, h }
 export function sledShedGeo(lvl = 1) {
   const vt = Math.min(7, 1 + Math.floor((lvl - 1) / 5)), K = kit(vt);
@@ -2870,7 +2870,7 @@ export function sledShedGeo(lvl = 1) {
   return { geo: out.geo, glow: out.glow, movers: out.movers, flame: null, flameY: 0, h: 1.5 };
 }
 
-// 商队大雪橇（车头朝 -z，前面伸出拉杆）：loaded 为真时堆着货、盖着油布、绳子勒紧，后头竖一盏灯。返回 { geo, glow }
+// 商队大雪橇（车头朝 -z，前面伸出拉杆）：loaded 为真时堆着货、盖着油布、绳子勒紧，后头竖一盏灯.返回 { geo, glow }
 export function caravanSledGeo(loaded = true) {
   const parts = [], glow = [], add = (g, c, o) => parts.push(P(g, c, o)), lit = (g, c, o) => glow.push(P(g, c, o));
   const box = (c, sx, sy, sz, x, y, z, o = {}) => add(G.box, c, { sx, sy, sz, x, y, z, ...o });
@@ -2915,7 +2915,7 @@ export function caravanSledGeo(loaded = true) {
   return { geo: merge(parts), glow: glow.length ? merge(glow) : null };
 }
 
-// 蒸汽拖拉机（车头朝 -z）：横卧的锅炉 + 前面的烟囱 + 后头的驾驶棚和煤斗 + 两只带防滑齿的大后轮 + 前面一对雪橇板。返回 { geo, glow }
+// 蒸汽拖拉机（车头朝 -z）：横卧的锅炉 + 前面的烟囱 + 后头的驾驶棚和煤斗 + 两只带防滑齿的大后轮 + 前面一对雪橇板.返回 { geo, glow }
 export function steamTractorGeo() {
   const parts = [], glow = [], add = (g, c, o) => parts.push(P(g, c, o)), lit = (g, c, o) => glow.push(P(g, c, o));
   const box = (c, sx, sy, sz, x, y, z, o = {}) => add(G.box, c, { sx, sy, sz, x, y, z, ...o });
@@ -2961,7 +2961,7 @@ export function steamTractorGeo() {
   return { geo: merge(parts), glow: glow.length ? merge(glow) : null };
 }
 
-// 破冰车：两条履带 + 前面一把带齿的楔形破冰铲 + 钢板车身（红色警示条）+ 驾驶室 + 车尾一排发光的电池；车头朝 −z。返回 { geo, glow }
+// 破冰车：两条履带 + 前面一把带齿的楔形破冰铲 + 钢板车身（红色警示条）+ 驾驶室 + 车尾一排发光的电池；车头朝 −z.返回 { geo, glow }
 export function icebreakerGeo() {
   const parts = [], glow = [], add = (g, c, o) => parts.push(P(g, c, o)), lit = (g, c, o) => glow.push(P(g, c, o));
   const box = (c, sx, sy, sz, x, y, z, o = {}) => add(G.box, c, { sx, sy, sz, x, y, z, ...o });
@@ -3002,7 +3002,7 @@ export function icebreakerGeo() {
   return { geo: merge(parts), glow: glow.length ? merge(glow) : null };
 }
 
-// 废墟（size×size 格，size 取 1~3）：几段高低不齐的断墙、一个还立着的门框、倒下的房梁、碎石堆、雪灌进了屋里。返回 { geo, glow }
+// 废墟（size×size 格，size 取 1~3）：几段高低不齐的断墙、一个还立着的门框、倒下的房梁、碎石堆、雪灌进了屋里.返回 { geo, glow }
 export function ruinGeo(size = 2) {
   const s = Math.max(1, Math.min(3, Math.round(size))), parts = [], add = (g, c, o) => parts.push(P(g, c, o));
   const box = (c, sx, sy, sz, x, y, z, o = {}) => add(G.box, c, { sx, sy, sz, x, y, z, ...o });
@@ -3054,7 +3054,7 @@ export function tentRuinGeo() {
   return { geo: merge(parts), glow: null };
 }
 
-// 熄灭的熔炉（3×3，和熔炉同一个占地）：冷透的石台和炉身结了霜，炉门黑洞洞挂着冰凌，炉顶的炭床上积着雪。
+// 熄灭的熔炉（3×3，和熔炉同一个占地）：冷透的石台和炉身结了霜，炉门黑洞洞挂着冰凌，炉顶的炭床上积着雪.
 // 返回值和 buildingGeo 一样：{ geo, glow: null, movers: [], flame: null, flameY: 0, h: 3 }
 export function coldFurnaceGeo(lvl = 1) {
   const vt = Math.min(7, 1 + Math.floor((lvl - 1) / 5)), K = kit(vt), { p, add, box, hi, logs } = K;
@@ -3492,7 +3492,7 @@ export function siteGeo(kind) {
 }
 // 探索过的地点插一面小旗
 // 掠夺者营地：一圈削尖的木桩栅栏（南面留门），三顶黑皮帐篷围着火堆，后面一座瞭望台，营地上插着黑旗；
-// 门口两根挂着兽骨的桩子，墙角堆着抢来的箱子和桶。返回 { geo, glow, flag }，散伙后藏起火和旗
+// 门口两根挂着兽骨的桩子，墙角堆着抢来的箱子和桶.返回 { geo, glow, flag }，散伙后藏起火和旗
 export function gangGeo() {
   const p = [], g = [], f = [];
   const drift = (x, z, sx, sz, h = 0.12) => p.push(P(G.hemiLo, SNOW, { sx, sy: h, sz, x, z, ry: x * 2 }));

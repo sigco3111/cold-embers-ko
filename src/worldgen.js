@@ -2,7 +2,7 @@
 import { SPOTS, SPOT_KEYS, LANDMARKS, SPECS, FAR_MARKS, tierOfRow, SPINE_ROW, NORTH_GAP, NORTH_RULE_KEYS, NORTH_MARKS, NORTH_NAME_A, NORTH_NAME_B, RICH_KINDS } from './data.js';
 
 export const W = 48;
-// 地图先生成 1000 行（世界之脊在 800 行），走进北境以后按段往北接，每段 400 行。
+// 地图先生成 1000 行（世界之脊在 800 行），走进北境以后按段往北接，每段 400 行.
 // H 是现在已经生成到的行数：同一个种子每次接出来的地形都一样，存档里只记生成到哪一行
 export const BASE_H = 1000, SEG_H = 400;
 export let H = BASE_H;
@@ -47,7 +47,7 @@ export function getWorld(seed) {
 
 // ---------- 北境的站：位置、名字、地貌规则只由种子决定（还没生成到的段也能先算出来） ----------
 const NS = { seed: null, list: [], names: null, bag: [], rr: null };
-// 1.1 分岔北境：玩家给某一站选过的地貌（种子 → { 第几站: { rule, rich } }）。没选过的站照种子来
+// 1.1 分岔北境：玩家给某一站选过的地貌（种子 → { 第几站: { rule, rich } }）.没选过的站照种子来
 const PICK = new Map();
 const applyPick = (seed, p) => {
   const o = (PICK.get(seed) || {})[p.k], r = o ? o.rule : p.rule0, rich = o ? o.rich : p.rich0;
@@ -392,7 +392,7 @@ export function genWorld(seed) {
       break;
     }
   }
-  // 从北边地标重开时营地扎在地标南边 8 格：那一圈也铲平，免得岩石堆贴着熔炉。
+  // 从北边地标重开时营地扎在地标南边 8 格：那一圈也铲平，免得岩石堆贴着熔炉.
   // 放在最后做，不消耗随机数，老存档的资源点位置不变
   for (let li = 1; li < LANDMARKS.length; li++) {
     const l = LANDMARKS[li], cx = l.x + 0.5, cy = l.row - 6.5;
@@ -401,7 +401,7 @@ export function genWorld(seed) {
       if (terrain[i] === T_ROCK && Math.hypot(x + 0.5 - cx, y + 0.5 - cy) < 5.5 && Math.min(x, W - 1 - x) >= 2) terrain[i] = T_SNOW;
     }
   }
-  // 永恒之炉以北的远方地标：在目标纬度找一块离遗迹、兴趣点都远的地方，再把周围铲平。不消耗随机数
+  // 永恒之炉以北的远方地标：在目标纬度找一块离遗迹、兴趣点都远的地方，再把周围铲平.不消耗随机数
   const far = FAR_MARKS.map((f, i) => {
     let best = null;
     for (let dx = 0; dx <= 14 && !best; dx++) for (const sg of [1, -1]) {

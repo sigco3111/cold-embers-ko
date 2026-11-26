@@ -1,5 +1,5 @@
 // 寒烬北行 · 产线：主线和支线、升星、累计产量里程碑、规划器的配比、老向导
-// 一条产线 = 一种材料 + 一路给它供料的上游建筑。主线由这一程给，支线自己立
+// 一条产线 = 一种材料 + 一路给它供料的上游建筑.主线由这一程给，支线自己立
 import { BLD, RES, RES_KEYS, SPOTS, SPOT_KEYS, FUEL, ALT_SWITCH } from './data.js';
 import {
   rt, dirty, getCamp, logMsg, prodRate, rateGoals, holdOf, popCap, maxWorkers, heatRadius, levelMul,
@@ -207,7 +207,7 @@ export function gatherRoom(S, camp, type) {
 }
 
 // ---------- 规划手感（第十三版）：摆放之前就算出这座建筑对产线的影响 ----------
-// 预演：在 (x, y) 放一座 type，产线速度从多少变成多少、上游原料够不够、人手够不够。ck 是 checkPlace 的结果
+// 预演：在 (x, y) 放一座 type，产线速度从多少变成多少、上游原料够不够、人手够不够.ck 是 checkPlace 的结果
 export function placePreview(S, type, x, y, ck) {
   const d = BLD[type]; if (!d || !d.out || !ck || ck.camp == null || ck.camp < 0) return null;
   const camp = getCamp(S, ck.camp); if (!camp) return null;
@@ -392,7 +392,7 @@ export function advisor(S) {
       if (!w.count) return { pri: 1, kind: 'line', short: `${RES[g.r].n} 라인에 ${w.type ? BLD[w.type].n : RES[w.k].n}이(가) 없습니다. 먼저 하나 건설하세요.`, text: `${RES[g.r].n} 행에 링크가 없습니다. 아직 ${w.type ? BLD[w.type].n : RES[w.k].n}이 없습니다. ${RES[w.k].n}의 비용은 분당 ${fmtR(w.need)}입니다. 먼저 건설하세요.`, act: 'plan', arg: g.r };
       const by = P.nodes.find(x => x.k === (w.from || w.via));
       const full = Object.keys(w.stat).find(s => s === '창고가 가득 참');
-      if (full) return { pri: 1, kind: 'line', short: `${RES[w.k].n}이(가) 창고가 가득 참에서 멈췄습니다.`, text: `${RES[w.k].n}이(가) 창고가 가득 참에 멈췄습니다. 창고를 더 구축하거나 야영지 패널에서 "전체 포지션 자동 상환"을 켜세요.`, act: 'plan', arg: g.r };
+      if (full) return { pri: 1, kind: 'line', short: `${RES[w.k].n}: 창고가 가득 차 멈춤`, text: `${RES[w.k].n}: 창고가 가득 차서 멈췄습니다. 창고를 더 짓거나 야영지 패널에서 "만재 자동 교환"을 켜세요.`, act: 'plan', arg: g.r };
       // 总产量够，却被别的建筑吃掉了
       if (w.comp && by) {
         const eat = {};
@@ -404,7 +404,7 @@ export function advisor(S) {
       { const cnt = Object.values(w.stat || {}).reduce((a, n) => a + n, 0) || 1;
         const st = Object.keys(w.stat || {}).find(x => (x.startsWith('부족') || x === KEEP_WHY || x === FUEL_KEEP_WHY) && w.stat[x] * 2 >= cnt);
         const ins = w.type && recipeOf(S, w.type).in ? Object.keys(recipeOf(S, w.type).in) : [];
-        const k = st && (st.startsWith('부족') ? ins.find(x => RES[x].n === st.slice(1)) : ins.find(x => st === FUEL_KEEP_WHY ? FUEL[x] : isBuildMat(x)));
+        const k = st && (st.startsWith('부족') ? ins.find(x => RES[x].n === st.slice(3).trim()) : ins.find(x => st === FUEL_KEEP_WHY ? FUEL[x] : isBuildMat(x)));
         const pt = k && producerOf(S, k);
         if (k && pt) {
           const n = BLD[w.type].n, kn = RES[k].n, idle = P.idle >= 1, can = unlocked(S, pt);
@@ -415,8 +415,8 @@ export function advisor(S) {
             const cr = R.c[main.id] || {}, kb = isBuildMat(k) ? keepOf(main, k, storeCap(S, main)) : 0, kf = FUEL[k] ? (cr.burnPerMin || 0) * FUEL_KEEP_MIN / FUEL[k] : 0;
             const forW = [kb > 0 && '집을 짓다', kf > 0 && '용광로'].filter(Boolean).join('그리고');
             short = `${kn}은 ${forW}에 먼저 남게 되는데, 이는 충분하지 않습니다.`;
-            text = `${RES[g.r].n}줄이 끼어있다${kn}：${kn}먼저 저축해야 해${Math.ceil(Math.max(kb, kf))}부분(남은 시간${forW}), 추가 금액이 제공됩니다${n}。${idle ? `${more}아니면 먼저 집을 적게 지으세요.${kn}저축하다` : `먼저 집을 적게 짓자.${kn}저장해 두세요. 사람이 많아지면 건물을 더 짓고${BLD[pt].n}`}。`;
-          } else text = `${RES[g.r].n}줄이 끼어있다${kn}：${n}대기 중${kn}，${BLD[pt].n}공급할 수 없습니다.${idle ? more : `남은 사람이 없습니다. 더 많은 사람들이 참여할 수 있도록 천막를 구축한 다음${BLD[pt].n}멀티일손 배치`}。`;
+            text = `${RES[g.r].n}줄이 끼어있다${kn}：${kn}먼저 저축해야 해${Math.ceil(Math.max(kb, kf))}부분(남은 시간${forW}), 추가 금액이 제공됩니다${n}.${idle ? `${more}아니면 먼저 집을 적게 지으세요.${kn}저축하다` : `먼저 집을 적게 짓자.${kn}저장해 두세요. 사람이 많아지면 건물을 더 짓고${BLD[pt].n}`}.`;
+          } else text = `${RES[g.r].n}줄이 끼어있다${kn}：${n}대기 중${kn}，${BLD[pt].n}공급할 수 없습니다.${idle ? more : `남은 사람이 없습니다. 더 많은 사람들이 참여할 수 있도록 천막를 구축한 다음${BLD[pt].n}멀티일손 배치`}.`;
           { const sw = altSwap(S, w.type, k); if (sw) text += `${n}를 ${kn} 대신 ${sw}로 바꿀 수도 있습니다.`; }
           return { pri: 1, kind: 'line', text, short: short, act: can && idle ? 'place' : 'plan', arg: can && idle ? pt : g.r };
         } }

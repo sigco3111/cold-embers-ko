@@ -986,7 +986,7 @@ void main() {
       if (k >= 1) { this.scene.remove(mf.obj); mf.obj.geometry.dispose(); this.burst('dust', mf.x + 0.5, mf.y + 0.5, 40, 1.0, 1.4); this.burst('spark', mf.x + 0.5, mf.y + 0.5, 30, 0.6, 0.5); this.ringFx && this.ringFx(mf.x + 0.5, mf.y + 0.5, 1.8); this.meteorFx = null; }
     }
   }
-  // 营地生活：等床位的窝棚、孩子们的雪人、夜里巡逻的路线。位置按营地缓存，建筑变了再找
+  // 营地生活：等床位的窝棚、孩子们的雪人、夜里巡逻的路线.位置按营地缓存，建筑变了再找
   lifeSpots(c) {
     // 砍树挖矿会不停地刷新资源点：那种小变化 30 秒才重找一次（重找要寻路，手机上会顿一下，东西也不该跳来跳去）
     const C = this._life || (this._life = new Map()), key = this.bldSig + ':' + (this.beltSig || '').length + ':' + Sim.heatRadius(this.S, c) + ':' + (this.spotBig || 0);
@@ -2254,7 +2254,7 @@ void main() {
   frame(rdt, simAlpha) {
     const S = this.S;
     if (!S) return;
-    // 暂停时人、车、雪花都停住；2 倍速时一起加快。镜头始终按真实时间走
+    // 暂停时人、车、雪花都停住；2 倍速时一起加快.镜头始终按真实时间走
     const dt = rdt * (this.timeScale ?? 1);
     this.time += dt;
     const R = Sim.rt(S);

@@ -288,7 +288,7 @@ export function depart(S) {
   rt(S).fx.push({ kind: 'depart', to: J.trip.to });
   return { ok: true };
 }
-// ---------- 雪橇棚：造车。造好的车归车队，跟着主营地走 ----------
+// ---------- 雪橇棚：造车.造好的车归车队，跟着主营地走 ----------
 export const VQ_MAX = 10;
 export const vehName = v => (VEH[v] || VEH.sled).n;
 export function vehBlock(S, b, v) {
@@ -321,14 +321,14 @@ function vehStep(S, dt) {
     const br = R.b[b.id] || (R.b[b.id] = {}), q = b.vq && b.vq[0], sp = vehSpeed(S, b);
     br.act = q ? sp : 0; br.staff = sp;
     if (!q) { br.status = '게으른'; continue; }
-    if (!b.workers) { br.status = '배치된 일손 없음'; continue; }
+    if (!b.workers) { br.status = '일손 미배치'; continue; }
     br.status = `${vehName(q.v)} ${Math.floor(q.p * 100)}% 건설 중`;
     q.p += dt * sp / VEH[q.v].secs;
     if (q.p < 1) continue;
     b.vq.shift();
     J.fleet[q.v] = (J.fleet[q.v] || 0) + 1;
     R.fx.push({ kind: 'veh', b: b.id, v: q.v });
-    if (!b.vq.length) logMsg(S, `🛷 썰매 헛간 차량이 완성되었습니다. 이제 행렬를 구매할 수 있습니다.${J.fleet.sled || 0}프레임 썰매${J.fleet.tractor ? `、${J.fleet.tractor}대만 증기 트레일러` : ''}。`, 'good', { act: 'spot', arg: b.id, label: '보기' });
+    if (!b.vq.length) logMsg(S, `🛷 썰매 헛간 차량이 완성되었습니다. 이제 행렬를 구매할 수 있습니다.${J.fleet.sled || 0}프레임 썰매${J.fleet.tractor ? `、${J.fleet.tractor}대만 증기 트레일러` : ''}.`, 'good', { act: 'spot', arg: b.id, label: '보기' });
     dirty(S);
   }
 }

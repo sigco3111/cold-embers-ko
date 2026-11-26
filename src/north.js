@@ -1,7 +1,7 @@
 // 寒烬北行 · 1.1 北境：分岔（下一站走哪条路）和站点奇遇
-// 分岔：这一站的烽火塔点亮以后（第十站以后：这一章做完），侦察兵带回去下一站的两条路（三岔侦察 → 三条）。
+// 分岔：这一站的烽火塔点亮以后（第十站以后：这一章做完），侦察兵带回去下一站的两条路（三岔侦察 → 三条）.
 // 每条路的地貌、特产、会碰上的奇遇、带的好处和目标难度都不一样；下一站的位置不变，选了哪条，那一片地就照它重新生成
-// 奇遇：北境每一站一件，到站半天以后出现，分两三段，每段选一样。最坏丢点东西、耽误点时间，不会卡住
+// 奇遇：北境每一站一件，到站半天以后出现，分两三段，每段选一样.最坏丢点东西、耽误点时间，不会卡住
 import { RES, DAY_LEN, SPECS, SPEC_MAX, NORTH_RULES, NORTH_RULE_KEYS, RICH_KINDS, CAMP_SPEC, SPOTS, FORK, FORK_BONUS, WONDERS, WONDER_KEYS, QY, QY_KEYS } from './data.js';
 import { northStop, setNorthPick, northPicks, regenWorld, getWorld, hash3 } from './worldgen.js';
 import { rt, dirty, getCamp, logMsg, techDone, towerLit, chapters, addPeople, bumpMood, trimWorkers, revealCircle, campDefense, raidStrength, addBuff, gBuffAdd, bankPts, MIN_PEOPLE, TOWER_N } from './sim.js';
@@ -109,7 +109,7 @@ export function giveSpec(S, camp) {
 }
 
 // ---------- 站点奇遇 ----------
-const lack = o => (S, c) => { const m = Object.keys(o).filter(k => (c.stock[k] || 0) < o[k]); return m.length ? `${m.map(k => RES[k].n).join('、')} 누락됨` : ''; };
+const lack = o => (S, c) => { const m = Object.keys(o).filter(k => (c.stock[k] || 0) < o[k]); return m.length ? `${m.map(k => RES[k].n).join('、')} 부족` : ''; };
 const hands = n => (S, c) => c.people - n < Math.max(MIN_PEOPLE, 10) ? `일손로는 충분하지 않습니다. (${n}명을 보낸 후 야영지에는 최소 10명이 남습니다.)` : '';
 const both = (...f) => (S, c) => { for (const g of f) { const r = g(S, c); if (r) return r; } return ''; };
 const take = (c, o) => { for (const k in o) c.stock[k] = Math.max(0, (c.stock[k] || 0) - o[k]); };
@@ -217,7 +217,7 @@ export const QE = {
       g: { t: '용광로의 열을 사용하여 천천히 깨우세요.', d: '석탄 −150, 일손 배치를 사용하지 마십시오', need: lack({ coal: 150 }), go: (S, c) => { take(c, { coal: 150 }); return { m: '긴 파이프가 용광로의 뜨거운 공기를 얼음 동굴로 보냅니다.', nx: 1, w: 180 }; } } },
     { x: '동면하던 사람들은 너무 배고파서 말을 할 수 없을 정도로 하나 둘 깨어났다. 선두 노인은 남쪽으로 가고 있다고 말했습니다.',
       o: [
-        { t: '그들에게 머물라고 해라', d: '+12명', go: (S, c) => { const a = addPeople(S, c, 12); return { m: `12명이 묵었어요${a && a.wait ? `, 침대가 부족해요.${a.wait}사람들은 먼저 오두막에서 기다려요` : ''}。` }; } },
+        { t: '그들에게 머물라고 해라', d: '+12명', go: (S, c) => { const a = addPeople(S, c, 12); return { m: `12명이 묵었어요${a && a.wait ? `, 침대가 부족해요.${a.wait}사람들은 먼저 오두막에서 기다려요` : ''}.` }; } },
         { t: '그들을 남쪽으로 보내세요', d: '잔불 +12', go: S => { ember(S, 12); return { m: '그들은 건조한 음식을 가지고 남쪽으로 갔고, 떠나기 전에 불지킴이에게 잔불 한 봉지를주었습니다.' }; } },
       ] },
   ] },
@@ -261,7 +261,7 @@ export const QE = {
       ] },
     { x: '노인은 밤새도록 난로 옆에 앉아 북쪽의 각 정류장에서 눈보라, 늑대, 얼음호수에 대한 이야기를 들려주었습니다.',
       o: [
-        { t: '그가 말하는 모든 것을 적어라', d: '연구 포인트 +200 · 전문가 한 명', go: (S, c) => { bankPts(S, 200); const m = giveSpec(S, c); if (!m) ember(S, 15); return { m: `책 한권을 다 외웠다${m ? `, 그리고 초대된 도우미:${m}` : ''}。` }; } },
+        { t: '그가 말하는 모든 것을 적어라', d: '연구 포인트 +200 · 전문가 한 명', go: (S, c) => { bankPts(S, 200); const m = giveSpec(S, c); if (!m) ember(S, 15); return { m: `책 한권을 다 외웠다${m ? `, 그리고 초대된 도우미:${m}` : ''}.` }; } },
         { t: '그에게 아이에게 이야기를 들려달라고 요청하세요.', d: '모두야영지희망 +6', go: S => { allHope(S, 6); return { m: '아이 사람들은 노인을 에워싸고 한밤중에 그 소리를 듣고 잠을 자지 않았습니다.' }; } },
       ] },
   ] },

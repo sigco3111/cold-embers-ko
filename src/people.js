@@ -62,7 +62,7 @@ export function personState(S, info, p, R, extra = {}) {
   const quote = pool[Math.floor(hash3(slot, Math.floor(p.rq * 1000), 9) * pool.length)];
   let role = '';
   const bd = info.b != null ? S.buildings.find(x => x.id === info.b) : null, bn = bd ? BLD[bd.type].n : '';
-  if (info.k === 'w') role = `존재하다${bn}일하다${st && st !== '달리기' ? `（${st}）` : ''}`;
+  if (info.k === 'w') role = `존재하다${bn}일하다${st && st !== '가동 중' ? `（${st}）` : ''}`;
   else if (info.k === 'h') role = info.res ? (info.go ? `운반꾼: ${RES[info.res].n}을(를) ${bn}(으)로 보내기` : `운반꾼: ${bn}에서 ${RES[info.res].n}을(를) 다시 창고로 배송합니다.`) : `운반꾼: ${bn}과 창고 사이를 왔다 갔다 합니다.`;
   else if (info.k === 'f') role = '일자리가 없습니다. 장작을 모으고 야영지 근처에 함정을 설치하세요.';
   else if (info.k === 'q') role = '방금 야영지에 도착했고, 오두막집에서 빈 침대를 기다리고 있습니다.';

@@ -1,7 +1,7 @@
 // 1.1 奇观 + 城镇
-// 奇观：4×4，三期施工，每期几种材料一起喂（像烽火塔身），喂满一期进下一期。建成以后记在 S.wonder.list 里，
-// 这一程一直有效、所有营地都算，营地熄火了也不丢。每种一程只能建一座，一座营地最多一座。
-// 城镇：研究「城镇规划」后，营地人够多、希望够高，就能一级一级升成镇、城、大城（升了不会降）。
+// 奇观：4×4，三期施工，每期几种材料一起喂（像烽火塔身），喂满一期进下一期.建成以后记在 S.wonder.list 里，
+// 这一程一直有效、所有营地都算，营地熄火了也不丢.每种一程只能建一座，一座营地最多一座.
+// 城镇：研究「城镇规划」后，营地人够多、希望够高，就能一级一级升成镇、城、大城（升了不会降）.
 import { BLD, RES, DAY_LEN, WONDERS, WONDER_KEYS, WONDER_PH, WONDER_FX, TOWN, TOWN_FEST } from './data.js';
 import { rt, dirty, getCamp, logMsg, techDone, cmdOn, addBuff, bumpMood, fuelKeep, storeCap } from './sim.js';
 import { journeyOf } from './journey.js';
@@ -43,8 +43,8 @@ export function wonderFeed(S, b, dt, hf, offK, st, R, dem, fuelKeepU = 0) {
   const br = R.b[b.id] || (R.b[b.id] = {}), W = b.wd || (b.wd = { ph: 0, p: 0 });
   br.rate = {}; br.inRate = {}; br.want = {}; br.haul = 0; br.act = 0; br.staff = 1; br.dist = R.dist.get(b.id) || 0;
   const sp = wonderSpec(b.type, W.ph);
-  if (!sp) { br.status = '세워짐'; return; }
-  if (b.moveT > S.t) { br.status = '움직이는'; return; }
+  if (!sp) { br.status = '완공'; return; }
+  if (b.moveT > S.t) { br.status = '이동 중'; return; }
   const camp = getCamp(S, b.camp), mul = feedMul(S, camp);
   const f = Math.min(dt * hf * offK * mul, sp.dur - W.p);
   let lim = 1, whyK = null;
@@ -59,7 +59,7 @@ export function wonderFeed(S, b, dt, hf, offK, st, R, dem, fuelKeepU = 0) {
   }
   W.p = Math.min(sp.dur, W.p + f * lim);
   br.act = lim; br.haul = dem * hf * lim;
-  br.status = lim < 0.95 ? (fuelKeep(st, whyK, fuelKeepU) > 0 && (st[whyK] || 0) > 0 ? '연료를 용광로에 맡기세요' : `${RES[whyK].n} 누락됨`) : hf < 0.7 ? '운반꾼 부족' : `${sp.n} 안으로`;
+  br.status = lim < 0.95 ? (fuelKeep(st, whyK, fuelKeepU) > 0 && (st[whyK] || 0) > 0 ? '연료를 용광로에 맡기세요' : `부족 ${RES[whyK].n}`) : hf < 0.7 ? '운반꾼 부족' : `${sp.n} 건설 중`;
   if (W.p >= sp.dur - 1e-6) wonderNext(S, b);
 }
 function wonderNext(S, b) {
@@ -67,7 +67,7 @@ function wonderNext(S, b) {
   W.ph++; W.p = 0;
   const R = rt(S);
   if (W.ph < WONDER_PH.length) {
-    logMsg(S, `🏗️ ${Wn.n}「${WONDER_PH[W.ph - 1].n}"그럼 됐어.${WONDER_PH[W.ph].n}：${Object.entries(Wn.ph[W.ph]).map(([k, v]) => `${RES[k].n} ${v}`).join('、')}。`, 'good', { act: 'spot', arg: b.id, label: '가 보기' });
+    logMsg(S, `🏗️ ${Wn.n}「${WONDER_PH[W.ph - 1].n}"그럼 됐어.${WONDER_PH[W.ph].n}：${Object.entries(Wn.ph[W.ph]).map(([k, v]) => `${RES[k].n} ${v}`).join('、')}.`, 'good', { act: 'spot', arg: b.id, label: '가 보기' });
     R.fx.push({ kind: 'wonder-ph', bid: b.id, ph: W.ph, x: b.x + s / 2, y: b.y + s / 2 });
     return;
   }

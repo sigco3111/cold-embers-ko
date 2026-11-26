@@ -24,18 +24,18 @@ export const RICON = {
 };
 const BUFF_TXT = b => ({ prod: `생산량 ${b.v > 0 ? '+' : ''}${Math.round(b.v * 100)}%`, fuel: `연료는 ${b.v > 0 ? '+' : ''}${Math.round(b.v * 100)}%를 소비합니다.`, heat: `기분 +${b.v}°`, shield: `눈보라 냉각 −${Math.round(b.v * 100)}%`, def: `방어 +${Math.round(b.v * 100)}%` })[b.k] || '';
 const TUT = [
-  { b: 'lumber', why: '벌목장은 숲 옆에 있으며 미리보기 상자에는 얼마나 많은 자원 포인트를 수집할 수 있는지 표시됩니다. 목재는 건축자재이기도 한 연료입니다.' },
-  { b: 'tent', why: '천막은 침대와 단열재를 제공하고, 빈 침대가 있어야만 사람들이 찾아옵니다.' },
-  { b: 'hunter', why: '사냥꾼 오두막은 순록이 있는 사냥터 옆에 배치되고 생고기를 반환합니다.' },
-  { b: 'kitchen', why: '부엌은 생고기를 요리로 만들었고 모두가 그에 따라 생활합니다.' },
-  { k: 'stock', why: '하단의 "생산"에는 재료에 대한 개요가 나와 있습니다. 각 재료가 얼마나 들어 있는지, 얼마나 들어오고 나가는지, 어느 링크에 끼어 있는지 등이 나와 있습니다.' },
-  { k: 'furnace', why: '건물을 클릭하면 일손 배치 및 업그레이드 상태를 볼 수 있습니다. 용광로는 야영지의 핵심이며 난방권은 업그레이드 이후 더 커질 것입니다.' },
-  { k: 'goal', why: '상단이 이 장의 목표입니다. 과제 3개를 완료하면 보상을 얻을 수 있습니다. "목판생산량 6/분" 이런 종류의 과제 옆에 있는 "계획"을 클릭하면 남은 건물 수와 사람 수를 계산합니다. 하단의 스트립 라인은 늙은 길잡이입니다. 한 번에 한 문장씩 다음에 무엇을 해야 할지 알려줍니다. 그의 프로필 사진을 클릭하시면 전문을 보실 수 있습니다.' },
+  { b: 'lumber', why: '벌목장은 숲 바로 옆에 지어야 합니다. 미리보기 상자에 캘 수 있는 자원 포인트 수가 표시됩니다. 목재는 연료이자 건축 자재입니다.' },
+  { b: 'tent', why: '천막은 침대와 보온을 제공합니다. 빈 침대가 있어야 사람들이 찾아옵니다.' },
+  { b: 'hunter', why: '사냥꾼 오두막은 순록이 있는 사냥터 옆에 지어 생고기를 가져오게 하세요.' },
+  { b: 'kitchen', why: '부엌은 생고기를 익힌 음식으로 만들고, 모두가 이걸로 살아갑니다.' },
+  { k: 'stock', why: '하단의 "생산"에는 자재 총괄이 있습니다. 자재별 수량, 입출고량, 어느 단계에서 막혔는지까지 적혀 있습니다.' },
+  { k: 'furnace', why: '건물을 누르면 상태, 일손 배치, 업그레이드를 볼 수 있습니다. 용광로는 야영지의 심장으로, 업그레이드하면 난방 범위가 커집니다.' },
+  { k: 'goal', why: '상단에는 이 장의 목표가 있습니다. 과제 3개를 완료하면 보상을 받을 수 있습니다. "목판 생산량 6/분" 같은 과제 옆의 "계획"을 누르면 부족한 건물 수와 인원을 계산해 줍니다. 아래쪽 가는 줄은 늙은 길잡이로, 다음에 할 일을 한 문장씩 알려 줍니다. 얼굴을 누르면 전체 내용을 볼 수 있습니다.' },
 ];
 // 建筑状态 → 头顶小图标；严重的状态用红色
 const RES_BY_NAME = Object.fromEntries(Object.entries(RES).map(([k, r]) => [r.n, k]));
-const STATUS_BAD = st => st.startsWith('부족') || st.includes('멍청이') || st === '배치된 일손 없음' || st === '아무도 일하지 않아';
-const STATUS_ICON = st => st.startsWith('부족') ? (RICON[RES_BY_NAME[st.slice(1)]] || '!') : st.includes('멍청이') ? '⛏' : st === '배치된 일손 없음' || st === '아무도 일하지 않아' || st === '일손 부족' ? '👷' : st === '운반꾼 부족' ? '🛷' : st.startsWith('너무 추워요') ? '❄' : st.startsWith('기다리다') ? '🌱' : st === Sim.KEEP_WHY ? '🔒' : st === Sim.FUEL_KEEP_WHY ? '🔥' : st === Sim.DEEP_WHY ? '⛏' : '!';
+const STATUS_BAD = st => st.startsWith('부족') || st.includes('고갈') || st === '일손 미배치' || st === '일하는 사람 없음';
+const STATUS_ICON = st => st.startsWith('부족') ? (RICON[RES_BY_NAME[st.slice(3).trim()]] || '!') : st.includes('고갈') ? '⛏' : st === '일손 미배치' || st === '일하는 사람 없음' || st === '일손 부족' ? '👷' : st === '운반꾼 부족' ? '🛷' : st.startsWith('너무 추') ? '❄' : st.startsWith('대기') ? '🌱' : st === Sim.KEEP_WHY ? '🔒' : st === Sim.FUEL_KEEP_WHY ? '🔥' : st === Sim.DEEP_WHY ? '⛏' : '!';
 
 export function fmt(n) {
   n = +n || 0;
@@ -381,7 +381,7 @@ export class UI {
       const was = L.get(b.id);
       if (was === b.lvl || n >= 3) continue;
       n++;
-      this.upFx(b, was == null ? '세워짐' : `${b.lvl} 레벨에 도달하세요`, b.type === 'furnace' && was != null);
+      this.upFx(b, was == null ? '완공' : `${b.lvl} 레벨에 도달하세요`, b.type === 'furnace' && was != null);
     }
   }
   upFx(b, txt, big) {
@@ -429,7 +429,7 @@ export class UI {
         if (!br || !(d.out || d.research) || b.type === 'furnace') continue;
         let a = F.acc.get(b.id);
         if (!a) { a = { t: (b.id * 0.618 % 1) * 5, v: {} }; F.acc.set(b.id, a); }
-        const rate = d.research ? (br.status === '연구중' ? { rp: br.rp || 0 } : {}) : (br.rate || {});
+        const rate = d.research ? (br.status === '연구 중' ? { rp: br.rp || 0 } : {}) : (br.rate || {});
         for (const k in rate) if (rate[k] > 0) a.v[k] = (a.v[k] || 0) + rate[k] / 60 * dt;
         a.t += dt;
         if (a.t < 5) continue;
@@ -463,13 +463,13 @@ export class UI {
     const chs = Sim.chapters(S), ch = chs[chs.length - 1], ppl = S.camps.reduce((a, x) => a + x.people, 0);
     const ago = S.savedAt ? (Date.now() - S.savedAt) / 1000 : 0;
     const D = Sim.diffOf(S);
-    const card = hasSave ? `<div class="tsave"><b>🔥 ${esc(c.name)}</b><span>${ch ? esc(ch.ch.n) : ''}</span><작은>저장${this.g.slot} · ${D.ic}${D.n} · 👥 ${ppl}사람 · 아니.${S.meta.runs || 1}두 번째 북쪽 방향${ago > 60 ? `· 마지막으로 왔을 때는${fmtTime(ago)}앞으로` : ''}</small></div>` : '';
+    const card = hasSave ? `<div class="tsave"><b>🔥 ${esc(c.name)}</b><span>${ch ? esc(ch.ch.n) : ''}</span><small>저장${this.g.slot} · ${D.ic}${D.n} · 👥 ${ppl}사람 · 아니.${S.meta.runs || 1}두 번째 북쪽 방향${ago > 60 ? `· 마지막으로 왔을 때는${fmtTime(ago)}앞으로` : ''}</small></div>` : '';
     el.innerHTML = iconize(`<div class="tshade"></div><div class="tbox">
       <div class="tkick">HAN · JIN · BEI · XING</div>
       <h1 class="tname">${'차가운 잔불의 북행'.split('').map((ch, i) => `<span style="animation-delay:${0.15 + i * 0.12}s">${ch}</span>`).join('')}</h1>
       <p class="ttag">겨울 동안 세상이 얼었습니다. <br>한 번에 하나씩 북쪽으로 가서 영원의 용광로를 다시 켜세요. </p>${card}
       <div class="tbtns">
-        <button class="tbtn go" data-act="title-go">${hasSave ? '계속 북쪽으로 가세요' : '북쪽으로 향하기 시작'}</버튼>
+        <button class="tbtn go" data-act="title-go">${hasSave ? '계속 북쪽으로 가세요' : '북쪽으로 향하기 시작'}</button>
         <button class="tbtn" data-act="help">플레이 방법</button>${hasSave ? '<button class="tbtn ghost" data-act="title-new">새로운 북행</button><button class="tbtn ghost" data-act="slots">저장 슬롯</button>' : ''}
       </div></div>
       <div class="tfoot">${VERSION_NAME}· 로우 폴리곤 겨울 생존 작동</div>`);
@@ -492,7 +492,7 @@ export class UI {
   qyModal(res) {
     const S = this.S, m = this.$('modal');
     if (res) {
-      m.innerHTML = iconize(`<div class="mbox ev qy"><div class="evtag">북방 · 기연</div><h2>${this.qyIco(res.id, res.ic)} ${esc(res.n)}</h2><p class="story">${esc(res.msg)}</p>${res.next ? `<p class="hint">${res.wait > 5 ? `통과하다${fmtTime(res.wait)}아래에서 더 자세히${res.away ? `, 발송됨${res.away}그때 다시 올게요` : ''}。` : '곧 더 많은 내용이 나올 예정입니다.'}</p>` : '<p class="hint">이 기연가 완성되어 컬렉션 북에 기록되었습니다. </p>'}<div class="mbtns"><button class="btn go" data-act="${res.next && res.wait <= 5 ? 'qyopen' : 'close-modal'}">${res.next && res.wait <= 5 ? '계속 읽어보세요' : '알고 있었다'}</button></div></div>`);
+      m.innerHTML = iconize(`<div class="mbox ev qy"><div class="evtag">북방 · 기연</div><h2>${this.qyIco(res.id, res.ic)} ${esc(res.n)}</h2><p class="story">${esc(res.msg)}</p>${res.next ? `<p class="hint">${res.wait > 5 ? `통과하다${fmtTime(res.wait)}아래에서 더 자세히${res.away ? `, 발송됨${res.away}그때 다시 올게요` : ''}.` : '곧 더 많은 내용이 나올 예정입니다.'}</p>` : '<p class="hint">이 기연가 완성되어 컬렉션 북에 기록되었습니다. </p>'}<div class="mbtns"><button class="btn go" data-act="${res.next && res.wait <= 5 ? 'qyopen' : 'close-modal'}">${res.next && res.wait <= 5 ? '계속 읽어보세요' : '알고 있었다'}</button></div></div>`);
       m.classList.add('show'); return true;
     }
     const v = Sim.qyView(S); if (!v) return false;
@@ -539,17 +539,17 @@ export class UI {
     const S = this.S, A = [], fc = Sim.forecastOf(S);
     const w = Sim.weatherAt(S, S.t), od = cr.stall ? '용광로 퍼니스 종료' : cr.od ? '용광로가 과부하되었습니다' : '';
     if (w.blizzard) A.push({ k: 'bliz', ic: '❄', lvl: 'bad', urgent: true, t: '눈보라중', cnt: fmtTime(w.until - S.t), d: `중지하려면 ${fmtTime(w.until - S.t)}가 소요됩니다. ${od ? od + '，' : ''}는 연료 및 용광로 온도를 응시합니다.`, act: 'wx', btn: '시계 준비' });
-    else if (w.warn) A.push({ k: 'bliz', ic: '❄', lvl: 'warn', urgent: true, t: '눈보라가 온다', cnt: fmtTime(w.inSec), d: `${fmtTime(w.inSec)}은(는) 나중에 도착할 예정입니다. 연료를 더 준비하고 필요한 경우 용광로를 과부하하십시오. ${od ? od + '。' : ''}`, act: 'wx', btn: '시계 준비' });
-    else if (w.next <= fc) A.push({ k: 'blizfc', ic: '❄', lvl: 'info', t: '기상 예측: 눈보라', cnt: fmtTime(w.next), d: `${fmtTime(w.next)} 뒤에 눈보라가 있습니다. ${od ? od + '。' : ''}`, act: 'wx', btn: '보기' });
+    else if (w.warn) A.push({ k: 'bliz', ic: '❄', lvl: 'warn', urgent: true, t: '눈보라가 온다', cnt: fmtTime(w.inSec), d: `${fmtTime(w.inSec)}은(는) 나중에 도착할 예정입니다. 연료를 더 준비하고 필요한 경우 용광로를 과부하하십시오. ${od ? od + '.' : ''}`, act: 'wx', btn: '시계 준비' });
+    else if (w.next <= fc) A.push({ k: 'blizfc', ic: '❄', lvl: 'info', t: '기상 예측: 눈보라', cnt: fmtTime(w.next), d: `${fmtTime(w.next)} 뒤 눈보라가 옵니다. ${od ? od + '.' : ''}`, act: 'wx', btn: '보기' });
     else if (od) A.push({ k: 'od', ic: '🔥', lvl: cr.stall ? 'bad' : 'warn', t: od, d: '오븐의 온도를 확인하고 과열하지 마세요.', act: 'wx', btn: '보일러 온도 좀 보세요' });
     { const cs = Sim.coldAt(S);
       if (cs && cs.on) A.push({ k: 'cold', ic: '🌨', lvl: 'bad', urgent: true, t: '한파중', cnt: fmtTime(cs.left), d: `또한 ${fmtTime(cs.left)}. 용광로는 연료보다 ${Sim.coldFuel(S)}배 더 많이 연소되고 실외 채집은 ${Math.round(Sim.coldGather(S) * 100)}%만 남고 온도는 ${Sim.COLD.drop}°로 낮습니다. 동상에는 보상이 없습니다.`, act: 'wx', btn: '보기' });
-      else if (cs && cs.fc) A.push({ k: 'cold', ic: '🌨', lvl: cs.inSec <= 300 ? 'warn' : 'info', urgent: cs.inSec <= 300, t: '한파가 온다', cnt: fmtTime(cs.inSec), d: `${fmtTime(cs.inSec)}은(는) 늦게 도착하여 하루 종일 지속됩니다. 물류망은 각 야영지에 대해 연료${Sim.coldBliz(S, cs) ? ';이번에도 눈보라와 충돌했습니다.' : ''}를 보충합니다.`, act: 'wx', btn: '보기' }); }
+      else if (cs && cs.fc) A.push({ k: 'cold', ic: '🌨', lvl: cs.inSec <= 300 ? 'warn' : 'info', urgent: cs.inSec <= 300, t: '한파가 온다', cnt: fmtTime(cs.inSec), d: `${fmtTime(cs.inSec)} 뒤 도착해 하루 종일 이어집니다. 물류망이 각 야영지에 연료를 보충하고 있습니다${Sim.coldBliz(S, cs) ? '. 이번에는 눈보라와 겹칩니다' : ''}.`, act: 'wx', btn: '보기' }); }
     { const z = Sim.tideAt(S);
       if (z && z.on) {
         const bv = Sim.beastView(S, z), bin = bv && !bv.done ? bv.in : null;
-        A.push({ k: 'tide', ic: '🌌', lvl: 'bad', urgent: true, t: `영동조번째 웨이브 ${z.n}`, cnt: fmtTime(z.left), d: bin != null && bin <= 600 ? `Frost Behemoth ${fmtTime(Math.max(0, bin))} 백래시 "${bv.name}": 힘 ${bv.str}, 방어 ${bv.def}${bv.def >= bv.str ? ', 담을 수 있다' : ', 참을 수가 없어'}.` : `또한 ${fmtTime(z.left)}. 온도는 ${z.drop}° 낮고 용광로는 연료보다 ${Sim.TIDE.fuel}배 더 많이 연소됩니다. ${bv && bv.done ? (bv.won ? '서리 거수는 쫓겨났습니다.' : '서리 괴물들이 침입했고, 얼어붙은 건물들은 잠시 후 녹아버릴 것입니다.') : '서리 짐승은 어젯밤에 올 것이다.'}`, act: 'wx', btn: '보기' });
-      } else if (z && z.fc) A.push({ k: 'tide', ic: '🌌', lvl: z.inSec <= 600 ? 'warn' : 'info', urgent: z.inSec <= 600, t: `영동조 웨이브 ${z.n}이(가) 옵니다`, cnt: fmtTime(z.inSec), d: `${fmtTime(z.inSec)}은(는) 늦게 도착하여 하루 반 동안 지속되며 온도는 ${z.drop}° 더 떨어집니다. 물류망은 각 야영지마다 연료를 준비하고 있습니다.`, act: 'wx', btn: '보기' }); }
+        A.push({ k: 'tide', ic: '🌌', lvl: 'bad', urgent: true, t: `영동조 ${z.n}번째 웨이브`, cnt: fmtTime(z.left), d: bin != null && bin <= 600 ? `서리 괴물이 ${fmtTime(Math.max(0, bin))} 뒤 "${bv.name}"(으)로 몰려옵니다. 강도 ${bv.str}, 방어 ${bv.def}${bv.def >= bv.str ? ', 막을 수 있습니다' : ', 막을 수 없습니다'}.` : `${fmtTime(z.left)} 남았습니다. 기온이 ${z.drop}° 더 낮아지고 용광로는 연료를 ${Sim.TIDE.fuel}배 태웁니다. ${bv && bv.done ? (bv.won ? '서리 괴물은 이미 쫓아냈습니다.' : '서리 괴물이 침입했습니다. 얼어붙은 건물은 잠시 뒤 녹습니다.') : '마지막 밤에 서리 괴물이 옵니다.'}`, act: 'wx', btn: '보기' });
+      } else if (z && z.fc) A.push({ k: 'tide', ic: '🌌', lvl: z.inSec <= 600 ? 'warn' : 'info', urgent: z.inSec <= 600, t: `영동조 ${z.n}번째 웨이브가 옵니다`, cnt: fmtTime(z.inSec), d: `${fmtTime(z.inSec)} 뒤 도착해 하루 반 동안 이어지고 기온이 ${z.drop}° 더 낮아집니다. 물류망이 각 야영지에 연료를 비축하고 있습니다.`, act: 'wx', btn: '보기' }); }
     for (const x of S.camps) { const o = x.pk && x.pk.out; if (o && !x.pk.on && S.t - o.t < 600) A.push({ k: 'peak' + x.id, ic: '🔥', lvl: 'warn', t: `"${x.name}"의 불이 꺼졌습니다`, d: `${o.why}. 삼성 수준을 만회하기 위해 금색의 불이 다시 타오를 것입니다.`, act: o.r ? 'plan' : 'towngo', arg: o.r || x.id, btn: o.r ? '생산라인을 살펴보세요' : '야영지를 보세요' }); }
     { const e = Sim.wxeAt(S, S.t);
       if (e.ev && (e.on || e.inSec <= fc)) {
@@ -561,7 +561,7 @@ export class UI {
     if (nr && nr.in <= Sim.RAID_PREP) {
       const rc = Sim.getCamp(S, nr.camp), p = Sim.raidPrep(S, nr), str = Sim.raidStrength(S, rc, nr), def = Sim.raidDefense(S, rc, nr);
       const tags = p ? [p.fire && '방화벽', p.mil && '시민군', p.hide && '보급품 모으기'].filter(Boolean).join(',') : '';
-      A.push({ k: 'raid', ic: '🐺', lvl: def >= str ? 'warn' : 'bad', urgent: true, t: `공격${S.camps.length > 1 ? '「' + rc.name + '」' : '야영지'}`, cnt: fmtTime(nr.in), d: `${fmtTime(nr.in)}나중에 도착하세요. 방어${def}, 상대의 힘${str}${tags ? `, 이미 준비됐어${tags}` : ', 아직 전쟁 준비가 안 됐어요'}。`, act: 'raidp', btn: '전쟁을 준비하기 위해' });
+      A.push({ k: 'raid', ic: '🐺', lvl: def >= str ? 'warn' : 'bad', urgent: true, t: `공격${S.camps.length > 1 ? '「' + rc.name + '」' : '야영지'}`, cnt: fmtTime(nr.in), d: `${fmtTime(nr.in)}나중에 도착하세요. 방어${def}, 상대의 힘${str}${tags ? `, 이미 준비됐어${tags}` : ', 아직 전쟁 준비가 안 됐어요'}.`, act: 'raidp', btn: '전쟁을 준비하기 위해' });
     }
     for (const d of Sim.gangDemands(S)) A.push({ k: 'gang' + d.g.id, ic: '🏴', lvl: d.st.dem.fight ? 'bad' : 'warn', urgent: true, t: `「${Sim.gangName(d.g)}」${d.st.dem.fight ? '곧 전화하려고 해요.' : '소르곤으로 오세요'}`, cnt: fmtTime(d.left), d: d.st.dem.fight ? '화살탑과 민병대에 의지하여 반격하거나 가능한 한 빨리 조공을 바치십시오.' : '경의를 표하고, 사업을 하거나, 화살탑에 의지하여 되찾으세요. 때가 되면 아무도 대답하지 않을 것이다. 방어할 수 있으면 공격하겠습니다. 우리가 그것을 방어할 수 없다면, 우리는 조공을 바칠 것입니다.', act: 'gang', arg: d.g.id, btn: '답장하다' });
     if (S.car) { const left = S.car.orders.filter(o => !o.done).length; if (left) A.push({ k: 'car', ic: '🛷', lvl: 'good', t: '썰매 캐러밴 캠핑', cnt: fmtTime(S.car.until - S.t), d: `"${Sim.getCamp(S, S.car.camp)?.name || ''}" 외부에 ${left} 주문이 있습니다.`, act: 'car', btn: '순서를 보세요' }); }
@@ -575,7 +575,7 @@ export class UI {
     if (!c.trade) {
       const ri = this.resInfo(c, cr, RES_KEYS.filter(k => RES[k].t <= S.known && (c.stock[k] || 0) >= 1));
       const sh = ri.filter(r => r.short && r.k !== 'food'), fu = ri.filter(r => r.full);
-      if (sh.length || fu.length) A.push({ k: 'store', ic: '📦', lvl: 'warn', t: [sh.length && `${sh.slice(0, 2).map(r => RES[r.k].n).join('、')}${sh.length > 2 ? '기다리다' : ''}이(가) 누락되었습니다`, fu.length && `${fu.slice(0, 2).map(r => RES[r.k].n).join('、')}${fu.length > 2 ? '기다리다' : ''}이 가득 찼습니다.`].filter(Boolean).join(','), d: fu.length ? '가득 차면 관련 건물의 작동이 중지됩니다: 업그레이드창고 또는 "창고가 가득 차면 자동 교환"이 활성화됩니다.' : '보기는 어떤 링크에 붙어 있나요?', act: 'tb', arg: 'stock', btn: '소모품 살펴보기' });
+      if (sh.length || fu.length) A.push({ k: 'store', ic: '📦', lvl: 'warn', t: [sh.length && `${sh.slice(0, 2).map(r => RES[r.k].n).join('、')}${sh.length > 2 ? ' 등' : ''}이(가) 부족합니다`, fu.length && `${fu.slice(0, 2).map(r => RES[r.k].n).join('、')}${fu.length > 2 ? ' 등' : ''}이 가득 찼습니다.`].filter(Boolean).join(','), d: fu.length ? '가득 차면 관련 건물의 작동이 중지됩니다: 창고를 업그레이드하거나 "만재 자동 교환"을 켜세요.' : '어느 단계에서 막혔는지 확인해 보세요.', act: 'tb', arg: 'stock', btn: '소모품 살펴보기' });
     }
     for (const b of Sim.activeBuffs(S, c)) A.push({ k: 'buff' + b.n, ic: '✨', lvl: 'info', t: b.n || '덧셈', cnt: fmtTime(b.until - S.t), d: `${BUFF_TXT(b)}, ${fmtTime(b.until - S.t)} 남았습니다.` });
     { const rl = NORTH_RULES[Sim.campRule(S, c)]; if (rl) A.push({ k: 'rule', ic: rl.ic, lvl: 'info', t: `이 정류장의 풍경: ${rl.n}`, d: `장점은 ${rl.good}입니다. 단점은 ${rl.bad}입니다. 본영에서 이 정류장을 떠나시면 됩니다.` }); }
@@ -631,7 +631,7 @@ export class UI {
     ge.title = '이 장을 읽으려면 클릭하세요 과제';
   }
   // ---------- 老向导 ----------
-  // 底下一行小条：头像 + 一句短话 + 一个按钮。他要说的排成一摞（他的下一句、攒下的新玩法），点头像或小条在上方展开一张卡，一次一条，左右翻。
+  // 底下一行小条：头像 + 一句短话 + 一个按钮.他要说的排成一摞（他的下一句、攒下的新玩法），点头像或小条在上方展开一张卡，一次一条，左右翻.
   // 头像角上的数字是没看过的条数；「稍后」：同一件事 3 分钟内不再贴出来
   advBtn(a) { return { plan: '계획하다', raid: '전쟁을 준비하기 위해', scout: '정찰으로 이동', arrive: '가서 용광로를 넣어', migrate: '북상으로 이동', place: '구축하다', spot: '가 보기', roadopen: '결정을 내리다', campgo: '가 보기', netview: '물류를 보세요', netroad: '업그레이드로 이동' }[a.act] || (a.kind === 'trip' ? '따라가다' : a.kind === 'fuel' || a.kind === 'cold' ? '용광로로 이동' : a.kind === 'food' ? '소모품 살펴보기' : '가 보기'); }
   // 断燃料、断吃的、冻伤这几样急事刚冒出来时，发一条红灯消息带一个按钮（暴风雪、寒潮、袭营这些游戏里本来就会发一条带按钮的消息）；同一件事 3 分钟内不重发
@@ -757,7 +757,7 @@ export class UI {
         const key = c.id + k;
         if (fw[key] && now - fw[key] < 1800000) continue;
         fw[key] = now; this.fullWarnAt = now;
-        this.toast(`${RICON[k]}${RES[k].n}이(가) 거의 가득 찼습니다(상한 ${fmt(cap)}). 가득 차면 관련 건물의 작동이 중지됩니다. 업그레이드창고를 사용하거나 "전체 포지션 자동 상환"을 켤 수 있습니다.`, 'warn', { act: 'tb', arg: 'stock', label: '다루다' });
+        this.toast(`${RICON[k]}${RES[k].n}이(가) 거의 가득 찼습니다(상한 ${fmt(cap)}). 가득 차면 관련 건물의 작동이 중지됩니다. 업그레이드창고를 사용하거나 "만재 자동 교환"을 켤 수 있습니다.`, 'warn', { act: 'tb', arg: 'stock', label: '다루다' });
         break;
       }
     }
@@ -788,7 +788,7 @@ export class UI {
     if (this.cmdSel && ids.includes(this.cmdSel)) {
       const id = this.cmdSel, d = CMDS[id], ck = Sim.cmdCheck(S, id), left = Sim.cmdLeft(S, id), other = left > 0 && !d.net && (S.cmd[id].camp !== c.id);
       const len = d.len >= 120 ? `${d.len / 60}분` : `${d.len}초`;
-      h += `<div class="cmdpop"><b>${this.cIco('cmd_' + id, d.ic)} ${d.n}</b><small>${d.d}</small><small class="cm">${d.net ? '전체 물류망' : `단지 "${esc(c.name)}」`}· 연속${len}· 진정해${d.cd / 60}분</small>${other ? `<small class="cm 경고">는 "${esc(Sim.getCamp(S, S.cmd[id].camp).name)}"효과적이다</small>` : ''}<div class="cpb"><button class="small" data-act="cmdsel" data-arg="">접기</button><button class="small"${ck.ok ? 'go' : ''}" data-act="cmdfire" data-arg="${id}" ${ck.ok ? '' : 'disabled'}>${ck.ok ? '📯 주문하기' : ck.on ? '발효 중' : ck.cd ? fmtTime(ck.cd) + '추후 발급 가능' : esc(ck.reason)}</button></div></div>`;
+      h += `<div class="cmdpop"><b>${this.cIco('cmd_' + id, d.ic)} ${d.n}</b><small>${d.d}</small><small class="cm">${d.net ? '전체 물류망' : `"${esc(c.name)}"에서만`} · 지속 ${len} · 재사용 대기 ${d.cd / 60}분</small>${other ? `<small class="cm warn">현재 "${esc(Sim.getCamp(S, S.cmd[id].camp).name)}"에서 적용 중</small>` : ''}<div class="cpb"><button class="small" data-act="cmdsel" data-arg="">접기</button><button class="small ${ck.ok ? 'go' : ''}" data-act="cmdfire" data-arg="${id}" ${ck.ok ? '' : 'disabled'}>${ck.ok ? '📯 발령' : ck.on ? '적용 중' : ck.cd ? fmtTime(ck.cd) + ' 뒤 사용 가능' : esc(ck.reason)}</button></div></div>`;
     }
     if (h !== this.cmdH) { this.cmdH = h; el.innerHTML = iconize(h); }
     document.body.classList.toggle('cmd-on', ids.length > 0);
@@ -833,7 +833,7 @@ export class UI {
     // 头顶提示：严重的（缺料、没人、采空）一直显示小图标；轻的只在拉近时显示；仓库满了不再逐栋显示，合并到营地牌子上
     const list = [], full = new Map();
     for (const b of S.buildings) {
-      const br = R.b[b.id]; if (!br || !br.status || br.status === '달리기' || br.status === '탑이 커지고 있어요') continue;
+      const br = R.b[b.id]; if (!br || !br.status || br.status === '가동 중' || br.status === '탑 몸통 공사 중') continue;
       if (br.status === '창고가 가득 참') { full.set(b.camp, (full.get(b.camp) || 0) + 1); continue; }
       const s = BLD[b.type].size;
       if (Math.abs(b.x + s / 2 - cx) > near || Math.abs(b.y + s / 2 - cy) > near) continue;
@@ -846,7 +846,7 @@ export class UI {
     list.sort((a, b) => a.d - b.d);
     list.slice(0, 50).forEach((it, k) => {
       const txt = close && k < 4 && it.d < 260 ? esc(it.st) : '';
-      html += `<div class="배지 ${it.bad ? 'bad' : ''} ${txt ? '' : 'only'}" data-bid="${it.b.id}" title="${esc(BLD[it.b.type].n)}：${esc(it.st)}" style="transform:translate(${it.p.x | 0}px,${it.p.y | 0}px)"><i>${STATUS_ICON(it.st)}</i>${txt}</div>`;
+      html += `<div class="badge ${it.bad ? 'bad' : ''} ${txt ? '' : 'only'}" data-bid="${it.b.id}" title="${esc(BLD[it.b.type].n)}：${esc(it.st)}" style="transform:translate(${it.p.x | 0}px,${it.p.y | 0}px)"><i>${STATUS_ICON(it.st)}</i>${txt}</div>`;
     });
     this.fullByCamp = full;
     // 产线星级：拉近时挂在建筑头上
@@ -906,7 +906,7 @@ export class UI {
     // 在线小惊喜：走失的驯鹿、流星坑（极光夜的「一起看」在顶栏）
     if (S.sur && Math.abs(S.sur.x - cx) <= near && Math.abs(S.sur.y - cy) <= near && !(S.sur.kind === 'meteor' && v.meteorFx)) {
       const u = S.sur, p = v.project(u.x + 0.5, u.y + 0.5, u.kind === 'deer' ? 1.7 : 1.1);
-      if (p.on) html += `<div class="surtag ${u.kind}" style="transform:translate(${p.x | 0}px,${p.y | 0}px)">${u.kind === 'deer' ? '🦌 길 잃은 순록' : '☄ 유성 분화구'}${close ? `<작은>클릭${u.kind === 'deer' ? '돌려받기' : '발굴하다'} · ${fmtTime(u.until - S.t)}</small>` : ''}</div>`;
+      if (p.on) html += `<div class="surtag ${u.kind}" style="transform:translate(${p.x | 0}px,${p.y | 0}px)">${u.kind === 'deer' ? '🦌 길 잃은 순록' : '☄ 유성 분화구'}${close ? `<small>클릭${u.kind === 'deer' ? '돌려받기' : '발굴하다'} · ${fmtTime(u.until - S.t)}</small>` : ''}</div>`;
     }
     // 营地名（主营地名字下面挂着称号）
     const ttl = Sim.titleOf(S), mainId = Sim.journeyOf(S).main;
@@ -1039,24 +1039,24 @@ export class UI {
         msg = touch ? '미리보기를 이동하려면 지면을 클릭하고, 같은 위치를 다시 클릭(또는 ✓ 누르기)하면 빌드됩니다. 녹색 상자는 건설 가능함을 나타냅니다.' : '그냥 땅을 클릭하면 건설됩니다. 녹색 상자는 건설 가능을 의미하고 빨간색 상자는 건설할 수 없음을 의미합니다.';
       } else if (P) { el = this.$('placeNo'); msg = '먼저 배치 중인 건물을 취소하세요.'; }
       else if (g.pc && g.pc.bOpen) { // 电脑版：建造是底部横条
-        if (g.pc.tier !== 1) { el = document.querySelector('#pcBuild .pct[data-pct="1"]'); msg = '"모닥불" 레이어로 다시 전환합니다.'; }
+        if (g.pc.tier !== 1) { el = document.querySelector('#pcBuild .pct[data-pct="1"]'); msg = '"모닥불" 탭으로 다시 전환하세요.'; }
         else { el = document.querySelector(`#pcBuild .pbc[data-arg="${st.b}"]`); msg = `"${BLD[st.b].n}"을 선택하세요.`; }
       }
       else if (this.panel && this.panel.kind === 'build') {
-        if (this.buildTier !== 1) { el = this.sheet.querySelector('.tab[data-arg="1"]'); msg = '"모닥불" 레이어로 다시 전환합니다.'; }
+        if (this.buildTier !== 1) { el = this.sheet.querySelector('.tab[data-arg="1"]'); msg = '"모닥불" 탭으로 다시 전환하세요.'; }
         else { el = this.sheet.querySelector(`.card[data-arg="${st.b}"]`); msg = `"${BLD[st.b].n}"을 선택하세요.`; if (el && this.tutScroll !== st.b) { this.tutScroll = st.b; el.scrollIntoView({ block: 'nearest' }); } }
-      } else { el = document.querySelector('#toolbar button[data-arg=build]'); msg = '"건설"를 클릭하세요.'; }
-      msg = `<b>${BLD[st.b].n}</b>${st.why}<br>👉 ${msg} 빌드`;
-    } else if (st.k === 'stock') { el = this.$('tbProd'); msg = `<b>소모품 보기</b>${st.why}<br>👉 하단의 "생산"를 클릭하세요.`; }
-    else if (st.k === 'goal') { el = this.$('goal'); msg = `<b>대상 보기</b>${st.why}<br>👉 상단의 대상 표시줄을 클릭하세요.`; }
+      } else { el = document.querySelector('#toolbar button[data-arg=build]'); msg = '"건설"을 누르세요.'; }
+      msg = `<b>${BLD[st.b].n} 건설</b>${st.why}<br>👉 ${msg}`;
+    } else if (st.k === 'stock') { el = this.$('tbProd'); msg = `<b>자재 보기</b>${st.why}<br>👉 하단의 "생산"을 누르세요.`; }
+    else if (st.k === 'goal') { el = this.$('goal'); msg = `<b>목표 보기</b>${st.why}<br>👉 상단의 목표 표시줄을 누르세요.`; }
     else {
       const f = Sim.getB(S, c.furnace);
-      if (this.panel && this.panel.kind === 'bld') { el = this.sheet.querySelector('[data-act=upgrade]'); msg = '👉 재료가 충분하면 "업그레이드"를 클릭하세요.'; }
-      else { pt = g.view.project(f.x + 1.5, f.y + 1.5, 2.2); msg = '👉 용광로를 클릭하세요.'; }
-      msg = `<b>보기용광로</b>${st.why}<br>${msg}`;
+      if (this.panel && this.panel.kind === 'bld') { el = this.sheet.querySelector('[data-act=upgrade]'); msg = '👉 재료가 충분하면 "업그레이드"를 누르세요.'; }
+      else { pt = g.view.project(f.x + 1.5, f.y + 1.5, 2.2); msg = '👉 용광로를 누르세요.'; }
+      msg = `<b>용광로 살펴보기</b>${st.why}<br>${msg}`;
     }
     box.wrap.style.display = '';
-    const html = `<div class="cstep">초보 가이드 ${i}/${TUT.length}</div><div class="cmsg">${msg}</div><button class="small ghost" data-act="tutskip">가이드 건너뛰기</button>`;
+    const html = `<div class="cstep">초보자 가이드 ${i}/${TUT.length}</div><div class="cmsg">${msg}</div><button class="small ghost" data-act="tutskip">가이드 건너뛰기</button>`;
     if (html !== box.last) { box.last = html; box.wrap.innerHTML = iconize(html); }
     box.wrap.classList.toggle('top', document.body.classList.contains('sheet-open') && innerWidth < 760 || document.body.classList.contains('placing') && innerWidth < 760);
     let r = null;
@@ -1073,7 +1073,7 @@ export class UI {
   }
 
   // ---------- 面板 ----------
-  // 打开一个面板。属于某个分区的面板（物资、产线……）顶上带分区的页签；从别的面板里点进来的带一个「‹ 返回」
+  // 打开一个面板.属于某个分区的面板（物资、产线……）顶上带分区的页签；从别的面板里点进来的带一个「‹ 返回」
   open(kind, arg) {
     const prev = this.panel, sameHub = prev && KIND_HUB[kind] && KIND_HUB[prev.kind] === KIND_HUB[kind];
     if (prev && prev.kind === 'build') this.markBuildSeen();
@@ -1280,9 +1280,9 @@ export class UI {
     h += `<div class="row nw"><span>방에 있는 듯한 느낌</span><span>${z.on ? '지금' : '차오 리오'} <b class="${tc}">${tIn}°</b>${tIn >= 2 ? ', 아무도 얼지 않을 것입니다' : ', 누군가 동상: 업그레이드천막, 히터를 구축하거나 용광로에 과부하를 걸 것입니다.'}</span></div>`;
     h += `<div class="row nw"><span>연료</span><span>${z.on ? '이 단락의 나머지 부분' : '이 파도'}은(는) 약 ${fmt(need)} 소모됩니다. · 이제 ${fmt(have)} ${have >= need ? '<b class="ok">✔ 충분해요</b>' : '<b class="bad">✖ 충분하지 않습니다</b>'}${z.on ? '' : '<small>（물류망는 각 야영지가 보충하도록 돕고 있습니다.）</small>'}</span></div>가 남았습니다.`;
     const bv = Sim.beastView(S, z);
-    if (bv) h += `<div class="row nw"><span>프로스트 비스트</span><span>${bv.done ? (bv.won ? '<b class="ok">✔ 거부됨</b>' : '<b class="bad">침입</b>, 잠시 후 얼어붙은 건물이 녹습니다') : `${bv.in > 0 ? fmtTime(bv.in) + '뒤쪽에' : '즉시'}서두르다"${esc(bv.name)}" · 힘${bv.str}·방어${bv.def} ${bv.def >= bv.str ? '<b class="ok">✔ 잠시만 기다려주세요</b>' : Sim.colossusReady && Sim.colossusReady(S) && Sim.wonderOn(S, 'wcolossus') ? '<b class="warn">증기 거상로 겁을 먹어보세요</b>' : '<b class="bad">✖ 버틸 수 없음</b>'}`}<br><small>버틸 수 없음: 여러 건물이 얼어붙음${T.frz / 60}몇 분 동안 여러 사람이 동상에 걸렸고 아무도 죽지 않았습니다.</small></span></div>`;
+    if (bv) h += `<div class="row nw"><span>서리 괴물</span><span>${bv.done ? (bv.won ? '<b class="ok">✔ 격퇴함</b>' : '<b class="bad">침입당함</b>, 얼어붙은 건물은 잠시 뒤 녹습니다') : `${bv.in > 0 ? fmtTime(bv.in) + ' 뒤' : '곧'} "${esc(bv.name)}"(으)로 몰려옴 · 강도 ${bv.str} · 방어 ${bv.def} ${bv.def >= bv.str ? '<b class="ok">✔ 막을 수 있음</b>' : Sim.colossusReady && Sim.colossusReady(S) && Sim.wonderOn(S, 'wcolossus') ? '<b class="warn">증기 거상으로 위협 가능</b>' : '<b class="bad">✖ 막을 수 없음</b>'}`}<br><small>막지 못하면 건물 여러 채가 ${T.frz / 60}분간 얼어붙고 몇 명이 동상으로 쓰러집니다. 사망자는 없습니다.</small></span></div>`;
     const best = S.meta.tideBest || 0;
-    h += `<div class="row sub nw"><span>통과</span><span>아무도 동상, Frost Behemoth가 침입하지 않았습니다: 잔불 +${T.embers * z.n}, 각 야영지희망 +${T.hope}${best < 5 ? '<br>살아남은 웨이브 5: 전용 사격 "서리 하양" 및 칭호 "영동의 불지킴이"' : best < 10 ? '<br>살아남은 웨이브 10: 전용 사격 "영원한 겨울" 및 칭호 "열 번의 물결에도 꺼지지 않는 자"' : ''}</span></div>`;
+    h += `<div class="row sub nw"><span>통과</span><span>동상 환자 없음, 서리 괴물 침입 없음: 잔불 +${T.embers * z.n}, 각 야영지 희망 +${T.hope}${best < 5 ? '<br>살아남은 웨이브 5: 전용 스킨 "서리 하양" 및 칭호 "영동의 불지킴이"' : best < 10 ? '<br>살아남은 웨이브 10: 전용 스킨 "영원한 겨울" 및 칭호 "열 번의 물결에도 꺼지지 않는 자"' : ''}</span></div>`;
     return h;
   }
   // 1.1 寒潮：多久到、这一天要烧多少燃料、屋里会不会冻着、挺过去有什么
@@ -1415,7 +1415,7 @@ export class UI {
     const pic = this.pic(q.type, 1);
     let h = `<div class="bhero"><div class="hpic">${pic}</div><div><div class="status warning">및 기타 자료</div><div class="desc">${esc(d.desc)}</div></div></div>`;
     h += `<div class="row"><span>필수</span><span>${costHtml(c.stock, cost, S.known)}</span></div>`;
-    h += `<div class="row"><span>아직 누락됨</span><span>${miss.length ? miss.map(k => `${RICON[k]}${fmt(cost[k] - (c.stock[k] || 0))}`).join(' ') : '다 준비됐으니 바로 작업 시작하자'}</span></div>`;
+    h += `<div class="row"><span>아직 부족</span><span>${miss.length ? miss.map(k => `${RICON[k]}${fmt(cost[k] - (c.stock[k] || 0))}`).join(' ') : '다 준비됐으니 바로 작업 시작하자'}</span></div>`;
     for (const k of miss) { const w = this.netWait(c, k); if (w) h += `<div class="row sub"><span>${RICON[k]}${RES[k].n}</span><span>${w}</span></div>`; }
     h += `<div class="row sub"><span>큐</span><span>「${esc(c.name)}」아니요. ${n} / ${mine.length} · 자료가 준비되면 작업이 자동으로 순서대로 시작됩니다.</span></div>`;
     h += `<button class="btn wide ghost" data-act="unqueue" data-arg="${q.id}">대기열 해제</button>`;
@@ -1442,7 +1442,7 @@ export class UI {
     }
     for (const v of Sim.VEH_KEYS) {
       const why = Sim.vehBlock(S, b, v), locked = V[v].from && J.stage < V[v].from;
-      h += `<div class="row"><span>${Sim.vehName(v)}<소>장식${V[v].cap}공유하다(${V[v].cap / Sim.PERSON_LOAD}개인의)·${v === 'sled' ? '길에서 장작을 태우고 있다' : v === 'tractor' ? '도로에서 석탄를 굽는 속도는 썰매가 없으면 절반의 속도입니다.' : '도로에서 배터리를 태워 얼음과 균열 계곡 위로 직접 운전하세요.'}</small></span><span>${locked ? `<small>${esc(why)}</small>` : `${costHtml(c.stock, V[v].cost, S.known)} <button class="small ${why ? '' : 'go'}" data-act="veh" data-arg="${b.id}:${v}:1">1개 만들기${v === 'sled' ? '선반' : '탑'}</button>${v === 'sled' ? ` <button class="small" data-act="veh" data-arg="${b.id}:${v}:5">프레임 5개 만들기</button>` : ''}`}</span></div>`;
+      h += `<div class="row"><span>${Sim.vehName(v)}<small>장식${V[v].cap}공유하다(${V[v].cap / Sim.PERSON_LOAD}개인의)·${v === 'sled' ? '길에서 장작을 태우고 있다' : v === 'tractor' ? '도로에서 석탄를 굽는 속도는 썰매가 없으면 절반의 속도입니다.' : '도로에서 배터리를 태워 얼음과 균열 계곡 위로 직접 운전하세요.'}</small></span><span>${locked ? `<small>${esc(why)}</small>` : `${costHtml(c.stock, V[v].cost, S.known)} <button class="small ${why ? '' : 'go'}" data-act="veh" data-arg="${b.id}:${v}:1">1개 만들기${v === 'sled' ? '선반' : '탑'}</button>${v === 'sled' ? ` <button class="small" data-act="veh" data-arg="${b.id}:${v}:5">프레임 5개 만들기</button>` : ''}`}</span></div>`;
     }
     return h;
   }
@@ -1469,13 +1469,13 @@ export class UI {
     let h = '';
     const pic = this.pic(b.type, d.wonder ? 4 : b.lvl);
     h += `<div class="bhero"><div class="hpic">${pic}</div><div>`;
-    if (br.status) h += `<div class="status ${(['달리기', '연구중', '탑이 커지고 있어요', '타워가 건설되었으며 조명을 기다리고 있습니다.', '세워짐'].includes(br.status) || WONDER_PH.some(P => br.status === P.n + '가운데')) ? 'ok' : 'bad'}">${esc(br.status)}</div>`;
+    if (br.status) h += `<div class="status ${(['가동 중', '연구 중', '탑 몸통 공사 중', '탑 몸통 완성 · 점화 대기', '완공'].includes(br.status) || WONDER_PH.some(P => br.status === P.n + ' 건설 중')) ? 'ok' : 'bad'}">${esc(br.status)}</div>`;
     h += `<div class="desc">${esc(d.desc)}</div></div></div>`;
     if (c.depot && b.type === 'furnace') h += this.depotHtml(c);
     else if (Sim.depotAuto(c)) h += `<button class="mlink" data-act="tb" data-arg="camp"><span>🏚️</span><span>「${esc(c.name)}」은 업그레이드가 아닌<small>자체적으로 운영되는 보급소입니다. 야영지 패널에서 "일시적으로 인계"해야 합니다</small></span><i>></i></button>`;
     if (d.tower) return h + this.towerHtml(b, c, br);
     if (d.wonder) return h + this.wonderHtml(b, c, br);
-    if (b.type === 'workshop') { const T = S.tech || {}, ct = T.cur && Sim.techDef(S, T.cur); h += `<button class="mlink" data-act="tb" data-arg="research"><span>🔬</span><span>${ct ? `현재 연구」${ct.n}」 ${Math.floor(T.prog / ct.pts * 100)}%` : '연구 중 하나를 선택하세요'}<small>이 공학 작업장 매분마다${fmt(br.rp || 0)}</small></span><i>></i></버튼>을 클릭하세요.`; }
+    if (b.type === 'workshop') { const T = S.tech || {}, ct = T.cur && Sim.techDef(S, T.cur); h += `<button class="mlink" data-act="tb" data-arg="research"><span>🔬</span><span>${ct ? `현재 연구」${ct.n}」 ${Math.floor(T.prog / ct.pts * 100)}%` : '연구 중 하나를 선택하세요'}<small>이 공학 작업장 매분마다${fmt(br.rp || 0)}</small></span><i>></i></button>을 클릭하세요.`; }
     const mx = Sim.bMax(S, b);
     if (mx) {
       h += `<div class="row"><span>${b.type === 'warehouse' ? '운반꾼' : '일꾼'}</span><span class="stepper"><button data-act="w-" data-arg="${b.id}">−</button><b>${b.workers}/${mx}</b><button data-act="w+" data-arg="${b.id}">+</button><button class="small" data-act="wmax" data-arg="${b.id}">전체</button></span></div>`;
@@ -1535,7 +1535,7 @@ export class UI {
     }
     if (b.type === 'furnace') {
       const ring = Sim.heatRadius(S, c);
-      h += `<div class="row"><span>온도</span><span>${Math.round(cr.temp)}°C<작은>= 위도${baseTempOfRow(c.y)}° + 용광로${Math.round(cr.heat)}°${cr.drop ? `- 눈보라${Math.round(cr.drop)}°` : ''}</small></span></div>`;
+      h += `<div class="row"><span>온도</span><span>${Math.round(cr.temp)}°C<small>= 위도${baseTempOfRow(c.y)}° + 용광로${Math.round(cr.heat)}°${cr.drop ? `- 눈보라${Math.round(cr.drop)}°` : ''}</small></span></div>`;
       h += `<div class="row sub"><span>집 내부</span><span>${Math.round(cr.tH)}°C(천막 단열재 +${Math.round(cr.ins || 0)}°)</span></div>`;
       h += `<div class="row"><span>연료</span><span>${fmt(cr.burnPerMin)} 단위/분 ${cr.od ? '<small>(과부하×2)</small>' : ''} · 재고 ${fmt(cr.fuelUnits)}</span></div>`;
       h += this.odBlock(c, cr, b);
@@ -1569,7 +1569,7 @@ export class UI {
     }
     if (d.cat === 'deco') {
       const one = Sim.decoOne(b), dh = Sim.decoHope(S, c), mx2 = Sim.bMax(S, b), sf = mx2 ? Math.min(1, b.workers / mx2) : 1;
-      h += `<div class="row"><span>희망</span><span>이 건물 +${fmt(one * sf)}${sf < 1 ? `<b class="경고">예${mx2}누군가가 챙겨줄 때만 +${fmt(one)}</b>` : ''}</span></div>`;
+      h += `<div class="row"><span>희망</span><span>이 건물 +${fmt(one * sf)}${sf < 1 ? `<b class="warn">예${mx2}누군가가 챙겨줄 때만 +${fmt(one)}</b>` : ''}</span></div>`;
       h += `<div class="row sub"><span>전체 야영지장식</span><span>합계 +${fmt(dh.v)} 희망(상한 ${Sim.DECO_CAP}, 더 많이 추가할수록 더 적게 추가됨)</span></div>`;
       h += `<div class="hint">장식은 아무것도 생성하지 않으며 민심을 더 밝게 만듭니다. 모두가 앞뒤로 걷는 길가나 용광로 옆에 배치할 수 있습니다. 업그레이드 레벨 1이 25% 더 많습니다. </div>`;
     }
@@ -1583,7 +1583,7 @@ export class UI {
     const fits = SPECS.filter(sp => S.meta.specs[sp.id] && sp.aff.includes(b.type));
     if (sid || fits.length || Object.keys(S.meta.specs).length) {
       const sp = sid && SPECS.find(s => s.id === sid);
-      h += `<div class="row"><span>전문가</span><span>${sp ? `${sp.n} <small>${S.meta.specs[sid].lvl}레벨 +${Math.round(Sim.specOf(S, b) * 100)}%</small> <button class="small" data-act="unspec" data-arg="${sid}">가주세요</button>` : `<select data-act="spec" data-arg="${b.id}"><옵션 값="">— 전문가 정렬 —</option>${SPECS.filter(s => S.meta.specs[s.id]).map(s => `<option value="${s.id}">${s.n}（${s.role}）${s.aff.includes(b.type) ? '★상대편' : ''}${S.specAt[s.id] ? '· 다른 곳' : ''}</option>`).join('')}</select>`}</span></div>`;
+      h += `<div class="row"><span>전문가</span><span>${sp ? `${sp.n} <small>${S.meta.specs[sid].lvl}레벨 +${Math.round(Sim.specOf(S, b) * 100)}%</small> <button class="small" data-act="unspec" data-arg="${sid}">가주세요</button>` : `<select data-act="spec" data-arg="${b.id}"><option 값="">— 전문가 정렬 —</option>${SPECS.filter(s => S.meta.specs[s.id]).map(s => `<option value="${s.id}">${s.n}（${s.role}）${s.aff.includes(b.type) ? '★상대편' : ''}${S.specAt[s.id] ? '· 다른 곳' : ''}</option>`).join('')}</select>`}</span></div>`;
     }
     // 升级
     const cost = Sim.upgradeCost(S, b);
@@ -1656,7 +1656,7 @@ export class UI {
     h += `<div class="row nw"><span>효과</span><span>${esc(W.d)}<br><small>이 프로세스는 완료 후 항상 유효하며 모든 야영지가 계산됩니다</small></span></div>`;
     if (!done) {
       const sp = Sim.wonderSpec(b.type, wd.ph), mul = Sim.feedMul(S, c), left = 1 - wd.p / sp.dur;
-      h += `<div class="row"><span>${sp.n}</span><span>${Math.floor(wd.p / sp.dur * 100)}%<작은>· 모두${Math.floor(Sim.wonderProg(b) * 100)}%${mul > 1 ? `· 건설 ×${fmt(mul)}` : ''}</small></span></div><div class="mbar tw"><i style="width:${(wd.p / sp.dur * 100).toFixed(1)}%"></i></div>`;
+      h += `<div class="row"><span>${sp.n}</span><span>${Math.floor(wd.p / sp.dur * 100)}%<small>· 모두${Math.floor(Sim.wonderProg(b) * 100)}%${mul > 1 ? `· 건설 ×${fmt(mul)}` : ''}</small></span></div><div class="mbar tw"><i style="width:${(wd.p / sp.dur * 100).toFixed(1)}%"></i></div>`;
       for (const k of sp.kinds) {
         const short = br.status === '부족' + RES[k].n, have = c.stock[k] || 0, pr = Sim.prodRate(S, k), r = sp.rate[k] * mul;
         h += `<div class="row sub"><span>${RICON[k]} ${RES[k].n}</span><span>추가 ${fmt(sp.amt[k] * left)} · 분당 ${fmt(r)} · 재고 ${fmt(have)} · 현재 생산량 ${fmt(pr)}/분${short ? '<b class="warn">품절, 건설현장 주차</b>' : pr < r && have < sp.amt[k] * left ? '<b class="warn">건설현장에서 먹는 것보다 생산이 느리다</b>' : ''}</span></div>`;
@@ -1696,7 +1696,7 @@ export class UI {
     }
     return h + `<div class="cards">${cards}</div>`;
   }
-  // 营地 › 概况：炉火鼎盛。这座营地的产线全稳在三星，产量 +25%，炉火变金色
+  // 营地 › 概况：炉火鼎盛.这座营地的产线全稳在三星，产量 +25%，炉火变金色
   peakHtml(c) {
     const S = this.S, V = Sim.peakView(S, c);
     if (!V.lines.length) return '';
@@ -1706,7 +1706,7 @@ export class UI {
     h += `<div class="pklines">${V.lines.map(l => { const ok = l.star >= 3 && (l.on || l.slow < Sim.PEAK.grace); return `<button class="pkl ${ok ? 'ok' : l.star >= 3 ? 'slow' : ''}" data-act="plan" data-arg="${l.r}">${RICON[l.r]} ${RES[l.r].n}<i>${'★'.repeat(l.star)}${'☆'.repeat(3 - l.star)}</i>${l.star >= 3 && !l.on ? '<small>속도가 충분하지 않습니다</small>' : ''}</button>`; }).join('')}</div>`;
     return h;
   }
-  // 营地 › 概况：城镇。人够、希望够就能升一级（升了不会降）
+  // 营地 › 概况：城镇.人够、希望够就能升一级（升了不会降）
   townHtml(c) {
     const S = this.S, t = Sim.townOf(c), nx = Sim.townNext(c), why = Sim.townBlock(S, c);
     if (c.depot) return '';
@@ -1751,9 +1751,9 @@ export class UI {
     for (const b of bs) {
       const st = (R.b[b.id] || {}).status; if (!st) continue;
       if (st === '창고가 가득 참') full.push(b);
-      else if (st.startsWith('부족')) (miss[st.slice(1)] ||= []).push(b);
-      else if (st === '배치된 일손 없음' || st === '아무도 일하지 않아') idle.push(b);
-      else if (st.includes('멍청이')) depl.push(b);
+      else if (st.startsWith('부족')) (miss[st.slice(3).trim()] ||= []).push(b);
+      else if (st === '일손 미배치' || st === '일하는 사람 없음') idle.push(b);
+      else if (st.includes('고갈')) depl.push(b);
     }
     const maker = k => Object.keys(BLD).filter(t => BLD[t].out && BLD[t].out[k] && BLD[t].t <= S.known);
     const auto = Sim.depotAuto(c);
@@ -1774,7 +1774,7 @@ export class UI {
     if (cr.hf != null && cr.hf < 0.85) issues.push({ sev: 1.5, html: `<div class="issue bad"><span class="ii">🛷</span><span class="it"><b>운반꾼 부족</b>: 비용은 ${fmt(cr.demand)}명이며, 창고에서 ${fmt(cr.haulers)}<small>일자리만 운반꾼이고, 멀리 있는 건물은 더 비쌉니다.</small></span><span class="ia">${btn('warehouse')}</span></div>` });
     if (full.length) {
       const ks = [...new Set(full.flatMap(b => Object.keys(BLD[b.type].out || {})))].filter(k => (c.stock[k] || 0) >= cap * 0.97);
-      issues.push({ sev: 1.2, html: `<div class="issue warning"><span class="ii">📦</span><span class="it"><b>${ks.map(k => RICON[k] + RES[k].n).join('、') || '창고'}이 가득 찼습니다</b>: ${full.length}개 건물이 작동하지 않습니다<small>업그레이드 이상 창고는 더 많이 넣을 수 있습니다. 아래에서 '전체 창고 자동 상환'을 설정할 수도 있습니다.</small></span><span class="ia">${btn('warehouse', '창고 빌드')}</span></div>` });
+      issues.push({ sev: 1.2, html: `<div class="issue warning"><span class="ii">📦</span><span class="it"><b>${ks.map(k => RICON[k] + RES[k].n).join('、') || '창고'}이 가득 찼습니다</b>: ${full.length}개 건물이 작동하지 않습니다<small>업그레이드 이상 창고는 더 많이 넣을 수 있습니다. 아래에서 '만재 자동 교환'을 설정할 수도 있습니다.</small></span><span class="ia">${btn('warehouse', '창고 빌드')}</span></div>` });
     }
     if (idle.length) issues.push({ sev: 1.1, html: `<div class="issue warn"><span class="ii">👷</span><span class="it"><b>${idle.length}건물에서 작업하는 사람은 없습니다.</b><small>${c.auto === false ? '자동 일손 배치가 닫힙니다.' : '무료 일손가 충분하지 않습니다. 천막를 더 많이 구축하고 요리를 충분히 준비하면 사람들이 여러분과 함께 올 것입니다.'}</small></span><span class="ia">${c.auto === false ? `<button class="small go" data-act="auto" data-arg="${c.id}">자동 일손 배치 켜기</button>` : btn('tent')}</span></div>` });
     if (c.wait > 0) issues.push({ sev: 1.15, html: `<div class="issue warning"><span class="ii">⛺</span><span class="it"><b>${c.wait} 침대를 기다리는 사람들</b><small>침대가 가득 차면 새로 도착한 사람들은 일도 하지 않고 오두막에서 기다립니다. Duogai 또는 업그레이드천막, 그들은 혼자 살 것입니다</small></span><span class="ia">${btn('tent', '천막 빌드')}</span></div>` });
@@ -1801,7 +1801,7 @@ export class UI {
     h += `<div class="sec">가공 고정 재료</div>`;
     h += `<div class="row"><span>${kp ? '이미 켜져 있음' : '닫은'}<br><small>제재소는 모든 목재를 목판으로 보지 않으며, 제강소는 철괴를 사용하지 않습니다: 목재, 철괴 이러한 기본 건축 자재, 창고는 건설을 위해 ${fmt(Math.min(Sim.KEEP_MAX, cap * Sim.KEEP_FRAC))}을 남깁니다. </small></span><span style="flex:none"><button class="small ${kp ? 'go' : ''}" data-act="keep" data-arg="${c.id}">${kp ? '폐쇄' : '켜다'}</button></span></div>`;
     // 满仓兑换
-    h += `<div class="sec">전체 포지션 시 자동 상환</div>`;
+    h += `<div class="sec">만재 자동 교환</div>`;
     h += `<div class="row"><span>${c.trade ? '이미 켜져 있음' : '닫은'}<br><small>창고가 가득 참은 전원을 켠 후에도 작동이 멈추지 않으며 초과분은 가격의 30%를 야영지에 가장 부족한 수준 이하의 재료로 교환됩니다. </small></span><span style="flex:none"><button class="small ${c.trade ? 'go' : ''}" data-act="trade" data-arg="${c.id}">${c.trade ? '폐쇄' : '켜다'}</button></span></div>`;
     const tl = Object.entries(cr.trade || {}).filter(([, v]) => v >= 0.05).sort((a, b) => b[1] - a[1]);
     if (tl.length) h += `<div class="row sub"><span>사용</span><span>${tl.slice(0, 4).map(([q, v]) => { const [a, b] = q.split('>'); return `${RICON[a]}→${RICON[b]} ${fmt(v)}/가리키다`; }).join(' · ')}</span></div>`;
@@ -1965,7 +1965,7 @@ export class UI {
     const trend = (v, t) => t > v + 1 ? `<small class="up">▲ ${Math.round(t)} 상승</small>` : t < v - 1 ? `<small class="dn">▼ ${Math.round(t)} 방향</small>` : '<small>안정화</small>';
     const pct = x => (x >= 0 ? '+' : '−') + Math.abs(Math.round(x * 100)) + '%';
     const mul = Sim.moodMul(c) - 1;
-    let h = `<div 클래스="기분2">
+    let h = `<div class="mood2">
       <div class="mg hope"><div class="mgh"><span>희망</span><b>${Math.round(hp)}</b>${trend(hp, m.hT)}</div><div class="mbar"><i style="width:${hp}%"></i><em style="left:${m.hT}%" title="천천히 오겠습니다"></em></div></div>
       <div class="mg disc"><div class="mgh"><span>불만</span><b>${Math.round(dc)}</b>${trend(dc, m.dT)}</div><div class="mbar"><i style="width:${dc}%"></i><em style="left:${m.dT}%"></em><u style="left:${Sim.LEAVE_AT}%" title="초과하면 누군가 떠날 것입니다. 여기"></u></div></div>
     </div>`;
@@ -2012,7 +2012,7 @@ export class UI {
       h += `<div class="tcur"><div class="tch"><span class="ti">${this.rIco(ct)}</span><div><b>${ct.n}</b><small>${ct.d}</small></div></div>
         <div class="mbar"><i style="width:${Math.min(100, T.prog / ct.pts * 100).toFixed(1)}%"></i></div>
         <div class="tcm"><span>${fmt(T.prog)} / ${ct.pts}가리키다 ·${rate > 0 ? `더${fmtTime(left / rate * 60)}` : '<b class="neg">중지됨: 공학 작업장에서 작업하는 사람이 없습니다</b>'}</span><button class="small" data-act="techstop">중지(자료 반환)</button></div></div>`;
-    } else h += `<div class="tcur 유휴"><b>지금은 연구에 없습니다. </b><small>아래 항목 중 하나를 클릭하면 세부정보를 볼 수 있습니다. 처음에 재료비를 먼저 지불하고 연구 포인트를 충분히 모은 후 진행을 완료하세요. </small></div>`;
+    } else h += `<div class="tcur idle"><b>지금은 연구에 없습니다. </b><small>아래 항목 중 하나를 클릭하면 세부정보를 볼 수 있습니다. 처음에 재료비를 먼저 지불하고 연구 포인트를 충분히 모은 후 진행을 완료하세요. </small></div>`;
     if (!shops.length) h += `<div class="issue warning"><span class="ii">🔬</span><span class="it"><b>아직 공학 작업장이 없습니다</b><small>연구 포인트는 공학 작업장의 기술자에 의해 생성됩니다</small></span><span class="ia"><button class="small go" data-act="place" data-arg="workshop">빌드 공학 작업장</button></span></div>`;
     else h += `<div class="row sub"><span>공학 작업장</span><span>${shops.length}석 · ${fmt(ct ? rate : potential)}포인트 분당 ${!ct ? '(연구를 시작한 다음 일손 배치를 시작하십시오)' : ''}</span></div>`;
     if (T.bank > 0.5) h += `<div class="row sub"><span>📜 모험에서 가져온 그림</span><span>${fmt(T.bank)}포인트 · 다음 항목 시작 부분에서 직접 계산 연구</span></div>`;
@@ -2077,7 +2077,7 @@ export class UI {
     let D = `<div class="rpd ${cls}"><span class="rpbig">${this.rIco(t)}</span><b class="rpn2">${t.n}</b>${tags ? `<div class="rptags">${tags}</div>` : ''}<p>${t.d}</p>`;
     if (!ck.done) {
       D += `<div class="rpkv"><span>재료</span><span>${costHtml(c.stock, t.cost, S.known) || '재료가 필요하지 않습니다'}</span></div>`;
-      D += `<div class="rpkv"><span>연구 포인트</span><span><b>🔬${t.pts}</b>${rate || potential ? `<소>약.${fmtTime(t.pts / (rate || potential) * 60)}</small>` : ''}</span></div>`;
+      D += `<div class="rpkv"><span>연구 포인트</span><span><b>🔬${t.pts}</b>${rate || potential ? `<small>약.${fmtTime(t.pts / (rate || potential) * 60)}</small>` : ''}</span></div>`;
     }
     if (reqs) D += `<div class="rpkv"><span>접두사</span><span>${reqs}</span></div>`;
     D += '<div class="rpsp"></div>';
@@ -2120,7 +2120,7 @@ export class UI {
       // 勘探新矿脉
       const why = Sim.surveyBlock(S, c), going = S.scouts.some(s => s.camp === c.id && s.kind === 'survey');
       h += `<div class="sec">맥 탐색</div>`;
-      h += `<div class="row"><span>⛏ "${esc(c.name)}》난방권에 깊은 곳에 묻혀 있는 새로운 광산 찾기<br><small>두 곳을 찾을 때마다 야영지에서 가장 부족한 광산을 우선적으로 찾습니다. 그것은 탐구되었습니다${c.surveys || 0}더 많이 탐색할수록 비용은 더 높아집니다.</small></span><span style="flex:none">${going ? '길을 나서는 탐사팀' : `<button class="small ${why ? '' : 'go'}" data-act="survey" data-arg="${c.id}" ${why && !why.startsWith('부족') ? 'disabled' : ''}>이동</버튼>`}</span></div>`;
+      h += `<div class="row"><span>⛏ "${esc(c.name)}》난방권에 깊은 곳에 묻혀 있는 새로운 광산 찾기<br><small>두 곳을 찾을 때마다 야영지에서 가장 부족한 광산을 우선적으로 찾습니다. 그것은 탐구되었습니다${c.surveys || 0}더 많이 탐색할수록 비용은 더 높아집니다.</small></span><span style="flex:none">${going ? '길을 나서는 탐사팀' : `<button class="small ${why ? '' : 'go'}" data-act="survey" data-arg="${c.id}" ${why && !why.startsWith('부족') ? 'disabled' : ''}>이동</button>`}</span></div>`;
       if (!going && Sim.surveyCheap(S, c)) h += `<div class="row sub"><span>💡</span><span style="color:var(--good)">이번에는 거의 완성된 ${SPOTS[Sim.surveyNext(S, c)].n}을(를) 찾아서 첫 번째 가격을 지불하려고 합니다</span></div>`;
       if (!going) h += `<div class="row sub"><span>소모품</span><span>${costHtml(c.stock, Sim.surveyCost(S, c))}</span></div>${why && !why.startsWith('부족') ? `<div class="row sub"><span></span><span class="warn">${esc(why)}</span></div>` : ''}`;
     }
@@ -2150,7 +2150,7 @@ export class UI {
     return h;
   }
 
-  // 物流：所有营地连成一张路网，缺什么自动从有余的营地运过来。三页：总览（每个营地运来、送出、还缺）、道路、送货
+  // 物流：所有营地连成一张路网，缺什么自动从有余的营地运过来.三页：总览（每个营地运来、送出、还缺）、道路、送货
   netGood(k, n) { return k === '@fuel' ? `🔥연료${n != null ? ' ' + fmt(n) + '공유하다' : ''}` : `${RICON[k]}${RES[k].n}${n != null ? ' ' + fmt(n) : ''}`; }
   netNames(ids) { return [...ids].map(id => `「${esc((Sim.getCamp(this.S, id) || {}).name || '?')}」`).join(''); }
   // 一样货现在怎么样了：正从哪运来、多久到；整张网都没有；路满了在排队
@@ -2179,9 +2179,9 @@ export class UI {
     for (const x of L) {
       const v = Sim.netView(S, x.id), inc = Object.entries(v.inc), out = Object.entries(v.out), sh = Object.entries(v.short).sort((a, b) => a[1].tier - b[1].tier);
       h += `<div class="ncard ${x.id === on ? 'on' : ''}"><div class="nh"><b>${esc(x.name)}</b><small>${this.netRole(x)}</small>${x.id !== S.active ? `<button class="small ghost" data-act="campgo" data-arg="${x.id}">여기로 이동</button>` : ''}</div>`;
-      if (inc.length) h += `<div class="nl"><span>배송</span><span>${inc.map(([k, i]) => `${this.netGood(k, i.n)}<소>약.${fmtTime(Math.max(1, i.eta))}· 에서${this.netNames(i.from)}</small>`).join('<br>')}</span></div>`;
-      if (out.length) h += `<div class="nl"><span>보내기</span><span>${out.map(([k, o]) => `${this.netGood(k, o.n)}<소>에${this.netNames(o.to)}</small>`).join('<br>')}</span></div>`;
-      if (sh.length) h += `<div class="nl"><span>아직 누락됨</span><span>${sh.map(([k, q]) => `<i class="${q.tier > 5 ? '' : q.none ? 'bad' : q.jam ? 'warn' : ''}">${this.netGood(k, q.n)} <small>${esc(q.why)} · ${q.none ? (q.tier > 5 ? '다른 야영지는 많지 않으니 구하시면 드릴게요.' : '전체 네트워크에는 불필요한 것이 없습니다') : q.jam ? '길은 꽉 차서 줄을 서고 있어요' : '다음 버스를 기다리세요'}</small></i>`).join('<br>')}</span></div>`;
+      if (inc.length) h += `<div class="nl"><span>배송</span><span>${inc.map(([k, i]) => `${this.netGood(k, i.n)}<small>약.${fmtTime(Math.max(1, i.eta))}· 에서${this.netNames(i.from)}</small>`).join('<br>')}</span></div>`;
+      if (out.length) h += `<div class="nl"><span>보내기</span><span>${out.map(([k, o]) => `${this.netGood(k, o.n)}<small>에${this.netNames(o.to)}</small>`).join('<br>')}</span></div>`;
+      if (sh.length) h += `<div class="nl"><span>아직 부족</span><span>${sh.map(([k, q]) => `<i class="${q.tier > 5 ? '' : q.none ? 'bad' : q.jam ? 'warn' : ''}">${this.netGood(k, q.n)} <small>${esc(q.why)} · ${q.none ? (q.tier > 5 ? '다른 야영지는 많지 않으니 구하시면 드릴게요.' : '전체 네트워크에는 불필요한 것이 없습니다') : q.jam ? '길은 꽉 차서 줄을 서고 있어요' : '다음 버스를 기다리세요'}</small></i>`).join('<br>')}</span></div>`;
       if (!inc.length && !out.length && !sh.length) h += `<div class="nl"><span></span><span><small>아무것도 없고, 보낼 것도 없습니다</small></span></div>`;
       h += '</div>';
     }
@@ -2205,7 +2205,7 @@ export class UI {
       if (!ks.length) h += `<div class="hint">"${esc(m.name)}"의 창고가 비어 있습니다. </div>`;
       for (const k of ks) {
         const have = Math.floor(m.stock[k]), q = [50, 200].filter(n => n < have * 0.9), half = Math.floor(have / 2);
-        h += `<div class="grow"><span class="gk">${RICON[k]}<span><b>${RES[k].n}</b><small>예${fmt(have)}· 현재 가격${sv(Sim.sellPrice(S, k))}/개인${pct(k)}</small></span></span><span class="gb">${q.map(n => `<button class="small" data-act="gsell" data-arg="${k}:${n}">판매${n}<small>${sv(Sim.sellValue(S, k, n))}</small></button>`).join('')}${half >= 1 ? `<button class="small" data-act="gsell" data-arg="${k}:${half}">반값에 판매<소>${sv(Sim.sellValue(S, k, half))}</small></button>` : ''}</span></div>`;
+        h += `<div class="grow"><span class="gk">${RICON[k]}<span><b>${RES[k].n}</b><small>예${fmt(have)}· 현재 가격${sv(Sim.sellPrice(S, k))}/개인${pct(k)}</small></span></span><span class="gb">${q.map(n => `<button class="small" data-act="gsell" data-arg="${k}:${n}">판매${n}<small>${sv(Sim.sellValue(S, k, n))}</small></button>`).join('')}${half >= 1 ? `<button class="small" data-act="gsell" data-arg="${k}:${half}">반값에 판매<small>${sv(Sim.sellValue(S, k, half))}</small></button>` : ''}</span></div>`;
       }
     } else if (pg === 'order') {
       h += `<div class="hint">하루 ${Sim.orderMax(S)} 주문: 제한된 시간 내에 여관으로 상품 묶음을 은화 및 잔불으로 배달합니다. 배송된 상품은 "${esc(m.name)}" 창고에 있습니다. 상품이 충분하지 않은 경우 물류망이 먼저 배송될 수 있습니다. </div>`;
@@ -2299,8 +2299,8 @@ export class UI {
     const S = this.S; if (S.camps.length < 2) return '';
     const v = Sim.netView(S, c.id), inc = Object.entries(v.inc), sh = Object.entries(v.short).sort((a, b) => a[1].tier - b[1].tier);
     let h = `<div class="sec">물류 <small>${Sim.roadsAt(S, c.id).length} 길은 여기로 연결됩니다</small></div>`;
-    h += `<div class="row"><span>배송</span><span>${inc.length ? inc.slice(0, 3).map(([k, i]) => `${this.netGood(k, i.n)}<소>약.${fmtTime(Math.max(1, i.eta))}</small>`).join(' · ') + (inc.length > 3 ? `기다리다${inc.length}견본` : '') : '<small>배송 중 물품 없음</small>'}</span></div>`;
-    if (sh.length) h += `<div class="row sub"><span>아직 누락됨</span><span>${sh.slice(0, 3).map(([k, q]) => `<i class="${q.tier > 5 ? '' : q.none ? 'bad' : q.jam ? 'warn' : ''}">${this.netGood(k, q.n)}</i>`).join(' · ')}</span></div>`;
+    h += `<div class="row"><span>배송</span><span>${inc.length ? inc.slice(0, 3).map(([k, i]) => `${this.netGood(k, i.n)}<small>약.${fmtTime(Math.max(1, i.eta))}</small>`).join(' · ') + (inc.length > 3 ? `외 ${inc.length}건` : '') : '<small>배송 중 물품 없음</small>'}</span></div>`;
+    if (sh.length) h += `<div class="row sub"><span>아직 부족</span><span>${sh.slice(0, 3).map(([k, q]) => `<i class="${q.tier > 5 ? '' : q.none ? 'bad' : q.jam ? 'warn' : ''}">${this.netGood(k, q.n)}</i>`).join(' · ')}</span></div>`;
     h += `<div class="drow"><button class="btn" data-act="netview" data-arg="${c.id}">물류 보기</button><button class="btn" data-act="netsend">배송</button></div>`;
     return h;
   }
@@ -2317,7 +2317,7 @@ export class UI {
       const at = S.specAt[sp.id] && Sim.getB(S, S.specAt[sp.id]);
       const cost = specTrainCost(m.lvl);
       h += `<div class="card"><div class="ci">${this.cIco('spec_' + sp.id, '🧑‍🔧')}</div><div class="cb"><div class="cn">${sp.n} <small>${sp.role} · ${m.lvl}레벨</small></div>
-        <div 클래스="CD">${esc(sp.story)}<br>상대:${sp.aff.map(t => BLD[t].n).join('、')}（+${Math.round(specBonus(m.lvl, true) * 100)}%, 다른 곳 +${Math.round(specBonus(m.lvl, false) * 100)}%）</div>
+        <div class="cd">${esc(sp.story)}<br>대상:${sp.aff.map(t => BLD[t].n).join('、')}（+${Math.round(specBonus(m.lvl, true) * 100)}%, 다른 곳 +${Math.round(specBonus(m.lvl, false) * 100)}%）</div>
         <div class="cc">${at ? `존재하다"${BLD[at.type].n}」(${esc(Sim.getCamp(S, at.camp).name)}) <button class="small" data-act="spot" data-arg="${at.id}">보기</button> <button class="small" data-act="unspec" data-arg="${sp.id}">가주세요</button>` : `<button class="small" data-act="autospec" data-arg="${sp.id}">해당 건물에 배치</button>`}
         · ${m.lvl >= SPEC_MAX ? '이미 정상까지 연습했어' : `키우다${costHtml(c.stock, cost, S.known)} <button class="small" data-act="train" data-arg="${sp.id}">재배</button>`}</div></div></div>`;
     }
@@ -2335,7 +2335,7 @@ export class UI {
     const why = Sim.festBlock(S, c), cost = Sim.festCost(S, c);
     return `<div class="festcard"><div class="fhd"><span class="fci">🔥</span><b>모닥불 축하</b><em>${costHtml(c.stock, cost)}</em></div><div class="fcd">야영지 옆에 큰 모닥불 무리를 밝히고 모두가 하던 일을 내려놓고 춤추게 하세요(${Sim.FEST_LEN / 60}분 동안 생산량는 절반으로 줄어듭니다). 게임 종료 후 희망 +15, 불만 −10, 이후${Sim.FEST_AFTER / 60}분생산량 +15%. 모든${Sim.FEST_CD / 60}한 세션은 몇 분 안에 열릴 수 있습니다. </div>${why ? `<div class="fcw">${esc(why)}</div>` : ''}<button class="btn wide ${why ? '' : 'go'}" data-act="fest" data-arg="${c.id}" ${why ? 'disabled' : ''}>🎉축하행사 개최</button></div>`;
   }
-  // 收集册：建筑、物资、地标、人物、风物五栏，外加成就。跨轮保留
+  // 收集册：建筑、物资、地标、人物、风物五栏，外加成就.跨轮保留
   // ---------- 数据曲线：人口、心情、温度，物资的储量和产量 ----------
   cvState() { return this.cv || (this.cv = { tab: 'camp', range: 'd1', sel: null, cid: null }); }
   cvSelect(k) {
@@ -2486,7 +2486,7 @@ export class UI {
   bkRow() {
     if (!this.bks) { this.loadBackups(); return '<div class="row"><span>자동 백업<br><small>계산 중...</small></span></div>'; }
     const L = this.bks;
-    return `<div class="row"><span>자동 백업 <b>${L.length}</b> 부분<br><작은>${L.length ? `가장 최근의${this.agoText(L[0].at)} · ` : ''}재생하는 동안 10분마다 한 장씩 복사됩니다. 또한 북상 이전에 백업하고 가져오고 다시 시작하세요</small></span><span style="flex:none"><button class="small" data-act="backups"${L.length ? '' : 'disabled'}>백업 보기</button></span></div>`;
+    return `<div class="row"><span>자동 백업 <b>${L.length}</b> 부분<br><small>${L.length ? `가장 최근의${this.agoText(L[0].at)} · ` : ''}재생하는 동안 10분마다 한 장씩 복사됩니다. 또한 북상 이전에 백업하고 가져오고 다시 시작하세요</small></span><span style="flex:none"><button class="small" data-act="backups"${L.length ? '' : 'disabled'}>백업 보기</button></span></div>`;
   }
   async loadBackups() {
     if (this.bksLoading) return; this.bksLoading = true;
@@ -2546,7 +2546,7 @@ export class UI {
       return h + '</div>';
     }
     if (tab === 'r') {
-      if (pick && RES[pick]) { const d = RES[pick], have = B.r[pick]; detail = `<div class="bkdet"><span class="bkp big">${RICON[pick]}</span><span><b>${have ? d.n : '？？？'}</b><small>${TIER_NAMES[d.t]} · ${d.raw ? '땅에서 뽑은' : '가공를 원한다'}</small><p>${have ? `아니요.${have}두 번째 북쪽 여행에서 처음으로 얻었습니다. 이 프로세스의 누적 출력${fmt(S.stats.prod[pick] || 0)}。` : `「${TIER_NAMES[d.t]}"이 지역의 보급품입니다.`}</p></span></div>`; }
+      if (pick && RES[pick]) { const d = RES[pick], have = B.r[pick]; detail = `<div class="bkdet"><span class="bkp big">${RICON[pick]}</span><span><b>${have ? d.n : '？？？'}</b><small>${TIER_NAMES[d.t]} · ${d.raw ? '땅에서 뽑은' : '가공를 원한다'}</small><p>${have ? `아니요.${have}두 번째 북쪽 여행에서 처음으로 얻었습니다. 이 프로세스의 누적 출력${fmt(S.stats.prod[pick] || 0)}.` : `「${TIER_NAMES[d.t]}"이 지역의 보급품입니다.`}</p></span></div>`; }
       h += detail + '<div class="bkgrid res">';
       for (const k of RES_KEYS) h += cell(k, B.r[k], RICON[k], RES[k].n, TIER_NAMES[RES[k].t]);
       return h + '</div>';
@@ -2610,7 +2610,7 @@ export class UI {
     for (const c of P.camps) {
       const em = Sim.douseEmbers(S, c.lvl);
       h += `<div class="mcamp"><div class="row"><span><b>${esc(c.name)}${c.main ? '<i class="tagm">본영</i>' : ''}</b><small>👥${c.people}·용광로${c.lvl}레벨</small></span></div>
-        <div class="세그"><버튼 클래스="btn${c.mode !== 'douse' ? 'on' : ''}" data-act="mmode" data-arg="${c.id}:keep">머무르다<작은>${c.main ? `유지하다${Math.max(Sim.DEPOT_MIN, c.stay)}사람들` : '공급 창고가 되어보세요'}, 물류망로 배송</small></button><button class="btn${c.mode === 'douse' ? 'on' : ''}" data-act="mmode" data-arg="${c.id}:douse"><작은>변경 끄기 🔥${em}, 후속 조치</small></button></div></div>`;
+        <div class="seg"><button class="btn ${c.mode !== 'douse' ? 'on' : ''}" data-act="mmode" data-arg="${c.id}:keep">유지<small>${c.main ? `${Math.max(Sim.DEPOT_MIN, c.stay)}명 남김` : '보급 창고로 전환'}, 화물은 물류망으로</small></button><button class="btn ${c.mode === 'douse' ? 'on' : ''}" data-act="mmode" data-arg="${c.id}:douse">끄기<small>🔥${em}(으)로 교환, 인원은 따라옴</small></button></div></div>`;
     }
     // 路上的天气：极光观测站以后看得到
     if (J.stage >= 9 && g.route.ok) {
@@ -2728,7 +2728,7 @@ export class UI {
     if (part === 'title') return `<small>${VERSION_NAME}</small> 도와주세요`;
     const keys = [['1 – 5', '야영지 · 생산 · 건설 · 연구 · 북행'], ['Esc/오른쪽 클릭', '창 닫기'], ['J', '계획'], ['공간', '다시 불로'], ['B', '건설'], ['M', '북쪽 방향 지도'], ['C', '생산 체인'], ['G', '데이터 곡선'], ['K', '컬렉션 북'], ['H', '사진'], ['P', '정지시키다'], ['F', '속도 변경'], ['+ / −', '확대/축소'], ['Q / E', '카메라를 돌려'], ['WASD', '움직이는 카메라']];
     return `<button class="mlink" data-act="changelog"><span>📜</span><span>변경 로그<small>${VERSION_NAME}· 각 에디션에 추가되는 내용</small></span><i>></i></button>
-      <div 클래스="도움말">${HELP}</div>
+      <div class="help">${HELP}</div>
       <div class="sec">컴퓨터의 키</div><div class="keys">${keys.map(([k, n]) => `<span><kbd>${k}</kbd>${n}</span>`).join('')}</div>
       <div class="hint">휴대폰: 두 손가락을 모아 확대/축소하고 카메라를 회전합니다. 일시 정지하려면 속도 키를 길게 누르세요. </div>`;
   }
@@ -2740,7 +2740,7 @@ export class UI {
     const known = Math.max(S.known, ...S.discovered);
     const next = LANDMARKS.findIndex((l, i) => !S.founded.includes(i) && l.row > far);
     const people = S.camps.reduce((a, c) => a + c.people, 0);
-    let h = `<div 클래스="mjour">
+    let h = `<div class="mjour">
       <div class="mjh"><div><div class="mjt">아니요.${S.meta.runs}두 번째 북쪽 여행</div><small>이 여행은 사라졌습니다${fmtTime(S.t)}${Sim.skyEnded(S) ? '· 🔥 하늘의 불이 켜졌습니다' : S.meta.graduated ? '· 🌟 점화 영원의 용광로' : ''}</small></div>
         <div class="mje" title="잔불：북상일 때 다음 여행에 영구 보너스 제공"><b>🔥${fmt(S.meta.embers)}</b><small>잔불</small></div></div>
       <div class="route"><i class="rl"><i style="너비:${Math.min(100, far / top * 100).toFixed(1)}%"></i></i>
@@ -2748,7 +2748,7 @@ export class UI {
       <div class="mnext">${Sim.northN(Sim.journeyOf(S).stage) ? `🧭 <b>${esc(northRec(S))}</b> · 다음 정거장:${esc(Sim.stopOf(S, Sim.journeyOf(S).stage + 1).n)}` : next >= 0 ? `다음 정거장:<b>${LANDMARKS[next].n}</b>(위도${LANDMARKS[next].row}, 이제 북쪽으로${far}）${S.meta.northMax ? `<br><small>🧭 ${esc(northRec(S))}</small>` : ''}` : `모든 랜드마크를 걸었습니다.${S.meta.northMax ? ` 🧭 ${esc(northRec(S))}` : '세계의 척추를 뒤집으면 북방가 나옵니다.'}`}</div>
       <div class="mstats">
         <span><b>${people}</b>인구</span><span><b>${S.camps.length}</b>야영지</span><span><b>${S.buildings.length}</b>건물</span>
-        <스팬><b>${st.arrivals}</b>탈북한 사람들</span><span class="${st.deaths ? 'neg' : ''}"><b>${st.deaths}</b>사람들이 사망했습니다</span><span><b>${st.raidsWon}/${st.raids}</b>습격 유지</span>
+        <span><b>${st.arrivals}</b>탈북한 사람들</span><span class="${st.deaths ? 'neg' : ''}"><b>${st.deaths}</b>사람들이 사망했습니다</span><span><b>${st.raidsWon}/${st.raids}</b>습격 유지</span>
       </div>
     </div>`;
     // 十座塔
@@ -2822,7 +2822,7 @@ export class UI {
     if (U.length) h += `<div class="sec">기타 자료 업그레이드</div>`;
     for (const b of U) {
       const cost = Sim.upgradeCost(S, b), miss = Object.keys(cost).filter(k => (c.stock[k] || 0) < cost[k]);
-      h += `<div class="qrow"><span class="qn">↑</span>${this.ico(b.type, b.lvl)}<span class="qt"><b>${BLD[b.type].n} ${b.lvl}→${b.lvl + 1}수준</b><작은>${miss.length ? '기타 재료:' + miss.map(k => `${RICON[k]}${fmt(cost[k] - (c.stock[k] || 0))}`).join(' ') + (this.netWait(c, miss[0]) ? `，${RES[miss[0]].n}${this.netWait(c, miss[0])}` : '') : '모두 함께 말이 올라간다'}</small></span><button class="small" data-act="openbld" data-arg="${b.id}">보기</button><button class="small ghost" data-act="qup" data-arg="${b.id}">취소</button></div>`;
+      h += `<div class="qrow"><span class="qn">↑</span>${this.ico(b.type, b.lvl)}<span class="qt"><b>${BLD[b.type].n} ${b.lvl}→${b.lvl + 1}수준</b><small>${miss.length ? '기타 재료:' + miss.map(k => `${RICON[k]}${fmt(cost[k] - (c.stock[k] || 0))}`).join(' ') + (this.netWait(c, miss[0]) ? `，${RES[miss[0]].n}${this.netWait(c, miss[0])}` : '') : '모두 함께 말이 올라간다'}</small></span><button class="small" data-act="openbld" data-arg="${b.id}">보기</button><button class="small ghost" data-act="qup" data-arg="${b.id}">취소</button></div>`;
     }
     return h;
   }
@@ -2854,7 +2854,7 @@ export class UI {
       return `<div class="row"><span>공간 점유</span><span>${n}벽 부수기</span></div>
         <div class="row"><span>해체하면 얻을 수 있습니다</span><span>${RICON.part}고대 부품${loot.part} · ${RICON.steel}강재${loot.steel}</span></div>
         <div class="row sub"><span>일손 배치 분해</span><span>${RICON.food}요리${cost.food}(일할 때는 다들 밥을 먹어야 해요)</span></div>
-        <버튼 클래스="이동" data-act="폐허" data-arg="${i}" ${ck.why ? 'disabled' : ''}>이 폐허를 철거</button>${ck.why ? `<div class="hint warn">${esc(ck.why)}</div>` : ''}<div class="hint">고성 유적지의 부서진 벽이 난방권의 땅을 차지하고 있습니다. 철거되면 자유롭게 집을 지을 수 있습니다. 고대 부품 및 강재도 철거할 수 있습니다. </div>`;
+        <button class="go" data-act="ruin" data-arg="${i}" ${ck.why ? 'disabled' : ''}>이 폐허 철거</button>${ck.why ? `<div class="hint warn">${esc(ck.why)}</div>` : ''}<div class="hint">고성 유적의 무너진 벽이 난방 범위의 땅을 차지하고 있습니다. 철거하면 자유롭게 지을 수 있고 고대 부품과 강재도 얻습니다.</div>`;
     }
     if (part === 'title') return `${RICON[sp.res]} ${sp.n}`;
     const left = Sim.spotLeft(S, i), mx = Sim.spotMax(S, i), grow = !!Sim.REGROW[k];
@@ -3019,7 +3019,7 @@ export class UI {
         const b = Sim.getB(S, +arg); if (!b) break;
         const r = Sim.bulkStaff(S, b.id), n = BLD[b.type].n;
         if (r.add) g.sfx('tap');
-        this.toast(r.short ? `${r.add ? `주다${r.n}건물${n}추가됨${r.add}개인의,` : ''}충분하지 않음${r.short}사람: 무료 일손가 충분하지 않습니다. 더 많은 천막를 건설하여 새로운 사람들을 유치하거나 다른 건물의 사람들을 줄이세요.` : `${r.n}건물${n}모두 채워져 있어요${r.add ? `(추가됨${r.add}사람들)` : ''}。`, r.short ? 'warn' : 'good');
+        this.toast(r.short ? `${r.add ? `주다${r.n}건물${n}추가됨${r.add}개인의,` : ''}충분하지 않음${r.short}사람: 무료 일손가 충분하지 않습니다. 더 많은 천막를 건설하여 새로운 사람들을 유치하거나 다른 건물의 사람들을 줄이세요.` : `${r.n}건물${n}모두 채워져 있어요${r.add ? `(추가됨${r.add}사람들)` : ''}.`, r.short ? 'warn' : 'good');
         this.renderPanel(true); break;
       }
       case 'bulkup': {
@@ -3103,7 +3103,7 @@ export class UI {
       case 'slotuse': g.useSlot(+arg); break;
       case 'slotdel': {
         const s = g.slotInfo(+arg), nx = s.cur && g.nextSlot(+arg);
-        const then = s.cur ? `<p class="hint">삭제 후${nx ? `저장를 읽을 것입니다.${nx}「${esc(g.slotInfo(nx).name || '')}」` : '새로운 북쪽 방향 게임이 처음부터 시작됩니다'}。</p>` : '';
+        const then = s.cur ? `<p class="hint">삭제 후${nx ? `저장를 읽을 것입니다.${nx}「${esc(g.slotInfo(nx).name || '')}」` : '새로운 북쪽 방향 게임이 처음부터 시작됩니다'}.</p>` : '';
         this.modal(`<p>저장 삭제${arg}${s.broken ? '(이미 깨졌음)' : `" 안에${esc(s.name || '')}」${s.cur ? '(지금 우리가 하고 있는 게임)' : ''}`}? 이번 라운드의 모든 진행 상황(잔불, 전문가 및 컬렉션 북 포함)이 삭제됩니다. 삭제하기 전에 백업이 자동으로 저장됩니다. 실수로 삭제하신 경우, 본 저장 위치의 "메뉴 → 저장 → 자동백업"에서 복구하실 수 있습니다. </p>${then}`, [{ t: '삭제', a: 'slotdel-yes', arg, cls: 'bad' }, { t: '괜찮아요', a: 'slots' }]);
         break;
       }
@@ -3306,6 +3306,6 @@ export const HELP = `<h3>게임 방법</h3>
 <p><b>북방:</b> 세계의 척추를 넘어 북쪽으로 곧장 갈 수 있으며, 지도는 북쪽으로 섹션이 늘어납니다. 북방의 각 스테이션에는 행렬이 주차된 스테이션에서만 적용되는 일종의 지형이 있습니다. 희망이 상승하고 작동 속도가 느려짐), 늑대 무리 영역(Z ZG390ZZ 및 더 많은 전리품이 있음), 얼음호수 지대(얼음낚시 오두막을 건설할 수 있음), 고성 유적지(폐허를 제거하고 고대 부품으로 교체), 폭풍 회랑(Z ZG260ZZ가 많으며 예상은 다음과 같습니다) 이전), 운석비(별핵이 분화구에서 나오며 가끔 건물을 멈추기도 함), 나무 없는 동토(살아있는 나무는 없고 고목 더미만 있음). 각 스테이션에는 2개의 생산력 타겟과 1개의 지형 과제가 있으며, 각 스테이션에는 더 높은 타겟이 있습니다. 용광로 임계값은 세계의 척추 레벨에서 중지됩니다. 처음 특정 역 번호로 걸어갈 때 잔불을 주었습니다. 가장 먼 곳까지의 기록이 메뉴와 지도에 기록되었습니다. </p>
 <p><b>봉화탑:</b> 북방의 처음 10개 스테이션에는 각각 타워가 있습니다. 핵심 사항: 먼저 기초 공사(본영난방권에 있어야 함)를 사용한 다음 여러 고급 재료를 타워 본체에 공급합니다. 하나라도 누락되면 중지되지만 진행 상태는 취소되지 않습니다. 가득 차면 수정 배터리(다음에 별핵)를 사용하여 점화합니다. 조명이 켜진 탑은 빛의 기둥을 세웠으며 야영지는 +1, 희망 +5를 따뜻하게했습니다. 열 번째 정거장은 4×4 천화탑입니다. 조명을 켜는 것이 최종 엔딩이고, 그 이후에도 북쪽으로 갈 수 있습니다. </p>
 <p><b>채굴 지점 및 재배치:</b> 채굴 지점이 비워질 예정이면 미리 알림을 받게 됩니다. 당시 정찰 막사의 탐사 비용은 매우 저렴했습니다. 건물을 배치할 때 건물이 근처의 광물 지점을 차단하면 미리보기 상자가 노란색으로 변합니다. 지상의 금색 별 위치가 권장 위치입니다(메뉴에서 끌 수 있음). 건물 패널에서 '위치 이동'을 클릭하면 무료로 이동할 수 있습니다. 레벨과 일꾼은 유지됩니다. 이동 후 잠시 작업이 중단됩니다. 봉화탑은 공급을 시작한 후에는 이동할 수 없습니다. </p>
-<p><b>2배속 및 오프라인:</b> 오른쪽에 있는 속도 키를 클릭하여 1×, 2×, 4×를 변경하고 길게 누르면 일시중지됩니다. 야영지도 페이지를 닫을 때 리소스를 천천히 축적하지만 온라인일 때보다 속도가 느립니다. 돌아 오면 보고서가 표시됩니다. </p>
+<p><b>배속과 오프라인:</b> 오른쪽 속도 키를 눌러 1×, 2×, 4×를 바꾸고, 길게 누르면 일시 정지합니다. 페이지를 닫아도 자원이 천천히 쌓이지만 접속 중보다 느립니다. 돌아오면 보고서가 표시됩니다.</p</p>
 <p><b>저장 및 백업:</b> 진행 상황은 이 기기에 자동으로 저장되며, 3개의 저장 비트는 각각 하나의 게임입니다. 플레이하는 동안 10분마다 자동으로 백업됩니다. 또한 북상을 시작하고 저장 코드를 가져오고 다시 시작하고 삭제하기 전에 백업됩니다. "메뉴 → 저장 → 자동 백업"을 클릭하여 돌아갈 수 있습니다. 장치를 변경하려면 "저장 코드 내보내기"를 사용하십시오. </p>
-<p><b>작동:</b> 지도를 드래그하여 이동하고, 핀치하여 확대/축소/회전합니다(PC: 확대/축소하려면 휠 스크롤, 회전하려면 마우스 오른쪽 버튼 클릭 또는 Q/E). 건설을 사용하는 경우 미리보기를 드래그하고 적절한 위치에 도달하면 ✓를 클릭합니다. 컴퓨터에서는 왼쪽 버튼을 누른 상태에서 드래그하여 한 번에 한 행씩 정렬할 수 있습니다. 휴대폰에서는 먼저 "1행"을 클릭하세요. 유사한 건물의 패널에서는 한 번의 클릭으로 모든 업그레이드를 완전히 로드할 수 있습니다. H는 사진 모드, M은 북쪽 방향 지도, + / - 확대 및 축소입니다. 메뉴에는 세 가지 저장 위치가 있으며 난이도는 언제든지 변경할 수 있습니다. </p>`;
+<p><b>조작:</b> 지도를 드래그해 이동하고, 두 손가락으로 확대/축소·회전합니다(PC: 휠로 확대/축소, 우클릭 또는 Q/E로 회전). 건설할 때는 미리보기를 드래그해 자리를 잡은 뒤 ✓를 누르세요. PC에서는 왼쪽 버튼을 누른 채 드래그하면 한 번에 한 줄을 놓을 수 있고, 휴대폰에서는 먼저 "한 줄"을 누르세요. 같은 종류 건물의 패널에서 일괄 업그레이드와 일괄 배치를 할 수 있습니다. H는 사진 모드, M은 북행 지도, + / −는 확대/축소입니다. 메뉴에 저장 슬롯이 3개 있고 난이도는 언제든 바꿀 수 있습니다.</p>`;
