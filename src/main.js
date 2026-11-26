@@ -656,7 +656,7 @@ class Game {
     const costHtml = Object.keys(pl.total).map(k => `<span class="${(camp.stock[k] || 0) >= pl.total[k] ? '' : 'miss'}">${RICON[k]}${fmt(pl.total[k])}</span>`).join(' ');
     const parts = [pl.ok && `<span class="pok">즉시 ${pl.ok}개의 건물 건설</span>`, pl.q && `<span class="pwarn">큐 ${pl.q} 생성</span>`, pl.bad && `<span class="pbad">${pl.bad}에 빌드할 수 없습니다</span>`].filter(Boolean).join(' · ');
     const touch = this.isTouch();
-    document.getElementById('placeCost').innerHTML = iconize(`행${slots.length}건물 ·${costHtml}<br>${parts}${pl.ok || pl.q ? ` · ${touch ? '이 행을 작성하려면 ✓를 누르세요.' : '그냥 긴장을 풀고 빌드하세요'}` : ''}`);
+    document.getElementById('placeCost').innerHTML = iconize(`행${slots.length}건물 ·${costHtml}<br>${parts}${pl.ok || pl.q ? ` · ${touch ? '이 행을 작성하려면 ✓를 누르세요.' : '그냥 긴장을 풀고 건설하세요'}` : ''}`);
   }
   confirmRow() {
     const P = this.place, slots = this.rowSlots(); if (!slots) return false;

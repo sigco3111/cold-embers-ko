@@ -373,7 +373,7 @@ export function advisor(S) {
     if (cr.hf != null && cr.hf < 0.6 && cr.demand > 3) {
       const wh = S.buildings.filter(b => b.camp === main.id && b.type === 'warehouse');
       const room = wh.reduce((a, b) => a + Math.max(0, maxWorkers('warehouse', b.lvl) - b.workers), 0);
-      const tip = wh.length && room > 0 ? `전체 인원을 창고로 보냅니다. (${room} 더 보낼 수 있습니다.)` : '창고를 하나 더 만든 다음 일손 배치를 빌드하세요.';
+      const tip = wh.length && room > 0 ? `전체 인원을 창고로 보냅니다. (${room} 더 보낼 수 있습니다.)` : '창고를 하나 더 만든 다음 일손 배치를 건설하세요.';
       return { pri: 1, kind: 'haul', camp: main.id, short: '운반꾼 부족, ~ 창고일손 배치', text: `"${main.name}" 운반꾼 부족(${Math.ceil(cr.demand)}명 필요, ${Math.floor(cr.haulers)}명만 필요), 각 건물은 사람들이 자재를 전달하기를 기다리고 있습니다. 운반꾼은 창고, ${tip}에 거주합니다. 도로를 건설하면 교통이 더 빨라질 수도 있습니다.`, act: wh.length ? 'spot' : 'place', arg: wh.length ? wh[0].id : 'warehouse' };
     }
   }
@@ -389,7 +389,7 @@ export function advisor(S) {
     const P = planLine(S, g.r, g.n), w = P.worst;
     if (w) {
       if (!w.count && w.type && !unlocked(S, w.type)) return { pri: 1, kind: 'line', short: `${BLD[w.type].n}이(가) 잠금 해제되지 않았습니다. 북쪽으로 이동하여 길을 탐색하세요.`, text: `${RES[g.r].n} 라인에는 ${RES[w.k].n}이 필요하지만 ${BLD[w.type].n}는 아직 잠금 해제되지 않았습니다. 정찰대를 보내 북쪽을 탐색하고 더 북쪽 위도가 보이면 이를 구축할 수 있습니다.`, act: 'plan', arg: g.r };
-      if (!w.count) return { pri: 1, kind: 'line', short: `${RES[g.r].n} 라인에 ${w.type ? BLD[w.type].n : RES[w.k].n}이(가) 없습니다. 먼저 하나 빌드하세요.`, text: `${RES[g.r].n} 행에 링크가 없습니다. 아직 ${w.type ? BLD[w.type].n : RES[w.k].n}이 없습니다. ${RES[w.k].n}의 비용은 분당 ${fmtR(w.need)}입니다. 먼저 빌드하세요.`, act: 'plan', arg: g.r };
+      if (!w.count) return { pri: 1, kind: 'line', short: `${RES[g.r].n} 라인에 ${w.type ? BLD[w.type].n : RES[w.k].n}이(가) 없습니다. 먼저 하나 건설하세요.`, text: `${RES[g.r].n} 행에 링크가 없습니다. 아직 ${w.type ? BLD[w.type].n : RES[w.k].n}이 없습니다. ${RES[w.k].n}의 비용은 분당 ${fmtR(w.need)}입니다. 먼저 건설하세요.`, act: 'plan', arg: g.r };
       const by = P.nodes.find(x => x.k === (w.from || w.via));
       const full = Object.keys(w.stat).find(s => s === '창고가 가득 참');
       if (full) return { pri: 1, kind: 'line', short: `${RES[w.k].n}이(가) 창고가 가득 참에서 멈췄습니다.`, text: `${RES[w.k].n}이(가) 창고가 가득 참에 멈췄습니다. 창고를 더 구축하거나 야영지 패널에서 "전체 포지션 자동 상환"을 켜세요.`, act: 'plan', arg: g.r };
@@ -454,7 +454,7 @@ export function advisor(S) {
     if (miss.id === 'car') {
       // 哪个营地的雪橇棚都能造车（老营地的也行），主营地的优先
       const P = gt.plan, sheds = S.buildings.filter(b => b.type === 'sledshed'), shed = sheds.find(b => b.camp === main.id) || sheds[0];
-      if (!P.roomOk && !shed) return { pri: 3, kind: 'car', short: '먼저 썰매 헛간을 빌드한 다음 썰매를 빌드하세요.', text: `행렬에는 여전히 자동차가 부족합니다. 먼저 본영에 썰매 헛간을 구축하고 목재 및 목판을 사용하여 썰매(${miss.sub})를 구축합니다.`, act: 'place', arg: 'sledshed' };
+      if (!P.roomOk && !shed) return { pri: 3, kind: 'car', short: '먼저 썰매 헛간을 건설한 다음 썰매를 건설하세요.', text: `행렬에는 여전히 자동차가 부족합니다. 먼저 본영에 썰매 헛간을 구축하고 목재 및 목판을 사용하여 썰매(${miss.sub})를 구축합니다.`, act: 'place', arg: 'sledshed' };
       if (!P.roomOk) return { pri: 3, kind: 'car', short: '행렬에는 차량이 부족합니다. 더 구매하려면 썰매 헛간으로 이동하세요.', text: `행렬는 아직 준비되지 않았습니다.${miss.sub}. 가다${shed.camp === main.id ? '' : `「${getCamp(S, shed.camp).name}"의`}썰매 헛간를 몇 개 더 만드세요.`, act: 'spot', arg: shed.id };
       return { pri: 3, kind: 'car', short: '행렬은 아직 준비되지 않았습니다', text: `행렬은 아직 준비되지 않았습니다: ${miss.sub}.`, act: 'migrate' };
     }

@@ -482,7 +482,7 @@ export const freeTok = (camp, type) => !!(camp && camp.freeB && camp.freeB[type]
 export const freeAny = (S, type) => S.camps.some(c => freeTok(c, type));
 export function unlocked(S, type) { const d = BLD[type]; return d.t <= S.known && (!d.shop || shopHave(S, type)) && (!d.gift || cosHave(S, 'deco', type)) && (!d.stage || journeyOf(S).stage >= d.stage) && (!d.rule || ruleNow(S) === d.rule || freeAny(S, type)) && (!d.tower || !towerLock(S, type)) && (!d.wonder || !wonderLock(S, type)); }
 // 永恒之炉以北的新东西：走到那一程才解锁；北境地貌的建筑：只有那种地貌的站能建
-export const stageLock = (S, type) => { const d = BLD[type]; if (d.shop && !shopHave(S, type)) return `${d.shop} 은화에 북방 상회에서 청사진을 구매하세요`; if (d.gift && !cosHave(S, 'deco', type)) { const a = giftFrom('deco', type); return `업적「${a && a.hid && !bookOf(S).a[a.id] ? '？？？' : a ? a.n : '？'}」 잠금 해제됨`; } if (d.rule && ruleNow(S) !== d.rule && !freeAny(S, type)) return `"${NORTH_RULES[d.rule].n}" 사이트에만 구축할 수 있습니다.`; if (d.tower && towerLock(S, type)) return towerLock(S, type); if (d.wonder && wonderLock(S, type)) return wonderLock(S, type); return d.stage && journeyOf(S).stage < d.stage ? `빌드하려면 "${stopOf(S, d.stage).n}"으로 이동해야 합니다.` : ''; };
+export const stageLock = (S, type) => { const d = BLD[type]; if (d.shop && !shopHave(S, type)) return `${d.shop} 은화에 북방 상회에서 청사진을 구매하세요`; if (d.gift && !cosHave(S, 'deco', type)) { const a = giftFrom('deco', type); return `업적「${a && a.hid && !bookOf(S).a[a.id] ? '？？？' : a ? a.n : '？'}」 잠금 해제됨`; } if (d.rule && ruleNow(S) !== d.rule && !freeAny(S, type)) return `"${NORTH_RULES[d.rule].n}" 사이트에만 구축할 수 있습니다.`; if (d.tower && towerLock(S, type)) return towerLock(S, type); if (d.wonder && wonderLock(S, type)) return wonderLock(S, type); return d.stage && journeyOf(S).stage < d.stage ? `지어려면 "${stopOf(S, d.stage).n}"으로 이동해야 합니다.` : ''; };
 export const forecastOf = S => FORECAST * (journeyOf(S).stage >= 9 ? 2 : 1) * (ruleNow(S) === 'storm' ? 2 : 1); // 到了极光观测站，天气预报提前一倍；风暴走廊再早一倍
 // 加工厂不把基础建材吃光：锯木厂不会把木材全锯成木板、炼钢厂不会把铁锭用完——仓库里留两成（最多 300）给建造。
 // 只管前两层的建材；更高层的中间品本来就是为了往下加工，留料会卡住整条链
@@ -2609,7 +2609,7 @@ function surveyPick(S, camp) {
 }
 export function surveyBlock(S, camp) {
   const sl = scoutSlots(S, camp.id);
-  if (!sl.n) return '먼저 이 야영지에 정찰 막사를 빌드하세요.';
+  if (!sl.n) return '먼저 이 야영지에 정찰 막사를 건설하세요.';
   if (S.scouts.some(s => s.camp === camp.id && s.kind === 'survey')) return '탐사팀은 이미 출발했어요';
   if (sl.used >= sl.n) return '정찰대는 모두 나가서 그들이 돌아오기를 기다리고 있다';
   if (camp.people - SURVEY_N < MIN_PEOPLE) return '야영지사람이 너무 적어요';

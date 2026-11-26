@@ -260,7 +260,7 @@ export class PC {
     }
     if (kind === 'vt') {
       const tt = (t.dataset.tt || '').split(' · ');
-      const nm = { tmp: '체성감각 온도', ppl: '인구', fuel: '연료', food: '요리' }[id];
+      const nm = { tmp: '체감 온도', ppl: '인구', fuel: '연료', food: '요리' }[id];
       return `<div class="tth"><b>${nm}</b><em>${t.querySelector('b') ? t.querySelector('b').innerHTML : ''}</em></div>${tt.map(s => `<div class="ttr"><span>${esc(s)}</span></div>`).join('')}`;
     }
     if (kind === 'b') {

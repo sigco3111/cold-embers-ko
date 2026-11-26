@@ -1,0 +1,1430 @@
+[
+ {
+  "file": "src/bigmap.js",
+  "start": 2235,
+  "end": 2912,
+  "raw": "`<div class=\"bmbox u-paper\"><div class=\"phead\"><b>北行地图 <small>${northRec(S) ? `🧭 ${northRec(S)} · ` : ''}点一处，镜头就飞过去</small></b><button class=\"x\" data-act=\"mapclose\">✕</button></div>\n      <div class=\"bmscroll\"><div class=\"bmin\"><canvas></canvas><div class=\"bmmk\"></div></div></div>\n      <div class=\"bmleg\"><span>🔥 营地</span>${S.camps.some(c => c.depot) ? \"<span>📦 补给站</span>\" : \"\"}${(Sim.journeyOf(S).ruins || []).length ? \"<span>🏚 熄火的老营地</span>\" : \"\"}<span><i class=\"rt\"></i>探好的路</span><span>📍 发现的地标</span><span>❔ 未知</span><span>🧭 雾里的地点</span><span>🆘 幸存者</span>${S.gangs && Object.keys(S.gangs).length ? \"<span>🏴 掠夺者</span>\" : \"\"}<span><i class=\"vw\"></i>镜头</span></div></div>`",
+  "view": "<div class=\"bmbox u-paper\"><div class=\"phead\"><b>北行地图 <small>${0}点一处，镜头就飞过去</small></b><button class=\"x\" data-act=\"mapclose\">✕</button></div>\n      <div class=\"bmscroll\"><div class=\"bmin\"><canvas></canvas><div class=\"bmmk\"></div></div></div>\n      <div class=\"bmleg\"><span>🔥 营地</span>${1}${2}<span><i class=\"rt\"></i>探好的路</span><span>📍 发现的地标</span><span>❔ 未知</span><span>🧭 雾里的地点</span><span>🆘 幸存者</span>${3}<span><i class=\"vw\"></i>镜头</span></div></div>"
+ },
+ {
+  "file": "src/chainmap.js",
+  "start": 10178,
+  "end": 10589,
+  "raw": "`<div class=\"cmn ghost ${n.kind}\" data-nid=\"${n.id}\" style=\"${st}\"><span class=\"cmi\">${RICON[n.k]}</span><span class=\"cmt\"><b>没有${RES[n.k].n}来源</b><span class=\"cms\">${n.kind === 'short' ? '已经断供' : `库存还有 ${fmt(S.camps.find(c => c.id === S.active)?.stock[n.k] || 0)}`}</span>${t ? `<button class=\"small ${n.kind === 'short' ? 'go' : ''}\" data-act=\"place\" data-arg=\"${t}\">建${BLD[t].n}</button>` : ''}</span></div>`",
+  "view": "<div class=\"cmn ghost ${0}\" data-nid=\"${1}\" style=\"${2}\"><span class=\"cmi\">${3}</span><span class=\"cmt\"><b>没有${4}来源</b><span class=\"cms\">${5}</span>${6}</span></div>"
+ },
+ {
+  "file": "src/chainmap.js",
+  "start": 15606,
+  "end": 15985,
+  "raw": "`<div class=\"pladd\"><p>选一种材料立成支线：速度在目标以上稳住 10 分钟升一星，30 分钟二星（每座建筑少要 1 个工人），90 分钟三星。目标不能低于合格线。</p>\n        ${side >= smax ? `<p class=\"bad\">支线已经立满 ${smax} 条了：撤掉一条，或者走完这一程多一个名额。</p>` : `<div class=\"plpick\">${can.map(k => `<button data-pladd=\"${k}\">${RICON[k]}${RES[k].n}<small>合格线 ${Sim.qualFloor(S, k)}/分 · 现在 ${fr(Sim.prodRate(S, k))}/分</small></button>`).join('')}</div>`}</div>`",
+  "view": "<div class=\"pladd\"><p>选一种材料立成支线：速度在目标以上稳住 10 分钟升一星，30 分钟二星（每座建筑少要 1 个工人），90 分钟三星。目标不能低于合格线。</p>\n        ${0}</div>"
+ },
+ {
+  "file": "src/chainmap.js",
+  "start": 16410,
+  "end": 18086,
+  "raw": "`<div class=\"plhead\">${RICON[cur.r]}<b>${RES[cur.r].n}${cur.main ? '主线' : '支线'}</b>${stars(cur.star)}\n          <span class=\"pltg\">目标 <button class=\"small\" data-plset=\"${-step}\" ${cur.n - step < floor ? 'disabled' : ''}>−</button><b>${fr(cur.n)}</b>/分钟<button class=\"small\" data-plset=\"${step}\">＋</button></span>\n          ${Sim.lineBlueprint(S, cur.r) ? `<button class=\"small\" data-plcopy=\"${cur.r}\" title=\"把这条线的建筑整组复制到别处\">复制这条线</button>` : ''}\n          ${cur.main ? '' : `<button class=\"small ghostb\" data-pldrop=\"${cur.id}\">撤掉</button>`}</div>\n        <div class=\"plrate ${cur.on ? 'up' : ''}\"><span class=\"plbar\"><i style=\"width:${(pct * 100).toFixed(1)}%\"></i></span><b>${fr(P.rate)}</b>/${fr(cur.n)} 每分钟</div>\n        <div class=\"pltimers\">${goal ? `<span class=\"${h.done ? 'ok' : ''}\">${h.done ? '✓ 已经达标' : `达标：稳住 ${mmss(h.p)} / 3:00${cur.on ? '' : '（掉下来了，在往回退）'}`}</span>` : ''}\n          <span>${cur.star >= 3 ? '已经三星' : `${'★'.repeat(cur.star + 1)}：再稳住 ${mmss(nextStar)}${cur.on ? '' : '（暂停）'}`}</span>\n          <span class=\"plfx\">${['', '这条线的建筑产量 +15%', '每座建筑少要 1 个工人', '产量再 +30%'].slice(1, cur.star + 1).join('，') || '还没有星'}</span></div>\n        ${(() => { const a = Sim.advisor(S); return a && a.act === 'plan' && a.arg === cur.r ? `<div class=\"pladv\"><span class=\"gmd\"><svg class=\"gpf\" aria-hidden=\"true\"><use href=\"#c-spec_guide\"/></svg></span><span>${esc(a.text)}</span></div>` : ''; })()}\n        <div class=\"plnodes\">${P.nodes.map(x => this.planNode(x, P)).join('')}</div>\n        <div class=\"plfoot\"><span>这条线用了 <b>${P.people}</b> 人</span><span>主营地人口 <b>${P.pop}</b>/${P.cap}，空闲 ${Math.max(0, P.idle)} 人</span><span>供热圈空地约 <b>${P.free}</b> 块</span></div>`",
+  "view": "<div class=\"plhead\">${0}<b>${1}${2}</b>${3}\n          <span class=\"pltg\">目标 <button class=\"small\" data-plset=\"${4}\" ${5}>−</button><b>${6}</b>/分钟<button class=\"small\" data-plset=\"${7}\">＋</button></span>\n          ${8}\n          ${9}</div>\n        <div class=\"plrate ${10}\"><span class=\"plbar\"><i style=\"width:${11}%\"></i></span><b>${12}</b>/${13} 每分钟</div>\n        <div class=\"pltimers\">${14}\n          <span>${15}</span>\n          <span class=\"plfx\">${16}</span></div>\n        ${17}\n        <div class=\"plnodes\">${18}</div>\n        <div class=\"plfoot\"><span>这条线用了 <b>${19}</b> 人</span><span>主营地人口 <b>${20}</b>/${21}，空闲 ${22} 人</span><span>供热圈空地约 <b>${23}</b> 块</span></div>"
+ },
+ {
+  "file": "src/chainmap.js",
+  "start": 19376,
+  "end": 19524,
+  "raw": "`<small class=\"plh plow\">⛏ 暖圈里的${SPOTS[k].n}只剩 ${Math.round(o.frac * 100)}%${o.eta ? `，约 ${Math.max(1, Math.round(o.eta))} 分钟` : ''}：挖深井或勘探</small>`",
+  "view": "<small class=\"plh plow\">⛏ 暖圈里的${0}只剩 ${1}%${2}：挖深井或勘探</small>"
+ },
+ {
+  "file": "src/chainmap.js",
+  "start": 19539,
+  "end": 20302,
+  "raw": "`<div class=\"pln ${x.worst ? 'worst' : ''} ${pct >= 0.999 ? 'ok' : ''}\" style=\"--d:${x.depth}\">\n      <span class=\"plni\">${RICON[x.k]}</span>\n      <span class=\"plnt\"><span><b>${RES[x.k].n}</b>${x.worst ? `<em>${x.comp ? '被分走了' : '最卡'}</em>` : ''}</span><small>${t ? `${BLD[t].n} ×${x.count}${x.count ? ` · ${x.lvl} 级 · ${x.workers} 人` : ''}${x.alt ? ` · ${x.alt === x.count ? '都' : ` ${x.alt} 座`}用替代配方` : ''}` : ''}${stat ? ` · ${stat}` : ''}</small>\n        ${x.hint ? `<small class=\"plh\">${x.hint}</small>` : ''}${low}${x.depth ? this.planNet(x.k) : ''}${this.planMiss(x, P)}</span>\n      <span class=\"plnr\"><span class=\"plbar\"><i style=\"width:${(pct * 100).toFixed(1)}%\"></i></span><small>现在 <b>${fr(x.prod)}</b> / 要 ${fr(need)} 每分钟</small></span>${go}</div>`",
+  "view": "<div class=\"pln ${0} ${1}\" style=\"--d:${2}\">\n      <span class=\"plni\">${3}</span>\n      <span class=\"plnt\"><span><b>${4}</b>${5}</span><small>${6}${7}</small>\n        ${8}${9}${10}${11}</span>\n      <span class=\"plnr\"><span class=\"plbar\"><i style=\"width:${12}%\"></i></span><small>现在 <b>${13}</b> / 要 ${14} 每分钟</small></span>${15}</div>"
+ },
+ {
+  "file": "src/chainmap.js",
+  "start": 20808,
+  "end": 20963,
+  "raw": "`<small class=\"plh\">🛷 物流网：${best ? `「${esc(best.c.name)}」多 ${fr(best.sp)}，缺了会自己运过来` : ''}${best && inc ? '；' : ''}${inc ? `路上正运来 ${fr(inc)}` : ''}</small>`",
+  "view": "<small class=\"plh\">🛷 物流网：${0}${1}${2}</small>"
+ },
+ {
+  "file": "src/chainmap.js",
+  "start": 21855,
+  "end": 22153,
+  "raw": "`<span class=\"plmiss\"><small>还差约 <b>${nb}</b> 座${BLD[t].n}${stuck ? `：<em>${stuck}</em>` : ''}</small><span class=\"plmb\"><button class=\"small go\" data-act=\"place\" data-arg=\"${t}\">建一座</button>${low ? `<button class=\"small\" data-plgo=\"${low.id}\">或升级一座：+${fr(upg)}/分，不加人</button>` : ''}</span></span>`",
+  "view": "<span class=\"plmiss\"><small>还差约 <b>${0}</b> 座${1}${2}</small><span class=\"plmb\"><button class=\"small go\" data-act=\"place\" data-arg=\"${3}\">建一座</button>${4}</span></span>"
+ },
+ {
+  "file": "src/guild.js",
+  "start": 6480,
+  "end": 6603,
+  "raw": "`🛷 商会的车队到了：今天${best ? `「${RES[best].n}」价钱最好（${Math.round(floatOf(S, best) * 100)}%）` : '带来了新的价钱'}，订单 ${G.orders.length} 张。`",
+  "view": "🛷 商会的车队到了：今天${0}，订单 ${1} 张。"
+ },
+ {
+  "file": "src/hints.js",
+  "start": 6634,
+  "end": 6839,
+  "raw": "`第十二版的改动也一起来了：北迁不再重开一局，「${main.name}」现在是主营地${depots.length ? `，${depots.map(c => '「' + c.name + '」').join('、')}变成补给站` : ''}；每章的头一个目标改成「每分钟产多少」；多了 4 倍速，离线攒资源比在线慢。${back ? `巧手强化多出来的几级退回了 🔥${back} 余烬。` : ''}`",
+  "view": "第十二版的改动也一起来了：北迁不再重开一局，「${0}」现在是主营地${1}；每章的头一个目标改成「每分钟产多少」；多了 4 倍速，离线攒资源比在线慢。${2}"
+ },
+ {
+  "file": "src/hints.js",
+  "start": 7246,
+  "end": 7550,
+  "raw": "`1.1 接上了：${nr ? `原来的运输线和补给站换成了物流网，新修了 ${nr} 条路；` : S.camps.length > 1 ? '原来的运输线换成了物流网；' : ''}${sp ? `每座营地按地形分到了一样特产；` : ''}在岗的建筑从熟练 1 级算起；以前的研究都还在；${bots ? `营地里的 ${bots} 台自动机都按劳工型装回了仓里；` : ''}${S.cold ? '寒潮过一天开始报；' : ''}${north >= 4 ? '已经过了北境第 4 站，第一波永冬潮大约两天后报出来；' : ''}读档前自动备份了一份，「菜单 → 存档 → 自动备份」里能退回去。`",
+  "view": "1.1 接上了：${0}${1}在岗的建筑从熟练 1 级算起；以前的研究都还在；${2}${3}${4}读档前自动备份了一份，「菜单 → 存档 → 自动备份」里能退回去。"
+ },
+ {
+  "file": "src/hints.js",
+  "start": 7969,
+  "end": 8253,
+  "raw": "`<div class=\"wnpick\"><b>先挑一套配色</b><small>以后在「菜单 → 设置 → 界面配色」里随时能换</small><div class=\"seg\">${THEMES.map(([k, n, d]) => `<button class=\"btn ${pref === k ? 'on' : ''}\" data-act=\"wn-theme\" data-arg=\"${k}\">${n}<small>${k === 'auto' ? '风雪来时变冷' : d}</small></button>`).join('')}</div></div>`",
+  "view": "<div class=\"wnpick\"><b>先挑一套配色</b><small>以后在「菜单 → 设置 → 界面配色」里随时能换</small><div class=\"seg\">${0}</div></div>"
+ },
+ {
+  "file": "src/journey.js",
+  "start": 17464,
+  "end": 17561,
+  "raw": "`🛷 雪橇棚的车造完了：车队现在有 ${J.fleet.sled || 0} 架雪橇${J.fleet.tractor ? `、${J.fleet.tractor} 台蒸汽拖车` : ''}。`",
+  "view": "🛷 雪橇棚的车造完了：车队现在有 ${0} 架雪橇${1}。"
+ },
+ {
+  "file": "src/journey.js",
+  "start": 22892,
+  "end": 22982,
+  "raw": "`晚到约 ${x.wait} 秒 · ${Object.keys(x.loot).map(k => `${RES[k].n} +${x.loot[k]}`).join('，')}`",
+  "view": "晚到约 ${0} 秒 · ${1}"
+ },
+ {
+  "file": "src/journey.js",
+  "start": 33667,
+  "end": 33780,
+  "raw": "`🔥 车队到了「${st.n}」，新熔炉点着了（${T.fl} 级）。${tents ? `先搭好了 ${tents} 顶帐篷。` : ''}${embers ? `熄火的营地换来 ${embers} 点余烬。` : ''}`",
+  "view": "🔥 车队到了「${0}」，新熔炉点着了（${1} 级）。${2}${3}"
+ },
+ {
+  "file": "src/journey.js",
+  "start": 38163,
+  "end": 38262,
+  "raw": "`🕯 「${c.name}」熄火了。${n} 个人往北去了「${m.name}」${a.wait ? `（${a.wait} 人先在窝棚里等床位）` : ''}，换来 ${embers} 点余烬。`",
+  "view": "🕯 「${0}」熄火了。${1} 个人往北去了「${2}」${3}，换来 ${4} 点余烬。"
+ },
+ {
+  "file": "src/lines.js",
+  "start": 23238,
+  "end": 23452,
+  "raw": "`${RES[g.r].n}线卡在${RES[w.k].n}：${RES[w.k].n}一分钟产 ${fmtR(w.prod)}，这条线只要 ${fmtR(w.need)}，可${BLD[by.type].n}分不到${top ? `，大半被${BLD[top].n}吃掉了（${fmtR(eat[top])}/分）。少派几个人去${BLD[top].n}` : '。多产一些'}，${BLD[by.type].n}就能开工。`",
+  "view": "${0}线卡在${1}：${2}一分钟产 ${3}，这条线只要 ${4}，可${5}分不到${6}，${7}就能开工。"
+ },
+ {
+  "file": "src/lines.js",
+  "start": 24714,
+  "end": 24884,
+  "raw": "`${RES[g.r].n}线卡在${kn}：${kn}要先攒过 ${Math.ceil(Math.max(kb, kf))} 份（留给${forW}），多出来的才给${n}。${idle ? `${more}，或者先少盖点房子，让${kn}攒起来` : `先少盖点房子，让${kn}攒起来；人多了再多建几座${BLD[pt].n}`}。`",
+  "view": "${0}线卡在${1}：${2}要先攒过 ${3} 份（留给${4}），多出来的才给${5}。${6}。"
+ },
+ {
+  "file": "src/lines.js",
+  "start": 24910,
+  "end": 25015,
+  "raw": "`${RES[g.r].n}线卡在${kn}：${n}在等${kn}，${BLD[pt].n}供不上。${idle ? more : `没有闲人了：盖帐篷让更多人来投奔，再${BLD[pt].n}多派人`}。`",
+  "view": "${0}线卡在${1}：${2}在等${3}，${4}供不上。${5}。"
+ },
+ {
+  "file": "src/lines.js",
+  "start": 25886,
+  "end": 26051,
+  "raw": "`可${RES[w.k].n}矿点旁边已经放不下${BLD[w.type].n}了（被别的建筑占着，或者在供热圈外）：${blk ? `把矿点旁边的${BLD[blk.type].n}挪开（点它，选「挪位置」，不花材料）` : '把矿点旁边的一两座建筑挪开（点建筑，选「挪位置」）'}，或者升熔炉扩大供热圈，侦察营也能勘探新矿脉`",
+  "view": "可${0}矿点旁边已经放不下${1}了（被别的建筑占着，或者在供热圈外）：${2}，或者升熔炉扩大供热圈，侦察营也能勘探新矿脉"
+ },
+ {
+  "file": "src/lines.js",
+  "start": 28143,
+  "end": 28239,
+  "raw": "`车队还没备好：${miss.sub}。去${shed.camp === main.id ? '' : `「${getCamp(S, shed.camp).name}」的`}雪橇棚多造几架。`",
+  "view": "车队还没备好：${0}。去${1}雪橇棚多造几架。"
+ },
+ {
+  "file": "src/main.js",
+  "start": 9608,
+  "end": 10848,
+  "raw": "`<h3>离开了 ${fmtTime(secs)}</h3>\n      <p>营地一直在运转${sum.capped ? `，算到第 12 小时为止（之后营地停在那时的样子）` : ''}。这段时间物资平均按 <b>${Math.round(sum.rate * 100)}%</b> 入库（前 1 小时 40%，到 4 小时 20%，到 12 小时 10%；人照样要吃饭烧火），在线玩收益最高：</p>\n      <div class=\"sumgrid\">${gained.map(k => `<span>${RICON[k]} +${fmt(sum.res[k])}</span>`).join('')}${lost.map(k => `<span class=\"miss\">${RICON[k]} ${fmt(sum.res[k])}</span>`).join('')}</div>\n      <p>👥 人口 ${sum.people >= 0 ? '+' : ''}${sum.people}（投奔 ${sum.arrivals}，遇难 ${sum.deaths}）</p>\n      ${sum.blizzards ? `<p>❄ 经历了 ${sum.blizzards} 场暴风雪</p>` : ''}\n      ${sum.raids ? `<p>🐺 袭营 ${sum.raids} 次，击退 ${sum.raidsWon} 次</p>` : ''}\n      ${sum.lines && sum.lines.length ? `<div class=\"sec\">产线</div><div class=\"offl\">${sum.lines.map(l => `<div><span>${RICON[l.r]} ${RES[l.r].n}${l.main ? '主线' : '支线'}</span><span>入库 ${fmt(l.got)}（满速 ${fmt(l.per)}/分，按 ${Math.round(l.rk * 100)}%${l.rk > sum.rate + 1e-6 ? '，三星多拿一半' : ''}）</span><span class=\"st\">${l.star > l.star0 ? `升到 ${'★'.repeat(l.star)}` : '★'.repeat(l.star) || '还没有星'}</span></div>`).join('')}</div>` : ''}\n      ${sum.stage !== sum.stage0 ? `<p>🛷 车队到了「${Sim.stopOf(S, sum.stage).n}」，新熔炉已经点着了。</p>` : ''}\n      <p class=\"hint\">（结算用了 ${Math.round(performance.now() - t0)} 毫秒）</p>`",
+  "view": "<h3>离开了 ${0}</h3>\n      <p>营地一直在运转${1}。这段时间物资平均按 <b>${2}%</b> 入库（前 1 小时 40%，到 4 小时 20%，到 12 小时 10%；人照样要吃饭烧火），在线玩收益最高：</p>\n      <div class=\"sumgrid\">${3}${4}</div>\n      <p>👥 人口 ${5}${6}（投奔 ${7}，遇难 ${8}）</p>\n      ${9}\n      ${10}\n      ${11}\n      ${12}\n      <p class=\"hint\">（结算用了 ${13} 毫秒）</p>"
+ },
+ {
+  "file": "src/main.js",
+  "start": 34120,
+  "end": 34206,
+  "raw": "`🏆 收集册开张了：补记了 ${ent.length} 项收集${ach.length ? `、${ach.length} 个成就（余烬 +${f.em}）` : ''}`",
+  "view": "🏆 收集册开张了：补记了 ${0} 项收集${1}"
+ },
+ {
+  "file": "src/main.js",
+  "start": 34439,
+  "end": 34549,
+  "raw": "`🏆 成就达成「${a.n}」：解锁${Sim.giftList(a).map(([k, v]) => `${Sim.GIFT_LABEL[k]}「${Sim.giftName(k, v)}」`).join('、')}`",
+  "view": "🏆 成就达成「${0}」：解锁${1}"
+ },
+ {
+  "file": "src/main.js",
+  "start": 34760,
+  "end": 34881,
+  "raw": "`📖 收集册新添：${ent.slice(0, 3).map(([c, id]) => Sim.bookName(c, id)).join('、')}${ent.length > 3 ? ` 等 ${ent.length} 项` : ''}`",
+  "view": "📖 收集册新添：${0}${1}"
+ },
+ {
+  "file": "src/main.js",
+  "start": 41249,
+  "end": 41322,
+  "raw": "`<span class=\"pbad\">${pl.bad} 栋放不下${bad ? `（${bad.reason}）` : ''}</span>`",
+  "view": "<span class=\"pbad\">${0} 栋放不下${1}</span>"
+ },
+ {
+  "file": "src/main.js",
+  "start": 41382,
+  "end": 41483,
+  "raw": "` · 要 ${pl.workers} 人${pl.idle < pl.workers ? `<span class=\"pwarn\">（空闲只有 ${pl.idle} 人）</span>` : ''}`",
+  "view": " · 要 ${0} 人${1}"
+ },
+ {
+  "file": "src/main.js",
+  "start": 44300,
+  "end": 44565,
+  "raw": "`<span class=\"pok\">不花材料，挪过去停工 ${Sim.MOVE_PAUSE} 秒，等级和工人都留着</span><br>${P.check.ok ? (extra.length ? `<span class=\"pwarn\">${extra.join('；')}</span>` : `<span class=\"pok\">${touch ? '再点一次或按 ✓ 挪过去' : '点击地面挪过去'}</span>`) : `<span class=\"pbad\">${P.check.reason}</span>`}`",
+  "view": "<span class=\"pok\">不花材料，挪过去停工 ${0} 秒，等级和工人都留着</span><br>${1}"
+ },
+ {
+  "file": "src/main.js",
+  "start": 46427,
+  "end": 46534,
+  "raw": "`一排 ${slots.length} 栋 · ${costHtml}<br>${parts}${pl.ok || pl.q ? ` · ${touch ? '按 ✓ 建这一排' : '松开就建'}` : ''}`",
+  "view": "一排 ${0} 栋 · ${1}<br>${2}${3}"
+ },
+ {
+  "file": "src/main.js",
+  "start": 49070,
+  "end": 49160,
+  "raw": "`${BLD[b.type].n}挪好了，停工 ${Sim.MOVE_PAUSE} 秒后接着干活。${r.belts ? `拆掉了 ${r.belts} 条传送带。` : ''}`",
+  "view": "${0}挪好了，停工 ${1} 秒后接着干活。${2}"
+ },
+ {
+  "file": "src/north.js",
+  "start": 13955,
+  "end": 14013,
+  "raw": "`十二个人留了下来${a && a.wait ? `，床位不够，${a.wait} 人先在窝棚里等` : ''}。`",
+  "view": "十二个人留了下来${0}。"
+ },
+ {
+  "file": "src/north.js",
+  "start": 17021,
+  "end": 17056,
+  "raw": "`记了满满一本${m ? `，还请来了帮手：${m}` : ''}。`",
+  "view": "记了满满一本${0}。"
+ },
+ {
+  "file": "src/pc.js",
+  "start": 14463,
+  "end": 14884,
+  "raw": "`<span class=\"pcsp\"></span><button class=\"pcbx ${deco ? 'on' : ''}\" data-pct=\"deco\">${ico('i', 'palette')}装饰</button><button class=\"pcbx\" data-act=\"htab\" data-arg=\"wonder\">${ico('i', 'trophy')}奇观</button><button class=\"pcbx\" data-act=\"htab\" data-arg=\"bqueue\">${ico('i', 'hourglass')}队列${qn ? ` <b>${qn}</b>` : ''}</button><button class=\"pcbx\" data-act=\"htab\" data-arg=\"plan\">${ico('i', 'compass')}规划<kbd>J</kbd></button>`",
+  "view": "<span class=\"pcsp\"></span><button class=\"pcbx ${0}\" data-pct=\"deco\">${1}装饰</button><button class=\"pcbx\" data-act=\"htab\" data-arg=\"wonder\">${2}奇观</button><button class=\"pcbx\" data-act=\"htab\" data-arg=\"bqueue\">${3}队列${4}</button><button class=\"pcbx\" data-act=\"htab\" data-arg=\"plan\">${5}规划<kbd>J</kbd></button>"
+ },
+ {
+  "file": "src/people.js",
+  "start": 4427,
+  "end": 4475,
+  "raw": "`在${bn}干活${st && st !== '运转中' ? `（${st}）` : ''}`",
+  "view": "在${0}干活${1}"
+ },
+ {
+  "file": "src/photo.js",
+  "start": 2354,
+  "end": 2454,
+  "raw": "`寒烬北行 · ${extra || (c ? c.name : '')}${tt ? ` · ${tt}` : ''} · 第 ${Math.floor(S.t / DAY_LEN) + 1} 天`",
+  "view": "寒烬北行 · ${0}${1} · 第 ${2} 天"
+ },
+ {
+  "file": "src/photo.js",
+  "start": 7223,
+  "end": 8372,
+  "raw": "`\n      <div class=\"phrow\"><span class=\"phl\">时辰</span>${seg('tod', PH_TIMES, this.tod)}</div>\n      <div class=\"phrow\"><span class=\"phl\">滤镜</span>${seg('f', PH_FILTERS.map(x => [x.id, x.n]), this.f)}</div>\n      ${(() => { const S = g.S, L = Object.keys(FRAMES).filter(id => Sim.cosHave(S, 'frame', id)); return L.length > 1 ? `<div class=\"phrow\"><span class=\"phl\">相框</span>${seg('fr', L.map(id => [id, FRAMES[id].n]), this.frame())}</div>` : ''; })()}\n      <div class=\"phrow\"><span class=\"phl\">镜头</span><span class=\"phrng\"><small>平视</small><input type=\"range\" min=\"0\" max=\"100\" value=\"${this.pitch}\" data-ph=\"pitch\"><small>俯视</small></span>\n        <button class=\"phtg ${g.paused ? 'on' : ''}\" data-ph=\"freeze\" title=\"暂停时间，人和车都停住\">定格</button><button class=\"phtg ${this.ring ? 'on' : ''}\" data-ph=\"ring\" title=\"显示熔炉供热圈\">供热圈</button></div>\n      <div class=\"phrow phact\"><button class=\"phx\" data-ph=\"x\">✕ 退出</button><button class=\"phx\" data-ph=\"hide\">藏起工具条</button><button class=\"phshot\" data-ph=\"shot\">📸 拍照</button></div>\n      <div class=\"phtip\">拖动画面找角度 · ${matchMedia('(pointer:coarse)').matches ? '双指缩放、旋转' : '滚轮缩放 · 右键拖动旋转'} · 拍照模式里能凑得更近</div>`",
+  "view": "\n      <div class=\"phrow\"><span class=\"phl\">时辰</span>${0}</div>\n      <div class=\"phrow\"><span class=\"phl\">滤镜</span>${1}</div>\n      ${2}\n      <div class=\"phrow\"><span class=\"phl\">镜头</span><span class=\"phrng\"><small>平视</small><input type=\"range\" min=\"0\" max=\"100\" value=\"${3}\" data-ph=\"pitch\"><small>俯视</small></span>\n        <button class=\"phtg ${4}\" data-ph=\"freeze\" title=\"暂停时间，人和车都停住\">定格</button><button class=\"phtg ${5}\" data-ph=\"ring\" title=\"显示熔炉供热圈\">供热圈</button></div>\n      <div class=\"phrow phact\"><button class=\"phx\" data-ph=\"x\">✕ 退出</button><button class=\"phx\" data-ph=\"hide\">藏起工具条</button><button class=\"phshot\" data-ph=\"shot\">📸 拍照</button></div>\n      <div class=\"phtip\">拖动画面找角度 · ${6} · 拍照模式里能凑得更近</div>"
+ },
+ {
+  "file": "src/sim.js",
+  "start": 32153,
+  "end": 32275,
+  "raw": "`🏗️ ${BLD[type].n}的工地圈起来了。分三期施工，第一期「${sp.n}」：${sp.kinds.map(k => `${RES[k].n} ${sp.amt[k]}`).join('、')}，搬运工会一点点往里送，缺一种就停。`",
+  "view": "🏗️ ${0}的工地圈起来了。分三期施工，第一期「${1}」：${2}，搬运工会一点点往里送，缺一种就停。"
+ },
+ {
+  "file": "src/sim.js",
+  "start": 82283,
+  "end": 82402,
+  "raw": "`🌨 寒潮过去了。${hit.map(x => `「${x.name}」`).join('')}有人冻伤了${ok.length ? `；别的营地都挺住了，希望 +${COLD.hope}` : ''}。下次早点备燃料、给帐篷升级保暖。`",
+  "view": "🌨 寒潮过去了。${0}有人冻伤了${1}。下次早点备燃料、给帐篷升级保暖。"
+ },
+ {
+  "file": "src/sim.js",
+  "start": 84183,
+  "end": 84308,
+  "raw": "`${E.ic} ${E.n}还有 ${Math.ceil(we.inSec / 60)} 分钟就到。${need.length ? `还没准备的营地：${need.map(c => `「${c.name}」`).join('')}。` : ''}`",
+  "view": "${0} ${1}还有 ${2} 分钟就到。${3}"
+ },
+ {
+  "file": "src/sim.js",
+  "start": 84449,
+  "end": 84614,
+  "raw": "`${E.ic} 气象预报：约 ${Math.round(we.inSec / 60)} 分钟后有一场${E.n}，持续约 ${Math.round((we.ev.end - we.ev.start) / 60)} 分钟。${wxeMatters(S, c0, we.ev) ? `可以提前「${E.prep}」。` : ''}`",
+  "view": "${0} 气象预报：约 ${1} 分钟后有一场${2}，持续约 ${3} 分钟。${4}"
+ },
+ {
+  "file": "src/sim.js",
+  "start": 110985,
+  "end": 111069,
+  "raw": "`「${camp.name}」有了空床位，${k} 个在窝棚里等着的人住了进来${camp.wait ? `（还有 ${camp.wait} 人在等）` : ''}。`",
+  "view": "「${0}」有了空床位，${1} 个在窝棚里等着的人住了进来${2}。"
+ },
+ {
+  "file": "src/sim.js",
+  "start": 139563,
+  "end": 139776,
+  "raw": "`「${c.name}」暖圈里的${SPOTS[k].n}只剩 ${Math.max(1, Math.round(o.frac * 100))}% 了${o.eta != null ? `，按现在的速度还能挖约 ${Math.max(1, Math.round(o.eta))} 分钟` : ''}。可以给${t ? BLD[t].n : '矿场'}挖深井（挖完还有三成五的产量），或者派勘探队找新矿脉（这种情况按最低价）。`",
+  "view": "「${0}」暖圈里的${1}只剩 ${2}% 了${3}。可以给${4}挖深井（挖完还有三成五的产量），或者派勘探队找新矿脉（这种情况按最低价）。"
+ },
+ {
+  "file": "src/sim.js",
+  "start": 151316,
+  "end": 151432,
+  "raw": "`${s.kind === 'exp' ? '探险队' : '救援队'}带回了 ${s.carry.people} 名幸存者${ad.wait ? `，床位不够，${ad.wait} 人先在窝棚里等床位（多盖帐篷）` : ''}。`",
+  "view": "${0}带回了 ${1} 名幸存者${2}。"
+ },
+ {
+  "file": "src/sim.js",
+  "start": 155127,
+  "end": 155233,
+  "raw": "`「${c.name}」交了贡（${Object.keys(cost).map(k => `${RES[k].n} ${fmtN(cost[k])}`).join('、')}），「${nm}」的人扛着东西走了。`",
+  "view": "「${0}」交了贡（${1}），「${2}」的人扛着东西走了。"
+ },
+ {
+  "file": "src/sim.js",
+  "start": 155506,
+  "end": 155611,
+  "raw": "`「${c.name}」和「${nm}」做了一笔买卖：换来 ${Object.keys(T.get).map(k => `${RES[k].n} ${fmtN(T.get[k])}`).join('、')}。`",
+  "view": "「${0}」和「${1}」做了一笔买卖：换来 ${2}。"
+ },
+ {
+  "file": "src/sim.js",
+  "start": 157854,
+  "end": 157989,
+  "raw": "`「${c.name}」又一次打退了「${nm}」（${def} 对 ${str}），缴获 ${Object.keys(loot).map(k => `${RES[k].n} ${loot[k]}`).join('、')}。掠夺者营地散伙了，再也不会来了。余烬 +3。`",
+  "view": "「${0}」又一次打退了「${1}」（${2} 对 ${3}），缴获 ${4}。掠夺者营地散伙了，再也不会来了。余烬 +3。"
+ },
+ {
+  "file": "src/sim.js",
+  "start": 158021,
+  "end": 158156,
+  "raw": "`「${c.name}」打退了「${nm}」（${def} 对 ${str}），缴获 ${Object.keys(loot).map(k => `${RES[k].n} ${loot[k]}`).join('、')}。他们吃了亏，下次没那么凶了；再赢一次他们就该散了。`",
+  "view": "「${0}」打退了「${1}」（${2} 对 ${3}），缴获 ${4}。他们吃了亏，下次没那么凶了；再赢一次他们就该散了。"
+ },
+ {
+  "file": "src/sim.js",
+  "start": 158631,
+  "end": 158760,
+  "raw": "`「${nm}」冲进了「${c.name}」（防御 ${def} 对 ${str}）：物资被抢走约 ${Math.round(loss * 100)}%（口粮藏住了大半）${kill ? `，${kill} 人遇难` : ''}。多建箭塔，或者下次先纳贡。`",
+  "view": "「${0}」冲进了「${1}」（防御 ${2} 对 ${3}）：物资被抢走约 ${4}%（口粮藏住了大半）${5}。多建箭塔，或者下次先纳贡。"
+ },
+ {
+  "file": "src/sim.js",
+  "start": 159271,
+  "end": 159443,
+  "raw": "`没人答复，「${c.name}」打不过又凑不齐贡，只交了${Object.keys(got).length ? ` ${Object.keys(got).map(k => `${RES[k].n} ${fmtN(got[k])}`).join('、')}` : '一点零碎'}。「${gangName(g)}」骂骂咧咧地走了，说下回早点来。`",
+  "view": "没人答复，「${0}」打不过又凑不齐贡，只交了${1}。「${2}」骂骂咧咧地走了，说下回早点来。"
+ },
+ {
+  "file": "src/sim.js",
+  "start": 175809,
+  "end": 175917,
+  "raw": "`🔥 ${towerName(b.tn)}的塔身建好了：交齐${Object.entries(sp.fuel).map(([k, v]) => `${RES[k].n} ${v}`).join('、')}就能点火。`",
+  "view": "🔥 ${0}的塔身建好了：交齐${1}就能点火。"
+ },
+ {
+  "file": "src/sim.js",
+  "start": 190519,
+  "end": 190678,
+  "raw": "`${name}冲进了「${camp.name}」（防御 ${def} 对 ${str}）：物资被抢走约 ${Math.round(100 * loss)}%${p.hide ? '（收进地窖的保住了）' : ''}${kill ? `，${kill} 人遇难` : ''}。多建几座箭塔，下次提前点火墙、召集民兵。`",
+  "view": "${0}冲进了「${1}」（防御 ${2} 对 ${3}）：物资被抢走约 ${4}%${5}${6}。多建几座箭塔，下次提前点火墙、召集民兵。"
+ },
+ {
+  "file": "src/sim.js",
+  "start": 201246,
+  "end": 201303,
+  "raw": "`${x.n} 个流浪者留了下来${a.wait ? `，${a.wait} 人先在窝棚里等床位` : ''}。`",
+  "view": "${0} 个流浪者留了下来${1}。"
+ },
+ {
+  "file": "src/tide.js",
+  "start": 8003,
+  "end": 8179,
+  "raw": "`🧊 霜巨兽闯进了「${camp.name}」（防御 ${def} 对 ${str}）：${froze.length ? `${[...new Set(froze.map(b => BLD[b.type].n))].join('、')}被冻住了 ${TIDE.frz / 60} 分钟，` : ''}${hurt} 人冻伤病倒。没人遇难，冰化了就好。`",
+  "view": "🧊 霜巨兽闯进了「${0}」（防御 ${1} 对 ${2}）：${3}${4} 人冻伤病倒。没人遇难，冰化了就好。"
+ },
+ {
+  "file": "src/tide.js",
+  "start": 9010,
+  "end": 9055,
+  "raw": "`${hit.map(x => `「${x.name}」`).join('')}有人冻伤`",
+  "view": "${0}有人冻伤"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 4227,
+  "end": 4285,
+  "raw": "`${Math.floor(m / 60)} 小时${m % 60 ? ` ${m % 60} 分钟` : ''}`",
+  "view": "${0} 小时${1}"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 19297,
+  "end": 19665,
+  "raw": "`<div class=\"evtag\">终章 · 天火</div><h2>🔥 天火点亮了</h2><p class=\"story\">${esc(STORY.skyEnd)}</p>\n      <div class=\"sec\">这一路</div><div class=\"skysum\">${rows.map(([i, a, b]) => `<div><span>${i} ${a}</span><b>${b}</b></div>`).join('')}</div>\n      <div class=\"crw\">🎁 解锁：称号「点燃天火的人」、金色炉火、天火纪念碑（菜单 → 收藏 → 装扮）</div>\n      <p class=\"hint\">往北的路还没完：后面的站不再有塔，目标照样一站比一站高。最远纪录接着往上记。</p>`",
+  "view": "<div class=\"evtag\">终章 · 天火</div><h2>🔥 天火点亮了</h2><p class=\"story\">${0}</p>\n      <div class=\"sec\">这一路</div><div class=\"skysum\">${1}</div>\n      <div class=\"crw\">🎁 解锁：称号「点燃天火的人」、金色炉火、天火纪念碑（菜单 → 收藏 → 装扮）</div>\n      <p class=\"hint\">往北的路还没完：后面的站不再有塔，目标照样一站比一站高。最远纪录接着往上记。</p>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 20037,
+  "end": 20238,
+  "raw": "`<b>${esc(s.name)}</b><small>👥 ${s.people} 人 · 第 ${Math.floor((s.t || 0) / DAY_LEN) + 1} 天 · 第 ${s.runs} 次北行 · ${s.diff.ic}${s.diff.n}${s.cur ? '' : ago > 60 ? ` · ${fmtTime(ago)}前` : ' · 刚刚'}</small>`",
+  "view": "<b>${0}</b><small>👥 ${1} 人 · 第 ${2} 天 · 第 ${3} 次北行 · ${4}${5}${6}</small>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 22961,
+  "end": 23329,
+  "raw": "`<div class=\"mbox ev\"><div class=\"evtag\">${esc(v.camp)} · 事件</div><h2>${esc(v.title)}</h2><p class=\"story\">${esc(v.text)}</p><div class=\"evopts\">${v.opts.map((o, i) => `<button class=\"evopt ${o.ok ? '' : 'no'}\" ${o.ok ? `data-act=\"ev\" data-arg=\"${i}\"` : 'disabled'}><b>${esc(o.t)}</b><small>${esc(o.d)}${o.ok ? '' : ' · 物资不够'}</small></button>`).join('')}</div></div>`",
+  "view": "<div class=\"mbox ev\"><div class=\"evtag\">${0} · 事件</div><h2>${1}</h2><p class=\"story\">${2}</p><div class=\"evopts\">${3}</div></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 23711,
+  "end": 24308,
+  "raw": "`<div class=\"mbox ev\"><div class=\"evtag\">车队 · 往「${esc(Sim.stopOf(this.S, T.to).n)}」的路上</div><h2>${esc(v.title)}</h2><p class=\"story\">${esc(v.text)}</p><div class=\"evopts\">${v.opts.map((o, i) => `<button class=\"evopt ${o.ok ? '' : 'no'}\" ${o.ok ? `data-act=\"road\" data-arg=\"${i}\"` : 'disabled'}><b>${esc(o.t)}${o.def ? '<em class=\"evdef\">默认</em>' : ''}</b><small>${esc(o.d)}${o.ok ? '' : ' · 车上没带够'}</small></button>`).join('')}</div><p class=\"hint\">车队停下来等你拿主意。${v.left} 秒内不选，就按「默认」办。</p>${first ? '<p class=\"hint wnfirst\">✨ 第一次碰上路上的事：车上带的货能多给一条路。搭桥要木板，扎营要燃料，丢给狼群要生肉；灰掉的选项就是车上没带够。</p>' : ''}</div>`",
+  "view": "<div class=\"mbox ev\"><div class=\"evtag\">车队 · 往「${0}」的路上</div><h2>${1}</h2><p class=\"story\">${2}</p><div class=\"evopts\">${3}</div><p class=\"hint\">车队停下来等你拿主意。${4} 秒内不选，就按「默认」办。</p>${5}</div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 33369,
+  "end": 33591,
+  "raw": "`<div class=\"tsave\"><b>🔥 ${esc(c.name)}</b><span>${ch ? esc(ch.ch.n) : ''}</span><small>存档 ${this.g.slot} · ${D.ic}${D.n} · 👥 ${ppl} 人 · 第 ${S.meta.runs || 1} 次北行${ago > 60 ? ` · 上次来是 ${fmtTime(ago)}前` : ''}</small></div>`",
+  "view": "<div class=\"tsave\"><b>🔥 ${0}</b><span>${1}</span><small>存档 ${2} · ${3}${4} · 👥 ${5} 人 · 第 ${6} 次北行${7}</small></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 33625,
+  "end": 34337,
+  "raw": "`<div class=\"tshade\"></div><div class=\"tbox\">\n      <div class=\"tkick\">HAN · JIN · BEI · XING</div>\n      <h1 class=\"tname\">${'寒烬北行'.split('').map((ch, i) => `<span style=\"animation-delay:${0.15 + i * 0.12}s\">${ch}</span>`).join('')}</h1>\n      <p class=\"ttag\">世界在一个冬天里冻住了。<br>一程一程往北走，重新点燃永恒之炉。</p>\n      ${card}\n      <div class=\"tbtns\">\n        <button class=\"tbtn go\" data-act=\"title-go\">${hasSave ? '继续北行' : '开始北行'}</button>\n        <button class=\"tbtn\" data-act=\"help\">怎么玩</button>\n        ${hasSave ? '<button class=\"tbtn ghost\" data-act=\"title-new\">新的北行</button><button class=\"tbtn ghost\" data-act=\"slots\">存档位</button>' : ''}\n      </div></div>\n      <div class=\"tfoot\">${VERSION_NAME} · 低多边形冬日生存经营</div>`",
+  "view": "<div class=\"tshade\"></div><div class=\"tbox\">\n      <div class=\"tkick\">HAN · JIN · BEI · XING</div>\n      <h1 class=\"tname\">${0}</h1>\n      <p class=\"ttag\">世界在一个冬天里冻住了。<br>一程一程往北走，重新点燃永恒之炉。</p>\n      ${1}\n      <div class=\"tbtns\">\n        <button class=\"tbtn go\" data-act=\"title-go\">${2}</button>\n        <button class=\"tbtn\" data-act=\"help\">怎么玩</button>\n        ${3}\n      </div></div>\n      <div class=\"tfoot\">${4} · 低多边形冬日生存经营</div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 34910,
+  "end": 35359,
+  "raw": "`<div class=\"mbox ev\"><div class=\"evtag\">🧭 探险队 · ${s.n} 人 · ${s.sup === 'full' ? '补给充足' : '轻装'}</div><h2>${K.ic} ${esc(v.title)}</h2><p class=\"story\">${esc(v.text)}</p><div class=\"evopts\">${v.opts.map((o, i) => `<button class=\"evopt ${o.ok ? '' : 'no'}\" ${o.ok ? `data-act=\"siteopt\" data-arg=\"${s.id}:${i}\"` : 'disabled'}><b>${o.need ? '⛺ ' : ''}${esc(o.t)}</b><small>${esc(o.d)}${o.ok ? '' : ' · 要带足补给才能做'}</small></button>`).join('')}</div></div>`",
+  "view": "<div class=\"mbox ev\"><div class=\"evtag\">🧭 探险队 · ${0} 人 · ${1}</div><h2>${2} ${3}</h2><p class=\"story\">${4}</p><div class=\"evopts\">${5}</div></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 35555,
+  "end": 36056,
+  "raw": "`<div class=\"mbox ev qy\"><div class=\"evtag\">北境 · 奇遇</div><h2>${this.qyIco(res.id, res.ic)} ${esc(res.n)}</h2><p class=\"story\">${esc(res.msg)}</p>${res.next ? `<p class=\"hint\">${res.wait > 5 ? `过 ${fmtTime(res.wait)} 还有下文${res.away ? `，派出去的 ${res.away} 个人那时回来` : ''}。` : '马上还有下文。'}</p>` : '<p class=\"hint\">这件奇遇走完了，记进了收集册。</p>'}<div class=\"mbtns\"><button class=\"btn go\" data-act=\"${res.next && res.wait <= 5 ? 'qyopen' : 'close-modal'}\">${res.next && res.wait <= 5 ? '接着看' : '知道了'}</button></div></div>`",
+  "view": "<div class=\"mbox ev qy\"><div class=\"evtag\">北境 · 奇遇</div><h2>${0} ${1}</h2><p class=\"story\">${2}</p>${3}<div class=\"mbtns\"><button class=\"btn go\" data-act=\"${4}\">${5}</button></div></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 36186,
+  "end": 36723,
+  "raw": "`<div class=\"mbox ev qy\"><div class=\"evtag\">北境 · 奇遇 · ${esc(v.camp)}${v.st ? ' · 下文' : ''}</div><h2>${this.qyIco(v.id, v.ic)} ${esc(v.n)}</h2><p class=\"story\">${esc(v.text)}</p><div class=\"evopts\">${v.opts.map((o, i) => `<button class=\"evopt ${o.ok ? '' : 'no'}\" ${o.ok ? `data-act=\"qyopt\" data-arg=\"${i}\"` : 'disabled'}><b>${o.g ? '🧭 ' : ''}${esc(o.t)}</b><small>${esc(o.d)}${o.ok ? '' : ` · ${esc(o.why)}`}</small></button>`).join('')}</div><div class=\"mbtns\"><button class=\"btn ghost\" data-act=\"close-modal\">稍后再说</button></div></div>`",
+  "view": "<div class=\"mbox ev qy\"><div class=\"evtag\">北境 · 奇遇 · ${0}${1}</div><h2>${2} ${3}</h2><p class=\"story\">${4}</p><div class=\"evopts\">${5}</div><div class=\"mbtns\"><button class=\"btn ghost\" data-act=\"close-modal\">稍后再说</button></div></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 37726,
+  "end": 38257,
+  "raw": "`<div class=\"mbox chap\"><div class=\"evtag\">📖 新的一章 · ${esc(Sim.stopOf(this.S, i).n)}</div><h2>${esc(ch.n)}</h2><p class=\"story\">${esc(ch.story)}</p>${brief ? `<div class=\"brief\">${GMED}<div><b>老向导</b>${brief.map(x => `<p>${esc(x)}</p>`).join('')}</div></div>` : ''}<div class=\"sec\">这一章要做的事</div><ul class=\"ctl\">${ch.tasks.map(t => `<li>${esc(t.t)}</li>`).join('')}</ul><div class=\"crw\">🎁 奖励：${esc(Sim.chapterReward(this.S, i).join('，'))}</div><div class=\"mbtns\"><button class=\"btn go\" data-act=\"close-modal\">出发</button></div></div>`",
+  "view": "<div class=\"mbox chap\"><div class=\"evtag\">📖 新的一章 · ${0}</div><h2>${1}</h2><p class=\"story\">${2}</p>${3}<div class=\"sec\">这一章要做的事</div><ul class=\"ctl\">${4}</ul><div class=\"crw\">🎁 奖励：${5}</div><div class=\"mbtns\"><button class=\"btn go\" data-act=\"close-modal\">出发</button></div></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 42940,
+  "end": 43019,
+  "raw": "`${fmtTime(nr.in)} 后到。防御 ${def}，对方强度 ${str}${tags ? `，已经备了${tags}` : '，还没备战'}。`",
+  "view": "${0} 后到。防御 ${1}，对方强度 ${2}${3}。"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 49409,
+  "end": 49518,
+  "raw": "`人口 / 床位 · 希望 ${hp} · 不满 ${ds}${c.wait > 0 ? ` · ${c.wait} 人在等床位` : ''}${c.bots ? ` · 自动机 ${c.bots} 台` : ''}`",
+  "view": "人口 / 床位 · 希望 ${0} · 不满 ${1}${2}${3}"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 63050,
+  "end": 63627,
+  "raw": "`<div class=\"cmdpop\"><b>${this.cIco('cmd_' + id, d.ic)} ${d.n}</b><small>${d.d}</small><small class=\"cm\">${d.net ? '整个物流网' : `只管「${esc(c.name)}」`} · 持续 ${len} · 冷却 ${d.cd / 60} 分钟</small>${other ? `<small class=\"cm warn\">正在「${esc(Sim.getCamp(S, S.cmd[id].camp).name)}」生效</small>` : ''}<div class=\"cpb\"><button class=\"small\" data-act=\"cmdsel\" data-arg=\"\">收起</button><button class=\"small ${ck.ok ? 'go' : ''}\" data-act=\"cmdfire\" data-arg=\"${id}\" ${ck.ok ? '' : 'disabled'}>${ck.ok ? '📯 发令' : ck.on ? '生效中' : ck.cd ? fmtTime(ck.cd) + ' 后可发' : esc(ck.reason)}</button></div></div>`",
+  "view": "<div class=\"cmdpop\"><b>${0} ${1}</b><small>${2}</small><small class=\"cm\">${3} · 持续 ${4} · 冷却 ${5} 分钟</small>${6}<div class=\"cpb\"><button class=\"small\" data-act=\"cmdsel\" data-arg=\"\">收起</button><button class=\"small ${7}\" data-act=\"cmdfire\" data-arg=\"${8}\" ${9}>${10}</button></div></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 63966,
+  "end": 64130,
+  "raw": "`<div class=\"row\"><span>自动机</span><span><b>${n}</b>/${cap} 台 · ${BOT_MODELS[md].n}${b.want != null && b.want < cap ? ` · 空着 ${cap - b.want} 个位子` : ''}</span></div>`",
+  "view": "<div class=\"row\"><span>自动机</span><span><b>${0}</b>/${1} 台 · ${2}${3}</span></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 65174,
+  "end": 65606,
+  "raw": "`<div class=\"row\"><span>核心回收</span><span style=\"flex:none;display:flex;gap:6px\">${n >= 2 ? `<button class=\"small\" data-act=\"bayscrap\" data-arg=\"${b.id}:2\">拆 2 台</button><button class=\"small\" data-act=\"bayscrap\" data-arg=\"${b.id}:${n}\">全拆</button>` : ''}${b.want != null ? `<button class=\"small go\" data-act=\"bayfill\" data-arg=\"${b.id}\">重新装满</button>` : ''}</span></div><div class=\"hint\">拆下来的自动机两台退一个核心；拆过以后这个仓不再自动装，点「重新装满」恢复。</div>`",
+  "view": "<div class=\"row\"><span>核心回收</span><span style=\"flex:none;display:flex;gap:6px\">${0}${1}</span></div><div class=\"hint\">拆下来的自动机两台退一个核心；拆过以后这个仓不再自动装，点「重新装满」恢复。</div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 71178,
+  "end": 71388,
+  "raw": "`<div class=\"cartag ${left ? '' : 'done'}\" style=\"transform:translate(${p.x | 0}px,${p.y | 0}px)\">🛷 商队${left ? `<b>${left}</b>张订单` : ' 货已交齐'}${close ? `<small>${fmtTime(S.car.until - S.t)}</small>` : ''}</div>`",
+  "view": "<div class=\"cartag ${0}\" style=\"transform:translate(${1}px,${2}px)\">🛷 商队${3}${4}</div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 72921,
+  "end": 73346,
+  "raw": "`<div class=\"camptag\" style=\"transform:translate(${p.x | 0}px,${p.y | 0}px)\">${role}${F ? `<i class=\"fch xs\" style=\"background:${F.col}\" title=\"${F.n}营地\">${F.ch}</i>` : ''}${esc(c.name)}<small> · ${Sim.getB(S, c.furnace).lvl} 级</small>${ttl && (c.id === mainId || S.camps.length === 1) ? `<i class=\"cttl\">${esc(ttl)}</i>` : ''}${nf ? `<b class=\"ctfull\" data-camp=\"${c.id}\" title=\"${nf} 栋建筑因为仓库满了停工\">📦满 ${nf}</b>` : ''}</div>`",
+  "view": "<div class=\"camptag\" style=\"transform:translate(${0}px,${1}px)\">${2}${3}${4}<small> · ${5} 级</small>${6}${7}</div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 76018,
+  "end": 76300,
+  "raw": "`<div class=\"ghosttag ${pl.ok ? 'ok' : pl.q ? 'soft' : 'bad'}\" style=\"transform:translate(${p.x | 0}px,${p.y | 0}px)\">${esc(RES[P.bp.r].n)}线 ${P.bp.items.length} 栋<br>${[pl.ok && `✓ 马上建 ${pl.ok}`, pl.q && `排队 ${pl.q}`, pl.bad && `${pl.bad} 处放不下`].filter(Boolean).join(' · ')}</div>`",
+  "view": "<div class=\"ghosttag ${0}\" style=\"transform:translate(${1}px,${2}px)\">${3}线 ${4} 栋<br>${5}</div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 76581,
+  "end": 76711,
+  "raw": "`一排 ${L.length} 栋<br>${[pl.ok && `✓ 马上建 ${pl.ok}`, pl.q && `排队 ${pl.q}`, pl.bad && `${pl.bad} 处不能建`].filter(Boolean).join(' · ')}`",
+  "view": "一排 ${0} 栋<br>${1}"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 78228,
+  "end": 78344,
+  "raw": "`<br><span class=\"gwarn\">会多要${short.map(x => `${RES[x.k].n} ${fr(x.need)}/分（现在余 ${fr(x.spare)}）`).join('、')}</span>`",
+  "view": "<br><span class=\"gwarn\">会多要${0}</span>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 90382,
+  "end": 90624,
+  "raw": "`<div class=\"phead ${tb ? 'tabbed' : ''}\">${bk}<b>${ttl}</b><span class=\"pesc\">按 <kbd>Esc</kbd> 或右键关上</span><button class=\"x\" data-act=\"close\">✕</button>${tb}</div><div class=\"pbody\">${body}</div>${ft ? `<div class=\"pfbar\">${ft}</div>` : ''}`",
+  "view": "<div class=\"phead ${0}\">${1}<b>${2}</b><span class=\"pesc\">按 <kbd>Esc</kbd> 或右键关上</span><button class=\"x\" data-act=\"close\">✕</button>${3}</div><div class=\"pbody\">${4}</div>${5}"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 97974,
+  "end": 98086,
+  "raw": "`<b class=\"bad\">会冻住</b>：${hs ? `${hs} 座暖炉` : ''}${hs && c.pipe ? '和' : ''}${c.pipe ? `${c.pipe} 级暖气管` : ''}停止供热`",
+  "view": "<b class=\"bad\">会冻住</b>：${0}${1}${2}停止供热"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 100942,
+  "end": 101297,
+  "raw": "`<div class=\"wxhero tide ${z.on ? 'on' : z.inSec <= 600 ? 'near' : ''}\"><div class=\"wxi\">🌌</div><div><b>${z.on ? `永冬潮第 ${z.n} 波，还剩 ${fmtTime(z.left)}` : `第 ${z.n} 波约 ${fmtTime(z.inSec)} 后到`}</b><small>持续一天半 · 气温 −${z.drop}° · 熔炉烧 ${m} 倍燃料 · 户外采集 ${Math.round(Sim.tideGather(S) * 100)}%${Sim.techDone(S, 'botshell') ? '（自动机不受影响）' : ''}</small></div></div>`",
+  "view": "<div class=\"wxhero tide ${0}\"><div class=\"wxi\">🌌</div><div><b>${1}</b><small>持续一天半 · 气温 −${2}° · 熔炉烧 ${3} 倍燃料 · 户外采集 ${4}%${5}</small></div></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 101762,
+  "end": 102247,
+  "raw": "`<div class=\"row nw\"><span>霜巨兽</span><span>${bv.done ? (bv.won ? '<b class=\"ok\">✔ 打退了</b>' : '<b class=\"bad\">闯进来过</b>，冻住的建筑过一阵会化开') : `${bv.in > 0 ? fmtTime(bv.in) + '后' : '马上'}冲「${esc(bv.name)}」 · 强度 ${bv.str} · 防御 ${bv.def} ${bv.def >= bv.str ? '<b class=\"ok\">✔ 守得住</b>' : Sim.colossusReady && Sim.colossusReady(S) && Sim.wonderOn(S, 'wcolossus') ? '<b class=\"warn\">靠蒸汽巨像吓走</b>' : '<b class=\"bad\">✖ 守不住</b>'}`}<br><small>守不住：几座建筑冻住 ${T.frz / 60} 分钟，几个人冻伤病倒，不会死人</small></span></div>`",
+  "view": "<div class=\"row nw\"><span>霜巨兽</span><span>${0}<br><small>守不住：几座建筑冻住 ${1} 分钟，几个人冻伤病倒，不会死人</small></span></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 103096,
+  "end": 103428,
+  "raw": "`<div class=\"wxhero ${cs.on ? 'on' : cs.inSec <= 300 ? 'near' : ''}\"><div class=\"wxi\">🌨</div><div><b>${cs.on ? `寒潮中，还剩 ${fmtTime(cs.left)}` : `约 ${fmtTime(cs.inSec)} 后寒潮来袭`}</b><small>持续一整天 · 熔炉烧 ${m} 倍燃料 · 户外采集 ${Math.round(Sim.coldGather(S) * 100)}% · 气温 −${C.drop}°${Sim.coldBliz(S, cs) ? ' · 和暴风雪撞在一起' : ''}</small></div></div>`",
+  "view": "<div class=\"wxhero ${0}\"><div class=\"wxi\">🌨</div><div><b>${1}</b><small>持续一整天 · 熔炉烧 ${2} 倍燃料 · 户外采集 ${3}% · 气温 −${4}°${5}</small></div></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 104219,
+  "end": 104435,
+  "raw": "`<div class=\"wxhero ${P.on ? 'on' : P.inSec <= 600 ? 'near' : ''}\"><div class=\"wxi\">❄</div><div><b>${big}</b><small>${P.on ? '' : `持续约 ${Math.round(P.dur / 60)} 分钟 · `}气温骤降 ${Math.round(P.drop)}°</small></div></div>`",
+  "view": "<div class=\"wxhero ${0}\"><div class=\"wxi\">❄</div><div><b>${1}</b><small>${2}气温骤降 ${3}°</small></div></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 104965,
+  "end": 105137,
+  "raw": "`<div class=\"row\"><span>燃料</span><span>${P.fuelEnd >= 0 ? `<b class=\"ok\">✔ 够</b> 雪停时还剩约 ${fmt(P.fuelEnd)}` : `<b class=\"bad\">✖ 不够</b> 还差约 ${fmt(-P.fuelEnd)}`}</span></div>`",
+  "view": "<div class=\"row\"><span>燃料</span><span>${0}</span></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 105148,
+  "end": 105320,
+  "raw": "`<div class=\"row\"><span>熟食</span><span>${P.foodEnd >= 0 ? `<b class=\"ok\">✔ 够</b> 雪停时还剩约 ${fmt(P.foodEnd)}` : `<b class=\"bad\">✖ 不够</b> 还差约 ${fmt(-P.foodEnd)}`}</span></div>`",
+  "view": "<div class=\"row\"><span>熟食</span><span>${0}</span></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 106414,
+  "end": 106631,
+  "raw": "`<div class=\"relic ${own ? 'own' : ''}\"><div class=\"rli\">🏺</div><div><b>遗物「${esc(f.relic.n)}」</b><span>${esc(f.relic.d)}</span><small>${own ? '✔ 已经带回，永久生效，北迁后也保留' : `在它旁边 ${14} 格内点起前哨熔炉就能带回，永久生效`}</small></div></div>`",
+  "view": "<div class=\"relic ${0}\"><div class=\"rli\">🏺</div><div><b>遗物「${1}」</b><span>${2}</span><small>${3}</small></div></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 107073,
+  "end": 107561,
+  "raw": "`<div class=\"sec\">永夜冰原 · 远方地标</div><div class=\"farlist\">${FAR_MARKS.map((x, k) => { const s2 = Sim.farState(S, k), o2 = !!(S.meta.relics && S.meta.relics[k]); return `<div class=\"fli ${s2} ${k === i ? 'cur' : ''}\" ${s2 !== 'none' ? `data-act=\"far\" data-arg=\"${k}\"` : ''}><b>${s2 === 'none' ? '？？？' : esc(x.n)}</b><small>${s2 === 'none' ? `大约在第 ${x.row} 行` : o2 ? `🏺 ${esc(x.relic.d)}` : '还没带回遗物'}</small><i>${s2 === 'lit' ? '✨' : s2 === 'seen' ? '📍' : '·'}</i></div>`; }).join('')}</div>`",
+  "view": "<div class=\"sec\">永夜冰原 · 远方地标</div><div class=\"farlist\">${0}</div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 108013,
+  "end": 108191,
+  "raw": "`<div class=\"rdhero\"><div class=\"cari\">🛡</div><div><b>${nr ? `下一次袭击大约 ${fmtTime(nr.in)} 后` : '眼下没有袭击'}</b><small>侦察兵会提前 ${Sim.RAID_PREP / 60} 分钟发现袭击者，那时可以备战。</small></div></div>`",
+  "view": "<div class=\"rdhero\"><div class=\"cari\">🛡</div><div><b>${0}</b><small>侦察兵会提前 ${1} 分钟发现袭击者，那时可以备战。</small></div></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 108429,
+  "end": 108645,
+  "raw": "`<div class=\"rdhero ${def >= str ? '' : 'bad'}\"><div class=\"cari\">🐺</div><div><b>${name}约 ${fmtTime(nr.in)} 后袭击「${esc(c.name)}」</b><small>强度 ${str} · 防御 ${def}${def !== d0 ? `（箭塔和人手 ${d0}）` : ''}</small></div></div>`",
+  "view": "<div class=\"rdhero ${0}\"><div class=\"cari\">🐺</div><div><b>${1}约 ${2} 后袭击「${3}」</b><small>强度 ${4} · 防御 ${5}${6}</small></div></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 108739,
+  "end": 108898,
+  "raw": "`<div class=\"row\"><span>结果预估</span><span>${def >= str ? '<b class=\"ok\">✔ 守得住</b>，还能收获一批生肉' : `<b class=\"bad\">✖ 守不住</b>，会被抢走约 ${lose}% 物资，可能有人遇难`}</span></div>`",
+  "view": "<div class=\"row\"><span>结果预估</span><span>${0}</span></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 112120,
+  "end": 112228,
+  "raw": "`多给些吃的和燃料，换回他们抢来的货：${Object.keys(T.get).map(k => `${RICON[k]}<b>${fmt(T.get[k])}</b>`).join(' ')}。来往越多给得越多。`",
+  "view": "多给些吃的和燃料，换回他们抢来的货：${0}。来往越多给得越多。"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 112492,
+  "end": 112662,
+  "raw": "`${def >= str ? '<b class=\"ok\">✔ 守得住</b>（防御 ' + def + ' 对 ' + str + '）：缴获一批货，他们会弱一些' : `<b class=\"bad\">✖ 守不住</b>（防御 ${def} 对 ${str}）：会被抢走约 ${lose}% 物资，可能有人遇难`}。多建箭塔能加防御。`",
+  "view": "${0}。多建箭塔能加防御。"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 112942,
+  "end": 113074,
+  "raw": "`<div class=\"carhero\"><div class=\"cari\">🛷</div><div><b>商队已经走了</b><small>${n ? `下一支大约 ${fmtTime(n.in)} 后到` : ''}</small></div></div>`",
+  "view": "<div class=\"carhero\"><div class=\"cari\">🛷</div><div><b>商队已经走了</b><small>${0}</small></div></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 115326,
+  "end": 115481,
+  "raw": "`<div class=\"row\"><span>还缺</span><span>${miss.length ? miss.map(k => `${RICON[k]}${fmt(cost[k] - (c.stock[k] || 0))}`).join(' ') : '齐了，马上开工'}</span></div>`",
+  "view": "<div class=\"row\"><span>还缺</span><span>${0}</span></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 116051,
+  "end": 116319,
+  "raw": "`<div class=\"row\"><span>现有</span><span>🛷 雪橇 ${J.fleet.sled || 0} 架${J.fleet.tractor || J.stage >= V.tractor.from ? ` · 蒸汽拖车 ${J.fleet.tractor || 0} 台` : ''}${J.fleet.icebreaker || J.stage >= V.icebreaker.from ? ` · 破冰车 ${J.fleet.icebreaker || 0} 台` : ''}</span></div>`",
+  "view": "<div class=\"row\"><span>现有</span><span>🛷 雪橇 ${0} 架${1}${2}</span></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 116448,
+  "end": 116723,
+  "raw": "`<div class=\"row sub\"><span>往「${esc(P.to.n)}」</span><span>${P.roomOk ? `装得下：${P.people} 人和货共 ${fmt(P.load)} 份，车上能装 ${fmt(P.cap)}` : `还差 ${fmt(P.lack)} 份地方，大约 ${Math.ceil(P.lack / V.sled.cap)} 架雪橇${big ? `或 ${Math.ceil(P.lack / V[big].cap)} 台${V[big].n}` : ''}`}</span></div>`",
+  "view": "<div class=\"row sub\"><span>往「${0}」</span><span>${1}</span></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 116842,
+  "end": 117076,
+  "raw": "`<div class=\"row vq\"><span>${sp > 0 ? '在造' : '停着'} · ${Sim.vehName(q.v)}</span><span>${sp > 0 ? `还要 ${fmtTime((1 - q.p) * V[q.v].secs / sp)}` : '先派人'} <button class=\"small\" data-act=\"vehx\" data-arg=\"${b.id}:0\">撤</button></span></div>`",
+  "view": "<div class=\"row vq\"><span>${0} · ${1}</span><span>${2} <button class=\"small\" data-act=\"vehx\" data-arg=\"${3}:0\">撤</button></span></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 117656,
+  "end": 118183,
+  "raw": "`<div class=\"row\"><span>${Sim.vehName(v)}<small>装 ${V[v].cap} 份（${V[v].cap / Sim.PERSON_LOAD} 个人）· ${v === 'sled' ? '路上烧木柴' : v === 'tractor' ? '路上烧煤，没有雪橇时快一半' : '路上烧电池，冰面和裂谷直接开过去'}</small></span><span>${locked ? `<small>${esc(why)}</small>` : `${costHtml(c.stock, V[v].cost, S.known)} <button class=\"small ${why ? '' : 'go'}\" data-act=\"veh\" data-arg=\"${b.id}:${v}:1\">造 1 ${v === 'sled' ? '架' : '台'}</button>${v === 'sled' ? ` <button class=\"small\" data-act=\"veh\" data-arg=\"${b.id}:${v}:5\">造 5 架</button>` : ''}`}</span></div>`",
+  "view": "<div class=\"row\"><span>${0}<small>装 ${1} 份（${2} 个人）· ${3}</small></span><span>${4}</span></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 118661,
+  "end": 118969,
+  "raw": "`<div class=\"row sub\"><span>熟练工</span><span>${l ? `${l} 级 · 产量 +${Math.round(l * Sim.SKILL_PER * 100)}%` : '还是生手'}${nx ? `<small>（满员再干 ${fmtTime(nx.min * 60)} 升 ${nx.lvl} 级）</small>` : '<small>（练到顶了）</small>'}${pend && (b.xp || 0) > 0 ? `<br><b class=\"warn\">人手少了：${pend} 秒内补回来，熟练度不会掉</b>` : ''}</span></div>`",
+  "view": "<div class=\"row sub\"><span>熟练工</span><span>${0}${1}${2}</span></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 121120,
+  "end": 121337,
+  "raw": "`<button class=\"mlink\" data-act=\"tb\" data-arg=\"research\"><span>🔬</span><span>${ct ? `正在研究「${ct.n}」 ${Math.floor(T.prog / ct.pts * 100)}%` : '挑一项研究'}<small>这座工程站每分钟 ${fmt(br.rp || 0)} 点</small></span><i>›</i></button>`",
+  "view": "<button class=\"mlink\" data-act=\"tb\" data-arg=\"research\"><span>🔬</span><span>${0}<small>这座工程站每分钟 ${1} 点</small></span><i>›</i></button>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 122495,
+  "end": 122640,
+  "raw": "`<div class=\"row\"><span>产出</span><span>${Object.keys(d.out).map(k => `${RICON[k]}${fmt(rate[k] || 0)}`).join(' ')}<small>/分</small></span></div>`",
+  "view": "<div class=\"row\"><span>产出</span><span>${0}<small>/分</small></span></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 122663,
+  "end": 122820,
+  "raw": "`<div class=\"row\"><span>消耗</span><span>${Object.keys(d.in).map(k => `${RICON[k]}${fmt((br.inRate || {})[k] || 0)}`).join(' ')}<small>/分</small></span></div>`",
+  "view": "<div class=\"row\"><span>消耗</span><span>${0}<small>/分</small></span></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 122960,
+  "end": 123229,
+  "raw": "`<div class=\"row sub\"><span>等级、加成</span><span>${b.lvl} 级 ×${Sim.levelMul(b.lvl).toFixed(2)} · 加成 ${B.sum >= 0 ? '+' : ''}${pc(B.sum)}%${B.parts.length ? `<small>（${B.parts.map(p => `${p[0]} ${p[1] >= 0 ? '+' : ''}${pc(p[1])}`).join(' · ')}）</small>` : ''}</span></div>`",
+  "view": "<div class=\"row sub\"><span>等级、加成</span><span>${0} 级 ×${1} · 加成 ${2}${3}%${4}</span></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 124044,
+  "end": 124248,
+  "raw": "`<div class=\"row sub\"><span>附近资源点</span><span>${alive} 处可采 · 剩 ${fmt(left)}${eta != null && eta > 0 && !b.deep ? ` · <b class=\"${eta < 20 ? 'warn' : ''}\">按现在的速度还能挖约 ${fmtMin(eta)}</b>` : ''}</span></div>`",
+  "view": "<div class=\"row sub\"><span>附近资源点</span><span>${0} 处可采 · 剩 ${1}${2}</span></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 124906,
+  "end": 125119,
+  "raw": "`<div class=\"row sub\"><span>${d.gather[0] === 'tree' ? '补种' : d.gather[0] === 'herd' ? '留种' : '恢复'}</span><span>${young ? `${young} 处${d.gather[0] === 'tree' ? '树苗' : '幼崽'}在长 · ` : ''}+${fmt(grow)}/分</span></div>`",
+  "view": "<div class=\"row sub\"><span>${0}</span><span>${1}+${2}/分</span></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 125567,
+  "end": 125821,
+  "raw": "`<div class=\"row chain\"><span>⬇ ${b.type === 'furnace' || b.type === 'heater' ? '燃料' : '原料'}来自</span><span>${ch.up.length ? grp(ch.up) : ''}${ch.missing.length ? ` <b class=\"warn\">缺${[...new Set(ch.missing.map(maker))].join('、')}</b>` : ''}</span></div>`",
+  "view": "<div class=\"row chain\"><span>⬇ ${0}来自</span><span>${1}${2}</span></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 126796,
+  "end": 127354,
+  "raw": "`<div class=\"row belt\"><span>${RICON[e.k]} ${e.a === b.id ? '送往' : '来自'} ${BLD[o.type].n}<br><small>${Sim.BELT[e.lvl].n} · 省 ${Math.round(Sim.BELT[e.lvl].cut * 100)}% 搬运${e.b === b.id ? ` · 这里 +${Math.round(Sim.BELT[e.lvl].bonus * 100)}%` : ''}</small></span><span class=\"bbtn\">${e.lvl < 2 && S.known >= Sim.BELT[2].tier ? `<button class=\"small ${up ? '' : 'go'}\" data-act=\"beltup\" data-arg=\"${e.id}\" title=\"${esc(up || '')}\">升级轨道 ${costHtml(c.stock, upCost)}</button>` : ''}<button class=\"small\" data-act=\"beltrm\" data-arg=\"${e.id}\">拆</button></span></div>`",
+  "view": "<div class=\"row belt\"><span>${0} ${1} ${2}<br><small>${3} · 省 ${4}% 搬运${5}</small></span><span class=\"bbtn\">${6}<button class=\"small\" data-act=\"beltrm\" data-arg=\"${7}\">拆</button></span></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 128026,
+  "end": 128225,
+  "raw": "`<div class=\"row\"><span>温度</span><span>${Math.round(cr.temp)}°C <small>= 纬度 ${baseTempOfRow(c.y)}° + 熔炉 ${Math.round(cr.heat)}°${cr.drop ? ` − 暴风雪 ${Math.round(cr.drop)}°` : ''}</small></span></div>`",
+  "view": "<div class=\"row\"><span>温度</span><span>${0}°C <small>= 纬度 ${1}° + 熔炉 ${2}°${3}</small></span></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 128966,
+  "end": 129172,
+  "raw": "`<button class=\"mlink\" data-act=\"wx\"><span>❄</span><span>${w.blizzard ? `暴风雪中，还剩 ${fmtTime(w.until - S.t)}` : `下一场暴风雪：${fmtTime(w.next ?? w.inSec)} 后`}<small>看降温、燃料和熟食够不够撑过去</small></span><i>›</i></button>`",
+  "view": "<button class=\"mlink\" data-act=\"wx\"><span>❄</span><span>${0}<small>看降温、燃料和熟食够不够撑过去</small></span><i>›</i></button>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 129187,
+  "end": 129309,
+  "raw": "`<div class=\"row sub\"><span>热值</span><span>${Object.keys(FUEL).map(f => `${RICON[f]}=${FUEL[f]}`).join(' ')}</span></div>`",
+  "view": "<div class=\"row sub\"><span>热值</span><span>${0}</span></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 129322,
+  "end": 129590,
+  "raw": "`<div class=\"row\"><span>优先烧</span><span><select data-act=\"fuel\" data-arg=\"${c.id}\">${['auto', ...Object.keys(FUEL)].map(f => `<option value=\"${f}\" ${c.fuelPref === f ? 'selected' : ''}>${f === 'auto' ? '自动（先烧好的）' : RES[f].n}</option>`).join('')}</select></span></div>`",
+  "view": "<div class=\"row\"><span>优先烧</span><span><select data-act=\"fuel\" data-arg=\"${0}\">${1}</select></span></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 129603,
+  "end": 129785,
+  "raw": "`<div class=\"row\"><span>供热半径</span><span>${ring} 格 → 升级后 ${ring + furnaceRadius(b.lvl + 1) - furnaceRadius(b.lvl)} 格${c.pipe ? `<small>（含蒸汽管道 +${c.pipe}）</small>` : ''}</span></div>`",
+  "view": "<div class=\"row\"><span>供热半径</span><span>${0} 格 → 升级后 ${1} 格${2}</span></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 131087,
+  "end": 131308,
+  "raw": "`<div class=\"row\"><span>雪橇犬</span><span>${Math.round(br.dogs || 0)}/${n} 只能拉雪橇 · ${b.workers ? `吃生肉 ${fmt(n * BLD.kennel.feed)}/分${(br.fed ?? 1) < 0.95 ? ' <b class=\"warn\">没喂饱</b>' : ''}` : '没人看：狗放出去自己找吃的了'}</span></div>`",
+  "view": "<div class=\"row\"><span>雪橇犬</span><span>${0}/${1} 只能拉雪橇 · ${2}</span></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 131321,
+  "end": 131597,
+  "raw": "`<div class=\"row sub\"><span>全营地</span><span>${Math.round(all)} 只 → 侦察队 +${Math.round(Sim.dogScout(S, c.id) * 100)}%${Sim.roadsAt(S, c.id).length ? ` · 连着的路运力 +${Math.round(Math.max(...Sim.roadsAt(S, c.id).map(r => Sim.roadDogs(S, r))) * 100)}%` : ' · 修了路也会运得更多'}</span></div>`",
+  "view": "<div class=\"row sub\"><span>全营地</span><span>${0} 只 → 侦察队 +${1}%${2}</span></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 131857,
+  "end": 132049,
+  "raw": "`<div class=\"row\"><span>病床</span><span>${Math.round(br.pts || 0)}/${nb} 张有人${(br.staff ?? 0) < 0.99 ? ` <b class=\"warn\">人手不够，只能照看 ${Math.floor(nb * (br.staff || 0))} 张</b>` : ''}</span></div>`",
+  "view": "<div class=\"row\"><span>病床</span><span>${0}/${1} 张有人${2}</span></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 132062,
+  "end": 132324,
+  "raw": "`<div class=\"row sub\"><span>全营地</span><span>病人 ${sickN} 人${cr.treated ? `，${Math.round(cr.treated)} 人在病床上` : ''} · 新病倒的人 −${Math.round(Sim.WARD_GUARD * ward.guard * 100)}%${ward.care > 1.001 ? ` · 医生让康复快 ${Math.round((ward.care - 1) * 100)}%` : ''}</span></div>`",
+  "view": "<div class=\"row sub\"><span>全营地</span><span>病人 ${0} 人${1} · 新病倒的人 −${2}%${3}</span></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 132648,
+  "end": 132788,
+  "raw": "`<div class=\"row\"><span>希望</span><span>这栋 +${fmt(one * sf)}${sf < 1 ? ` <b class=\"warn\">要 ${mx2} 人照看才有 +${fmt(one)}</b>` : ''}</span></div>`",
+  "view": "<div class=\"row\"><span>希望</span><span>这栋 +${0}${1}</span></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 133548,
+  "end": 134044,
+  "raw": "`<div class=\"row\"><span>专家</span><span>${sp ? `${sp.n} <small>${S.meta.specs[sid].lvl}级 +${Math.round(Sim.specOf(S, b) * 100)}%</small> <button class=\"small\" data-act=\"unspec\" data-arg=\"${sid}\">请走</button>` : `<select data-act=\"spec\" data-arg=\"${b.id}\"><option value=\"\">— 安排专家 —</option>${SPECS.filter(s => S.meta.specs[s.id]).map(s => `<option value=\"${s.id}\">${s.n}（${s.role}）${s.aff.includes(b.type) ? ' ★对口' : ''}${S.specAt[s.id] ? ' · 在别处' : ''}</option>`).join('')}</select>`}</span></div>`",
+  "view": "<div class=\"row\"><span>专家</span><span>${0}</span></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 135565,
+  "end": 135793,
+  "raw": "`<div class=\"row sub bulkr\"><span>同类 ${same.length} 栋</span><span>${lo === hi ? `都是 ${lo} 级` : `${lo}～${hi} 级`}${qn ? ` · ${qn} 栋排队中` : ''}<button class=\"bulkb\" data-act=\"bulkup\" data-arg=\"${b.id}\">⬆ 每栋升一级</button></span></div>`",
+  "view": "<div class=\"row sub bulkr\"><span>同类 ${0} 栋</span><span>${1}${2}<button class=\"bulkb\" data-act=\"bulkup\" data-arg=\"${3}\">⬆ 每栋升一级</button></span></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 140336,
+  "end": 140612,
+  "raw": "`<div class=\"row\"><span>${sp.n}</span><span>${Math.floor(wd.p / sp.dur * 100)}% <small>· 全部 ${Math.floor(Sim.wonderProg(b) * 100)}%${mul > 1 ? ` · 施工 ×${fmt(mul)}` : ''}</small></span></div><div class=\"mbar tw\"><i style=\"width:${(wd.p / sp.dur * 100).toFixed(1)}%\"></i></div>`",
+  "view": "<div class=\"row\"><span>${0}</span><span>${1}% <small>· 全部 ${2}%${3}</small></span></div><div class=\"mbar tw\"><i style=\"width:${4}%\"></i></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 141250,
+  "end": 141335,
+  "raw": "`${P.n}：${Object.entries(W.ph[i]).map(([k, v]) => `${RICON[k]}${fmt(v)}`).join(' ')}`",
+  "view": "${0}：${1}"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 144092,
+  "end": 144203,
+  "raw": "`<div class=\"sec\">炉火鼎盛 <small>${V.on ? '<b class=\"ok\">烧着</b>' : `${n3}/${V.lines.length} 条稳在三星`}</small></div>`",
+  "view": "<div class=\"sec\">炉火鼎盛 <small>${0}</small></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 145796,
+  "end": 146000,
+  "raw": "`<button class=\"btn wide tl ${why ? '' : 'go'}\" data-act=\"townup\" data-arg=\"${c.id}\" ${why ? 'disabled' : ''}>升成${nx.n}${why ? `<small>${esc(why)}</small>` : '<small>办一场典礼，大家停工 30 秒看烟花</small>'}</button>`",
+  "view": "<button class=\"btn wide tl ${0}\" data-act=\"townup\" data-arg=\"${1}\" ${2}>升成${3}${4}</button>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 147392,
+  "end": 148374,
+  "raw": "`<div class=\"reqcard ${pr.done ? 'done' : ''} ${r.id === sel ? 'sel' : ''}\"><div class=\"rqhead\"><span class=\"rqav\">${esc(p.name.slice(0, 1))}</span><span><b>${esc(p.name)}</b><small>${p.age} 岁 · ${esc(p.trait)} · ${esc(c ? c.name : '')}</small></span><small class=\"rqt\">${fmtTime(Math.max(0, r.until - S.t))}</small></div>\n        <div class=\"rqq\">「${esc(quote)}」</div>\n        <div class=\"rqgoal\"><b>${esc(Sim.reqTitle(S, r))}</b><span class=\"rqbar\"><i style=\"width:${(pr.cur / pr.need * 100).toFixed(0)}%\"></i></span><small>${fmt(pr.cur)} / ${fmt(pr.need)}</small></div>\n        <div class=\"rqrw\"><span>回报：${rwTxt}</span><span class=\"rqbtn\">${pr.done ? `<button class=\"small go\" data-act=\"reqok\" data-arg=\"${r.id}\">${r.kind === 'stock' ? '交给' + (p.name.length > 2 ? p.name.slice(1) : p.name) : '告诉' + (p.name.length > 2 ? p.name.slice(1) : p.name)}</button>` : go}<button class=\"small ghost\" data-act=\"reqno\" data-arg=\"${r.id}\" title=\"不用管它，过一阵会有别的\">算了</button></span></div></div>`",
+  "view": "<div class=\"reqcard ${0} ${1}\"><div class=\"rqhead\"><span class=\"rqav\">${2}</span><span><b>${3}</b><small>${4} 岁 · ${5} · ${6}</small></span><small class=\"rqt\">${7}</small></div>\n        <div class=\"rqq\">「${8}」</div>\n        <div class=\"rqgoal\"><b>${9}</b><span class=\"rqbar\"><i style=\"width:${10}%\"></i></span><small>${11} / ${12}</small></div>\n        <div class=\"rqrw\"><span>回报：${13}</span><span class=\"rqbtn\">${14}<button class=\"small ghost\" data-act=\"reqno\" data-arg=\"${15}\" title=\"不用管它，过一阵会有别的\">算了</button></span></div></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 151380,
+  "end": 151700,
+  "raw": "`<div class=\"issue warn\"><span class=\"ii\">👷</span><span class=\"it\"><b>${idle.length} 栋建筑没人干活</b><small>${c.auto === false ? '自动派人已关闭' : '空闲人手不够：多建帐篷、备足熟食，会有人来投奔'}</small></span><span class=\"ia\">${c.auto === false ? `<button class=\"small go\" data-act=\"auto\" data-arg=\"${c.id}\">开自动派人</button>` : btn('tent')}</span></div>`",
+  "view": "<div class=\"issue warn\"><span class=\"ii\">👷</span><span class=\"it\"><b>${0} 栋建筑没人干活</b><small>${1}</small></span><span class=\"ia\">${2}</span></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 152062,
+  "end": 152307,
+  "raw": "`<div class=\"issue\"><span class=\"ii\">⛏</span><span class=\"it\"><b>${depl.length} 栋采集建筑附近采空了</b><small>${wood ? '附近没树了可以建育林场，自己种树；' : ''}矿场、采石场可以挖深井一直挖下去，侦察营也能派勘探队找新矿脉</small></span>${wood ? `<span class=\"ia\">${btn('nursery')}</span>` : ''}</div>`",
+  "view": "<div class=\"issue\"><span class=\"ii\">⛏</span><span class=\"it\"><b>${0} 栋采集建筑附近采空了</b><small>${1}矿场、采石场可以挖深井一直挖下去，侦察营也能派勘探队找新矿脉</small></span>${2}</div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 153706,
+  "end": 154340,
+  "raw": "`<button class=\"rgc ${r.short ? 'short' : r.full ? 'full' : ''}\" data-act=\"curve\" data-arg=\"${r.k}\" style=\"--f:${(r.fr * 100).toFixed(1)}%\" title=\"${RES[r.k].n}：产 ${fmt(r.f.p)} · 用 ${fmt(r.f.c)} / 分钟（点一下看曲线）\">${pins ? `<span class=\"rpin ${pins.includes(r.k) ? 'on' : ''}\" data-act=\"pin\" data-arg=\"${r.k}\" title=\"${pins.includes(r.k) ? '从顶栏取下' : '钉到顶栏'}\">${ico('i', 'pin')}</span>` : ''}<span class=\"ri\">${RICON[r.k]}</span><span class=\"rn\">${RES[r.k].n}${r.short ? '<em>缺</em>' : r.full ? '<em>满</em>' : ''}</span><b>${fmt(r.have)}</b><small class=\"${nc}\">${r.act ? (r.net >= 0 ? '+' : '') + fmt(r.net) : '—'}</small><i></i></button>`",
+  "view": "<button class=\"rgc ${0}\" data-act=\"curve\" data-arg=\"${1}\" style=\"--f:${2}%\" title=\"${3}：产 ${4} · 用 ${5} / 分钟（点一下看曲线）\">${6}<span class=\"ri\">${7}</span><span class=\"rn\">${8}${9}</span><b>${10}</b><small class=\"${11}\">${12}</small><i></i></button>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 155386,
+  "end": 155570,
+  "raw": "`<div class=\"row sub\"><span>正在兑换</span><span>${tl.slice(0, 4).map(([q, v]) => { const [a, b] = q.split('>'); return `${RICON[a]}→${RICON[b]} ${fmt(v)}/分`; }).join(' · ')}</span></div>`",
+  "view": "<div class=\"row sub\"><span>正在兑换</span><span>${0}</span></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 159530,
+  "end": 160231,
+  "raw": "`<div class=\"card ${c.id === S.active ? 'on' : ''}\" data-act=\"campgo\" data-arg=\"${c.id}\"><div class=\"ci\">🔥</div><div class=\"cb\">\n        <div class=\"cn\">${esc(c.name)} <small>熔炉 ${f.lvl} 级 · 纬度 ${Math.round(c.y)}</small>${Sim.campSpecOf(c) ? `<i class=\"spec-tag\">特产·${Sim.campSpecOf(c).n}</i>` : ''}${c.town ? `<i class=\"spec-tag\">${TOWN[Sim.townOf(c)].n}</i>` : ''}</div>\n        <div class=\"cd\">👥${c.people}/${cr.housing || 0} · 🌡${Math.round(cr.tH ?? 0)}° · 🍖${fmt(c.stock.food)}（${(cr.foodNet || 0) >= 0 ? '+' : ''}${fmt(cr.foodNet)}/分）· 🔥${cr.burnPerMin ? fmtTime(cr.fuelUnits / cr.burnPerMin * 60) : '—'} · 搬运 ${fmt(cr.haulers)}/${fmt(cr.demand)} · 防御 ${Sim.campDefense(S, c)}</div></div></div>`",
+  "view": "<div class=\"card ${0}\" data-act=\"campgo\" data-arg=\"${1}\"><div class=\"ci\">🔥</div><div class=\"cb\">\n        <div class=\"cn\">${2} <small>熔炉 ${3} 级 · 纬度 ${4}</small>${5}${6}</div>\n        <div class=\"cd\">👥${7}/${8} · 🌡${9}° · 🍖${10}（${11}${12}/分）· 🔥${13} · 搬运 ${14}/${15} · 防御 ${16}</div></div></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 161472,
+  "end": 161817,
+  "raw": "`<div class=\"row\"><span>自动机 ${c0.bots} 台<br><small>劳工 ${c0.bots - (c0.botH || 0) - (c0.botM || 0)} · 搬运 ${c0.botH || 0} · 采掘 ${c0.botM || 0}。一台顶 ${Sim.botPow(S)} 个人，不吃饭、不怕冷。</small></span>${bay0 ? `<span style=\"flex:none\"><button style=\"white-space:nowrap\" class=\"small\" data-act=\"openbld\" data-arg=\"${bay0.id}\">换型号</button></span>` : ''}</div>`",
+  "view": "<div class=\"row\"><span>自动机 ${0} 台<br><small>劳工 ${1} · 搬运 ${2} · 采掘 ${3}。一台顶 ${4} 个人，不吃饭、不怕冷。</small></span>${5}</div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 161836,
+  "end": 162377,
+  "raw": "`<div class=\"folk\"><span><b>${c0.people}</b>人</span><span><b>${Math.max(0, Sim.idleLabor(S, c0))}</b>空闲</span><span><b>${Math.min(c0.people, cr0.housing || 0)}</b>住帐篷</span><span class=\"${c0.people > (cr0.housing || 0) ? 'bad' : ''}\"><b>${Math.max(0, c0.people - (cr0.housing || 0))}</b>露宿</span>${c0.wait > 0 ? `<span class=\"bad\"><b>${c0.wait}</b>等床位</span>` : ''}${cr0.sick ? `<span class=\"bad\"><b>${cr0.sick}</b>生病</span>` : ''}${(cr0.hunger || 0) > 0.05 ? `<span class=\"bad\"><b>${Math.round(cr0.hunger * 100)}%</b>挨饿</span>` : ''}</div>`",
+  "view": "<div class=\"folk\"><span><b>${0}</b>人</span><span><b>${1}</b>空闲</span><span><b>${2}</b>住帐篷</span><span class=\"${3}\"><b>${4}</b>露宿</span>${5}${6}${7}</div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 163395,
+  "end": 163774,
+  "raw": "`<div class=\"wrow ${miss > 0 ? 'short' : ''}\"><span class=\"wn\">${this.ico(g.b.type, g.b.lvl)}<span><b>${d.n}</b><small>${g.n} 座${g.bad ? ` · <em>${g.bad} 座停着</em>` : ''}</small></span></span><span class=\"ww\"><b>${g.w}</b>/${g.mx}</span><span class=\"wb\">${miss > 0 ? `<button class=\"small go\" data-act=\"bulkw\" data-arg=\"${g.b.id}\">派满</button>` : '<small>满员</small>'}</span></div>`",
+  "view": "<div class=\"wrow ${0}\"><span class=\"wn\">${1}<span><b>${2}</b><small>${3} 座${4}</small></span></span><span class=\"ww\"><b>${5}</b>/${6}</span><span class=\"wb\">${7}</span></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 163820,
+  "end": 163950,
+  "raw": "`<div class=\"sec\">大家在说</div><div class=\"voices\">${campVoices(S, c0, Sim.rt(S)).map(q => `<div>「${esc(q)}」</div>`).join('')}</div>`",
+  "view": "<div class=\"sec\">大家在说</div><div class=\"voices\">${0}</div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 164464,
+  "end": 164590,
+  "raw": "`<div class=\"row\"><span>留守</span><span>${c.people} 人${c.people < Sim.DEPOT_MIN ? `（不到 ${Sim.DEPOT_MIN} 人）` : ''}</span></div>`",
+  "view": "<div class=\"row\"><span>留守</span><span>${0} 人${1}</span></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 164601,
+  "end": 164773,
+  "raw": "`<div class=\"row sub\"><span>撑不撑得住</span><span class=\"${why ? 'bad' : ''}\">${why ? '⚠ ' + why : `燃料够 ${fm ? fmtTime(fm * 60) : '—'} · 熟食 ${fmt(c.stock.food)}`}</span></div>`",
+  "view": "<div class=\"row sub\"><span>撑不撑得住</span><span class=\"${0}\">${1}</span></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 166749,
+  "end": 167025,
+  "raw": "`<div class=\"ifn\">下一级「${nx.n}」：${nx.d}</div><div class=\"ifa\"><span class=\"tcost\">${costHtml(c.stock, nx.cost, S.known)}</span>${lock ? `<span class=\"tlock\">要先到「${RES[lock].n}」的纬度</span>` : `<button class=\"small go\" data-act=\"infra\" data-arg=\"${c.id}:${k}\">修建</button>`}</div>`",
+  "view": "<div class=\"ifn\">下一级「${0}」：${1}</div><div class=\"ifa\"><span class=\"tcost\">${2}</span>${3}</div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 167203,
+  "end": 167268,
+  "raw": "`人心${S.camps.length > 1 ? ` <small>${esc(c.name)}</small>` : ''}`",
+  "view": "人心${0}"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 169390,
+  "end": 169559,
+  "raw": "`<button class=\"mlink\" data-act=\"htab\" data-arg=\"law\"><span>📜</span><span>律令${nl ? `：生效中 ${nl} 条` : '：还没有签署'}<small>律令能改变希望和不满，代价写在每一条下面</small></span><i>›</i></button>`",
+  "view": "<button class=\"mlink\" data-act=\"htab\" data-arg=\"law\"><span>📜</span><span>律令${0}<small>律令能改变希望和不满，代价写在每一条下面</small></span><i>›</i></button>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 170641,
+  "end": 170714,
+  "raw": "`研究 <small>已完成 ${nd}/${TECHS.length}${EL ? ` · 无尽 ${EL} 级` : ''}</small>`",
+  "view": "研究 <small>已完成 ${0}/${1}${2}</small>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 171075,
+  "end": 171535,
+  "raw": "`<div class=\"tcur\"><div class=\"tch\"><span class=\"ti\">${this.rIco(ct)}</span><div><b>${ct.n}</b><small>${ct.d}</small></div></div>\n        <div class=\"mbar\"><i style=\"width:${Math.min(100, T.prog / ct.pts * 100).toFixed(1)}%\"></i></div>\n        <div class=\"tcm\"><span>${fmt(T.prog)} / ${ct.pts} 点 · ${rate > 0 ? `还要 ${fmtTime(left / rate * 60)}` : '<b class=\"neg\">停住了：工程站里没人干活</b>'}</span><button class=\"small\" data-act=\"techstop\">停止（退回材料）</button></div></div>`",
+  "view": "<div class=\"tcur\"><div class=\"tch\"><span class=\"ti\">${0}</span><div><b>${1}</b><small>${2}</small></div></div>\n        <div class=\"mbar\"><i style=\"width:${3}%\"></i></div>\n        <div class=\"tcm\"><span>${4} / ${5} 点 · ${6}</span><button class=\"small\" data-act=\"techstop\">停止（退回材料）</button></div></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 172234,
+  "end": 172566,
+  "raw": "`<button class=\"rend ${all ? 'on' : ''} ${this.techSel === 'endless' ? 'sel' : ''}\" data-act=\"techsel\" data-arg=\"endless\"><span class=\"ti\">♾️</span><span><b>无尽研究${EL ? ` · 已 ${EL} 级` : ''}</b><small>${all ? `每一级所有生产 +2%，没有上限（现在 +${Math.round(EL * 2)}%）` : `五条分支全部研究完以后开放（还差 ${TECHS.length - nd} 项）`}</small></span><i>›</i></button>`",
+  "view": "<button class=\"rend ${0} ${1}\" data-act=\"techsel\" data-arg=\"endless\"><span class=\"ti\">♾️</span><span><b>无尽研究${2}</b><small>${3}</small></span><i>›</i></button>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 175532,
+  "end": 175786,
+  "raw": "`<div class=\"rph\"><span>${shops.length ? `${shops.length} 座工程站 · 每分钟 ${fmt(ct ? rate : potential)} 点${ct ? '' : '（开始研究后才派人）'}` : '还没有工程站'}</span><span class=\"rleg\"><i class=\"lg done\"></i>已完成<i class=\"lg ok\"></i>可以研究<i class=\"lg lk\"></i>还没开放</span></div>`",
+  "view": "<div class=\"rph\"><span>${0}</span><span class=\"rleg\"><i class=\"lg done\"></i>已完成<i class=\"lg ok\"></i>可以研究<i class=\"lg lk\"></i>还没开放</span></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 175805,
+  "end": 176160,
+  "raw": "`<div class=\"rpcur\"><span class=\"ti\">${this.rIco(ct)}</span><b>正在研究：${ct.n}</b><div class=\"u-tube\"><i style=\"width:${Math.min(100, T.prog / ct.pts * 100).toFixed(1)}%\"></i></div><small>${rate > 0 ? `还要 ${fmtTime((ct.pts - T.prog) / rate * 60)}` : '<b class=\"neg\">停住了：工程站里没人干活</b>'}</small><button class=\"small\" data-act=\"techstop\">停止（退回材料）</button></div>`",
+  "view": "<div class=\"rpcur\"><span class=\"ti\">${0}</span><b>正在研究：${1}</b><div class=\"u-tube\"><i style=\"width:${2}%\"></i></div><small>${3}</small><button class=\"small\" data-act=\"techstop\">停止（退回材料）</button></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 177703,
+  "end": 178070,
+  "raw": "`<button class=\"rend ${all ? 'on' : ''} ${this.techSel === 'endless' ? 'sel' : ''}\" data-act=\"techsel\" data-arg=\"endless\"><span class=\"ti\">♾️</span><span><b>无尽研究${EL ? ` · 已 ${EL} 级` : ''}</b><small>${all ? `每一级所有生产 +2%，没有上限（现在 +${Math.round(EL * 2)}%）` : `五条分支全部研究完以后开放，还差 ${TECHS.length - TECHS.filter(x => T.done[x.id]).length} 项`}</small></span><i>›</i></button>`",
+  "view": "<button class=\"rend ${0} ${1}\" data-act=\"techsel\" data-arg=\"endless\"><span class=\"ti\">♾️</span><span><b>无尽研究${2}</b><small>${3}</small></span><i>›</i></button>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 178915,
+  "end": 179079,
+  "raw": "`<div class=\"rpkv\"><span>研究点</span><span><b>🔬 ${t.pts}</b>${rate || potential ? ` <small>约 ${fmtTime(t.pts / (rate || potential) * 60)}</small>` : ''}</span></div>`",
+  "view": "<div class=\"rpkv\"><span>研究点</span><span><b>🔬 ${0}</b>${1}</span></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 182283,
+  "end": 182608,
+  "raw": "`<div class=\"row\"><span>⛏ 在「${esc(c.name)}」供热圈里找埋得深的新矿<br><small>每次找到两处，优先找营地最缺的矿；已勘探 ${c.surveys || 0} 次，越勘越贵</small></span><span style=\"flex:none\">${going ? '勘探队在路上' : `<button class=\"small ${why ? '' : 'go'}\" data-act=\"survey\" data-arg=\"${c.id}\" ${why && !why.startsWith('缺') ? 'disabled' : ''}>出发</button>`}</span></div>`",
+  "view": "<div class=\"row\"><span>⛏ 在「${0}」供热圈里找埋得深的新矿<br><small>每次找到两处，优先找营地最缺的矿；已勘探 ${1} 次，越勘越贵</small></span><span style=\"flex:none\">${2}</span></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 182813,
+  "end": 183029,
+  "raw": "`<div class=\"row sub\"><span>补给</span><span>${costHtml(c.stock, Sim.surveyCost(S, c))}</span></div>${why && !why.startsWith('缺') ? `<div class=\"row sub\"><span></span><span class=\"warn\">${esc(why)}</span></div>` : ''}`",
+  "view": "<div class=\"row sub\"><span>补给</span><span>${0}</span></div>${1}"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 183409,
+  "end": 183649,
+  "raw": "`<div class=\"row\"><span>🆘 ${p.n} 人 · ${Math.round(Math.hypot(p.x - c.x, p.y - c.y))} 格外</span><span>${going ? '救援队已出发' : `${costHtml(c.stock, cost)} <button class=\"small\" data-act=\"rescue\" data-arg=\"${p.id}\">派 4 人去救</button>`}</span></div>`",
+  "view": "<div class=\"row\"><span>🆘 ${0} 人 · ${1} 格外</span><span>${2}</span></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 184037,
+  "end": 184344,
+  "raw": "`<div class=\"row\"><span>${K.ic} ${K.n} · ${Math.round(Math.hypot(p.x - c.x, p.y - c.y))} 格外</span><span>${st === 'seen' ? `<button class=\"small\" data-act=\"site-open\" data-arg=\"${p.id}\">派探险队</button>` : st === 'wait' ? `<button class=\"small go\" data-act=\"site-decide\">等你决定</button>` : '探险队在路上'}</span></div>`",
+  "view": "<div class=\"row\"><span>${0} ${1} · ${2} 格外</span><span>${3}</span></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 184467,
+  "end": 184875,
+  "raw": "`<div class=\"row sub\"><span>${s.kind === 'rescue' ? '🆘 救援队' : s.kind === 'exp' ? '🧭 探险队' : s.kind === 'survey' ? '⛏ 勘探队' : '🚩 侦察队'} · ${esc(Sim.getCamp(S, s.camp).name)} · ${s.n} 人</span><span>${s.phase === 'wait' ? `<button class=\"small go\" data-act=\"site-decide\">等你决定</button>` : s.phase === 'out' ? '前往目标' : '返程中'} <button class=\"small\" data-act=\"lookat\" data-arg=\"${s.x},${s.y}\">看看</button></span></div>`",
+  "view": "<div class=\"row sub\"><span>${0} · ${1} · ${2} 人</span><span>${3} <button class=\"small\" data-act=\"lookat\" data-arg=\"${4},${5}\">看看</button></span></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 187332,
+  "end": 187522,
+  "raw": "`<div class=\"nl\"><span>运来</span><span>${inc.map(([k, i]) => `${this.netGood(k, i.n)} <small>约 ${fmtTime(Math.max(1, i.eta))} · 从${this.netNames(i.from)}</small>`).join('<br>')}</span></div>`",
+  "view": "<div class=\"nl\"><span>运来</span><span>${0}</span></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 187551,
+  "end": 187704,
+  "raw": "`<div class=\"nl\"><span>送出</span><span>${out.map(([k, o]) => `${this.netGood(k, o.n)} <small>到${this.netNames(o.to)}</small>`).join('<br>')}</span></div>`",
+  "view": "<div class=\"nl\"><span>送出</span><span>${0}</span></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 187732,
+  "end": 188036,
+  "raw": "`<div class=\"nl\"><span>还缺</span><span>${sh.map(([k, q]) => `<i class=\"${q.tier > 5 ? '' : q.none ? 'bad' : q.jam ? 'warn' : ''}\">${this.netGood(k, q.n)} <small>${esc(q.why)} · ${q.none ? (q.tier > 5 ? '别的营地也没有多的，有了再送' : '整张网都没有多余的') : q.jam ? '路满了，在排队' : '等下一车'}</small></i>`).join('<br>')}</span></div>`",
+  "view": "<div class=\"nl\"><span>还缺</span><span>${0}</span></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 188440,
+  "end": 188501,
+  "raw": "`北方商会 <small>${on ? `银币 ${fmt(G.silver)}` : '还没有驿站'}</small>`",
+  "view": "北方商会 <small>${0}</small>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 188523,
+  "end": 188809,
+  "raw": "`<div class=\"hint\">在任何一座营地盖一座「商会驿站」（煤与铁纬度，木板 120、铁锭 40），北方商会的车队就会每天来一趟：卖货换银币、接订单，用银币买装饰图纸和余烬；缺建材时还能高价买一点救急。</div>${Sim.unlocked(S, 'guildpost') ? '<button class=\"btn wide go\" data-act=\"place\" data-arg=\"guildpost\">去盖商会驿站</button>' : `<div class=\"hint\">要先侦察到「${TIER_NAMES[2]}」纬度。</div>`}`",
+  "view": "<div class=\"hint\">在任何一座营地盖一座「商会驿站」（煤与铁纬度，木板 120、铁锭 40），北方商会的车队就会每天来一趟：卖货换银币、接订单，用银币买装饰图纸和余烬；缺建材时还能高价买一点救急。</div>${0}"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 190273,
+  "end": 190751,
+  "raw": "`<div class=\"grow\"><span class=\"gk\">${RICON[k]}<span><b>${RES[k].n}</b><small>有 ${fmt(have)} · 现价 ${sv(Sim.sellPrice(S, k))}/个 ${pct(k)}</small></span></span><span class=\"gb\">${q.map(n => `<button class=\"small\" data-act=\"gsell\" data-arg=\"${k}:${n}\">卖 ${n}<small>${sv(Sim.sellValue(S, k, n))}</small></button>`).join('')}${half >= 1 ? `<button class=\"small\" data-act=\"gsell\" data-arg=\"${k}:${half}\">卖一半<small>${sv(Sim.sellValue(S, k, half))}</small></button>` : ''}</span></div>`",
+  "view": "<div class=\"grow\"><span class=\"gk\">${0}<span><b>${1}</b><small>有 ${2} · 现价 ${3}/个 ${4}</small></span></span><span class=\"gb\">${5}${6}</span></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 191817,
+  "end": 192120,
+  "raw": "`<div class=\"gdc ${have ? 'have' : ''}\">${this.ico(t, 1)}<b>${d.n}</b><small>希望 +${d.hope}</small>${have ? '<small class=\"ok\">已有图纸</small>' : `<button class=\"small ${G.silver >= d.shop ? 'go' : ''}\" data-act=\"gdeco\" data-arg=\"${t}\" ${G.silver >= d.shop ? '' : 'disabled'}>${sv(d.shop)}</button>`}</div>`",
+  "view": "<div class=\"gdc ${0}\">${1}<b>${2}</b><small>希望 +${3}</small>${4}</div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 192221,
+  "end": 192637,
+  "raw": "`<div class=\"sec\">余烬 <small>今天还能买 ${el}</small></div><div class=\"grow\"><span class=\"gk\">🔥<span><b>余烬</b><small>${sv(ep)}/个 · 越往北越贵</small></span></span><span class=\"gb\">${[1, 5, el].filter((n, i, a) => n >= 1 && a.indexOf(n) === i).map(n => `<button class=\"small\" data-act=\"gemb\" data-arg=\"${n}\" ${G.silver >= ep * n && el >= n ? '' : 'disabled'}>买 ${n}<small>${sv(ep * n)}</small></button>`).join('')}</span></div>`",
+  "view": "<div class=\"sec\">余烬 <small>今天还能买 ${0}</small></div><div class=\"grow\"><span class=\"gk\">🔥<span><b>余烬</b><small>${1}/个 · 越往北越贵</small></span></span><span class=\"gb\">${2}</span></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 193085,
+  "end": 193465,
+  "raw": "`<div class=\"grow\"><span class=\"gk\">${RICON[k]}<span><b>${RES[k].n}</b><small>${sv(p)}/个 · 今天还剩 ${fmt(bl)}</small></span></span><span class=\"gb\">${q.map(n => `<button class=\"small\" data-act=\"gbuy\" data-arg=\"${k}:${n}\" ${G.silver >= p * Math.min(n, 1) ? '' : 'disabled'}>买 ${n}<small>${sv(p * n)}</small></button>`).join('')}${!q.length ? '<small>今天卖完了</small>' : ''}</span></div>`",
+  "view": "<div class=\"grow\"><span class=\"gk\">${0}<span><b>${1}</b><small>${2}/个 · 今天还剩 ${3}</small></span></span><span class=\"gb\">${4}${5}</span></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 193922,
+  "end": 194103,
+  "raw": "`<div class=\"ncard ${v.jam ? 'jam' : ''}\"><div class=\"nh\"><b>${building ? '雪橇道（在修）' : `${Sim.roadKindName(r)} ${r.lvl} 级`}</b><small>「${esc(a.name)}」⇄「${esc(b.name)}」</small></div>`",
+  "view": "<div class=\"ncard ${0}\"><div class=\"nh\"><b>${1}</b><small>「${2}」⇄「${3}」</small></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 194771,
+  "end": 195146,
+  "raw": "`<div class=\"nl\"><span>等料</span><span>${r.pend.what === 'build' ? '修路' : r.pend.what === 'rail' ? '改铁路' : '升级'}排在「${esc(by.name)}」的建造队列里${miss.length ? `：还缺 ${miss.map(k => `${RICON[k]}${fmt(r.pend.cost[k] - (by.stock[k] || 0))}`).join(' ')}，${this.netWait(by, miss[0])}` : '，料齐了马上开工'} <button class=\"small ghost\" data-act=\"roadx\" data-arg=\"${r.id}\">取消</button></span></div>`",
+  "view": "<div class=\"nl\"><span>等料</span><span>${0}排在「${1}」的建造队列里${2} <button class=\"small ghost\" data-act=\"roadx\" data-arg=\"${3}\">取消</button></span></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 197119,
+  "end": 197367,
+  "raw": "`<div class=\"sec\">从「${esc(c.name)}」送到</div><div class=\"dchips\">${others.map(o => `<button class=\"dchip ${o.id === this.netTo ? 'on' : ''}\" data-act=\"nto\" data-arg=\"${o.id}\">${esc(o.name)}<small>${this.netRole(o)}</small></button>`).join('')}</div>`",
+  "view": "<div class=\"sec\">从「${0}」送到</div><div class=\"dchips\">${1}</div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 197805,
+  "end": 198096,
+  "raw": "`<div class=\"drow\"><button class=\"btn\" data-act=\"nsend\" data-arg=\"100\">送 100</button><button class=\"btn\" data-act=\"nsend\" data-arg=\"500\">送 500</button><button class=\"btn go\" data-act=\"nsend\" data-arg=\"all\" ${all < 1 ? 'disabled' : ''}>多余的全送${all >= 1 ? ` (${fmt(all)})` : ''}</button></div>`",
+  "view": "<div class=\"drow\"><button class=\"btn\" data-act=\"nsend\" data-arg=\"100\">送 100</button><button class=\"btn\" data-act=\"nsend\" data-arg=\"500\">送 500</button><button class=\"btn go\" data-act=\"nsend\" data-arg=\"all\" ${0}>多余的全送${1}</button></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 198649,
+  "end": 199014,
+  "raw": "`<div class=\"row\"><span>${this.netGood(b.k, b.n)} <small>「${esc((Sim.getCamp(S, b.from) || {}).name)}」→「${esc((Sim.getCamp(S, b.to) || {}).name)}」</small></span><span>到了 ${fmt(b.arr || 0)} · 路上 ${fmt(b.n - b.left - (b.arr || 0))}${b.left >= 1 ? ` · 还没装 ${fmt(b.left)}` : ''} <button class=\"small ghost\" data-act=\"nsendx\" data-arg=\"${b.id}\">取消</button></span></div>`",
+  "view": "<div class=\"row\"><span>${0} <small>「${1}」→「${2}」</small></span><span>到了 ${3} · 路上 ${4}${5} <button class=\"small ghost\" data-act=\"nsendx\" data-arg=\"${6}\">取消</button></span></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 199727,
+  "end": 199971,
+  "raw": "`<div class=\"sec\">不外送 <small>点亮的货只留给「${esc(c.name)}」自己用</small></div><div class=\"dchips\">${hk.map(k => `<button class=\"dchip ${c.hold && c.hold[k] ? 'on' : ''}\" data-act=\"nhold\" data-arg=\"${k}\">${RICON[k]}${RES[k].n}</button>`).join('')}</div>`",
+  "view": "<div class=\"sec\">不外送 <small>点亮的货只留给「${0}」自己用</small></div><div class=\"dchips\">${1}</div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 200326,
+  "end": 200587,
+  "raw": "`<div class=\"row\"><span>运来</span><span>${inc.length ? inc.slice(0, 3).map(([k, i]) => `${this.netGood(k, i.n)} <small>约 ${fmtTime(Math.max(1, i.eta))}</small>`).join(' · ') + (inc.length > 3 ? ` 等 ${inc.length} 样` : '') : '<small>没有在路上的货</small>'}</span></div>`",
+  "view": "<div class=\"row\"><span>运来</span><span>${0}</span></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 200613,
+  "end": 200815,
+  "raw": "`<div class=\"row sub\"><span>还缺</span><span>${sh.slice(0, 3).map(([k, q]) => `<i class=\"${q.tier > 5 ? '' : q.none ? 'bad' : q.jam ? 'warn' : ''}\">${this.netGood(k, q.n)}</i>`).join(' · ')}</span></div>`",
+  "view": "<div class=\"row sub\"><span>还缺</span><span>${0}</span></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 201594,
+  "end": 202437,
+  "raw": "`<div class=\"card\"><div class=\"ci\">${this.cIco('spec_' + sp.id, '🧑‍🔧')}</div><div class=\"cb\"><div class=\"cn\">${sp.n} <small>${sp.role} · ${m.lvl} 级</small></div>\n        <div class=\"cd\">${esc(sp.story)}<br>对口：${sp.aff.map(t => BLD[t].n).join('、')}（+${Math.round(specBonus(m.lvl, true) * 100)}%，别处 +${Math.round(specBonus(m.lvl, false) * 100)}%）</div>\n        <div class=\"cc\">${at ? `在「${BLD[at.type].n}」(${esc(Sim.getCamp(S, at.camp).name)}) <button class=\"small\" data-act=\"spot\" data-arg=\"${at.id}\">看看</button> <button class=\"small\" data-act=\"unspec\" data-arg=\"${sp.id}\">请走</button>` : `<button class=\"small\" data-act=\"autospec\" data-arg=\"${sp.id}\">安排到对口建筑</button>`}\n        · ${m.lvl >= SPEC_MAX ? '已经练到顶了' : `培养 ${costHtml(c.stock, cost, S.known)} <button class=\"small\" data-act=\"train\" data-arg=\"${sp.id}\">培养</button>`}</div></div></div>`",
+  "view": "<div class=\"card\"><div class=\"ci\">${0}</div><div class=\"cb\"><div class=\"cn\">${1} <small>${2} · ${3} 级</small></div>\n        <div class=\"cd\">${4}<br>对口：${5}（+${6}%，别处 +${7}%）</div>\n        <div class=\"cc\">${8}\n        · ${9}</div></div></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 203276,
+  "end": 203741,
+  "raw": "`<div class=\"festcard\"><div class=\"fhd\"><span class=\"fci\">🔥</span><b>篝火庆典</b><em>${costHtml(c.stock, cost)}</em></div><div class=\"fcd\">在营地边点起一堆大篝火，让大家放下手里的活跳一场舞（${Sim.FEST_LEN / 60} 分钟，期间产量减半）。散场后希望 +15、不满 −10，之后 ${Sim.FEST_AFTER / 60} 分钟产量 +15%。每 ${Sim.FEST_CD / 60} 分钟能办一场。</div>\n      ${why ? `<div class=\"fcw\">${esc(why)}</div>` : ''}<button class=\"btn wide ${why ? '' : 'go'}\" data-act=\"fest\" data-arg=\"${c.id}\" ${why ? 'disabled' : ''}>🎉 办一场庆典</button></div>`",
+  "view": "<div class=\"festcard\"><div class=\"fhd\"><span class=\"fci\">🔥</span><b>篝火庆典</b><em>${0}</em></div><div class=\"fcd\">在营地边点起一堆大篝火，让大家放下手里的活跳一场舞（${1} 分钟，期间产量减半）。散场后希望 +15、不满 −10，之后 ${2} 分钟产量 +15%。每 ${3} 分钟能办一场。</div>\n      ${4}<button class=\"btn wide ${5}\" data-act=\"fest\" data-arg=\"${6}\" ${7}>🎉 办一场庆典</button></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 206475,
+  "end": 206755,
+  "raw": "`<details class=\"cvtbl\"><summary>按天看数字</summary><table><tr><th></th>${cols.map(x => `<th>${esc(x.name)}</th>`).join('')}</tr>${rows.map(i => `<tr><td>${dayLabel(ts[i])}</td>${cols.map(x => `<td>${fmtV(x.vals[i])}${x.unit || ''}</td>`).join('')}</tr>`).join('')}</table></details>`",
+  "view": "<details class=\"cvtbl\"><summary>按天看数字</summary><table><tr><th></th>${0}</tr>${1}</table></details>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 216851,
+  "end": 216996,
+  "raw": "`${esc(i.name || '？')} · 👥 ${fmt(i.people || 0)} 人 · 第 ${Math.floor((i.t || 0) / DAY_LEN) + 1} 天${(i.runs || 1) > 1 ? ` · 第 ${i.runs} 次北行` : ''}`",
+  "view": "${0} · 👥 ${1} 人 · 第 ${2} 天${3}"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 217165,
+  "end": 217441,
+  "raw": "`<div class=\"row\"><span>自动备份 <b>${L.length}</b> 份<br><small>${L.length ? `最近一份 ${this.agoText(L[0].at)} · ` : ''}玩着每 10 分钟一份；北迁、导入、重开之前也先备份</small></span><span style=\"flex:none\"><button class=\"small\" data-act=\"backups\" ${L.length ? '' : 'disabled'}>查看备份</button></span></div>`",
+  "view": "<div class=\"row\"><span>自动备份 <b>${0}</b> 份<br><small>${1}玩着每 10 分钟一份；北迁、导入、重开之前也先备份</small></span><span style=\"flex:none\"><button class=\"small\" data-act=\"backups\" ${2}>查看备份</button></span></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 223477,
+  "end": 223531,
+  "raw": "`纬度 ${l.row}${B.l[id] ? ` · 第 ${B.l[id]} 次北行到达` : ''}`",
+  "view": "纬度 ${0}${1}"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 223650,
+  "end": 223707,
+  "raw": "`远方 · 纬度 ${f.row}${B.l[id] ? ` · 遗物「${f.relic.n}」` : ''}`",
+  "view": "远方 · 纬度 ${0}${1}"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 224692,
+  "end": 225107,
+  "raw": "`<div class=\"mighero\"><div class=\"mgto\">下一站 · <b>${esc(g.next.n)}</b></div><small>${g.route.ok ? `路长约 ${Math.round(g.route.len)} 格，车队要走 ${Math.max(1, Math.round(P.secs / 60))} 分钟左右` : '路还没探通'}${g.next.far ? '' : ` · 纬度 ${Math.round(g.next.y)}`}</small>${rl ? `<div class=\"mgrule\"><b>${rl.ic} 地貌：${esc(rl.n)}</b><span class=\"good\">好：${esc(rl.good)}</span><span class=\"bad\">坏：${esc(rl.bad)}</span></div>` : ''}</div>`",
+  "view": "<div class=\"mighero\"><div class=\"mgto\">下一站 · <b>${0}</b></div><small>${1}${2}</small>${3}</div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 225698,
+  "end": 226097,
+  "raw": "`<div class=\"row\"><span>上路的人<small>${mc && mc.mode === 'douse' ? `主营地熄火：留 ${mc.stay} 人守火，车队到了跟上` : `主营地留 ${mc ? mc.stay : 0} 人守成补给站（至少 ${Sim.DEPOT_MIN} 人）`}</small></span><span class=\"stepper\">${mc && mc.mode !== 'douse' ? `<button data-act=\"mstay\" data-arg=\"5\">−</button>` : ''}<b>👥${P.people}</b>${mc && mc.mode !== 'douse' ? `<button data-act=\"mstay\" data-arg=\"-5\">＋</button>` : ''}</span></div>`",
+  "view": "<div class=\"row\"><span>上路的人<small>${0}</small></span><span class=\"stepper\">${1}<b>👥${2}</b>${3}</span></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 227635,
+  "end": 227858,
+  "raw": "`<div class=\"row sub\"><span>再带一样</span><span><select data-act=\"mgoodadd\"><option value=\"\">挑一样…</option>${extra.map(k => `<option value=\"${k}\">${RES[k].n}（库里 ${fmt(main.stock[k])}）</option>`).join('')}</select></span></div>`",
+  "view": "<div class=\"row sub\"><span>再带一样</span><span><select data-act=\"mgoodadd\"><option value=\"\">挑一样…</option>${0}</select></span></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 228568,
+  "end": 229094,
+  "raw": "`<div class=\"mcamp\"><div class=\"row\"><span><b>${esc(c.name)}${c.main ? '<i class=\"tagm\">主营地</i>' : ''}</b><small>👥${c.people} · 熔炉 ${c.lvl} 级</small></span></div>\n        <div class=\"seg\"><button class=\"btn ${c.mode !== 'douse' ? 'on' : ''}\" data-act=\"mmode\" data-arg=\"${c.id}:keep\">留守<small>${c.main ? `留 ${Math.max(Sim.DEPOT_MIN, c.stay)} 人` : '变成补给站'}，货交给物流网</small></button><button class=\"btn ${c.mode === 'douse' ? 'on' : ''}\" data-act=\"mmode\" data-arg=\"${c.id}:douse\">熄火<small>换 🔥${em}，人跟上来</small></button></div></div>`",
+  "view": "<div class=\"mcamp\"><div class=\"row\"><span><b>${0}${1}</b><small>👥${2} · 熔炉 ${3} 级</small></span></div>\n        <div class=\"seg\"><button class=\"btn ${4}\" data-act=\"mmode\" data-arg=\"${5}:keep\">留守<small>${6}，货交给物流网</small></button><button class=\"btn ${7}\" data-act=\"mmode\" data-arg=\"${8}:douse\">熄火<small>换 🔥${9}，人跟上来</small></button></div></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 229220,
+  "end": 229384,
+  "raw": "`<div class=\"row sub\"><span>路上的天气</span><span>${wx ? `<b class=\"miss\">出发后约 ${Math.max(1, Math.round(wx.at / 60))} 分钟碰上暴风雪</b>，车队得停下来拿主意` : '这一路没有暴风雪'}</span></div>`",
+  "view": "<div class=\"row sub\"><span>路上的天气</span><span>${0}</span></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 231291,
+  "end": 231597,
+  "raw": "`<div class=\"row\"><span>${this.qyIco(q.id, Q.ic)} 这一站的奇遇<small>${esc(Q.n)}</small></span>${q.done ? `<span>${q.miss ? '错过了' : '走完了'}</span>` : w ? `<span>${q.away ? `${q.away} 人在外面，` : ''}${fmtTime(w.left)} 后${q.st ? '有下文' : '出现'}</span>` : '<button class=\"small go\" data-act=\"qyopen\">拿主意</button>'}</div>`",
+  "view": "<div class=\"row\"><span>${0} 这一站的奇遇<small>${1}</small></span>${2}</div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 231822,
+  "end": 232010,
+  "raw": "`<div class=\"mighero\"><div class=\"mgto\">往「<b>${esc(st.n)}</b>」</div><small>${T.phase === 'arrive' ? '车队到了' : `走了 ${Math.round(T.d / T.len * 100)}% · 还要 ${fmtTime(left)} 左右`}</small></div>`",
+  "view": "<div class=\"mighero\"><div class=\"mgto\">往「<b>${0}</b>」</div><small>${1}</small></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 232218,
+  "end": 232341,
+  "raw": "`<div class=\"row\"><span>车上</span><span>👥${T.people}${T.specs.length ? ` · 专家 ${T.specs.length}` : ''} · ${vs}</span></div>`",
+  "view": "<div class=\"row\"><span>车上</span><span>👥${0}${1} · ${2}</span></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 236786,
+  "end": 237667,
+  "raw": "`<div class=\"msave\"><span class=\"msi\">💾</span><span>自动保存在这台设备上${ago != null ? `<em>${ago < 60 ? '刚刚' : ago < 3600 ? Math.floor(ago / 60) + ' 分钟前' : ago < 86400 ? Math.floor(ago / 3600) + ' 小时前' : Math.floor(ago / 86400) + ' 天前'}存过</em>` : ''}<small>关掉页面后营地照常运转，暴风雪和袭营也照常结算；但离线时物资按离开多久打折入库：前 1 小时 40%，1 到 4 小时 20%，4 到 12 小时 10%，超过 12 小时不再算；三星产线多拿一半，离线入库最多填到仓库的八成。</small></span></div>\n      <div class=\"row2\"><button class=\"btn\" data-act=\"export\">📤 导出存档码</button><button class=\"btn\" data-act=\"import\">📥 导入存档码</button></div>\n      <div class=\"hint\">换设备时，在旧设备导出存档码，到新设备上导入。</div>\n      ${this.bkRow()}\n      <div class=\"row\"><span>存档位 <b>${g.slot}</b> / ${SLOTS}<br><small>三个存档位，各是一局</small></span><span style=\"flex:none\"><button class=\"small\" data-act=\"slots\">换存档位</button></span></div>\n      <div class=\"mdanger\"><button class=\"btn ghost\" data-act=\"wipe\">删除这个存档，从头开始</button></div>`",
+  "view": "<div class=\"msave\"><span class=\"msi\">💾</span><span>自动保存在这台设备上${0}<small>关掉页面后营地照常运转，暴风雪和袭营也照常结算；但离线时物资按离开多久打折入库：前 1 小时 40%，1 到 4 小时 20%，4 到 12 小时 10%，超过 12 小时不再算；三星产线多拿一半，离线入库最多填到仓库的八成。</small></span></div>\n      <div class=\"row2\"><button class=\"btn\" data-act=\"export\">📤 导出存档码</button><button class=\"btn\" data-act=\"import\">📥 导入存档码</button></div>\n      <div class=\"hint\">换设备时，在旧设备导出存档码，到新设备上导入。</div>\n      ${1}\n      <div class=\"row\"><span>存档位 <b>${2}</b> / ${3}<br><small>三个存档位，各是一局</small></span><span style=\"flex:none\"><button class=\"small\" data-act=\"slots\">换存档位</button></span></div>\n      <div class=\"mdanger\"><button class=\"btn ghost\" data-act=\"wipe\">删除这个存档，从头开始</button></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 237878,
+  "end": 238090,
+  "raw": "`<button class=\"mlink book\" data-act=\"book\"><span>🏆</span><span>收集册${nf ? `<b class=\"mnew\">${nf} 新</b>` : ''}<small>收集 ${N.got}/${N.all} · 成就 ${N.cats.a[0]}/${N.cats.a[1]}（北迁后也保留）</small></span><i>›</i></button>`",
+  "view": "<button class=\"mlink book\" data-act=\"book\"><span>🏆</span><span>收集册${0}<small>收集 ${1}/${2} · 成就 ${3}/${4}（北迁后也保留）</small></span><i>›</i></button>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 238399,
+  "end": 238713,
+  "raw": "`<div class=\"mrow2\"><button class=\"mlink\" data-act=\"ach\"><span>🏆</span><span>成就${nf ? `<b class=\"mnew\">${nf} 新</b>` : ''}<small>${got}/${Sim.ACH.length} · 按类别看进度和奖励</small></span><i>›</i></button><button class=\"mlink\" data-act=\"dress\"><span>🎨</span><span>装扮<small>称号、炉火、旗子、相框</small></span><i>›</i></button></div>`",
+  "view": "<div class=\"mrow2\"><button class=\"mlink\" data-act=\"ach\"><span>🏆</span><span>成就${0}<small>${1}/${2} · 按类别看进度和奖励</small></span><i>›</i></button><button class=\"mlink\" data-act=\"dress\"><span>🎨</span><span>装扮<small>称号、炉火、旗子、相框</small></span><i>›</i></button></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 238765,
+  "end": 239100,
+  "raw": "`<div class=\"mrow2\"><button class=\"mlink\" data-act=\"photo\"><span>📷</span><span>拍照模式<small>藏起界面，换时辰、滤镜、相框，拍一张<span class=\"kh\">（H）</span></small></span><i>›</i></button><button class=\"mlink\" data-act=\"album\"><span>📔</span><span>相册<small>${this.album ? `${this.album.length} 张 · ` : ''}一路上自动拍的和你收进来的</small></span><i>›</i></button></div>`",
+  "view": "<div class=\"mrow2\"><button class=\"mlink\" data-act=\"photo\"><span>📷</span><span>拍照模式<small>藏起界面，换时辰、滤镜、相框，拍一张<span class=\"kh\">（H）</span></small></span><i>›</i></button><button class=\"mlink\" data-act=\"album\"><span>📔</span><span>相册<small>${0}一路上自动拍的和你收进来的</small></span><i>›</i></button></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 239684,
+  "end": 240042,
+  "raw": "`<button class=\"mlink\" data-act=\"changelog\"><span>📜</span><span>更新日志<small>${VERSION_NAME} · 每一版加了什么</small></span><i>›</i></button>\n      <div class=\"helpin\">${HELP}</div>\n      <div class=\"sec\">电脑上的按键</div><div class=\"keys\">${keys.map(([k, n]) => `<span><kbd>${k}</kbd>${n}</span>`).join('')}</div>\n      <div class=\"hint\">手机上：双指捏合拉近拉远、转动镜头；按住速度键暂停。</div>`",
+  "view": "<button class=\"mlink\" data-act=\"changelog\"><span>📜</span><span>更新日志<small>${0} · 每一版加了什么</small></span><i>›</i></button>\n      <div class=\"helpin\">${1}</div>\n      <div class=\"sec\">电脑上的按键</div><div class=\"keys\">${2}</div>\n      <div class=\"hint\">手机上：双指捏合拉近拉远、转动镜头；按住速度键暂停。</div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 240556,
+  "end": 242050,
+  "raw": "`<div class=\"mjour\">\n      <div class=\"mjh\"><div><div class=\"mjt\">第 ${S.meta.runs} 次北行</div><small>这一程走了 ${fmtTime(S.t)}${Sim.skyEnded(S) ? ' · 🔥 已点燃天火' : S.meta.graduated ? ' · 🌟 已点燃永恒之炉' : ''}</small></div>\n        <div class=\"mje\" title=\"余烬：北迁时带到下一程的永久加成\"><b>🔥${fmt(S.meta.embers)}</b><small>余烬</small></div></div>\n      <div class=\"route\"><i class=\"rl\"><i style=\"width:${Math.min(100, far / top * 100).toFixed(1)}%\"></i></i>\n        ${LANDMARKS.map((l, i) => { const cls = S.founded.includes(i) ? 'on' : S.discovered.includes(i) ? 'seen' : ''; return `<span class=\"rn ${cls} ${i === next ? 'next' : ''} ${i % 2 ? 'up' : ''}\" style=\"left:${(l.row / top * 100).toFixed(1)}%\"><em></em><small>${i <= known || cls ? l.n : '？'}</small></span>`; }).join('')}</div>\n      <div class=\"mnext\">${Sim.northN(Sim.journeyOf(S).stage) ? `🧭 <b>${esc(northRec(S))}</b> · 下一站：${esc(Sim.stopOf(S, Sim.journeyOf(S).stage + 1).n)}` : next >= 0 ? `下一站：<b>${LANDMARKS[next].n}</b>（纬度 ${LANDMARKS[next].row}，现在最北到 ${far}）${S.meta.northMax ? `<br><small>🧭 ${esc(northRec(S))}</small>` : ''}` : `所有地标都走到了。${S.meta.northMax ? ` 🧭 ${esc(northRec(S))}` : ' 翻过世界之脊就是北境。'}`}</div>\n      <div class=\"mstats\">\n        <span><b>${people}</b>人口</span><span><b>${S.camps.length}</b>座营地</span><span><b>${S.buildings.length}</b>栋建筑</span>\n        <span><b>${st.arrivals}</b>人投奔</span><span class=\"${st.deaths ? 'neg' : ''}\"><b>${st.deaths}</b>人遇难</span><span><b>${st.raidsWon}/${st.raids}</b>守住袭营</span>\n      </div>\n    </div>`",
+  "view": "<div class=\"mjour\">\n      <div class=\"mjh\"><div><div class=\"mjt\">第 ${0} 次北行</div><small>这一程走了 ${1}${2}</small></div>\n        <div class=\"mje\" title=\"余烬：北迁时带到下一程的永久加成\"><b>🔥${3}</b><small>余烬</small></div></div>\n      <div class=\"route\"><i class=\"rl\"><i style=\"width:${4}%\"></i></i>\n        ${5}</div>\n      <div class=\"mnext\">${6}</div>\n      <div class=\"mstats\">\n        <span><b>${7}</b>人口</span><span><b>${8}</b>座营地</span><span><b>${9}</b>栋建筑</span>\n        <span><b>${10}</b>人投奔</span><span class=\"${11}\"><b>${12}</b>人遇难</span><span><b>${13}/${14}</b>守住袭营</span>\n      </div>\n    </div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 244378,
+  "end": 244868,
+  "raw": "`<div class=\"plrow ${l.on ? 'up' : ''}\" data-act=\"plan\" data-arg=\"${l.r}\"><span class=\"pli\">${RICON[l.r]}</span><span class=\"plt\"><b>${RES[l.r].n}${l.main ? '<em>主线</em>' : ''}<i class=\"stars\">${'★'.repeat(l.star)}${'☆'.repeat(3 - l.star)}</i></b>\n        <span class=\"plbar\"><i style=\"width:${(pct * 100).toFixed(1)}%\"></i></span>\n        <small>${fr(r)} / ${fr(l.n)} 每分钟 · ${l.star >= 3 ? '已经三星' : `再稳住 ${mm(nx)} 升${l.star + 1}星${l.on ? '' : '（掉下来了，暂停）'}`}</small></span><em>›</em></div>`",
+  "view": "<div class=\"plrow ${0}\" data-act=\"plan\" data-arg=\"${1}\"><span class=\"pli\">${2}</span><span class=\"plt\"><b>${3}${4}<i class=\"stars\">${5}${6}</i></b>\n        <span class=\"plbar\"><i style=\"width:${7}%\"></i></span>\n        <small>${8} / ${9} 每分钟 · ${10}</small></span><em>›</em></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 246052,
+  "end": 246598,
+  "raw": "`<div class=\"pcw\"><span>${RICON[x.k]}</span><span><b>最卡：${RES[x.k].n}</b><small>现在 ${fr(x.prod)} / 要 ${fr(x.need)} 每分钟${t ? ` · ${BLD[t].n} ×${x.count}` : ''}</small>${x.count && short.length ? `<small class=\"warn\">是上游的${short.join('、')}不够：先补上游</small>` : t && x.gap >= 0.05 ? `<small>还差约 <b>${nb}</b> 座${BLD[t].n}</small>` : ''}</span>${t && Sim.unlocked(S, t) && x.gap >= 0.05 ? `<button class=\"small go\" data-act=\"place\" data-arg=\"${t}\">建一座</button>` : t && !Sim.unlocked(S, t) ? `<small class=\"bad\">${BLD[t].n}还没解锁</small>` : ''}</div></div>`",
+  "view": "<div class=\"pcw\"><span>${0}</span><span><b>最卡：${1}</b><small>现在 ${2} / 要 ${3} 每分钟${4}</small>${5}</span>${6}</div></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 247507,
+  "end": 248043,
+  "raw": "`<div class=\"qrow\"><span class=\"qn\">${i + 1}</span>${this.ico(q.type, 1)}<span class=\"qt\"><b>${BLD[q.type].n}</b><small>${miss.length ? '等材料：' + miss.map(k => `${RICON[k]}${fmt(cost[k] - (c.stock[k] || 0))}`).join(' ') + (this.netWait(c, miss[0]) ? `，${RES[miss[0]].n}${this.netWait(c, miss[0])}` : '') : '齐了，马上开工'}</small></span><button class=\"small\" data-act=\"lookat\" data-arg=\"${q.x + BLD[q.type].size / 2},${q.y + BLD[q.type].size / 2}\">看看</button><button class=\"small ghost\" data-act=\"unqueue\" data-arg=\"${q.id}\">取消</button></div>`",
+  "view": "<div class=\"qrow\"><span class=\"qn\">${0}</span>${1}<span class=\"qt\"><b>${2}</b><small>${3}</small></span><button class=\"small\" data-act=\"lookat\" data-arg=\"${4},${5}\">看看</button><button class=\"small ghost\" data-act=\"unqueue\" data-arg=\"${6}\">取消</button></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 248254,
+  "end": 248755,
+  "raw": "`<div class=\"qrow\"><span class=\"qn\">↑</span>${this.ico(b.type, b.lvl)}<span class=\"qt\"><b>${BLD[b.type].n} ${b.lvl}→${b.lvl + 1} 级</b><small>${miss.length ? '等材料：' + miss.map(k => `${RICON[k]}${fmt(cost[k] - (c.stock[k] || 0))}`).join(' ') + (this.netWait(c, miss[0]) ? `，${RES[miss[0]].n}${this.netWait(c, miss[0])}` : '') : '齐了，马上升'}</small></span><button class=\"small\" data-act=\"openbld\" data-arg=\"${b.id}\">看看</button><button class=\"small ghost\" data-act=\"qup\" data-arg=\"${b.id}\">取消</button></div>`",
+  "view": "<div class=\"qrow\"><span class=\"qn\">↑</span>${0}<span class=\"qt\"><b>${1} ${2}→${3} 级</b><small>${4}</small></span><button class=\"small\" data-act=\"openbld\" data-arg=\"${5}\">看看</button><button class=\"small ghost\" data-act=\"qup\" data-arg=\"${6}\">取消</button></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 250380,
+  "end": 250907,
+  "raw": "`<div class=\"row\"><span>占地</span><span>${n} 格断墙</span></div>\n        <div class=\"row\"><span>拆了能得</span><span>${RICON.part} 古代构件 ${loot.part} · ${RICON.steel} 钢材 ${loot.steel}</span></div>\n        <div class=\"row sub\"><span>派人去拆</span><span>${RICON.food} 熟食 ${cost.food}（大家干活要吃饭）</span></div>\n        <button class=\"go\" data-act=\"ruin\" data-arg=\"${i}\" ${ck.why ? 'disabled' : ''}>拆掉这处废墟</button>${ck.why ? `<div class=\"hint warn\">${esc(ck.why)}</div>` : ''}\n        <div class=\"hint\">古城遗址的断墙占着暖圈里的地，拆了就空出来能盖房，还能拆出古代构件和钢材。</div>`",
+  "view": "<div class=\"row\"><span>占地</span><span>${0} 格断墙</span></div>\n        <div class=\"row\"><span>拆了能得</span><span>${1} 古代构件 ${2} · ${3} 钢材 ${4}</span></div>\n        <div class=\"row sub\"><span>派人去拆</span><span>${5} 熟食 ${6}（大家干活要吃饭）</span></div>\n        <button class=\"go\" data-act=\"ruin\" data-arg=\"${7}\" ${8}>拆掉这处废墟</button>${9}\n        <div class=\"hint\">古城遗址的断墙占着暖圈里的地，拆了就空出来能盖房，还能拆出古代构件和钢材。</div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 251388,
+  "end": 251514,
+  "raw": "`<div class=\"row sub\"><span>恢复</span><span>${left >= mx ? '长满了' : `+${fmt(rate)}/分${tend ? ' · ' + GW[2] : ''}`}</span></div>`",
+  "view": "<div class=\"row sub\"><span>恢复</span><span>${0}</span></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 251864,
+  "end": 252005,
+  "raw": "`<div class=\"row sub\"><span>正在挖</span><span>${BLD[by.type].n}${eta != null && eta > 0 ? ` · 这一片按现在的速度还能挖约 ${fmtMin(eta)}` : ''}</span></div>`",
+  "view": "<div class=\"row sub\"><span>正在挖</span><span>${0}${1}</span></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 254852,
+  "end": 254962,
+  "raw": "`<div class=\"chrow next\"><b>${esc(st.n)}</b><span>${rl ? `${rl.ic} ${esc(rl.n)} · ` : ''}车队到了就开始</span></div>`",
+  "view": "<div class=\"chrow next\"><b>${0}</b><span>${1}车队到了就开始</span></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 257119,
+  "end": 257472,
+  "raw": "`<div class=\"sup\"><b>${sup === 'full' ? '⛺ ' : '🎒 '}${t}</b><small>${dsc}</small><div class=\"tcost\">${costHtml(c.stock, cost)}</div><small class=\"${r > 0.2 ? 'neg' : ''}\">${r < 0.01 ? '路上几乎不会出事' : `约 ${Math.round(r * 100)}% 会少一个人`}</small><button class=\"small ${sup === 'full' ? 'go' : ''}\" data-act=\"exp-go\" data-arg=\"${p.id}:${sup}\">出发</button></div>`",
+  "view": "<div class=\"sup\"><b>${0}${1}</b><small>${2}</small><div class=\"tcost\">${3}</div><small class=\"${4}\">${5}</small><button class=\"small ${6}\" data-act=\"exp-go\" data-arg=\"${7}:${8}\">出发</button></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 258513,
+  "end": 258683,
+  "raw": "`<div class=\"row\"><span>第 ${k + 1} 层炉膛</span><span>${k < st ? '✅ 已点亮' : k === st ? `${S.eternal.have}/${ETERNAL_STAGES[k]} 🌟` : `需要 ${ETERNAL_STAGES[k]} 🌟`}</span></div>`",
+  "view": "<div class=\"row\"><span>第 ${0} 层炉膛</span><span>${1}</span></div>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 266124,
+  "end": 266215,
+  "raw": "`${r.add ? `给 ${r.n} 栋${n}添了 ${r.add} 个人，` : ''}还差 ${r.short} 人：空闲人手不够了，多建帐篷吸引新人，或在别的建筑减人。`",
+  "view": "${0}还差 ${1} 人：空闲人手不够了，多建帐篷吸引新人，或在别的建筑减人。"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 266218,
+  "end": 266270,
+  "raw": "`${r.n} 栋${n}都派满了${r.add ? `（添了 ${r.add} 人）` : ''}。`",
+  "view": "${0} 栋${1}都派满了${2}。"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 275848,
+  "end": 275947,
+  "raw": "`<p class=\"hint\">删掉以后${nx ? `会读取存档 ${nx}「${esc(g.slotInfo(nx).name || '')}」` : '会从头开始一局新的北行'}。</p>`",
+  "view": "<p class=\"hint\">删掉以后${0}。</p>"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 275973,
+  "end": 276150,
+  "raw": "`<p>删除存档 ${arg}${s.broken ? '（已经坏了）' : `里的「${esc(s.name || '')}」${s.cur ? '（正在玩的这一局）' : ''}`}？这一局的所有进度（包括余烬、专家和收集册）都会删掉。删之前会自动存一份备份，删错了可以到这个存档位的「菜单 → 存档 → 自动备份」里找回来。</p>${then}`",
+  "view": "<p>删除存档 ${0}${1}？这一局的所有进度（包括余烬、专家和收集册）都会删掉。删之前会自动存一份备份，删错了可以到这个存档位的「菜单 → 存档 → 自动备份」里找回来。</p>${2}"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 283509,
+  "end": 283937,
+  "raw": "`<h2>出发去「${esc(gt.next.n)}」</h2><p class=\"story\">${esc(STORY.migrate)}</p>\n          <p>${P.people} 人${P.specs.length ? `、${P.specs.length} 位专家` : ''}坐上 ${vs}，路上大约 ${Math.max(1, Math.round(P.secs / 60))} 分钟。</p>\n          ${keep.length ? `<p>留守成补给站：${keep.map(c => esc(c.name)).join('、')}</p>` : ''}${douse.length ? `<p>熄火：${douse.map(c => `${esc(c.name)}（🔥${Sim.douseEmbers(S, c.lvl)}）`).join('、')}，到了以后人跟上来，营地变成废墟。</p>` : ''}`",
+  "view": "<h2>出发去「${0}」</h2><p class=\"story\">${1}</p>\n          <p>${2} 人${3}坐上 ${4}，路上大约 ${5} 分钟。</p>\n          ${6}${7}"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 288671,
+  "end": 288755,
+  "raw": "`${nm}塔身 ${Math.floor(b.tw.p / sp.dur * 100)}%${st.startsWith('缺') ? `：${st}` : ''}`",
+  "view": "${0}塔身 ${1}%${2}"
+ },
+ {
+  "file": "src/ui.js",
+  "start": 290129,
+  "end": 290218,
+  "raw": "`${RES[g.r].n}产量 ${fr(r)}/${g.n} 每分钟${g.eternal ? `（第 ${S.eternal.stage + 1}/3 层）` : ''}`",
+  "view": "${0}产量 ${1}/${2} 每分钟${3}"
+ },
+ {
+  "file": "src/wonder.js",
+  "start": 3541,
+  "end": 3683,
+  "raw": "`🏗️ ${Wn.n}「${WONDER_PH[W.ph - 1].n}」完工了，接着${WONDER_PH[W.ph].n}：${Object.entries(Wn.ph[W.ph]).map(([k, v]) => `${RES[k].n} ${v}`).join('、')}。`",
+  "view": "🏗️ ${0}「${1}」完工了，接着${2}：${3}。"
+ }
+]
